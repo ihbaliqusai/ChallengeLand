@@ -45,10 +45,7 @@ class MainActivity : FlutterActivity() {
                         finish()
                     }
                     "launchOfflineGame" -> {
-                        val intent = Intent(this, GameActivity::class.java).apply {
-                            putExtra("mode", "mono")
-                        }
-                        startActivity(intent)
+                        startActivity(Intent(this, OfflineSetupActivity::class.java))
                         result.success(true)
                     }
                     "launchStats" -> {

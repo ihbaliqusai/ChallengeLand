@@ -316,8 +316,7 @@ public class LegacyMainActivity extends AppCompatActivity {
 
     private void safeStartGame() {
         try {
-            Intent intent = new Intent(LegacyMainActivity.this, GameActivity.class);
-            intent.putExtra("mode", "mono");
+            Intent intent = new Intent(LegacyMainActivity.this, OfflineSetupActivity.class);
             startActivity(intent);
         } catch (Exception e) {
             Toast.makeText(this, getString(R.string.msg_open_game_failed), Toast.LENGTH_SHORT).show();

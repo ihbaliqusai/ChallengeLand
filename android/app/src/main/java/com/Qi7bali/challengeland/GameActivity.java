@@ -341,7 +341,9 @@ public class GameActivity extends AppCompatActivity {
             if (campaignBossBattle) {
                 setupCampaignBossBattle();
             } else if (!campaignMode) {
-                offlineContestants.setup();
+                int playerCount = Math.max(2, Math.min(8, getIntent().getIntExtra("playerCount", 4)));
+                int characterIndex = getIntent().getIntExtra("characterIndex", 0);
+                offlineContestants.setup(playerCount, characterIndex);
             }
             getQuestions("");
         }
@@ -1447,7 +1449,7 @@ public class GameActivity extends AppCompatActivity {
             showDialog("مبروك! فزت بالمسابقة بـ " + score + " نقطة", "", 2000, 3000, R.drawable.mouth_01, false);
         } else {
             person.moveShowHand(1000);
-            showDialog("انتهت المسابقة، ترتيبك " + rank + " من 4 بـ " + score + " نقطة",
+            showDialog("انتهت المسابقة، ترتيبك " + rank + " من " + offlineContestants.playerCount() + " بـ " + score + " نقطة",
                     "", 2000, 3000, R.drawable.mouth_05, false);
         }
         final Handler handler = new Handler();
