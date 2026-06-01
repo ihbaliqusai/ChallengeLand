@@ -1,0 +1,14 @@
+.dart_tool/
+.packages
+.pub/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+.melos_tool/
+.idea/
+*.iml
+android/.gradle/
+android/.kotlin/errors/*.log
+android/local.properties
+android/key.properties
+ios/Flutter/Flutter.podspec

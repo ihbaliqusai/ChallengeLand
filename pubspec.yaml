@@ -1,0 +1,65 @@
+name: challenge_land
+description: ChallengeLand quiz game with online multiplayer, matchmaking, invitations, friends, leaderboards, and Firebase-backed profiles.
+publish_to: "none"
+version: 3.5.2+12
+
+environment:
+  sdk: ">=3.5.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  firebase_core: ^3.15.2
+  firebase_auth: ^5.6.1
+  cloud_firestore: ^5.6.10
+  google_sign_in: ^6.3.0
+  provider: ^6.1.2
+  share_plus: ^10.0.2
+  google_mobile_ads: ^5.3.0
+  shared_preferences: ^2.5.3
+  connectivity_plus: ^6.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  flutter_launcher_icons: ^0.14.3
+  fake_cloud_firestore: ^3.1.0
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/Logo.png"
+  adaptive_icon_background: "assets/Logo.png"
+  adaptive_icon_foreground: "assets/Logo.png"
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/questions.json
+    - assets/ui/bg_main.png
+    - assets/ui/bg_login.png
+    - assets/ui/person_01.png
+    - assets/ui/logo.png
+    - assets/ui/google.png
+    - assets/ui/user.png
+    - assets/ui/person_welcome.png
+    - assets/ui/ranking.png
+    - assets/ui/home.png
+    - assets/ui/share.png
+    - assets/ui/rate.png
+    - assets/ui/dollar.png
+    - assets/ui/box1.png
+    - assets/ui/box2.png
+    - assets/ui/box3.png
+    - assets/ui/box4.png
+    - assets/ui/splash_transparent.webp
+    - assets/images/campaign/worlds/
+    - assets/images/campaign/ui/
+  fonts:
+    - family: Baloo
+      fonts:
+        - asset: assets/fonts/baloo.ttf

@@ -1,0 +1,523 @@
+import 'dart:convert';
+
+import 'package:flutter/services.dart';
+
+class NativeBridgeService {
+  static const MethodChannel _channel = MethodChannel('millionaire/native');
+
+  Future<void> launchLegacyGame() async {
+    await _channel.invokeMethod('launchOriginal');
+  }
+
+  Future<String?> consumeLaunchAction() async {
+    final action = await _channel.invokeMethod<String>('consumeLaunchAction');
+    return action?.trim().isEmpty ?? true ? null : action;
+  }
+
+  Future<void> launchLegacyRoomMatch({
+    required List<Map<String, dynamic>> opponents,
+    required bool meOwner,
+    required String roomId,
+    String matchMode = 'battle',
+    int seriesTarget = 2,
+    int roundDurationSeconds = 30,
+    String myTeam = '',
+    int roomRoundNumber = 1,
+    bool resumeExistingGame = false,
+    String seatSourceId = '',
+    int initialScore = 0,
+    int initialAnsweredCount = 0,
+    int initialRoundWins = 0,
+    int initialLivesRemaining = 0,
+    bool initiallyEliminated = false,
+    // Question state — used for round-based modes so joining/resuming players
+    // start at the correct question, not question 0.
+    List<int> questionIds = const [],
+    int currentQuestionIndex = 0,
+  }) async {
+    final safeOpponents = opponents
+        .map(
+          (opponent) => <String, dynamic>{
+            'id': (opponent['id'] ?? '').toString(),
+            'seatId': (opponent['seatId'] ?? opponent['id'] ?? '').toString(),
+            'userId': (opponent['userId'] ?? opponent['id'] ?? '').toString(),
+            'name': (opponent['name'] ?? '').toString(),
+            'photo': (opponent['photo'] ?? '').toString(),
+            'level': (opponent['level'] as num?)?.toInt() ?? 1,
+            'intelligence': (opponent['intelligence'] as num?)?.toInt() ?? 0,
+            'score': (opponent['score'] as num?)?.toInt() ?? 0,
+            'bot': opponent['bot'] == true,
+            'teamId': (opponent['teamId'] ?? '').toString(),
+            'sets': (opponent['sets'] as num?)?.toInt() ?? 0,
+            'livesRemaining':
+                (opponent['livesRemaining'] as num?)?.toInt() ?? 0,
+            'eliminated': opponent['eliminated'] == true,
+          },
+        )
+        .toList(growable: false);
+
+    await _channel.invokeMethod('launchRoomMatch', <String, dynamic>{
+      'roomId': roomId,
+      'opponentsJson': jsonEncode(safeOpponents),
+      'meOwner': meOwner,
+      'matchMode': matchMode,
+      'seriesTarget': seriesTarget,
+      'roundDurationSeconds': roundDurationSeconds,
+      'myTeam': myTeam,
+      'roomRoundNumber': roomRoundNumber,
+      'resumeExistingGame': resumeExistingGame,
+      'seatSourceId': seatSourceId,
+      'initialScore': initialScore,
+      'initialAnsweredCount': initialAnsweredCount,
+      'initialRoundWins': initialRoundWins,
+      'initialLivesRemaining': initialLivesRemaining,
+      'initiallyEliminated': initiallyEliminated,
+      'questionIds': questionIds,
+      'currentQuestionIndex': currentQuestionIndex,
+    });
+  }
+
+  Future<void> launchCampaignStage({
+    required String campaignId,
+    required String stageId,
+    required String stageType,
+    required List<int> questionIds,
+    required List<String> allowedLevels,
+    required int questionCount,
+    required int timeLimitSeconds,
+    required bool allow5050,
+    required bool allowAudience,
+    required bool allowCall,
+    String bossBotName = '',
+    int bossBotIntelligence = 0,
+    String campaignMode = 'classic',
+    String winCondition = 'completeQuestions',
+    int lives = 0,
+    int maxWrongAnswers = 0,
+    int targetScore = 0,
+    String opponentName = '',
+    int opponentAccuracy = 0,
+    int opponentStartScore = 0,
+    int seriesRounds = 0,
+    int seriesWinsRequired = 0,
+    String teamAllyName = '',
+    String teamEnemyName = '',
+  }) async {
+    await _channel.invokeMethod('launchCampaignStage', <String, dynamic>{
+      'campaignId': campaignId,
+      'stageId': stageId,
+      'stageType': stageType,
+      'campaignMode': campaignMode,
+      'winCondition': winCondition,
+      'questionIds': questionIds,
+      'allowedLevels': allowedLevels,
+      'questionCount': questionCount,
+      'timeLimitSeconds': timeLimitSeconds,
+      'allow5050': allow5050,
+      'allowAudience': allowAudience,
+      'allowCall': allowCall,
+      'bossBotName': bossBotName,
+      'bossBotIntelligence': bossBotIntelligence,
+      'lives': lives,
+      'maxWrongAnswers': maxWrongAnswers,
+      'targetScore': targetScore,
+      'opponentName': opponentName,
+      'opponentAccuracy': opponentAccuracy,
+      'opponentStartScore': opponentStartScore,
+      'seriesRounds': seriesRounds,
+      'seriesWinsRequired': seriesWinsRequired,
+      'teamAllyName': teamAllyName,
+      'teamEnemyName': teamEnemyName,
+    });
+  }
+
+  Future<void> announceRoomSeatClaim({
+    required String roomId,
+    required String matchMode,
+    required int roomRoundNumber,
+    required String seatId,
+    required String userId,
+    required String username,
+    required String photoUrl,
+    required String teamId,
+    int initialScore = 0,
+    int initialRoundWins = 0,
+    int initialLivesRemaining = 0,
+    bool initiallyEliminated = false,
+  }) async {
+    await _channel.invokeMethod('announceRoomSeatClaim', <String, dynamic>{
+      'roomId': roomId,
+      'matchMode': matchMode,
+      'roomRoundNumber': roomRoundNumber,
+      'seatId': seatId,
+      'userId': userId,
+      'username': username,
+      'photoUrl': photoUrl,
+      'teamId': teamId,
+      'initialScore': initialScore,
+      'initialRoundWins': initialRoundWins,
+      'initialLivesRemaining': initialLivesRemaining,
+      'initiallyEliminated': initiallyEliminated,
+    });
+  }
+
+  Future<Map<String, dynamic>?> consumePendingRoomMatchResult() async {
+    final payload =
+        await _channel.invokeMethod<String>('consumePendingRoomMatchResult');
+    if (payload == null || payload.trim().isEmpty) {
+      return null;
+    }
+
+    final decoded = jsonDecode(payload);
+    if (decoded is Map<String, dynamic>) {
+      return decoded;
+    }
+    if (decoded is Map) {
+      return decoded.map(
+        (key, value) => MapEntry(key.toString(), value),
+      );
+    }
+    return null;
+  }
+
+  Future<Map<String, dynamic>?> getPendingRoomMatchResult() async {
+    final payload =
+        await _channel.invokeMethod<String>('getPendingRoomMatchResult');
+    if (payload == null || payload.trim().isEmpty) {
+      return null;
+    }
+
+    final decoded = jsonDecode(payload);
+    if (decoded is Map<String, dynamic>) {
+      return decoded;
+    }
+    if (decoded is Map) {
+      return decoded.map(
+        (key, value) => MapEntry(key.toString(), value),
+      );
+    }
+    return null;
+  }
+
+  Future<void> clearPendingRoomMatchResult() async {
+    await _channel.invokeMethod<void>('clearPendingRoomMatchResult');
+  }
+
+  Future<Map<String, dynamic>?> getPendingCampaignStageResult() async {
+    try {
+      final payload =
+          await _channel.invokeMethod<dynamic>('getPendingCampaignStageResult');
+      return _decodeCampaignResult(payload);
+    } on MissingPluginException {
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> consumePendingCampaignStageResult() async {
+    try {
+      final payload = await _channel
+          .invokeMethod<dynamic>('consumePendingCampaignStageResult');
+      return _decodeCampaignResult(payload);
+    } on MissingPluginException {
+      return null;
+    }
+  }
+
+  Future<void> clearPendingCampaignStageResult() async {
+    try {
+      await _channel.invokeMethod<void>('clearPendingCampaignStageResult');
+    } on MissingPluginException {
+      return;
+    }
+  }
+
+  Future<void> syncLegacyUser({
+    required String uid,
+    required String username,
+    String? photoUrl,
+  }) async {
+    await _channel.invokeMethod('syncLegacyUser', <String, dynamic>{
+      'uid': uid,
+      'username': username,
+      'photoUrl': photoUrl ?? '',
+    });
+  }
+
+  Future<void> resetLegacyUser() async {
+    await _channel.invokeMethod('resetLegacyUser');
+  }
+
+  Future<void> launchOfflineGame() async {
+    await _channel.invokeMethod('launchOfflineGame');
+  }
+
+  Future<void> launchStats() async {
+    await _channel.invokeMethod('launchStats');
+  }
+
+  Future<void> launchAchievements() async {
+    await _channel.invokeMethod('launchAchievements');
+  }
+
+  Future<void> launchStore() async {
+    await _channel.invokeMethod('launchStore');
+  }
+
+  Future<void> launchNativeSettings() async {
+    await _channel.invokeMethod('launchSettings');
+  }
+
+  Future<void> launchSpeedBattle() async {
+    await _channel.invokeMethod('launchSpeedBattle');
+  }
+
+  /// يُعيد إحصائيات اللاعب الحقيقية من PlayerStats
+  Future<Map<String, int>> getPlayerStats() async {
+    final result =
+        await _channel.invokeMapMethod<String, dynamic>('getPlayerStats');
+    if (result == null) return {};
+    return result.map((k, v) => MapEntry(k, (v as num).toInt()));
+  }
+
+  /// يُعيد حالة جميع الإنجازات + عدادات التقدم الحالية.
+  /// المفاتيح البوليانية هي مفاتيح الإنجازات (ACH_*)، والمفاتيح الرقمية هي إحصاءات اللاعب.
+  Future<Map<String, dynamic>> getAchievements() async {
+    final result =
+        await _channel.invokeMapMethod<String, dynamic>('getAchievements');
+    return result ?? {};
+  }
+
+  Future<void> recordCampaignAchievementProgress({
+    required String campaignId,
+    required String stageId,
+    required String campaignMode,
+    required bool completed,
+    required int stars,
+    required bool bossDefeated,
+    required int usedLifelines,
+  }) async {
+    await _channel.invokeMethod('recordCampaignAchievementProgress', {
+      'campaignId': campaignId,
+      'stageId': stageId,
+      'campaignMode': campaignMode,
+      'completed': completed,
+      'stars': stars,
+      'bossDefeated': bossDefeated,
+      'usedLifelines': usedLifelines,
+    });
+  }
+
+  Future<Map<String, int>> claimAchievementReward(String key) async {
+    final result = await _channel.invokeMapMethod<String, dynamic>(
+      'claimAchievementReward',
+      <String, dynamic>{'key': key},
+    );
+    if (result == null) {
+      return <String, int>{
+        'success': 0,
+        'coins': 0,
+        'xp': 0,
+        'totalCoins': 0,
+        'totalGems': 0,
+        'totalXp': 0,
+        'unclaimedAchievements': 0,
+      };
+    }
+    return result.map((k, v) {
+      if (v is bool) return MapEntry(k, v ? 1 : 0);
+      return MapEntry(k, (v as num?)?.toInt() ?? 0);
+    });
+  }
+
+  /// يُعيد {'coins': int, 'gems': int} من SharedPreferences الـ native
+  Future<Map<String, int>> getUserCurrency() async {
+    final result =
+        await _channel.invokeMapMethod<String, int>('getUserCurrency');
+    return result ?? {'coins': 0, 'gems': 0};
+  }
+
+  Future<Map<String, int>> grantCurrency({
+    int coins = 0,
+    int gems = 0,
+  }) async {
+    final result = await _channel.invokeMapMethod<String, dynamic>(
+      'grantCurrency',
+      <String, dynamic>{
+        'coins': coins,
+        'gems': gems,
+      },
+    );
+    if (result == null) return {'coins': 0, 'gems': 0};
+    return result.map((k, v) => MapEntry(k, (v as num).toInt()));
+  }
+
+  Future<Map<String, int>> setUserCurrency({
+    required int coins,
+    required int gems,
+  }) async {
+    final result = await _channel.invokeMapMethod<String, dynamic>(
+      'setUserCurrency',
+      <String, dynamic>{
+        'coins': coins,
+        'gems': gems,
+      },
+    );
+    if (result == null) return {'coins': 0, 'gems': 0};
+    return result.map((k, v) => MapEntry(k, (v as num).toInt()));
+  }
+
+  /// يُعيد قيم الإعدادات المحفوظة من Android SharedPreferences
+  Future<Map<String, dynamic>> getSettings() async {
+    final result =
+        await _channel.invokeMapMethod<String, dynamic>('getSettings');
+    return {
+      'sfx': result?['sfx'] as bool? ?? true,
+      'music': result?['music'] as bool? ?? true,
+      'haptic': result?['haptic'] as bool? ?? true,
+      'hapticAvailable': result?['hapticAvailable'] as bool? ?? true,
+      'notifications': result?['notifications'] as bool? ?? true,
+      'systemNotifications': result?['systemNotifications'] as bool? ?? true,
+      'dialogs': result?['dialogs'] as bool? ?? true,
+      'language': result?['language'] as String? ?? 'ar',
+    };
+  }
+
+  Future<void> setSoundEnabled(bool enabled) async {
+    await _channel.invokeMethod<void>('setSoundEnabled', {'enabled': enabled});
+  }
+
+  Future<void> setMusicEnabled(bool enabled) async {
+    await _channel.invokeMethod<void>('setMusicEnabled', {'enabled': enabled});
+  }
+
+  Future<bool> setHapticEnabled(bool enabled) async {
+    final result = await _channel.invokeMethod<bool>(
+      'setHapticEnabled',
+      {'enabled': enabled},
+    );
+    return result ?? false;
+  }
+
+  Future<bool> playHaptic({String style = 'light'}) async {
+    final result = await _channel.invokeMethod<bool>(
+      'playHaptic',
+      {'style': style},
+    );
+    return result ?? false;
+  }
+
+  Future<void> setNotificationsEnabled(bool enabled) async {
+    await _channel
+        .invokeMethod<void>('setNotificationsEnabled', {'enabled': enabled});
+  }
+
+  Future<void> setDialogsEnabled(bool enabled) async {
+    await _channel
+        .invokeMethod<void>('setDialogsEnabled', {'enabled': enabled});
+  }
+
+  Future<void> setLanguage(String language) async {
+    await _channel.invokeMethod<void>('setLanguage', {'language': language});
+  }
+
+  Future<void> openNotificationSettings() async {
+    await _channel.invokeMethod<void>('openNotificationSettings');
+  }
+
+  Future<void> resetLocalProgress() async {
+    await _channel.invokeMethod<void>('resetLocalProgress');
+  }
+
+  Future<bool> restorePurchases() async {
+    final result = await _channel.invokeMethod<bool>('restorePurchases');
+    return result ?? false;
+  }
+
+  /// يُعيد كميات وسائل المساعدة المخزّنة {'inv5050', 'invAudience', 'invCall'}
+  Future<Map<String, int>> getInventory() async {
+    final result =
+        await _channel.invokeMapMethod<String, dynamic>('getInventory');
+    if (result == null) return {};
+    return result.map((k, v) => MapEntry(k, (v as num).toInt()));
+  }
+
+  /// يُسلّم منتج IAP للاعب (يُستدعى بعد نجاح عملية الدفع عبر Google Play).
+  Future<bool> deliverPurchase(
+    String productId, {
+    String? deliveryKey,
+  }) async {
+    final result = await _channel.invokeMethod<bool>(
+      'deliverPurchase',
+      {
+        'productId': productId,
+        'deliveryKey': deliveryKey ?? '',
+      },
+    );
+    return result ?? false;
+  }
+
+  /// يشتري عملات (كوينز) بخصم جواهر من الرصيد المحلي.
+  Future<bool> buyCurrency(
+      {required int coinAmount, required int gemCost}) async {
+    final result = await _channel.invokeMethod<bool>(
+      'buyCurrency',
+      {'coinAmount': coinAmount, 'gemCost': gemCost},
+    );
+    return result ?? false;
+  }
+
+  /// يشتري وسيلة مساعدة ويخصم الثمن من الكوينز أو الجواهر.
+  /// يُعيد true عند النجاح.
+  Future<bool> buyPowerUp({
+    required String type,
+    required int quantity,
+    required String payWith, // 'coins' | 'gems'
+    required int cost,
+  }) async {
+    final result = await _channel.invokeMethod<bool>('buyPowerUp', {
+      'type': type,
+      'quantity': quantity,
+      'payWith': payWith,
+      'cost': cost,
+    });
+    return result ?? false;
+  }
+
+  Future<bool> grantPowerUp({
+    required String type,
+    int quantity = 1,
+  }) async {
+    final result = await _channel.invokeMethod<bool>('grantPowerUp', {
+      'type': type,
+      'quantity': quantity,
+    });
+    return result ?? false;
+  }
+
+  Map<String, dynamic>? _decodeCampaignResult(dynamic raw) {
+    final decoded = _decodeNativeMap(raw);
+    if (decoded == null) return null;
+    final mode = decoded['mode'];
+    if (mode != null && mode.toString() != 'campaign') return null;
+    return decoded;
+  }
+
+  Map<String, dynamic>? _decodeNativeMap(dynamic raw) {
+    if (raw == null) return null;
+    if (raw is String) {
+      if (raw.trim().isEmpty) return null;
+      try {
+        return _decodeNativeMap(jsonDecode(raw));
+      } on Object {
+        return null;
+      }
+    }
+    if (raw is Map<String, dynamic>) return raw;
+    if (raw is Map) {
+      return raw.map(
+        (key, value) => MapEntry(key.toString(), value),
+      );
+    }
+    return null;
+  }
+}
