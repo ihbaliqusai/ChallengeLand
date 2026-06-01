@@ -45,9 +45,9 @@ final class GameLayoutController {
 
         if (activity.llyQA != null) {
             int targetWidthDp = activity.modeOnline
-                    ? Math.round(screenWidthDp * (shortScreen ? 0.46f : 0.48f))
-                    : Math.round(screenWidthDp * (shortScreen ? 0.50f : 0.54f));
-            targetWidthDp = Math.max(shortScreen ? 360 : 390, Math.min(450, targetWidthDp));
+                    ? Math.round(screenWidthDp * (shortScreen ? 0.50f : 0.54f))
+                    : Math.round(screenWidthDp * (shortScreen ? 0.56f : 0.58f));
+            targetWidthDp = Math.max(shortScreen ? 430 : 480, Math.min(560, targetWidthDp));
             ViewGroup.LayoutParams params = activity.llyQA.getLayoutParams();
             params.width = activity.dp(targetWidthDp);
             activity.llyQA.setLayoutParams(params);
@@ -66,7 +66,7 @@ final class GameLayoutController {
             );
         }
 
-        final int toolSizeDp = shortScreen || narrowScreen ? 42 : 50;
+        final int toolSizeDp = shortScreen || narrowScreen ? 50 : 58;
         resizeSquareView(activity.imgHelp5050, toolSizeDp);
         resizeSquareView(activity.imgHelpCall, toolSizeDp);
         resizeSquareView(activity.imgHelpAudience, toolSizeDp);

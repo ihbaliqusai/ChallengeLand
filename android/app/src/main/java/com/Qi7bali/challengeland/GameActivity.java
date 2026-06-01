@@ -2,9 +2,7 @@ package net.androidgaming.millionaire2024;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
@@ -71,7 +69,7 @@ public class GameActivity extends AppCompatActivity {
     ArrayList<LinearLayout> steps = new ArrayList<>();
     ArrayList<Integer> currentAnswerOrder = new ArrayList<>();
     TextView txtQ, txtA1, txtA2, txtA3, txtA4, txtSelected, txtRight, txtAmount,
-            txtProgress, txtPlayer1, txtPlayer2, txtScoreMe, txtSetsMe, txtScoreGameMe,
+            txtProgress, txtQuestionCounter, txtPlayer1, txtPlayer2, txtScoreMe, txtSetsMe, txtScoreGameMe,
             txtScoreOpponent, txtSetsOpponent, txtScoreGameOpponent;
     ImageView imgA1, imgA2, imgA3, imgA4, imgVote1, imgVote2, imgVote3, imgVote4, btnCloseVote,
             imgCallerBody, imgCallerFace, imgCallerMouth,
@@ -90,6 +88,7 @@ public class GameActivity extends AppCompatActivity {
     GameLifelineController lifelineController;
     GameLayoutController layoutController;
     GameOpponentHudController opponentHudController;
+    GameOfflineContestantsController offlineContestants;
     GameCampaignHudController campaignHudController;
     GameCampaignResultStore campaignResultStore;
     CountDownTimer cdtProgress;
@@ -255,6 +254,7 @@ public class GameActivity extends AppCompatActivity {
         lifelineController = new GameLifelineController(this);
         layoutController = new GameLayoutController(this);
         opponentHudController = new GameOpponentHudController(this);
+        offlineContestants = new GameOfflineContestantsController(this);
         campaignHudController = new GameCampaignHudController(this);
         campaignResultStore = new GameCampaignResultStore(this);
 
@@ -340,6 +340,8 @@ public class GameActivity extends AppCompatActivity {
         } else {
             if (campaignBossBattle) {
                 setupCampaignBossBattle();
+            } else if (!campaignMode) {
+                offlineContestants.setup();
             }
             getQuestions("");
         }
@@ -350,6 +352,8 @@ public class GameActivity extends AppCompatActivity {
         rlyProgress = findViewById(R.id.rlyProgressbar);
         pbTime = findViewById(R.id.pbTime);
         txtProgress = findViewById(R.id.txtProgress);
+        txtQuestionCounter = findViewById(R.id.txtQuestionCounter);
+        updateQuestionCounter();
         pbTime.setMax(300);
 
         rlyDialog = findViewById(R.id.rlyDialog);
@@ -438,14 +442,13 @@ public class GameActivity extends AppCompatActivity {
                             campaignHudController.showGameplayHud();
                             showDialog(getCampaignOpeningMessage(), "", 800, 2200, R.drawable.mouth_01, false);
                         } else {
-                            llySolde.setVisibility(View.VISIBLE);
-                            showDialog("مرحبا بك في مباراة جديدة", "", 800, 2000, R.drawable.mouth_01, false);
+                            showDialog("مرحبا بكم في تحدي تشالنج لاند", "", 800, 2200, R.drawable.mouth_01, false);
                         }
                         handler.postDelayed(this, 3000);
                         break;
                     case 2:
                         person.moveShowHand(1000);
-                        showConfirmationDialog("هل تريد معرفة قوانين اللعبة ؟", "ConfirmRules", 1000, 0, R.drawable.mouth_05, false);
+                        startMatchFlow();
                         break;
                 }
             }
@@ -750,12 +753,12 @@ public class GameActivity extends AppCompatActivity {
                     if (soundController != null) soundController.setCurrentEffectVolume(0f);
                     SOUND_ON = false;
                     AppPrefs.setSoundEnabled(GameActivity.this, false);
-                    imgVolume.setImageResource(R.drawable.muted);
+                    imgVolume.setImageResource(R.drawable.game_volume_off);
                 } else {
                     if (soundController != null) soundController.setCurrentEffectVolume(1f);
                     SOUND_ON = true;
                     AppPrefs.setSoundEnabled(GameActivity.this, true);
-                    imgVolume.setImageResource(R.drawable.volume);
+                    imgVolume.setImageResource(R.drawable.game_volume_on);
                 }
             }
         });
@@ -778,10 +781,10 @@ public class GameActivity extends AppCompatActivity {
     private void applyVolumeUi() {
         if (imgVolume == null) return;
         if (SOUND_ON) {
-            imgVolume.setImageResource(R.drawable.volume);
+            imgVolume.setImageResource(R.drawable.game_volume_on);
             if (soundController != null) soundController.setCurrentEffectVolume(1f);
         } else {
-            imgVolume.setImageResource(R.drawable.muted);
+            imgVolume.setImageResource(R.drawable.game_volume_off);
             if (soundController != null) soundController.setCurrentEffectVolume(0f);
         }
         if (soundController != null) soundController.stopCurrentMusicIfDisabled(MUSIC_ON);
@@ -967,6 +970,16 @@ public class GameActivity extends AppCompatActivity {
     private boolean isShortGameScreen() {
         final DisplayMetrics metrics = getResources().getDisplayMetrics();
         return metrics.heightPixels / metrics.density < 390f;
+    }
+
+    /** True for the classic single-player offline game (you + 3 AI contestants). */
+    boolean isOfflineContestantMode() {
+        return !modeOnline && !campaignMode && !campaignBossBattle;
+    }
+
+    private boolean isLastOfflineQuestion() {
+        int total = Math.min(getQuestionCounterTotal(), questions.size());
+        return currentQuestion >= total - 1;
     }
 
     private void applyQuestionTextSize(String text) {
@@ -1187,6 +1200,10 @@ public class GameActivity extends AppCompatActivity {
             handleCampaignStageAnswer(timeout);
             return;
         }
+        if (isOfflineContestantMode()) {
+            handleOfflineContestantAnswer(timeout);
+            return;
+        }
         final Handler handler = new Handler();
         Runnable runnable = new Runnable() {
             int t = 0;
@@ -1356,6 +1373,102 @@ public class GameActivity extends AppCompatActivity {
         handler.postDelayed(runnable, delayDrum);
     }
 
+    /** Answer/reveal flow for the offline competition (you + 3 AI contestants). */
+    private void handleOfflineContestantAnswer(final boolean timeout) {
+        final boolean playerCorrect = !timeout && myAnswer == rightAnswer;
+        if (!timeout) {
+            offlineContestants.markPlayerAnswered();
+        }
+        final Handler handler = new Handler();
+        Runnable runnable = new Runnable() {
+            int t = 0;
+
+            @Override
+            public void run() {
+                if (EXITING) return;
+                t++;
+                switch (t) {
+                    case 1:
+                        FAST_LIGHTS = false;
+                        T_LIGHTS = 3;
+                        offlineContestants.revealRound(playerCorrect);
+                        if (playerCorrect) {
+                            if (imgSelected != null) imgSelected.setImageResource(R.drawable.frame_right);
+                            PlayerStats.recordCorrectAnswer(GameActivity.this);
+                            person.like(1000);
+                            person.raiseEyeBrowsUp(1000, false, true);
+                            playSound(R.raw.correct_answer, false, false);
+                            showDialog("إجابة صحيحة!", "", 1000, 2000, R.drawable.mouth_01, false);
+                        } else {
+                            PlayerStats.recordWrongAnswer(GameActivity.this);
+                            playSound(R.raw.wrong_answer, false, false);
+                            person.sad();
+                            if (!timeout && imgSelected != null) {
+                                imgSelected.setImageResource(R.drawable.frame_wrong);
+                            }
+                            if (imgRight != null) imgRight.setImageResource(R.drawable.frame_right);
+                            showDialog(timeout ? "انتهى الوقت للأسف" : "إجابة خاطئة للأسف",
+                                    "", 1000, 2000, R.drawable.mouth_05, false);
+                        }
+                        CAN_HOME = true;
+                        handler.postDelayed(this, 3000);
+                        break;
+                    case 2:
+                        if (isLastOfflineQuestion()) {
+                            finishOfflineCompetition();
+                        } else {
+                            person.moveHead(800);
+                            person.lookAside(600);
+                            showDialog(offlineContestants.standingsLine(), "", 800, 2000, R.drawable.mouth_02, false);
+                            handler.postDelayed(this, 2400);
+                        }
+                        break;
+                    case 3:
+                        initQuestion();
+                        nextQuestion();
+                        break;
+                }
+            }
+        };
+        handler.postDelayed(runnable, timeout ? 200 : 1200);
+    }
+
+    private void finishOfflineCompetition() {
+        stopTimer(false);
+        CAN_PLAY = false;
+        CAN_HOME = false;
+        final boolean win = offlineContestants.playerIsWinner();
+        final int rank = offlineContestants.playerRank();
+        final int score = offlineContestants.playerScore();
+        if (win) {
+            person.moveShow2Hands(2000);
+            person.raiseEyeBrowsUp(1000, false, true);
+            playSound(R.raw.new_level, false, false);
+            showDialog("مبروك! فزت بالمسابقة بـ " + score + " نقطة", "", 2000, 3000, R.drawable.mouth_01, false);
+        } else {
+            person.moveShowHand(1000);
+            showDialog("انتهت المسابقة، ترتيبك " + rank + " من 4 بـ " + score + " نقطة",
+                    "", 2000, 3000, R.drawable.mouth_05, false);
+        }
+        final Handler handler = new Handler();
+        handler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if (EXITING) return;
+                try {
+                    PlayerStats.recordGameEnd(GameActivity.this, win, score);
+                    PlayerProgress.onGameFinished(GameActivity.this, win, score,
+                            PlayerStats.getBestStreak(GameActivity.this), usedAllHelps(), usedAnyHelp());
+                } catch (Exception ignored) {
+                }
+                offlineContestants.release();
+                stopCurrentSound();
+                if (cdtProgress != null) cdtProgress.cancel();
+                showInterstitialAd();
+            }
+        }, 4000);
+    }
+
     private void applyOnlineRoundMetrics() {
         if (eliminationMode) {
             if (!spectatorEliminationRound && mySubmittedAnswerKey == ANSWER_KEY_RIGHT) {
@@ -1437,19 +1550,16 @@ public class GameActivity extends AppCompatActivity {
         CAN_PLAY = false;
         CAN_HOME = false;
 
-        new AlertDialog.Builder(this)
-                .setMessage("أخطأت في 3 أسئلة متتالية. سيكمل خصم آلي اللعب بدلًا منك.")
-                .setCancelable(false)
-                .setPositiveButton("حسنًا", new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialog, int which) {
-                        Intent intent = new Intent(GameActivity.this, MainActivity.class);
-                        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                        startActivity(intent);
-                        finish();
-                    }
-                })
-                .show();
+        showDialog("أخطأت في 3 أسئلة متتالية.\nسيكمل خصم آلي اللعب بدلًا منك.", "", 900, 2200, R.drawable.mouth_05, false);
+        new Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                Intent intent = new Intent(GameActivity.this, MainActivity.class);
+                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                startActivity(intent);
+                finish();
+            }
+        }, 2500);
         return true;
     }
 
@@ -3577,6 +3687,10 @@ public class GameActivity extends AppCompatActivity {
     }
 
     private void confirmExit() {
+        if (isOfflineContestantMode()) {
+            showConfirmationDialog("هل تريد الانسحاب من المسابقة ؟", "ConfirmExit", 2000, 0, R.drawable.mouth_05, false);
+            return;
+        }
         if (!txtAmount.getText().toString().equals("$0")) {
             showConfirmationDialog("هل تريد الخروج والاكتفاء بالمبلغ الحالي ؟", "ConfirmHome", 2000, 0, R.drawable.mouth_05, false);
         } else {
@@ -3635,7 +3749,7 @@ public class GameActivity extends AppCompatActivity {
                         else if (campaignMode)
                             showDialog(getCampaignOpeningMessage(), "", 1000, 3000, R.drawable.mouth_01, false);
                         else
-                            showDialog("نبدأ الآن.. استعد للحصول على المليون", "", 1000, 3000, R.drawable.mouth_01, false);
+                            showDialog("نبدأ الآن.. بالتوفيق للجميع", "", 1000, 3000, R.drawable.mouth_01, false);
                         handler.postDelayed(this, 5000);
                         break;
                     case 2:
@@ -3666,6 +3780,29 @@ public class GameActivity extends AppCompatActivity {
         leaveOnlineMatchIfNeeded();
         stopCurrentSound();
         stopTimer(false);
+        if (isOfflineContestantMode()) {
+            final int score = offlineContestants.playerScore();
+            person.moveShowHand(1000);
+            showDialog("إلى اللقاء، نراكم في تحدٍ جديد", "", 1500, 2000, R.drawable.mouth_01, false);
+            (new Handler()).postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        PlayerStats.recordGameEnd(GameActivity.this, false, score);
+                        if (!campaignMode) {
+                            PlayerProgress.onGameFinished(GameActivity.this, false, score,
+                                    PlayerStats.getBestStreak(GameActivity.this), usedAllHelps(), usedAnyHelp());
+                        }
+                    } catch (Exception ignored) {
+                    }
+                    offlineContestants.release();
+                    stopCurrentSound();
+                    if (cdtProgress != null) cdtProgress.cancel();
+                    showInterstitialAd();
+                }
+            }, 1800);
+            return;
+        }
         if (!txtAmount.getText().toString().equals("$0")) {
             person.like(1000);
             person.raiseEyeBrowsUp(1000, true, true);
@@ -4042,6 +4179,7 @@ public class GameActivity extends AppCompatActivity {
     private void showQuestionNow(final int questionIndex) {
         if(!EXITING) {
             currentQuestion = questionIndex;
+            updateQuestionCounter();
             campaignHudController.updateProgressHud(false);
             spectatorEliminationRound = eliminationMode && localPlayerEliminated;
             scheduledQuestionStartAt = 0L;
@@ -4073,7 +4211,7 @@ public class GameActivity extends AppCompatActivity {
                 for (int i = 0; i < answerOrder.size(); i++) {
                     int answerKey = answerOrder.get(i);
                     String answerText = getAnswerText(question, answerKey);
-                    answerDisplayTexts.add(getLetter(i + 1) + " - " + answerText);
+                    answerDisplayTexts.add(answerText);
                 }
                 applyAnswerTextSizes(answerDisplayTexts);
 
@@ -4107,6 +4245,12 @@ public class GameActivity extends AppCompatActivity {
                                     CAN_PLAY = !spectatorEliminationRound;
                                     questionStartTimeMs = System.currentTimeMillis();
                                     startTimer(true);
+                                    if (!modeOnline && !campaignBossBattle) {
+                                        showDialog("اختاروا\nالإجابة الصحيحة", "", 700, 1300, R.drawable.mouth_01, true);
+                                    }
+                                    if (isOfflineContestantMode()) {
+                                        offlineContestants.startRound(getCurrentQuestionLevel(), rightAnswer);
+                                    }
                                     if(modeOnline) {
                                         Data.initQuestionPlayer(gameID, myID, currentQuestion);
                                         for (MatchOpponent opponent : opponents) {
@@ -4141,6 +4285,25 @@ public class GameActivity extends AppCompatActivity {
             case 4: res = "د"; break;
         }
         return  res;
+    }
+
+    private void updateQuestionCounter() {
+        if (txtQuestionCounter == null) {
+            return;
+        }
+        int total = getQuestionCounterTotal();
+        int visibleQuestion = currentQuestion >= 0 ? Math.min(currentQuestion + 1, total) : 1;
+        txtQuestionCounter.setText(visibleQuestion + "/" + total + " السؤال");
+    }
+
+    private int getQuestionCounterTotal() {
+        if (campaignMode) {
+            return Math.max(1, getCampaignTargetQuestionCount());
+        }
+        if (modeOnline) {
+            return 5;
+        }
+        return 10;
     }
 
     private ArrayList<Integer> getQuestionShuffled(Question question) {
@@ -4286,6 +4449,7 @@ public class GameActivity extends AppCompatActivity {
         detachServerTimeOffsetListener();
         if(cdtProgress != null) cdtProgress.cancel();
         stopCampaignStageTimer();
+        if (offlineContestants != null) offlineContestants.release();
         if (soundController != null) soundController.releaseCurrent();
         GameSoundController.release(mpBeep);
         mpBeep = null;
@@ -4313,18 +4477,6 @@ public class GameActivity extends AppCompatActivity {
     @Override
     public void onBackPressed() {
         confirmExit();
-
-        /*
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setMessage("هل تريد حقا الخروج من المباراة ؟")
-                .setPositiveButton("نعم", dialogClickListener)
-                .setNegativeButton("لا", dialogClickListener)
-                .show();
-
-        stopSound(mpSound);
-        if(cdtProgress != null) cdtProgress.cancel();
-        showInterstitialAd();
-        */
     }
 
     private void initAdsIfNeeded() {
