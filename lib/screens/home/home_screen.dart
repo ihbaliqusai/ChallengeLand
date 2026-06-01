@@ -224,8 +224,9 @@ class _HomeScreenState extends State<HomeScreen>
     final appState = context.watch<AppState>();
     final user = appState.user;
     final username =
-        (user?.displayName ?? user?.email?.split('@').first ?? 'Ù„Ø§Ø¹Ø¨')
-            .trim();
+        (user?.displayName ?? user?.email?.split('@').first ?? 'لاعب').trim();
+    final displayUsername =
+        username.isEmpty || username.contains('Ã') ? 'لاعب' : username;
 
     return Scaffold(
       extendBody: true,
@@ -275,31 +276,22 @@ class _HomeScreenState extends State<HomeScreen>
             ),
 
             // â”€â”€ LEFT SIDEBAR â€” overlays the center â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-            Positioned(
-              top: 0,
-              bottom: 0,
-              left: 0,
-              child: _LeftSidebar(appState: appState),
-            ),
-
             // â”€â”€ RIGHT SIDEBAR â€” overlays the center â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-            Positioned(
-              top: 0,
-              bottom: 0,
-              right: 0,
-              child: _RightSidebar(
-                appState: appState,
-                username: username,
-                user: user,
-              ),
-            ),
-
             // â”€â”€ TOP BAR: currency + arena progress â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             Positioned(
               top: 0,
               left: 0,
               right: 0,
               child: _TopBar(appState: appState),
+            ),
+            Positioned(
+              top: 0,
+              right: 0,
+              child: _HomeMenuButton(
+                appState: appState,
+                username: displayUsername,
+                user: user,
+              ),
             ),
           ],
         ),
@@ -319,7 +311,7 @@ void _showOnlineRequiredToast(BuildContext context) {
             SizedBox(width: 8),
             Expanded(
               child: Text(
-                'ØªØªØ·Ù„Ø¨ Ù‡Ø°Ù‡ Ø§Ù„Ù…ÙŠØ²Ø© Ø§ØªØµØ§Ù„Ø§Ù‹ Ø¨Ø§Ù„Ø¥Ù†ØªØ±Ù†Øª',
+                'تتطلب هذه الميزة اتصالا بالإنترنت',
                 style: TextStyle(fontWeight: FontWeight.w800),
               ),
             ),
@@ -333,6 +325,688 @@ void _showOnlineRequiredToast(BuildContext context) {
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //  TOP BAR
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+Future<void> _showGameModesSheet(BuildContext context) {
+  return showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: Colors.transparent,
+    barrierColor: Colors.black.withValues(alpha: 0.50),
+    isScrollControlled: true,
+    builder: (sheetContext) => _GameModesSheet(rootContext: context),
+  );
+}
+
+class _GameModesSheet extends StatelessWidget {
+  const _GameModesSheet({required this.rootContext});
+
+  final BuildContext rootContext;
+
+  void _openOnlineRoute(
+    BuildContext sheetContext,
+    Widget screen,
+    bool isOnline,
+  ) {
+    Navigator.of(sheetContext).pop();
+    if (!isOnline) {
+      _showOnlineRequiredToast(rootContext);
+      return;
+    }
+    Navigator.of(rootContext).push(
+      MaterialPageRoute<void>(builder: (_) => screen),
+    );
+  }
+
+  void _runMode(BuildContext sheetContext, VoidCallback action) {
+    Navigator.of(sheetContext).pop();
+    action();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final appState = context.watch<AppState>();
+    final isOnline = appState.isOnline;
+    final media = MediaQuery.of(context);
+
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: SafeArea(
+        child: Align(
+          alignment: Alignment.bottomCenter,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: 700,
+              maxHeight: math.min(media.size.height * 0.78, 320.0),
+            ),
+            child: Container(
+              margin: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFF071126).withValues(alpha: 0.96),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: const Color(0xFF38BDF8).withValues(alpha: 0.34),
+                ),
+                boxShadow: <BoxShadow>[
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.34),
+                    blurRadius: 24,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.sports_esports_rounded,
+                        color: Color(0xFF38BDF8),
+                        size: 22,
+                      ),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'أوضاع اللعب',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'إغلاق',
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.close_rounded),
+                        color: Colors.white70,
+                        style: IconButton.styleFrom(
+                          backgroundColor: Colors.white.withValues(alpha: 0.06),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _GameModeTile(
+                          icon: Icons.groups_rounded,
+                          color: const Color(0xFFFACC15),
+                          title: 'تحدي جماعي',
+                          subtitle: 'غرف ومنافسة أونلاين',
+                          enabled: isOnline,
+                          onTap: () => _openOnlineRoute(
+                            context,
+                            const RoomsScreen(),
+                            isOnline,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _GameModeTile(
+                          icon: Icons.bolt_rounded,
+                          color: const Color(0xFF38BDF8),
+                          title: 'تحدي السرعة',
+                          subtitle: 'أسئلة سريعة ضد الوقت',
+                          enabled: isOnline,
+                          onTap: () => _runMode(
+                            context,
+                            () =>
+                                rootContext.read<AppState>().openSpeedBattle(),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _GameModeTile(
+                          icon: Icons.sports_esports_rounded,
+                          color: const Color(0xFF34D399),
+                          title: 'أوفلاين',
+                          subtitle: 'العب بدون اتصال',
+                          onTap: () => _runMode(
+                            context,
+                            () =>
+                                rootContext.read<AppState>().openOfflineGame(),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GameModeTile extends StatelessWidget {
+  const _GameModeTile({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    this.enabled = true,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: enabled ? 1 : 0.50,
+      child: GestureDetector(
+        onTap: enabled ? onTap : () => _showOnlineRequiredToast(context),
+        child: Container(
+          height: 112,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: color.withValues(alpha: 0.34)),
+          ),
+          child: Stack(
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(icon, color: color, size: 28),
+                  const Spacer(),
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.58),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+              if (!enabled)
+                const Positioned(top: 0, left: 0, child: _LockBadge()),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HomeMenuButton extends StatefulWidget {
+  const _HomeMenuButton({
+    required this.appState,
+    required this.username,
+    required this.user,
+  });
+
+  final AppState appState;
+  final String username;
+  final dynamic user;
+
+  @override
+  State<_HomeMenuButton> createState() => _HomeMenuButtonState();
+}
+
+class _HomeMenuButtonState extends State<_HomeMenuButton> {
+  int _pendingRewards = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshPendingRewards();
+  }
+
+  Future<void> _refreshPendingRewards() async {
+    try {
+      final data = await context.read<NativeBridgeService>().getAchievements();
+      if (!mounted) return;
+      setState(() {
+        _pendingRewards = (data['unclaimedAchievements'] as num?)?.toInt() ?? 0;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _pendingRewards = 0);
+    }
+  }
+
+  Future<void> _openMenu() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.50),
+      isScrollControlled: true,
+      builder: (sheetContext) => _HomeMenuSheet(
+        rootContext: context,
+        appState: widget.appState,
+        username: widget.username,
+        user: widget.user,
+        pendingRewards: _pendingRewards,
+      ),
+    );
+    if (mounted) {
+      await _refreshPendingRewards();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final top = MediaQuery.of(context).padding.top + 6;
+    final hasDailyReward = widget.appState.isOnline &&
+        widget.appState.streakDay > 0 &&
+        !widget.appState.claimedToday;
+    final hasAttention = hasDailyReward || _pendingRewards > 0;
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(0, top, 12, 0),
+      child: Tooltip(
+        message: 'القائمة',
+        child: GestureDetector(
+          onTap: _openMenu,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.58),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.18),
+                    width: 1.5,
+                  ),
+                ),
+                child: const Icon(
+                  Icons.menu_rounded,
+                  color: Color(0xFF7DD3FC),
+                  size: 28,
+                ),
+              ),
+              if (hasAttention)
+                const Positioned(top: -3, right: -3, child: _UnclaimedDot()),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HomeMenuSheet extends StatelessWidget {
+  const _HomeMenuSheet({
+    required this.rootContext,
+    required this.appState,
+    required this.username,
+    required this.user,
+    required this.pendingRewards,
+  });
+
+  final BuildContext rootContext;
+  final AppState appState;
+  final String username;
+  final dynamic user;
+  final int pendingRewards;
+
+  void _openScreen(
+    BuildContext sheetContext,
+    Widget screen, {
+    bool enabled = true,
+  }) {
+    Navigator.of(sheetContext).pop();
+    if (!enabled) {
+      _showOnlineRequiredToast(rootContext);
+      return;
+    }
+    Navigator.of(rootContext).push(
+      MaterialPageRoute<void>(builder: (_) => screen),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isOnline = appState.isOnline;
+    final media = MediaQuery.of(context);
+    final rankTitle = PlayerRank.titleForLevel(appState.level);
+    final rankColor = PlayerRank.colorForLevel(appState.level);
+    final dailyReady =
+        isOnline && appState.streakDay > 0 && !appState.claimedToday;
+
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: SafeArea(
+        child: Align(
+          alignment: Alignment.bottomCenter,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: 760,
+              maxHeight: math.min(media.size.height * 0.82, 430.0),
+            ),
+            child: Container(
+              margin: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFF071126).withValues(alpha: 0.97),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: const Color(0xFFFACC15).withValues(alpha: 0.30),
+                ),
+                boxShadow: <BoxShadow>[
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.34),
+                    blurRadius: 24,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _MenuHeader(
+                    username: username,
+                    user: user,
+                    rankTitle: rankTitle,
+                    rankColor: rankColor,
+                    onProfile: () =>
+                        _openScreen(context, const ProfileScreen()),
+                    onClose: () => Navigator.of(context).pop(),
+                  ),
+                  const SizedBox(height: 12),
+                  Flexible(
+                    child: GridView.count(
+                      shrinkWrap: true,
+                      physics: const BouncingScrollPhysics(),
+                      crossAxisCount: 3,
+                      mainAxisSpacing: 10,
+                      crossAxisSpacing: 10,
+                      childAspectRatio: 2.55,
+                      children: [
+                        _MenuActionTile(
+                          icon: Icons.leaderboard_rounded,
+                          color: const Color(0xFFFACC15),
+                          title: 'الصدارة',
+                          enabled: isOnline,
+                          onTap: () => _openScreen(
+                            context,
+                            const LeaderboardScreen(),
+                            enabled: isOnline,
+                          ),
+                        ),
+                        _MenuActionTile(
+                          icon: Icons.inventory_2_rounded,
+                          color: const Color(0xFF34D399),
+                          title: 'المكافآت',
+                          badgeLabel: dailyReady ? '!' : null,
+                          enabled: isOnline,
+                          onTap: () => _openScreen(
+                            context,
+                            const DailyStreakScreen(),
+                            enabled: isOnline,
+                          ),
+                        ),
+                        _MenuActionTile(
+                          icon: Icons.storefront_rounded,
+                          color: const Color(0xFF38BDF8),
+                          title: 'المتجر',
+                          enabled: isOnline,
+                          onTap: () => _openScreen(
+                            context,
+                            const StoreScreen(),
+                            enabled: isOnline,
+                          ),
+                        ),
+                        _MenuActionTile(
+                          icon: Icons.bar_chart_rounded,
+                          color: const Color(0xFF60A5FA),
+                          title: 'الإحصائيات',
+                          onTap: () =>
+                              _openScreen(context, const StatsScreen()),
+                        ),
+                        _MenuActionTile(
+                          icon: Icons.emoji_events_rounded,
+                          color: const Color(0xFFA78BFA),
+                          title: 'الإنجازات',
+                          badgeLabel: pendingRewards > 0
+                              ? (pendingRewards > 9 ? '9+' : '$pendingRewards')
+                              : null,
+                          onTap: () => _openScreen(
+                            context,
+                            const AchievementsScreen(),
+                          ),
+                        ),
+                        _MenuActionTile(
+                          icon: Icons.settings_rounded,
+                          color: const Color(0xFF94A3B8),
+                          title: 'الإعدادات',
+                          onTap: () =>
+                              _openScreen(context, const SettingsScreen()),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MenuHeader extends StatelessWidget {
+  const _MenuHeader({
+    required this.username,
+    required this.user,
+    required this.rankTitle,
+    required this.rankColor,
+    required this.onProfile,
+    required this.onClose,
+  });
+
+  final String username;
+  final dynamic user;
+  final String rankTitle;
+  final Color rankColor;
+  final VoidCallback onProfile;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        GestureDetector(
+          onTap: onProfile,
+          child: Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0xFF111827),
+              border: Border.all(color: rankColor, width: 2),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: user?.photoURL?.isNotEmpty == true
+                ? Image.network(
+                    user!.photoURL!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const Icon(
+                      Icons.person_rounded,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.person_rounded, color: Colors.white),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: GestureDetector(
+            onTap: onProfile,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  username,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Row(
+                  children: [
+                    Icon(Icons.circle, color: rankColor, size: 9),
+                    const SizedBox(width: 5),
+                    Text(
+                      rankTitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: rankColor,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        Tooltip(
+          message: 'إغلاق',
+          child: IconButton(
+            onPressed: onClose,
+            icon: const Icon(Icons.close_rounded),
+            color: Colors.white70,
+            style: IconButton.styleFrom(
+              backgroundColor: Colors.white.withValues(alpha: 0.06),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MenuActionTile extends StatelessWidget {
+  const _MenuActionTile({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.onTap,
+    this.badgeLabel,
+    this.enabled = true,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String title;
+  final VoidCallback onTap;
+  final String? badgeLabel;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: enabled ? 1 : 0.50,
+      child: GestureDetector(
+        onTap: enabled ? onTap : () => _showOnlineRequiredToast(context),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: color.withValues(alpha: 0.30)),
+              ),
+              child: Row(
+                children: [
+                  Icon(icon, color: color, size: 22),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (!enabled)
+              const Positioned(top: -4, left: -4, child: _LockBadge()),
+            if (badgeLabel != null)
+              Positioned(
+                top: -5,
+                right: -5,
+                child: Container(
+                  constraints:
+                      const BoxConstraints(minWidth: 18, minHeight: 18),
+                  padding: const EdgeInsets.symmetric(horizontal: 5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEF4444),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white, width: 1.3),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    badgeLabel!,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w900,
+                      height: 1,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _TopBar extends StatelessWidget {
   const _TopBar({required this.appState});
   final AppState appState;
@@ -475,7 +1149,7 @@ class _LevelBadge extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'Ø§Ù„Ù…Ø³ØªÙˆÙ‰ $level',
+                'المستوى $level',
                 style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w900,
@@ -516,6 +1190,8 @@ class _LevelBadge extends StatelessWidget {
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //  LEFT SIDEBAR
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Kept temporarily while the simplified home menu is validated.
+// ignore: unused_element
 class _LeftSidebar extends StatelessWidget {
   const _LeftSidebar({required this.appState});
   final AppState appState;
@@ -919,7 +1595,7 @@ class _CenterArena extends StatelessWidget {
                 children: [
                   _BattleButton(
                     glowCtrl: glowCtrl,
-                    label: 'Ø±Ø­Ù„Ø© Ø§Ù„Ù…Ù„ÙŠÙˆÙ†',
+                    label: 'رحلة المليون',
                     green: true,
                     compact: isCompactHeight,
                     enabled: appState.isOnline,
@@ -930,36 +1606,68 @@ class _CenterArena extends StatelessWidget {
                     ),
                   ),
                   SizedBox(height: buttonGap),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      _BattleButton(
-                        glowCtrl: glowCtrl,
-                        label: 'ØªØ­Ø¯ÙŠ Ø¬Ù…Ø§Ø¹ÙŠ',
-                        gold: true,
-                        compact: isCompactHeight,
-                        textColor: Colors.white,
-                        enabled: appState.isOnline,
-                        onPressed: () => Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                              builder: (_) => const RoomsScreen()),
-                        ),
-                      ),
-                      SizedBox(width: isCompactHeight ? 10 : 12),
-                      _BattleButton(
-                        glowCtrl: glowCtrl,
-                        label: 'ØªØ­Ø¯ÙŠ Ø§Ù„Ø³Ø±Ø¹Ø©',
-                        gold: false,
-                        compact: isCompactHeight,
-                        enabled: appState.isOnline,
-                        onPressed: () =>
-                            context.read<AppState>().openSpeedBattle(),
-                      ),
-                    ],
+                  _BattleButton(
+                    glowCtrl: glowCtrl,
+                    label: 'أوضاع اللعب',
+                    gold: false,
+                    compact: isCompactHeight,
+                    enabled: true,
+                    onPressed: () => _showGameModesSheet(context),
                   ),
                 ],
               ),
             ),
+            if (buttonHeight < 0)
+              Positioned(
+                bottom: buttonBottom,
+                left: 0,
+                right: 0,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _BattleButton(
+                      glowCtrl: glowCtrl,
+                      label: 'Ø±Ø­Ù„Ø© Ø§Ù„Ù…Ù„ÙŠÙˆÙ†',
+                      green: true,
+                      compact: isCompactHeight,
+                      enabled: appState.isOnline,
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const CampaignMapScreen(),
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: buttonGap),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _BattleButton(
+                          glowCtrl: glowCtrl,
+                          label: 'ØªØ­Ø¯ÙŠ Ø¬Ù…Ø§Ø¹ÙŠ',
+                          gold: true,
+                          compact: isCompactHeight,
+                          textColor: Colors.white,
+                          enabled: appState.isOnline,
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                                builder: (_) => const RoomsScreen()),
+                          ),
+                        ),
+                        SizedBox(width: isCompactHeight ? 10 : 12),
+                        _BattleButton(
+                          glowCtrl: glowCtrl,
+                          label: 'ØªØ­Ø¯ÙŠ Ø§Ù„Ø³Ø±Ø¹Ø©',
+                          gold: false,
+                          compact: isCompactHeight,
+                          enabled: appState.isOnline,
+                          onPressed: () =>
+                              context.read<AppState>().openSpeedBattle(),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
           ],
         );
       },
@@ -1155,6 +1863,8 @@ Future<void> _showChestRewardDialog(BuildContext context, int coins, int gems) {
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //  RIGHT SIDEBAR
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Kept temporarily while the simplified home menu is validated.
+// ignore: unused_element
 class _RightSidebar extends StatelessWidget {
   const _RightSidebar({
     required this.appState,

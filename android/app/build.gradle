@@ -27,7 +27,7 @@ android {
     }
 
     defaultConfig {
-        applicationId 'net.androidgaming.millionaire2024'
+        applicationId 'com.qi7bali.landchallengeonline'
         minSdkVersion 23
         targetSdkVersion 35
         versionCode flutter.versionCode
