@@ -7,6 +7,7 @@ import android.util.DisplayMetrics;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -44,6 +45,10 @@ final class GameOfflineContestantsController {
     private static final float SCORE_MARGIN_F = 0.297f;
     private static final float NAME_MARGIN_F = 0.2035f;
     private static final float STATUS_MARGIN_F = 0.0865f;
+    private static final int SCORE_BOARD_ROWS = 4;
+    private static final float[] SCORE_BOARD_ROW_CENTER_F = {
+            0.292f, 0.477f, 0.662f, 0.847f
+    };
 
     private static final String[] MALE_NAMES = {
             "خالد", "طارق", "فهد", "ماجد", "ياسر", "نواف", "سعد", "زياد", "بدر", "عمر"
@@ -64,8 +69,14 @@ final class GameOfflineContestantsController {
     private TextView[] scoreViews;
     private TextView[] nameViews;
     private ImageView[] statusViews;
+    private TextView[] boardNameViews;
+    private TextView[] boardScoreViews;
+    private ImageView[] boardAvatarViews;
+    private FrameLayout scoreBoard;
+    private FrameLayout scoreBoardContent;
     private LinearLayout row;
     private Typeface balooFont;
+    private int selectedCharacterIndex = 0;
     private boolean active = false;
 
     GameOfflineContestantsController(GameActivity activity) {
@@ -80,6 +91,7 @@ final class GameOfflineContestantsController {
     void setup(int playerCount, int characterIndex) {
         count = Math.max(2, Math.min(8, playerCount));
         characterIndex = ((characterIndex % 4) + 4) % 4;
+        selectedCharacterIndex = characterIndex;
 
         names = new String[count];
         scores = new int[count];
@@ -106,6 +118,7 @@ final class GameOfflineContestantsController {
         }
 
         buildPodiums(characterIndex);
+        buildScoreBoard();
 
         active = true;
         if (row != null) row.setVisibility(View.VISIBLE);
@@ -123,15 +136,29 @@ final class GameOfflineContestantsController {
         final DisplayMetrics metrics = activity.getResources().getDisplayMetrics();
         final float density = metrics.density;
         final float screenWidthDp = metrics.widthPixels / density;
-        final float paddingStartDp = 84f; // leave room for the host on the left
-        final float paddingEndDp = 20f;
+        final float screenHeightDp = metrics.heightPixels / density;
+        final float paddingStartDp = clamp(screenWidthDp * 0.12f, 58f, 88f); // leave room for the host on the left
+        final float paddingEndDp = clamp(screenWidthDp * 0.035f, 14f, 24f);
         row.setPadding(px(paddingStartDp, density), 0, px(paddingEndDp, density), 0);
 
         final float availableDp = Math.max(120f, screenWidthDp - paddingStartDp - paddingEndDp);
         float imageWidthDp = (availableDp / count) - 6f;
-        if (imageWidthDp > 80f) imageWidthDp = 80f;
-        if (imageWidthDp < 38f) imageWidthDp = 38f;
+        // Fit podiums into the space below the question/answers block so they do
+        // not overlap the answers (consistent with GameLayoutController sizing).
+        final float answersBottomFromTop = GameLayoutController.answersBottomFromTopDp(screenHeightDp);
+        final float maxHeightDp = Math.max(48f, screenHeightDp - answersBottomFromTop - 8f);
+        final float maxWidthByHeight = maxHeightDp * ART_ASPECT;
+        final float maxImageWidthDp = Math.min(78f, maxWidthByHeight);
+        final float minImageWidthDp = Math.min(screenHeightDp < 340f ? 26f : 32f, maxImageWidthDp);
+        if (imageWidthDp > maxWidthByHeight) imageWidthDp = maxWidthByHeight;
+        if (imageWidthDp > 78f) imageWidthDp = 78f;
+        if (imageWidthDp < minImageWidthDp) imageWidthDp = minImageWidthDp;
         final float h = imageWidthDp / ART_ASPECT; // rendered art (and panel) height in dp
+
+        // Match the row height to the podium so it anchors to the bottom correctly.
+        ViewGroup.LayoutParams rowParams = row.getLayoutParams();
+        rowParams.height = px(h, density);
+        row.setLayoutParams(rowParams);
 
         for (int i = 0; i < count; i++) {
             FrameLayout cell = new FrameLayout(activity);
@@ -227,6 +254,7 @@ final class GameOfflineContestantsController {
                 setStatusIcon(i, R.drawable.ic_status_wrong);
             }
         }
+        refreshScoreBoard();
     }
 
     int playerScore() {
@@ -269,6 +297,9 @@ final class GameOfflineContestantsController {
 
     void release() {
         active = false;
+        if (scoreBoard != null) {
+            scoreBoard.setVisibility(View.INVISIBLE);
+        }
     }
 
     private void setStatusIcon(int slot, int resId) {
@@ -314,5 +345,186 @@ final class GameOfflineContestantsController {
 
     private int px(float dp, float density) {
         return Math.round(dp * density);
+    }
+
+    private float clamp(float value, float min, float max) {
+        if (value < min) return min;
+        if (value > max) return max;
+        return value;
+    }
+
+    private void buildScoreBoard() {
+        scoreBoard = activity.findViewById(R.id.offlineScoreBoard);
+        scoreBoardContent = activity.findViewById(R.id.offlineScoreBoardContent);
+        if (scoreBoard == null || scoreBoardContent == null) {
+            return;
+        }
+        scoreBoard.setVisibility(View.VISIBLE);
+        scoreBoard.bringToFront();
+        scoreBoardContent.removeAllViews();
+
+        final int visibleRows = getVisibleBoardRowCount();
+        boardNameViews = new TextView[visibleRows];
+        boardScoreViews = new TextView[visibleRows];
+        boardAvatarViews = new ImageView[visibleRows];
+
+        scoreBoardContent.post(new Runnable() {
+            @Override
+            public void run() {
+                populateScoreBoardRows();
+                refreshScoreBoard();
+            }
+        });
+    }
+
+    private void populateScoreBoardRows() {
+        if (scoreBoard == null || scoreBoardContent == null) {
+            return;
+        }
+        scoreBoardContent.removeAllViews();
+
+        final DisplayMetrics metrics = activity.getResources().getDisplayMetrics();
+        final float density = metrics.density;
+        final int widthPx = scoreBoardContent.getWidth() > 0
+                ? scoreBoardContent.getWidth()
+                : scoreBoard.getLayoutParams().width;
+        final int heightPx = scoreBoardContent.getHeight() > 0
+                ? scoreBoardContent.getHeight()
+                : scoreBoard.getLayoutParams().height;
+        final float boardWidthDp = widthPx / density;
+        final float boardHeightDp = heightPx / density;
+
+        final float rowHeightDp = clamp(boardHeightDp * 0.108f, 20f, 30f);
+        final float rowLeftDp = boardWidthDp * 0.08f;
+        final float rowWidthDp = boardWidthDp * 0.84f;
+        final float avatarSizeDp = clamp(rowHeightDp * 0.88f, 18f, 26f);
+        final float scoreWidthDp = boardWidthDp * 0.17f;
+        final float nameStartDp = avatarSizeDp + boardWidthDp * 0.035f;
+        final float nameEndDp = scoreWidthDp + boardWidthDp * 0.035f;
+        final float nameTextSp = clamp(rowHeightDp * 0.42f, 8f, 12f);
+        final float scoreTextSp = clamp(rowHeightDp * 0.64f, 12f, 18f);
+
+        final int visibleRows = getVisibleBoardRowCount();
+        boardNameViews = new TextView[visibleRows];
+        boardScoreViews = new TextView[visibleRows];
+        boardAvatarViews = new ImageView[visibleRows];
+
+        for (int i = 0; i < visibleRows; i++) {
+            FrameLayout rowFrame = new FrameLayout(activity);
+            FrameLayout.LayoutParams rowParams = new FrameLayout.LayoutParams(
+                    px(rowWidthDp, density),
+                    px(rowHeightDp, density)
+            );
+            rowParams.leftMargin = px(rowLeftDp, density);
+            rowParams.topMargin = px(
+                    (boardHeightDp * SCORE_BOARD_ROW_CENTER_F[i]) - (rowHeightDp / 2f),
+                    density
+            );
+            rowFrame.setLayoutParams(rowParams);
+
+            ImageView avatar = new ImageView(activity);
+            FrameLayout.LayoutParams avatarParams = new FrameLayout.LayoutParams(
+                    px(avatarSizeDp, density),
+                    px(avatarSizeDp, density)
+            );
+            avatarParams.gravity = Gravity.START | Gravity.CENTER_VERTICAL;
+            avatarParams.leftMargin = px(boardWidthDp * 0.015f, density);
+            avatar.setLayoutParams(avatarParams);
+            avatar.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            rowFrame.addView(avatar);
+
+            TextView score = makeBoardText(scoreTextSp, "#FFD761", Gravity.CENTER);
+            FrameLayout.LayoutParams scoreParams = new FrameLayout.LayoutParams(
+                    px(scoreWidthDp, density),
+                    FrameLayout.LayoutParams.MATCH_PARENT
+            );
+            scoreParams.gravity = Gravity.END | Gravity.CENTER_VERTICAL;
+            scoreParams.rightMargin = px(boardWidthDp * 0.015f, density);
+            score.setLayoutParams(scoreParams);
+            rowFrame.addView(score);
+
+            TextView name = makeBoardText(nameTextSp, "#FFFFFF", Gravity.CENTER_VERTICAL | Gravity.END);
+            name.setMaxLines(2);
+            name.setEllipsize(TextUtils.TruncateAt.END);
+            name.setTextDirection(View.TEXT_DIRECTION_RTL);
+            FrameLayout.LayoutParams nameParams = new FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT
+            );
+            nameParams.leftMargin = px(nameStartDp, density);
+            nameParams.rightMargin = px(nameEndDp, density);
+            name.setLayoutParams(nameParams);
+            rowFrame.addView(name);
+
+            scoreBoardContent.addView(rowFrame);
+            boardAvatarViews[i] = avatar;
+            boardNameViews[i] = name;
+            boardScoreViews[i] = score;
+        }
+    }
+
+    private TextView makeBoardText(float sizeSp, String colorHex, int gravity) {
+        TextView view = new TextView(activity);
+        view.setTextColor(Color.parseColor(colorHex));
+        view.setTextSize(TypedValue.COMPLEX_UNIT_SP, sizeSp);
+        view.setGravity(gravity);
+        view.setIncludeFontPadding(false);
+        if (balooFont != null) {
+            view.setTypeface(balooFont, Typeface.BOLD);
+        } else {
+            view.setTypeface(Typeface.DEFAULT_BOLD);
+        }
+        return view;
+    }
+
+    private void refreshScoreBoard() {
+        if (boardNameViews == null || boardScoreViews == null || boardAvatarViews == null
+                || names == null || scores == null) {
+            return;
+        }
+        int visibleRows = Math.min(getVisibleBoardRowCount(), boardNameViews.length);
+        int[] order = getScoreBoardOrder(visibleRows);
+        for (int rowIndex = 0; rowIndex < visibleRows; rowIndex++) {
+            int playerIndex = order[rowIndex];
+            if (boardNameViews[rowIndex] != null) {
+                boardNameViews[rowIndex].setText(names[playerIndex]);
+            }
+            if (boardScoreViews[rowIndex] != null) {
+                boardScoreViews[rowIndex].setText(String.valueOf(scores[playerIndex]));
+            }
+            if (boardAvatarViews[rowIndex] != null) {
+                boardAvatarViews[rowIndex].setImageResource(
+                        CHARACTER_DRAWABLES[(selectedCharacterIndex + playerIndex) % 4]
+                );
+            }
+        }
+    }
+
+    private int getVisibleBoardRowCount() {
+        return Math.min(SCORE_BOARD_ROWS, count);
+    }
+
+    private int[] getScoreBoardOrder(int visibleRows) {
+        int[] order = new int[visibleRows];
+        boolean[] used = new boolean[count];
+        for (int rowIndex = 0; rowIndex < visibleRows; rowIndex++) {
+            int best = -1;
+            for (int playerIndex = 0; playerIndex < count; playerIndex++) {
+                if (used[playerIndex]) {
+                    continue;
+                }
+                if (best < 0
+                        || scores[playerIndex] > scores[best]
+                        || (scores[playerIndex] == scores[best] && playerIndex < best)) {
+                    best = playerIndex;
+                }
+            }
+            if (best < 0) {
+                best = rowIndex;
+            }
+            used[best] = true;
+            order[rowIndex] = best;
+        }
+        return order;
     }
 }
