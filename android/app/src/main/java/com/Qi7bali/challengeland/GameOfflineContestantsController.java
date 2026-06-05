@@ -15,9 +15,9 @@ import android.widget.TextView;
 
 import androidx.core.content.res.ResourcesCompat;
 
-import java.util.HashSet;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
-import java.util.Set;
 
 /**
  * Drives the contestant podiums shown in the offline (single-player) game.
@@ -30,31 +30,70 @@ import java.util.Set;
 final class GameOfflineContestantsController {
     private static final int POINTS_PER_CORRECT = 100;
 
-    private static final int[] CHARACTER_DRAWABLES = {
-            R.drawable.game_contestant_glasses,
-            R.drawable.game_contestant_waving,
-            R.drawable.game_contestant_female,
-            R.drawable.game_contestant_green
-    };
-    private static final int FEMALE_CHARACTER_INDEX = 2;
-    /** Width / height of the contestant artwork (1086 x 2550). */
-    private static final float ART_ASPECT = 1086f / 2550f;
+    /** Number of distinct contestant characters available. */
+    private static final int CHARACTER_COUNT = 8;
 
-    // Net "distance from podium bottom" as a fraction of the rendered art height,
-    // measured from the baked-in panels of the artwork.
-    private static final float SCORE_MARGIN_F = 0.297f;
-    private static final float NAME_MARGIN_F = 0.2035f;
-    private static final float STATUS_MARGIN_F = 0.0865f;
+    // Full-body contestant artwork (988 x 2390), drawn standing behind the podium.
+    private static final int[] CONTESTANT_DRAWABLES = {
+            R.drawable.contestant_khaled,
+            R.drawable.contestant_omar,
+            R.drawable.contestant_fahad,
+            R.drawable.contestant_mazen,
+            R.drawable.contestant_mahmoud,
+            R.drawable.contestant_ellen,
+            R.drawable.contestant_sarah,
+            R.drawable.contestant_talia
+    };
+    // Matching face avatars (537 x 761) used in the score board (and the setup screen).
+    private static final int[] EMOTE_DRAWABLES = {
+            R.drawable.emote_khaled,
+            R.drawable.emote_omar,
+            R.drawable.emote_fahad,
+            R.drawable.emote_mazen,
+            R.drawable.emote_mahmoud,
+            R.drawable.emote_ellen,
+            R.drawable.emote_sarah,
+            R.drawable.emote_talia
+    };
+    /** Fixed name for each character; slot 0 (the human) uses the account name instead. */
+    private static final String[] CHARACTER_NAMES = {
+            "خالد", "عمر", "فهد", "مازن", "محمود", "إيلين", "سارة", "تاليا"
+    };
+
+    /** Per-character looping clip (res/raw); 0 means use the static image instead. */
+    private static final int[] CONTESTANT_VIDEOS = new int[CHARACTER_COUNT];
+    static {
+        CONTESTANT_VIDEOS[1] = R.raw.video_omar;     // Omar
+        CONTESTANT_VIDEOS[4] = R.raw.video_mahmoud;  // Mahmoud
+        CONTESTANT_VIDEOS[5] = R.raw.video_ellen;    // Ellen
+    }
+
+    /** Podium artwork aspect (width / height, 1086 x 1448). */
+    private static final float PODIUM_ASPECT = 1086f / 1448f;
+    /** Contestant artwork aspect (width / height, 988 x 2390). */
+    private static final float CONTESTANT_ASPECT = 988f / 2390f;
+    /** Animated-clip aspect (width / height, 720 x 1280). */
+    private static final float VIDEO_ASPECT = 720f / 1280f;
+    /** Contestant rendered height as a multiple of the podium height. */
+    private static final float CONTESTANT_SCALE = 1.7f;
+    /** Aspect (width / height) of the whole podium+contestant stack, used for fitting. */
+    private static final float STACK_ASPECT = PODIUM_ASPECT / CONTESTANT_SCALE;
+
+    // Panel placement on the podium: vertical centre as a fraction of the rendered
+    // podium height, measured from the podium bottom (the panels are part of the
+    // podium artwork now that the contestant has been split off).
+    private static final float SCORE_CENTER_F = 0.674f;
+    private static final float SCORE_BOX_H_F = 0.19f;
+    private static final float SCORE_TEXT_F = 0.132f;
+    private static final float NAME_CENTER_F = 0.48f;
+    private static final float NAME_BOX_H_F = 0.13f;
+    private static final float NAME_TEXT_F = 0.092f;
+    private static final float STATUS_CENTER_F = 0.27f;
+    private static final float STATUS_SIZE_F = 0.12f;
+
     private static final int SCORE_BOARD_ROWS = 4;
     private static final float[] SCORE_BOARD_ROW_CENTER_F = {
             0.292f, 0.477f, 0.662f, 0.847f
-    };
-
-    private static final String[] MALE_NAMES = {
-            "خالد", "طارق", "فهد", "ماجد", "ياسر", "نواف", "سعد", "زياد", "بدر", "عمر"
-    };
-    private static final String[] FEMALE_NAMES = {
-            "فاطمة", "نورة", "سارة", "ريم", "هند", "لمى", "دانة", "جود"
     };
 
     private final GameActivity activity;
@@ -69,6 +108,7 @@ final class GameOfflineContestantsController {
     private TextView[] scoreViews;
     private TextView[] nameViews;
     private ImageView[] statusViews;
+    private final List<ChromaVideoView> videoViews = new ArrayList<>();
     private TextView[] boardNameViews;
     private TextView[] boardScoreViews;
     private ImageView[] boardAvatarViews;
@@ -90,7 +130,7 @@ final class GameOfflineContestantsController {
     /** Builds {@code playerCount} podiums; slot 0 uses {@code characterIndex}. */
     void setup(int playerCount, int characterIndex) {
         count = Math.max(2, Math.min(8, playerCount));
-        characterIndex = ((characterIndex % 4) + 4) % 4;
+        characterIndex = ((characterIndex % CHARACTER_COUNT) + CHARACTER_COUNT) % CHARACTER_COUNT;
         selectedCharacterIndex = characterIndex;
 
         names = new String[count];
@@ -107,14 +147,11 @@ final class GameOfflineContestantsController {
             balooFont = null;
         }
 
+        // Slot 0 is the human (account name); each bot takes its character's fixed name.
         names[0] = resolvePlayerName();
-        Set<String> used = new HashSet<>();
-        used.add(names[0]);
         for (int i = 1; i < count; i++) {
             intelligence[i] = 48 + random.nextInt(42); // 48..89
-            int charIdx = (characterIndex + i) % 4;
-            names[i] = pickName(charIdx == FEMALE_CHARACTER_INDEX, used);
-            used.add(names[i]);
+            names[i] = CHARACTER_NAMES[(characterIndex + i) % CHARACTER_COUNT];
         }
 
         buildPodiums(characterIndex);
@@ -131,6 +168,7 @@ final class GameOfflineContestantsController {
         if (row == null) {
             return;
         }
+        releaseVideos();
         row.removeAllViews();
 
         final DisplayMetrics metrics = activity.getResources().getDisplayMetrics();
@@ -142,55 +180,90 @@ final class GameOfflineContestantsController {
         row.setPadding(px(paddingStartDp, density), 0, px(paddingEndDp, density), 0);
 
         final float availableDp = Math.max(120f, screenWidthDp - paddingStartDp - paddingEndDp);
-        float imageWidthDp = (availableDp / count) - 6f;
-        // Fit podiums into the space below the question/answers block so they do
-        // not overlap the answers (consistent with GameLayoutController sizing).
+        float podiumWidthDp = (availableDp / count) - 6f;
+        // Fit the whole stack (a contestant standing behind the podium) into the space
+        // below the question/answers block so it does not overlap the answers
+        // (consistent with GameLayoutController sizing).
         final float answersBottomFromTop = GameLayoutController.answersBottomFromTopDp(screenHeightDp);
         final float maxHeightDp = Math.max(48f, screenHeightDp - answersBottomFromTop - 8f);
-        final float maxWidthByHeight = maxHeightDp * ART_ASPECT;
-        final float maxImageWidthDp = Math.min(78f, maxWidthByHeight);
-        final float minImageWidthDp = Math.min(screenHeightDp < 340f ? 26f : 32f, maxImageWidthDp);
-        if (imageWidthDp > maxWidthByHeight) imageWidthDp = maxWidthByHeight;
-        if (imageWidthDp > 78f) imageWidthDp = 78f;
-        if (imageWidthDp < minImageWidthDp) imageWidthDp = minImageWidthDp;
-        final float h = imageWidthDp / ART_ASPECT; // rendered art (and panel) height in dp
+        final float maxWidthByHeight = maxHeightDp * STACK_ASPECT;
+        final float maxPodiumWidthDp = Math.min(78f, maxWidthByHeight);
+        final float minPodiumWidthDp = Math.min(screenHeightDp < 340f ? 26f : 32f, maxPodiumWidthDp);
+        if (podiumWidthDp > maxWidthByHeight) podiumWidthDp = maxWidthByHeight;
+        if (podiumWidthDp > 78f) podiumWidthDp = 78f;
+        if (podiumWidthDp < minPodiumWidthDp) podiumWidthDp = minPodiumWidthDp;
 
-        // Match the row height to the podium so it anchors to the bottom correctly.
+        final float podiumHeightDp = podiumWidthDp / PODIUM_ASPECT;
+        final float contestantHeightDp = podiumHeightDp * CONTESTANT_SCALE; // the tallest layer
+        final float contestantWidthDp = contestantHeightDp * CONTESTANT_ASPECT;
+
+        // Match the row height to the full stack so it anchors to the bottom correctly;
+        // the contestant overflows above the podium (clipChildren is false).
         ViewGroup.LayoutParams rowParams = row.getLayoutParams();
-        rowParams.height = px(h, density);
+        rowParams.height = px(contestantHeightDp, density);
         row.setLayoutParams(rowParams);
 
         for (int i = 0; i < count; i++) {
+            int charIdx = (characterIndex + i) % CHARACTER_COUNT;
+
             FrameLayout cell = new FrameLayout(activity);
             cell.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f));
             cell.setClipChildren(false);
             cell.setClipToPadding(false);
 
-            ImageView art = new ImageView(activity);
-            FrameLayout.LayoutParams artParams =
-                    new FrameLayout.LayoutParams(px(imageWidthDp, density), px(h, density));
-            artParams.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
-            art.setLayoutParams(artParams);
-            art.setScaleType(ImageView.ScaleType.FIT_CENTER);
-            art.setImageResource(CHARACTER_DRAWABLES[(characterIndex + i) % 4]);
-            cell.addView(art);
+            // The contestant stands behind the podium (added first -> drawn underneath).
+            // Three characters are animated clips with their black background keyed
+            // out at draw time; the rest are static artwork.
+            int videoRes = CONTESTANT_VIDEOS[charIdx];
+            View contestant;
+            float contestantBoxWidthDp;
+            if (videoRes != 0) {
+                ChromaVideoView video = new ChromaVideoView(activity, videoRes);
+                videoViews.add(video);
+                contestant = video;
+                contestantBoxWidthDp = contestantHeightDp * VIDEO_ASPECT;
+            } else {
+                ImageView image = new ImageView(activity);
+                image.setScaleType(ImageView.ScaleType.FIT_CENTER);
+                image.setImageResource(CONTESTANT_DRAWABLES[charIdx]);
+                contestant = image;
+                contestantBoxWidthDp = contestantWidthDp;
+            }
+            FrameLayout.LayoutParams contestantParams = new FrameLayout.LayoutParams(
+                    px(contestantBoxWidthDp, density), px(contestantHeightDp, density));
+            contestantParams.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
+            contestant.setLayoutParams(contestantParams);
+            cell.addView(contestant);
 
-            TextView score = makeLabel(0.24f * h, 0.11f * h, SCORE_MARGIN_F * h,
-                    "0", 0.075f * h, "#61FF39", density);
+            // The podium is drawn in front, anchored to the bottom of the cell.
+            ImageView podium = new ImageView(activity);
+            FrameLayout.LayoutParams podiumParams = new FrameLayout.LayoutParams(
+                    px(podiumWidthDp, density), px(podiumHeightDp, density));
+            podiumParams.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
+            podium.setLayoutParams(podiumParams);
+            podium.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            podium.setImageResource(R.drawable.podium);
+            cell.addView(podium);
+
+            final float hp = podiumHeightDp; // the panels live on the podium artwork
+            TextView score = makeLabel(0.62f * podiumWidthDp, SCORE_BOX_H_F * hp,
+                    (SCORE_CENTER_F - SCORE_BOX_H_F / 2f) * hp,
+                    "0", SCORE_TEXT_F * hp, "#61FF39", density);
             cell.addView(score);
             scoreViews[i] = score;
 
-            TextView name = makeLabel(0.30f * h, 0.085f * h, NAME_MARGIN_F * h,
-                    names[i], 0.052f * h, "#060B35", density);
+            TextView name = makeLabel(0.78f * podiumWidthDp, NAME_BOX_H_F * hp,
+                    (NAME_CENTER_F - NAME_BOX_H_F / 2f) * hp,
+                    names[i], NAME_TEXT_F * hp, "#060B35", density);
             name.setEllipsize(TextUtils.TruncateAt.END);
             cell.addView(name);
             nameViews[i] = name;
 
             ImageView status = new ImageView(activity);
-            int iconSize = px(0.105f * h, density);
+            int iconSize = px(STATUS_SIZE_F * hp, density);
             FrameLayout.LayoutParams statusParams = new FrameLayout.LayoutParams(iconSize, iconSize);
             statusParams.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
-            statusParams.bottomMargin = px(STATUS_MARGIN_F * h, density);
+            statusParams.bottomMargin = px((STATUS_CENTER_F - STATUS_SIZE_F / 2f) * hp, density);
             status.setLayoutParams(statusParams);
             status.setImageResource(R.drawable.ic_status_waiting);
             cell.addView(status);
@@ -297,9 +370,17 @@ final class GameOfflineContestantsController {
 
     void release() {
         active = false;
+        releaseVideos();
         if (scoreBoard != null) {
             scoreBoard.setVisibility(View.INVISIBLE);
         }
+    }
+
+    private void releaseVideos() {
+        for (int i = 0; i < videoViews.size(); i++) {
+            videoViews.get(i).release();
+        }
+        videoViews.clear();
     }
 
     private void setStatusIcon(int slot, int resId) {
@@ -330,17 +411,6 @@ final class GameOfflineContestantsController {
         if (chance < 18) chance = 18;
         if (chance > 97) chance = 97;
         return random.nextInt(100) < chance;
-    }
-
-    private String pickName(boolean female, Set<String> used) {
-        String[] pool = female ? FEMALE_NAMES : MALE_NAMES;
-        for (int attempt = 0; attempt < 12; attempt++) {
-            String candidate = pool[random.nextInt(pool.length)];
-            if (!used.contains(candidate)) {
-                return candidate;
-            }
-        }
-        return pool[random.nextInt(pool.length)];
     }
 
     private int px(float dp, float density) {
@@ -494,7 +564,7 @@ final class GameOfflineContestantsController {
             }
             if (boardAvatarViews[rowIndex] != null) {
                 boardAvatarViews[rowIndex].setImageResource(
-                        CHARACTER_DRAWABLES[(selectedCharacterIndex + playerIndex) % 4]
+                        EMOTE_DRAWABLES[(selectedCharacterIndex + playerIndex) % CHARACTER_COUNT]
                 );
             }
         }

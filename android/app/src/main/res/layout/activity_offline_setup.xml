@@ -117,10 +117,10 @@
 
                 <FrameLayout
                     android:id="@+id/charSlot0"
-                    android:layout_width="78dp"
-                    android:layout_height="104dp"
-                    android:layout_marginStart="6dp"
-                    android:layout_marginEnd="6dp"
+                    android:layout_width="74dp"
+                    android:layout_height="100dp"
+                    android:layout_marginStart="5dp"
+                    android:layout_marginEnd="5dp"
                     android:padding="3dp">
 
                     <ImageView
@@ -128,15 +128,15 @@
                         android:layout_height="match_parent"
                         android:contentDescription="@string/todo11"
                         android:scaleType="fitCenter"
-                        android:src="@drawable/game_contestant_glasses" />
+                        android:src="@drawable/emote_khaled" />
                 </FrameLayout>
 
                 <FrameLayout
                     android:id="@+id/charSlot1"
-                    android:layout_width="78dp"
-                    android:layout_height="104dp"
-                    android:layout_marginStart="6dp"
-                    android:layout_marginEnd="6dp"
+                    android:layout_width="74dp"
+                    android:layout_height="100dp"
+                    android:layout_marginStart="5dp"
+                    android:layout_marginEnd="5dp"
                     android:padding="3dp">
 
                     <ImageView
@@ -144,15 +144,15 @@
                         android:layout_height="match_parent"
                         android:contentDescription="@string/todo11"
                         android:scaleType="fitCenter"
-                        android:src="@drawable/game_contestant_waving" />
+                        android:src="@drawable/emote_omar" />
                 </FrameLayout>
 
                 <FrameLayout
                     android:id="@+id/charSlot2"
-                    android:layout_width="78dp"
-                    android:layout_height="104dp"
-                    android:layout_marginStart="6dp"
-                    android:layout_marginEnd="6dp"
+                    android:layout_width="74dp"
+                    android:layout_height="100dp"
+                    android:layout_marginStart="5dp"
+                    android:layout_marginEnd="5dp"
                     android:padding="3dp">
 
                     <ImageView
@@ -160,15 +160,15 @@
                         android:layout_height="match_parent"
                         android:contentDescription="@string/todo11"
                         android:scaleType="fitCenter"
-                        android:src="@drawable/game_contestant_female" />
+                        android:src="@drawable/emote_fahad" />
                 </FrameLayout>
 
                 <FrameLayout
                     android:id="@+id/charSlot3"
-                    android:layout_width="78dp"
-                    android:layout_height="104dp"
-                    android:layout_marginStart="6dp"
-                    android:layout_marginEnd="6dp"
+                    android:layout_width="74dp"
+                    android:layout_height="100dp"
+                    android:layout_marginStart="5dp"
+                    android:layout_marginEnd="5dp"
                     android:padding="3dp">
 
                     <ImageView
@@ -176,7 +176,79 @@
                         android:layout_height="match_parent"
                         android:contentDescription="@string/todo11"
                         android:scaleType="fitCenter"
-                        android:src="@drawable/game_contestant_green" />
+                        android:src="@drawable/emote_mazen" />
+                </FrameLayout>
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:gravity="center"
+                android:orientation="horizontal">
+
+                <FrameLayout
+                    android:id="@+id/charSlot4"
+                    android:layout_width="74dp"
+                    android:layout_height="100dp"
+                    android:layout_marginStart="5dp"
+                    android:layout_marginEnd="5dp"
+                    android:padding="3dp">
+
+                    <ImageView
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:contentDescription="@string/todo11"
+                        android:scaleType="fitCenter"
+                        android:src="@drawable/emote_mahmoud" />
+                </FrameLayout>
+
+                <FrameLayout
+                    android:id="@+id/charSlot5"
+                    android:layout_width="74dp"
+                    android:layout_height="100dp"
+                    android:layout_marginStart="5dp"
+                    android:layout_marginEnd="5dp"
+                    android:padding="3dp">
+
+                    <ImageView
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:contentDescription="@string/todo11"
+                        android:scaleType="fitCenter"
+                        android:src="@drawable/emote_ellen" />
+                </FrameLayout>
+
+                <FrameLayout
+                    android:id="@+id/charSlot6"
+                    android:layout_width="74dp"
+                    android:layout_height="100dp"
+                    android:layout_marginStart="5dp"
+                    android:layout_marginEnd="5dp"
+                    android:padding="3dp">
+
+                    <ImageView
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:contentDescription="@string/todo11"
+                        android:scaleType="fitCenter"
+                        android:src="@drawable/emote_sarah" />
+                </FrameLayout>
+
+                <FrameLayout
+                    android:id="@+id/charSlot7"
+                    android:layout_width="74dp"
+                    android:layout_height="100dp"
+                    android:layout_marginStart="5dp"
+                    android:layout_marginEnd="5dp"
+                    android:padding="3dp">
+
+                    <ImageView
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:contentDescription="@string/todo11"
+                        android:scaleType="fitCenter"
+                        android:src="@drawable/emote_talia" />
                 </FrameLayout>
             </LinearLayout>
 

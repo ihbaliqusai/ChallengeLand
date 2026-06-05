@@ -23,8 +23,11 @@ public class OfflineSetupActivity extends AppCompatActivity {
     private int playerCount = 4;
     private int characterIndex = 0;
     private TextView txtPlayerCount;
-    private final int[] charSlotIds = {R.id.charSlot0, R.id.charSlot1, R.id.charSlot2, R.id.charSlot3};
-    private final FrameLayout[] charSlots = new FrameLayout[4];
+    private final int[] charSlotIds = {
+            R.id.charSlot0, R.id.charSlot1, R.id.charSlot2, R.id.charSlot3,
+            R.id.charSlot4, R.id.charSlot5, R.id.charSlot6, R.id.charSlot7
+    };
+    private final FrameLayout[] charSlots = new FrameLayout[charSlotIds.length];
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
