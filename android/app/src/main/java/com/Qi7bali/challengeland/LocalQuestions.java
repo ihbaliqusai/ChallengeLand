@@ -10,11 +10,15 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.Random;
 
 import io.flutter.FlutterInjector;
 
 public class LocalQuestions {
+
+    /** Category used for questions that have no (or an empty) Category field. */
+    public static final String FALLBACK_CATEGORY = "منوّعات";
     public static ArrayList<Question> load(Context context) {
         final ArrayList<Question> questions = new ArrayList<>();
         final ArrayList<Question> allQuestions0 = new ArrayList<>();
@@ -35,13 +39,7 @@ public class LocalQuestions {
             JSONArray array = new JSONArray(output.toString(StandardCharsets.UTF_8.name()));
             for (int i = 0; i < array.length(); i++) {
                 JSONObject item = array.getJSONObject(i);
-                Question q = new Question();
-                q.setQ(item.optString("Q"));
-                q.setR(item.optString("R"));
-                q.setW1(item.optString("W1"));
-                q.setW2(item.optString("W2"));
-                q.setW3(item.optString("W3"));
-                q.setLevel(item.optString("Level"));
+                Question q = parseQuestion(item);
                 switch (q.getLevel()) {
                     case "0":
                         allQuestions0.add(q);
@@ -82,18 +80,82 @@ public class LocalQuestions {
             JSONArray array = new JSONArray(output.toString(StandardCharsets.UTF_8.name()));
             for (int i = 0; i < array.length(); i++) {
                 JSONObject item = array.getJSONObject(i);
-                Question q = new Question();
-                q.setQ(item.optString("Q"));
-                q.setR(item.optString("R"));
-                q.setW1(item.optString("W1"));
-                q.setW2(item.optString("W2"));
-                q.setW3(item.optString("W3"));
-                q.setLevel(item.optString("Level"));
-                questions.add(q);
+                questions.add(parseQuestion(item));
             }
         } catch (Exception ignored) {
         }
         return questions;
+    }
+
+    /** Parses a single question record, defaulting Category to the fallback bucket. */
+    private static Question parseQuestion(JSONObject item) {
+        Question q = new Question();
+        q.setQ(item.optString("Q"));
+        q.setR(item.optString("R"));
+        q.setW1(item.optString("W1"));
+        q.setW2(item.optString("W2"));
+        q.setW3(item.optString("W3"));
+        q.setLevel(item.optString("Level"));
+        String category = item.optString("Category", FALLBACK_CATEGORY);
+        if (category == null || category.trim().isEmpty()) {
+            category = FALLBACK_CATEGORY;
+        }
+        q.setCategory(category.trim());
+        return q;
+    }
+
+    /**
+     * Maps a difficulty Level ("0".."8") to one of three board tiers:
+     * 0 = easy (value 25), 1 = medium (value 50), 2 = hard (value 75).
+     */
+    public static int tierForLevel(String level) {
+        int lv;
+        try {
+            lv = Integer.parseInt(level == null ? "0" : level.trim());
+        } catch (Exception e) {
+            lv = 0;
+        }
+        if (lv <= 2) return 0;
+        if (lv <= 5) return 1;
+        return 2;
+    }
+
+    /**
+     * Loads every question grouped by Category and then by board tier, for the
+     * offline board ("سين جيم") mode. The returned map preserves first-seen
+     * category order; each value is a 3-element list indexed by tier
+     * (0=easy/25, 1=medium/50, 2=hard/75).
+     */
+    public static LinkedHashMap<String, ArrayList<ArrayList<Question>>> loadBoardPool(Context context) {
+        final LinkedHashMap<String, ArrayList<ArrayList<Question>>> pool = new LinkedHashMap<>();
+        try {
+            AssetManager assets = context.getAssets();
+            InputStream inputStream = openQuestionsStream(assets);
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+            byte[] buffer = new byte[4096];
+            int n;
+            while ((n = inputStream.read(buffer)) >= 0) {
+                output.write(buffer, 0, n);
+            }
+            inputStream.close();
+
+            JSONArray array = new JSONArray(output.toString(StandardCharsets.UTF_8.name()));
+            for (int i = 0; i < array.length(); i++) {
+                Question q = parseQuestion(array.getJSONObject(i));
+                String category = q.getCategory();
+                ArrayList<ArrayList<Question>> tiers = pool.get(category);
+                if (tiers == null) {
+                    tiers = new ArrayList<>();
+                    tiers.add(new ArrayList<Question>());
+                    tiers.add(new ArrayList<Question>());
+                    tiers.add(new ArrayList<Question>());
+                    pool.put(category, tiers);
+                }
+                tiers.get(tierForLevel(q.getLevel())).add(q);
+            }
+        } catch (Exception ignored) {
+        }
+        return pool;
     }
 
     private static void populate(ArrayList<Question> questions, ArrayList<Question> subList, int count) {

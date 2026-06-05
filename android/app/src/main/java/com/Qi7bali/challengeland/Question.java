@@ -2,7 +2,7 @@ package net.androidgaming.millionaire2024;
 
 public class Question {
 
-    String Level, Q, R, W1, W2, W3;
+    String Level, Q, R, W1, W2, W3, Category;
 
     public String getLevel() {
         return Level;
@@ -10,6 +10,14 @@ public class Question {
 
     public void setLevel(String level) {
         Level = level;
+    }
+
+    public String getCategory() {
+        return Category;
+    }
+
+    public void setCategory(String category) {
+        Category = category;
     }
 
     public String getQ() {

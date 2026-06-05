@@ -129,6 +129,14 @@ final class GameOfflineContestantsController {
 
     /** Builds {@code playerCount} podiums; slot 0 uses {@code characterIndex}. */
     void setup(int playerCount, int characterIndex) {
+        setupInternal(playerCount, characterIndex);
+    }
+
+    void setupForBoard(int playerCount, int characterIndex) {
+        setupInternal(playerCount, characterIndex);
+    }
+
+    private void setupInternal(int playerCount, int characterIndex) {
         count = Math.max(2, Math.min(8, playerCount));
         characterIndex = ((characterIndex % CHARACTER_COUNT) + CHARACTER_COUNT) % CHARACTER_COUNT;
         selectedCharacterIndex = characterIndex;
@@ -328,6 +336,44 @@ final class GameOfflineContestantsController {
             }
         }
         refreshScoreBoard();
+    }
+
+    // ---- Board ("سين جيم") mode helpers -------------------------------------
+
+    /** Awards the value of a picked board cell to a single contestant. */
+    void awardCell(int slot, int value) {
+        if (scores == null || slot < 0 || slot >= count) return;
+        scores[slot] += value;
+        if (scoreViews != null && slot < scoreViews.length && scoreViews[slot] != null) {
+            scoreViews[slot].setText(String.valueOf(scores[slot]));
+        }
+        refreshScoreBoard();
+    }
+
+    /** Shows the correct/wrong status icon on a contestant's podium (board mode). */
+    void showSlotResult(int slot, boolean correct) {
+        setStatusIcon(slot, correct ? R.drawable.ic_status_correct : R.drawable.ic_status_wrong);
+    }
+
+    /** Rolls whether a specific bot answers a board question correctly. */
+    boolean rollCorrectForSlot(int slot, String level) {
+        if (intelligence == null || slot < 0 || slot >= count) return false;
+        return rollCorrect(level, intelligence[slot]);
+    }
+
+    /** Display name of a contestant slot (slot 0 is the human). */
+    String nameForSlot(int slot) {
+        if (names == null || slot < 0 || slot >= names.length) return "";
+        return names[slot];
+    }
+
+    int scoreForSlot(int slot) {
+        if (scores == null || slot < 0 || slot >= scores.length) return 0;
+        return scores[slot];
+    }
+
+    int contestantCount() {
+        return count;
     }
 
     int playerScore() {

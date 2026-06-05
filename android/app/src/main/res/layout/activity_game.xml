@@ -527,6 +527,14 @@
             android:clipToPadding="false" />
     </FrameLayout>
 
+    <FrameLayout
+        android:id="@+id/boardOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone" />
+
     <ImageView
         android:id="@+id/imgChair"
         android:layout_width="1dp"

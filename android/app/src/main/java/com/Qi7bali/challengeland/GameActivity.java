@@ -34,7 +34,15 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.Random;
+import java.util.Set;
+
+import android.graphics.Typeface;
+import android.view.Gravity;
+import android.widget.ScrollView;
+import androidx.core.content.res.ResourcesCompat;
 
 import de.hdodenhof.circleimageview.CircleImageView;
 import io.netopen.hotbitmapgg.library.view.RingProgressBar;
@@ -171,6 +179,28 @@ public class GameActivity extends AppCompatActivity {
     int campaignLastCorrectQuestion = -1;
     int campaignLastWrongQuestion = -1;
     int campaignLastDisplayedStars = 0;
+
+    // ---- Offline board ("سين جيم") mode ----
+    boolean boardMode = false;
+    static final int[] BOARD_VALUES = {25, 50, 75};
+    static final int BOARD_COLS = 6;
+    static final int BOARD_ROWS = 3;
+    private LinkedHashMap<String, ArrayList<ArrayList<Question>>> boardPool;
+    private final ArrayList<String> boardAllCategories = new ArrayList<>();
+    private final ArrayList<String> boardSelectedCategories = new ArrayList<>();
+    private Question[][] boardCellQuestion;     // [col][row]
+    private boolean[][] boardCellConsumed;      // [col][row]
+    private int boardCellsRemaining;
+    private int boardTurnIndex;                 // 0-based turn counter
+    private int boardPickerSlot;                // current picker (contestant slot)
+    private boolean boardPickerIsHuman;
+    private Question boardCurrentQuestion;
+    private int boardPickedCol, boardPickedRow;
+    private final Random boardRandom = new Random();
+    private Typeface boardFont;
+    static final int BOARD_SELECT_SECONDS = 30;
+    private CountDownTimer boardSelectTimer;
+    private TextView boardSelectCountdownView;
 
     private boolean questionsReady = false;
     private boolean startPending = false;
@@ -340,12 +370,19 @@ public class GameActivity extends AppCompatActivity {
         } else {
             if (campaignBossBattle) {
                 setupCampaignBossBattle();
+                getQuestions("");
             } else if (!campaignMode) {
+                // Offline single-player is now the board ("سين جيم") mode.
                 int playerCount = Math.max(2, Math.min(8, getIntent().getIntExtra("playerCount", 4)));
                 int characterIndex = getIntent().getIntExtra("characterIndex", 0);
-                offlineContestants.setup(playerCount, characterIndex);
+                boardMode = true;
+                offlineContestants.setupForBoard(playerCount, characterIndex);
+                boardPool = LocalQuestions.loadBoardPool(this);
+                buildBoardCategoryList();
+                questionsReady = true;
+            } else {
+                getQuestions("");
             }
-            getQuestions("");
         }
 
         mpBeep = MediaPlayer.create(this, R.raw.beep);
@@ -443,6 +480,8 @@ public class GameActivity extends AppCompatActivity {
                             campaignHudController.hideMoneyBox();
                             campaignHudController.showGameplayHud();
                             showDialog(getCampaignOpeningMessage(), "", 800, 2200, R.drawable.mouth_01, false);
+                        } else if (boardMode) {
+                            showDialog("مرحبا بكم في تحدي الفئات.. اختاروا فئاتكم", "", 800, 2200, R.drawable.mouth_01, false);
                         } else {
                             showDialog("مرحبا بكم في تحدي تشالنج لاند", "", 800, 2200, R.drawable.mouth_01, false);
                         }
@@ -450,7 +489,11 @@ public class GameActivity extends AppCompatActivity {
                         break;
                     case 2:
                         person.moveShowHand(1000);
-                        startMatchFlow();
+                        if (boardMode) {
+                            startBoardMode();
+                        } else {
+                            startMatchFlow();
+                        }
                         break;
                 }
             }
@@ -1185,13 +1228,20 @@ public class GameActivity extends AppCompatActivity {
     }
 
     private String getCurrentQuestionLevel() {
+        if (boardMode && boardCurrentQuestion != null) {
+            return boardCurrentQuestion.getLevel();
+        }
         if (currentQuestion >= 0 && currentQuestion < questions.size()) {
             return questions.get(currentQuestion).Level;
         }
         return "0";
     }
     private void checkAnswer(final boolean timeout) {
-        final int amount = modeOnline ? 0 : Integer.parseInt(getCurrentStepAmount().replace("$", ""));
+        // The money-ladder amount is irrelevant for online and offline-contestant
+        // (board) modes, which both resolve the round without it.
+        final int amount = (modeOnline || isOfflineContestantMode())
+                ? 0
+                : Integer.parseInt(getCurrentStepAmount().replace("$", ""));
         if (!timeout) {
             stopTimer(false);
             playSound(R.raw.drum1, false, true);
@@ -1393,7 +1443,14 @@ public class GameActivity extends AppCompatActivity {
                     case 1:
                         FAST_LIGHTS = false;
                         T_LIGHTS = 3;
-                        offlineContestants.revealRound(playerCorrect);
+                        if (boardMode) {
+                            if (playerCorrect) {
+                                offlineContestants.awardCell(0, currentBoardCellValue());
+                            }
+                            offlineContestants.showSlotResult(0, playerCorrect);
+                        } else {
+                            offlineContestants.revealRound(playerCorrect);
+                        }
                         if (playerCorrect) {
                             if (imgSelected != null) imgSelected.setImageResource(R.drawable.frame_right);
                             PlayerStats.recordCorrectAnswer(GameActivity.this);
@@ -1416,6 +1473,10 @@ public class GameActivity extends AppCompatActivity {
                         handler.postDelayed(this, 3000);
                         break;
                     case 2:
+                        if (boardMode) {
+                            endBoardTurn();
+                            break;
+                        }
                         if (isLastOfflineQuestion()) {
                             finishOfflineCompetition();
                         } else {
@@ -1439,17 +1500,21 @@ public class GameActivity extends AppCompatActivity {
         stopTimer(false);
         CAN_PLAY = false;
         CAN_HOME = false;
+        if (boardMode) {
+            hideBoardOverlay();
+        }
         final boolean win = offlineContestants.playerIsWinner();
         final int rank = offlineContestants.playerRank();
         final int score = offlineContestants.playerScore();
+        final String eventName = boardMode ? "المباراة" : "المسابقة";
         if (win) {
             person.moveShow2Hands(2000);
             person.raiseEyeBrowsUp(1000, false, true);
             playSound(R.raw.new_level, false, false);
-            showDialog("مبروك! فزت بالمسابقة بـ " + score + " نقطة", "", 2000, 3000, R.drawable.mouth_01, false);
+            showDialog("مبروك! فزت بـ" + eventName + " بـ " + score + " نقطة", "", 2000, 3000, R.drawable.mouth_01, false);
         } else {
             person.moveShowHand(1000);
-            showDialog("انتهت المسابقة، ترتيبك " + rank + " من " + offlineContestants.playerCount() + " بـ " + score + " نقطة",
+            showDialog("انتهت " + eventName + "، ترتيبك " + rank + " من " + offlineContestants.playerCount() + " بـ " + score + " نقطة",
                     "", 2000, 3000, R.drawable.mouth_05, false);
         }
         final Handler handler = new Handler();
@@ -1469,6 +1534,680 @@ public class GameActivity extends AppCompatActivity {
                 showInterstitialAd();
             }
         }, 4000);
+    }
+
+    // =====================================================================
+    //  Offline board ("سين جيم") mode
+    //  Flow: category select -> board grid -> question -> board -> ... -> end.
+    //  You and the AI bots take turns picking a (category, value) cell; the
+    //  picker answers and earns the cell value. Ends when all 18 cells are used.
+    // =====================================================================
+
+    private void startBoardMode() {
+        applyBoardModeChrome();
+        showCategorySelect();
+    }
+
+    /** Hides the millionaire-style chrome that has no place on the board.
+     *  The contestant podium row and host name plate are kept (shown below the
+     *  question while answering; the board overlay covers them between turns). */
+    private void applyBoardModeChrome() {
+        setGone(R.id.questionCounterPanel);
+        setGone(R.id.badge5050);
+        setGone(R.id.badgeCall);
+        setGone(R.id.badgeAudience);
+        if (llySteps != null) llySteps.setVisibility(View.GONE);
+        if (llySolde != null) llySolde.setVisibility(View.GONE);
+        if (imgHelp5050 != null) imgHelp5050.setVisibility(View.GONE);
+        if (imgHelpCall != null) imgHelpCall.setVisibility(View.GONE);
+        if (imgHelpAudience != null) imgHelpAudience.setVisibility(View.GONE);
+    }
+
+    private void setGone(int id) {
+        View v = findViewById(id);
+        if (v != null) v.setVisibility(View.GONE);
+    }
+
+    private void buildBoardCategoryList() {
+        boardAllCategories.clear();
+        if (boardPool != null) {
+            boardAllCategories.addAll(boardPool.keySet());
+        }
+    }
+
+    // ---- Category selection screen --------------------------------------
+
+    private void showCategorySelect() {
+        final FrameLayout overlay = (FrameLayout) findViewById(R.id.boardOverlay);
+        if (overlay == null) return;
+        overlay.removeAllViews();
+        overlay.setBackgroundColor(0xF2071026);
+        overlay.setVisibility(View.VISIBLE);
+        overlay.bringToFront();
+
+        ScrollView scroll = new ScrollView(this);
+        scroll.setLayoutParams(new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setGravity(Gravity.CENTER_HORIZONTAL);
+        root.setPadding(dpx(24), dpx(14), dpx(24), dpx(14));
+        scroll.addView(root);
+
+        TextView title = makeBoardText("اختر 6 فئات للعب", 22f, 0xFFFFFFFF, Gravity.CENTER);
+        LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        tlp.bottomMargin = dpx(4);
+        title.setLayoutParams(tlp);
+        root.addView(title);
+
+        final TextView counter = makeBoardText("0 / 6", 16f, 0xFFFFD761, Gravity.CENTER);
+        LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        clp.bottomMargin = dpx(10);
+        counter.setLayoutParams(clp);
+        root.addView(counter);
+
+        final ArrayList<String> selected = new ArrayList<>();
+        final Button confirm = new Button(this);
+
+        final int cols = 4;
+        final int total = boardAllCategories.size();
+        final int rows = Math.max(1, (total + cols - 1) / cols);
+        int idx = 0;
+        for (int r = 0; r < rows; r++) {
+            LinearLayout rowLayout = new LinearLayout(this);
+            rowLayout.setOrientation(LinearLayout.HORIZONTAL);
+            rowLayout.setLayoutParams(new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+            for (int c = 0; c < cols; c++) {
+                if (idx < total) {
+                    final String category = boardAllCategories.get(idx);
+                    final FrameLayout tile = makeCategoryTile(category);
+                    tile.setOnClickListener(new View.OnClickListener() {
+                        @Override
+                        public void onClick(View v) {
+                            if (selected.contains(category)) {
+                                selected.remove(category);
+                                tile.setBackground(categoryTileBg(false));
+                            } else {
+                                if (selected.size() >= BOARD_COLS) {
+                                    Toast.makeText(GameActivity.this, "اخترت 6 فئات بالفعل", Toast.LENGTH_SHORT).show();
+                                    return;
+                                }
+                                selected.add(category);
+                                tile.setBackground(categoryTileBg(true));
+                            }
+                            counter.setText(selected.size() + " / 6");
+                            boolean ready = selected.size() == BOARD_COLS;
+                            confirm.setEnabled(ready);
+                            confirm.setAlpha(ready ? 1f : 0.5f);
+                        }
+                    });
+                    rowLayout.addView(tile);
+                } else {
+                    View spacer = new View(this);
+                    spacer.setLayoutParams(new LinearLayout.LayoutParams(0, dpx(60), 1f));
+                    rowLayout.addView(spacer);
+                }
+                idx++;
+            }
+            root.addView(rowLayout);
+        }
+
+        confirm.setText("ابدأ اللعب");
+        confirm.setAllCaps(false);
+        confirm.setTextColor(0xFFFFFFFF);
+        if (getBoardFont() != null) confirm.setTypeface(getBoardFont(), Typeface.BOLD);
+        confirm.setBackground(pillBg(0xFF29B6F6));
+        confirm.setEnabled(false);
+        confirm.setAlpha(0.5f);
+        LinearLayout.LayoutParams cflp = new LinearLayout.LayoutParams(dpx(200), dpx(50));
+        cflp.topMargin = dpx(14);
+        confirm.setLayoutParams(cflp);
+        confirm.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (selected.size() == BOARD_COLS) {
+                    onCategoriesChosen(new ArrayList<>(selected));
+                }
+            }
+        });
+        root.addView(confirm);
+
+        overlay.addView(scroll);
+    }
+
+    private FrameLayout makeCategoryTile(String category) {
+        FrameLayout tile = new FrameLayout(this);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dpx(60), 1f);
+        lp.setMargins(dpx(5), dpx(5), dpx(5), dpx(5));
+        tile.setLayoutParams(lp);
+        tile.setBackground(categoryTileBg(false));
+        TextView label = makeBoardText(category, 13f, 0xFFFFFFFF, Gravity.CENTER);
+        label.setMaxLines(2);
+        label.setPadding(dpx(4), dpx(2), dpx(4), dpx(2));
+        label.setLayoutParams(new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+        tile.addView(label);
+        return tile;
+    }
+
+    private void onCategoriesChosen(ArrayList<String> chosen) {
+        boardSelectedCategories.clear();
+        boardSelectedCategories.addAll(chosen);
+        boardCellQuestion = new Question[BOARD_COLS][BOARD_ROWS];
+        boardCellConsumed = new boolean[BOARD_COLS][BOARD_ROWS];
+        Set<Question> used = new HashSet<>();
+        for (int col = 0; col < BOARD_COLS; col++) {
+            String cat = boardSelectedCategories.get(col);
+            for (int row = 0; row < BOARD_ROWS; row++) {
+                boardCellQuestion[col][row] = drawBoardQuestion(cat, row, used);
+            }
+        }
+        boardCellsRemaining = BOARD_COLS * BOARD_ROWS;
+        boardTurnIndex = 0;
+        beginBoardTurn();
+    }
+
+    /** Draws one unused question for a (category, tier) cell, with fallbacks. */
+    private Question drawBoardQuestion(String category, int tier, Set<Question> used) {
+        Question q = pickUnused(boardTierList(category, tier), used);
+        if (q != null) return q;
+        // Same category, nearest other tiers.
+        for (int d = 1; d < BOARD_ROWS; d++) {
+            int[] alts = {tier - d, tier + d};
+            for (int t : alts) {
+                if (t >= 0 && t < BOARD_ROWS) {
+                    q = pickUnused(boardTierList(category, t), used);
+                    if (q != null) return q;
+                }
+            }
+        }
+        // Fallback bucket.
+        q = pickUnused(boardTierList(LocalQuestions.FALLBACK_CATEGORY, tier), used);
+        if (q != null) return q;
+        for (int t = 0; t < BOARD_ROWS; t++) {
+            q = pickUnused(boardTierList(LocalQuestions.FALLBACK_CATEGORY, t), used);
+            if (q != null) return q;
+        }
+        // Anything unused anywhere.
+        if (boardPool != null) {
+            for (ArrayList<ArrayList<Question>> tiers : boardPool.values()) {
+                for (ArrayList<Question> list : tiers) {
+                    q = pickUnused(list, used);
+                    if (q != null) return q;
+                }
+            }
+        }
+        return null;
+    }
+
+    private ArrayList<Question> boardTierList(String category, int tier) {
+        if (boardPool == null) return null;
+        ArrayList<ArrayList<Question>> tiers = boardPool.get(category);
+        if (tiers == null || tier < 0 || tier >= tiers.size()) return null;
+        return tiers.get(tier);
+    }
+
+    private Question pickUnused(ArrayList<Question> list, Set<Question> used) {
+        if (list == null || list.isEmpty()) return null;
+        int start = boardRandom.nextInt(list.size());
+        for (int k = 0; k < list.size(); k++) {
+            Question q = list.get((start + k) % list.size());
+            if (!used.contains(q)) {
+                used.add(q);
+                return q;
+            }
+        }
+        return null;
+    }
+
+    // ---- Turn loop -------------------------------------------------------
+
+    private void beginBoardTurn() {
+        if (boardCellsRemaining <= 0) {
+            finishBoardMatch();
+            return;
+        }
+        int count = offlineContestants.contestantCount();
+        boardPickerSlot = count > 0 ? boardTurnIndex % count : 0;
+        boardPickerIsHuman = (boardPickerSlot == 0);
+        showBoardGrid();
+        if (!boardPickerIsHuman) {
+            new Handler().postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    if (!EXITING && boardMode) runBotTurn();
+                }
+            }, 1500);
+        }
+    }
+
+    private void runBotTurn() {
+        int[] cell = pickRandomRemainingCell();
+        if (cell == null) {
+            finishBoardMatch();
+            return;
+        }
+        boardPickedCol = cell[0];
+        boardPickedRow = cell[1];
+        boardCurrentQuestion = boardCellQuestion[boardPickedCol][boardPickedRow];
+        enterBoardQuestion(false);
+    }
+
+    private int[] pickRandomRemainingCell() {
+        ArrayList<int[]> remaining = new ArrayList<>();
+        for (int c = 0; c < BOARD_COLS; c++) {
+            for (int r = 0; r < BOARD_ROWS; r++) {
+                if (!boardCellConsumed[c][r]) remaining.add(new int[]{c, r});
+            }
+        }
+        if (remaining.isEmpty()) return null;
+        return remaining.get(boardRandom.nextInt(remaining.size()));
+    }
+
+    private void onCellPicked(int col, int row) {
+        boardPickedCol = col;
+        boardPickedRow = row;
+        boardCurrentQuestion = boardCellQuestion[col][row];
+        enterBoardQuestion(true);
+    }
+
+    private void enterBoardQuestion(boolean humanTurn) {
+        hideBoardOverlay();
+        initQuestion();
+        boardPickerIsHuman = humanTurn;
+        CAN_PLAY = false;
+        showBoardQuestion(boardCurrentQuestion, humanTurn);
+    }
+
+    private void endBoardTurn() {
+        if (boardPickedCol >= 0 && boardPickedRow >= 0
+                && boardPickedCol < BOARD_COLS && boardPickedRow < BOARD_ROWS) {
+            boardCellConsumed[boardPickedCol][boardPickedRow] = true;
+        }
+        boardCellsRemaining--;
+        boardCurrentQuestion = null;
+        if (boardCellsRemaining <= 0) {
+            finishBoardMatch();
+            return;
+        }
+        boardTurnIndex++;
+        beginBoardTurn();
+    }
+
+    private void finishBoardMatch() {
+        hideBoardOverlay();
+        finishOfflineCompetition();
+    }
+
+    // ---- Board grid screen ----------------------------------------------
+
+    private void showBoardGrid() {
+        cancelBoardSelectTimer();
+        final FrameLayout overlay = (FrameLayout) findViewById(R.id.boardOverlay);
+        if (overlay == null) return;
+        overlay.removeAllViews();
+        overlay.setBackgroundColor(0xE6071026);
+        overlay.setVisibility(View.VISIBLE);
+        overlay.bringToFront();
+
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setGravity(Gravity.CENTER);
+        root.setLayoutParams(new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+        root.setPadding(dpx(16), dpx(8), dpx(16), dpx(8));
+
+        String bannerText = boardPickerIsHuman ? "دورك.. اختر فئة وقيمة"
+                : ("دور " + offlineContestants.nameForSlot(boardPickerSlot));
+        TextView banner = makeBoardText(bannerText, 18f,
+                boardPickerIsHuman ? 0xFF61FF39 : 0xFFFFD761, Gravity.CENTER);
+        LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        blp.bottomMargin = dpx(8);
+        banner.setLayoutParams(blp);
+        root.addView(banner);
+
+        // 30-second pick timer (human turn only); auto-picks a cell on timeout.
+        if (boardPickerIsHuman) {
+            boardSelectCountdownView = makeBoardText("⏱ " + BOARD_SELECT_SECONDS, 16f, 0xFF61FF39, Gravity.CENTER);
+            boardSelectCountdownView.setBackground(headerBg());
+            boardSelectCountdownView.setPadding(dpx(14), dpx(3), dpx(14), dpx(3));
+            LinearLayout.LayoutParams cdLp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            cdLp.gravity = Gravity.CENTER_HORIZONTAL;
+            cdLp.bottomMargin = dpx(8);
+            boardSelectCountdownView.setLayoutParams(cdLp);
+            root.addView(boardSelectCountdownView);
+        } else {
+            boardSelectCountdownView = null;
+        }
+
+        // Compact standings strip (the side score board is hidden behind the overlay).
+        android.widget.HorizontalScrollView scoresScroll = new android.widget.HorizontalScrollView(this);
+        scoresScroll.setHorizontalScrollBarEnabled(false);
+        LinearLayout.LayoutParams ssLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        ssLp.bottomMargin = dpx(10);
+        scoresScroll.setLayoutParams(ssLp);
+        LinearLayout scoresRow = new LinearLayout(this);
+        scoresRow.setOrientation(LinearLayout.HORIZONTAL);
+        scoresRow.setGravity(Gravity.CENTER);
+        int contestantCount = offlineContestants.contestantCount();
+        for (int s = 0; s < contestantCount; s++) {
+            String chipText = offlineContestants.nameForSlot(s) + ": " + offlineContestants.scoreForSlot(s);
+            TextView chip = makeBoardText(chipText, 12f,
+                    s == boardPickerSlot ? 0xFFFFD761 : 0xFFFFFFFF, Gravity.CENTER);
+            chip.setBackground(headerBg());
+            chip.setPadding(dpx(8), dpx(4), dpx(8), dpx(4));
+            LinearLayout.LayoutParams chLp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            chLp.setMargins(dpx(4), 0, dpx(4), 0);
+            chip.setLayoutParams(chLp);
+            scoresRow.addView(chip);
+        }
+        scoresScroll.addView(scoresRow);
+        root.addView(scoresScroll);
+
+        LinearLayout colsRow = new LinearLayout(this);
+        colsRow.setOrientation(LinearLayout.HORIZONTAL);
+        colsRow.setLayoutParams(new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        for (int col = 0; col < BOARD_COLS; col++) {
+            LinearLayout colLay = new LinearLayout(this);
+            colLay.setOrientation(LinearLayout.VERTICAL);
+            LinearLayout.LayoutParams colLp = new LinearLayout.LayoutParams(0,
+                    LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+            colLp.setMargins(dpx(4), 0, dpx(4), 0);
+            colLay.setLayoutParams(colLp);
+
+            TextView header = makeBoardText(boardSelectedCategories.get(col), 12f, 0xFFFFFFFF, Gravity.CENTER);
+            header.setMaxLines(2);
+            header.setBackground(headerBg());
+            LinearLayout.LayoutParams hlp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, dpx(44));
+            hlp.bottomMargin = dpx(6);
+            header.setLayoutParams(hlp);
+            header.setPadding(dpx(2), dpx(2), dpx(2), dpx(2));
+            colLay.addView(header);
+
+            for (int row = 0; row < BOARD_ROWS; row++) {
+                colLay.addView(makeBoardCell(col, row));
+            }
+            colsRow.addView(colLay);
+        }
+        root.addView(colsRow);
+        overlay.addView(root);
+
+        if (boardPickerIsHuman) {
+            startBoardSelectTimer();
+        }
+    }
+
+    private void startBoardSelectTimer() {
+        cancelBoardSelectTimer();
+        boardSelectTimer = new CountDownTimer(BOARD_SELECT_SECONDS * 1000L, 1000L) {
+            @Override
+            public void onTick(long ms) {
+                int secs = (int) Math.ceil(ms / 1000.0);
+                if (boardSelectCountdownView != null) {
+                    boardSelectCountdownView.setText("⏱ " + secs);
+                    boardSelectCountdownView.setTextColor(
+                            secs > 10 ? 0xFF61FF39 : (secs > 5 ? 0xFFFFA726 : 0xFFFF5252));
+                }
+            }
+
+            @Override
+            public void onFinish() {
+                boardSelectTimer = null;
+                if (EXITING || !boardMode || !boardPickerIsHuman) return;
+                View overlay = findViewById(R.id.boardOverlay);
+                if (overlay == null || overlay.getVisibility() != View.VISIBLE) return;
+                int[] cell = pickRandomRemainingCell();
+                if (cell != null) {
+                    Toast.makeText(GameActivity.this, "انتهى وقت الاختيار، تم اختيار خانة تلقائياً",
+                            Toast.LENGTH_SHORT).show();
+                    onCellPicked(cell[0], cell[1]);
+                }
+            }
+        }.start();
+    }
+
+    private void cancelBoardSelectTimer() {
+        if (boardSelectTimer != null) {
+            boardSelectTimer.cancel();
+            boardSelectTimer = null;
+        }
+    }
+
+    private View makeBoardCell(final int col, final int row) {
+        final boolean consumed = boardCellConsumed[col][row];
+        TextView cell = makeBoardText(consumed ? "✓" : String.valueOf(BOARD_VALUES[row]),
+                consumed ? 16f : 20f, 0xFFFFFFFF, Gravity.CENTER);
+        cell.setBackground(valueCellBg(row, consumed));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dpx(42));
+        lp.bottomMargin = dpx(6);
+        cell.setLayoutParams(lp);
+        if (consumed) {
+            cell.setAlpha(0.45f);
+        } else {
+            cell.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    if (!boardMode || !boardPickerIsHuman) return;
+                    if (boardCellConsumed[col][row]) return;
+                    onCellPicked(col, row);
+                }
+            });
+        }
+        return cell;
+    }
+
+    private void hideBoardOverlay() {
+        cancelBoardSelectTimer();
+        View overlay = findViewById(R.id.boardOverlay);
+        if (overlay != null) overlay.setVisibility(View.GONE);
+    }
+
+    // ---- Board question display & resolution ----------------------------
+
+    /** Shows a chosen board question; enables the timer/clicks only for the human. */
+    private void showBoardQuestion(final Question question, final boolean humanTurn) {
+        if (EXITING || question == null) return;
+        boardCurrentQuestion = question;
+        txtQ.setText(question.Q);
+        applyQuestionTextSize(question.Q);
+
+        final ArrayList<Integer> answerOrder = getQuestionShuffled(question);
+        currentAnswerOrder.clear();
+        currentAnswerOrder.addAll(answerOrder);
+        final ArrayList<String> answerDisplayTexts = new ArrayList<>();
+        for (int i = 0; i < answerOrder.size(); i++) {
+            answerDisplayTexts.add(getAnswerText(question, answerOrder.get(i)));
+        }
+        applyAnswerTextSizes(answerDisplayTexts);
+
+        final Handler handler = new Handler();
+        Runnable runnable = new Runnable() {
+            int i = -1;
+
+            @Override
+            public void run() {
+                if (EXITING) return;
+                i++;
+                switch (i) {
+                    case 0:
+                    case 1:
+                    case 2:
+                    case 3:
+                        int answerKey = answerOrder.get(i);
+                        listAnswerViews.get(i).setText(answerDisplayTexts.get(i));
+                        if (answerKey == ANSWER_KEY_RIGHT) {
+                            rightAnswer = i + 1;
+                            listAnswerViews.get(i).setTag("1");
+                            txtRight = listAnswerViews.get(i);
+                            rlyRight = (RelativeLayout) ((ViewGroup) txtRight.getParent());
+                            imgRight = (ImageView) rlyRight.getChildAt(0);
+                        } else {
+                            listAnswerViews.get(i).setTag("0");
+                        }
+                        handler.postDelayed(this, 700);
+                        break;
+                    case 4:
+                        if (humanTurn) {
+                            CAN_PLAY = true;
+                            questionStartTimeMs = System.currentTimeMillis();
+                            startTimer(true);
+                            showDialog("اختر الإجابة الصحيحة", "", 600, 1200, R.drawable.mouth_01, true);
+                        } else {
+                            CAN_PLAY = false;
+                            scheduleBotBoardAnswer();
+                        }
+                        break;
+                }
+            }
+        };
+        handler.postDelayed(runnable, 700);
+    }
+
+    private void scheduleBotBoardAnswer() {
+        final Question q = boardCurrentQuestion;
+        final int slot = boardPickerSlot;
+        new Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if (EXITING || q != boardCurrentQuestion) return;
+                resolveBotBoardAnswer(slot);
+            }
+        }, 1800);
+    }
+
+    private void resolveBotBoardAnswer(final int slot) {
+        final boolean correct = offlineContestants.rollCorrectForSlot(slot,
+                boardCurrentQuestion != null ? boardCurrentQuestion.getLevel() : "0");
+        int pickIdx = correct ? rightAnswer : pickRandomWrongIndex(rightAnswer);
+        RelativeLayout rlyPick = (RelativeLayout) findViewById(boardFrameIdForIndex(pickIdx));
+        final ImageView imgPick = (rlyPick != null && rlyPick.getChildCount() > 0)
+                ? (ImageView) rlyPick.getChildAt(0) : null;
+        if (imgPick != null) imgPick.setImageResource(R.drawable.frame_final);
+        new Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if (EXITING) return;
+                if (correct) {
+                    if (imgPick != null) imgPick.setImageResource(R.drawable.frame_right);
+                    offlineContestants.awardCell(slot, currentBoardCellValue());
+                    playSound(R.raw.correct_answer, false, false);
+                } else {
+                    if (imgPick != null) imgPick.setImageResource(R.drawable.frame_wrong);
+                    if (imgRight != null) imgRight.setImageResource(R.drawable.frame_right);
+                    playSound(R.raw.wrong_answer, false, false);
+                }
+                offlineContestants.showSlotResult(slot, correct);
+                String name = offlineContestants.nameForSlot(slot);
+                showDialog(name + (correct ? " أجاب إجابة صحيحة" : " أجاب إجابة خاطئة"),
+                        "", 700, 2000, correct ? R.drawable.mouth_01 : R.drawable.mouth_05, false);
+                new Handler().postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (!EXITING) endBoardTurn();
+                    }
+                }, 2600);
+            }
+        }, 1300);
+    }
+
+    private int currentBoardCellValue() {
+        if (boardPickedRow >= 0 && boardPickedRow < BOARD_VALUES.length) {
+            return BOARD_VALUES[boardPickedRow];
+        }
+        return 0;
+    }
+
+    private int boardFrameIdForIndex(int idx) {
+        switch (idx) {
+            case 1: return R.id.frameA1;
+            case 2: return R.id.frameA2;
+            case 3: return R.id.frameA3;
+            case 4: return R.id.frameA4;
+            default: return R.id.frameA1;
+        }
+    }
+
+    private int pickRandomWrongIndex(int right) {
+        int idx;
+        do {
+            idx = 1 + boardRandom.nextInt(4);
+        } while (idx == right);
+        return idx;
+    }
+
+    // ---- Board UI helpers ------------------------------------------------
+
+    private Typeface getBoardFont() {
+        if (boardFont == null) {
+            try {
+                boardFont = ResourcesCompat.getFont(this, R.font.baloo);
+            } catch (Exception ignored) {
+            }
+        }
+        return boardFont;
+    }
+
+    private TextView makeBoardText(String text, float sizeSp, int color, int gravity) {
+        TextView tv = new TextView(this);
+        tv.setText(text);
+        tv.setTextColor(color);
+        tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, sizeSp);
+        tv.setGravity(gravity);
+        tv.setIncludeFontPadding(false);
+        Typeface f = getBoardFont();
+        if (f != null) tv.setTypeface(f, Typeface.BOLD);
+        else tv.setTypeface(Typeface.DEFAULT_BOLD);
+        return tv;
+    }
+
+    private GradientDrawable categoryTileBg(boolean selected) {
+        GradientDrawable d = new GradientDrawable();
+        d.setColor(selected ? 0xFF1E5AA8 : 0xCC13294B);
+        d.setCornerRadius(dpx(12));
+        d.setStroke(dpx(selected ? 3 : 1), selected ? 0xFFFFC107 : 0x66FFFFFF);
+        return d;
+    }
+
+    private GradientDrawable valueCellBg(int tier, boolean consumed) {
+        GradientDrawable d = new GradientDrawable();
+        int color;
+        if (consumed) color = 0xFF2A3550;
+        else if (tier == 0) color = 0xFF2E9E5B;
+        else if (tier == 1) color = 0xFFE08A1E;
+        else color = 0xFFC0392B;
+        d.setColor(color);
+        d.setCornerRadius(dpx(10));
+        d.setStroke(dpx(1), 0x55FFFFFF);
+        return d;
+    }
+
+    private GradientDrawable headerBg() {
+        GradientDrawable d = new GradientDrawable();
+        d.setColor(0xFF0E2347);
+        d.setCornerRadius(dpx(8));
+        d.setStroke(dpx(1), 0x66FFFFFF);
+        return d;
+    }
+
+    private GradientDrawable pillBg(int color) {
+        GradientDrawable d = new GradientDrawable();
+        d.setColor(color);
+        d.setCornerRadius(dpx(25));
+        return d;
+    }
+
+    private int dpx(float dp) {
+        return Math.round(getResources().getDisplayMetrics().density * dp);
     }
 
     private void applyOnlineRoundMetrics() {
@@ -4450,6 +5189,7 @@ public class GameActivity extends AppCompatActivity {
         detachQuestionSyncListener();
         detachServerTimeOffsetListener();
         if(cdtProgress != null) cdtProgress.cancel();
+        cancelBoardSelectTimer();
         stopCampaignStageTimer();
         if (offlineContestants != null) offlineContestants.release();
         if (soundController != null) soundController.releaseCurrent();
@@ -4479,6 +5219,14 @@ public class GameActivity extends AppCompatActivity {
     @Override
     public void onBackPressed() {
         confirmExit();
+        // The board overlay is brought to the front, so lift the exit dialog above
+        // it while it is showing, otherwise the confirmation would be hidden.
+        if (boardMode && rlyDialog != null) {
+            View overlay = findViewById(R.id.boardOverlay);
+            if (overlay != null && overlay.getVisibility() == View.VISIBLE) {
+                rlyDialog.bringToFront();
+            }
+        }
     }
 
     private void initAdsIfNeeded() {
