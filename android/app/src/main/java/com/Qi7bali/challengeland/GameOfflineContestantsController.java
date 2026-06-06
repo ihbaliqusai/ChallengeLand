@@ -60,13 +60,17 @@ final class GameOfflineContestantsController {
             "خالد", "عمر", "فهد", "مازن", "محمود", "إيلين", "سارة", "تاليا"
     };
 
-    /** Per-character looping clip (res/raw); 0 means use the static image instead. */
-    private static final int[] CONTESTANT_VIDEOS = new int[CHARACTER_COUNT];
-    static {
-        CONTESTANT_VIDEOS[1] = R.raw.video_omar;     // Omar
-        CONTESTANT_VIDEOS[4] = R.raw.video_mahmoud;  // Mahmoud
-        CONTESTANT_VIDEOS[5] = R.raw.video_ellen;    // Ellen
-    }
+    /** Per-character looping clip (res/raw); 0 means fall back to the static image. */
+    private static final int[] CONTESTANT_VIDEOS = {
+            R.raw.video_khaled,
+            R.raw.video_omar,
+            R.raw.video_fahad,
+            R.raw.video_mazen,
+            R.raw.video_mahmoud,
+            R.raw.video_ellen,
+            R.raw.video_sarah,
+            R.raw.video_talia
+    };
 
     /** Podium artwork aspect (width / height, 1086 x 1448). */
     private static final float PODIUM_ASPECT = 1086f / 1448f;
