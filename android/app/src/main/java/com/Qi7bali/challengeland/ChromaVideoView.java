@@ -67,7 +67,8 @@ final class ChromaVideoView extends TextureView
     private static final float[] QUAD_POS = {-1f, -1f, 1f, -1f, -1f, 1f, 1f, 1f};
     private static final float[] QUAD_TEX = {0f, 0f, 1f, 0f, 0f, 1f, 1f, 1f};
 
-    private final int rawResId;
+    private final int idleResId;
+    private int currentResId;
     private volatile boolean released;
 
     private HandlerThread glThread;
@@ -92,9 +93,9 @@ final class ChromaVideoView extends TextureView
     private int viewWidth;
     private int viewHeight;
 
-    ChromaVideoView(Context context, int rawResId) {
+    ChromaVideoView(Context context, int idleResId) {
         super(context);
-        this.rawResId = rawResId;
+        this.idleResId = idleResId;
         setOpaque(false);
         setSurfaceTextureListener(this);
     }
@@ -180,21 +181,69 @@ final class ChromaVideoView extends TextureView
             videoSurface = new Surface(videoTexture);
 
             player = new MediaPlayer();
-            AssetFileDescriptor afd = getContext().getResources().openRawResourceFd(rawResId);
+            playClip(idleResId, true);
+        } catch (Exception e) {
+            Log.w(TAG, "initGl failed", e);
+            teardown();
+        }
+    }
+
+    /**
+     * Plays a one-shot reaction clip (e.g. correct / wrong answer) and then returns
+     * to the looping idle clip. No-op if the surface is not ready yet or resId is 0.
+     */
+    void playReaction(int resId) {
+        if (resId == 0) {
+            return;
+        }
+        final Handler handler = glHandler;
+        if (handler == null) {
+            return;
+        }
+        handler.post(() -> playClip(resId, false));
+    }
+
+    /** Returns to the looping idle clip if a reaction is currently showing. */
+    void resetToIdle() {
+        final Handler handler = glHandler;
+        if (handler == null) {
+            return;
+        }
+        handler.post(() -> {
+            if (currentResId != idleResId) {
+                playClip(idleResId, true);
+            }
+        });
+    }
+
+    /** Swaps the playing clip (runs on glThread). When {@code loop} is false the clip
+     *  plays once and then auto-returns to the idle clip. */
+    private void playClip(int resId, boolean loop) {
+        if (player == null || videoSurface == null) {
+            return;
+        }
+        try {
+            player.reset();
+            AssetFileDescriptor afd = getContext().getResources().openRawResourceFd(resId);
             player.setDataSource(afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
             afd.close();
             player.setSurface(videoSurface);
-            player.setLooping(true);
             player.setVolume(0f, 0f);
+            player.setLooping(loop);
             player.setOnPreparedListener(mp -> {
                 if (!released) {
                     mp.start();
                 }
             });
+            player.setOnCompletionListener(mp -> {
+                if (!released && !loop) {
+                    playClip(idleResId, true);
+                }
+            });
+            currentResId = resId;
             player.prepareAsync();
         } catch (Exception e) {
-            Log.w(TAG, "initGl failed", e);
-            teardown();
+            Log.w(TAG, "playClip failed", e);
         }
     }
 

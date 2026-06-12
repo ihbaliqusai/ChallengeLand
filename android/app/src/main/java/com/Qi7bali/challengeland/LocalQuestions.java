@@ -17,8 +17,9 @@ import io.flutter.FlutterInjector;
 
 public class LocalQuestions {
 
-    /** Category used for questions that have no (or an empty) Category field. */
-    public static final String FALLBACK_CATEGORY = "منوّعات";
+    /** Category used for questions that have no (or an empty) Category field.
+     *  Must match a file name under assets/categories (منوعات.png). */
+    public static final String FALLBACK_CATEGORY = "منوعات";
     public static ArrayList<Question> load(Context context) {
         final ArrayList<Question> questions = new ArrayList<>();
         final ArrayList<Question> allQuestions0 = new ArrayList<>();
@@ -106,7 +107,7 @@ public class LocalQuestions {
 
     /**
      * Maps a difficulty Level ("0".."8") to one of three board tiers:
-     * 0 = easy (value 25), 1 = medium (value 50), 2 = hard (value 75).
+     * 0 = easy (value 200), 1 = medium (value 400), 2 = hard (value 600).
      */
     public static int tierForLevel(String level) {
         int lv;

@@ -1,0 +1,219 @@
+[
+  {
+    "category": "لغة وادب",
+    "easy": 337,
+    "medium": 225,
+    "hard": 232,
+    "total": 794
+  },
+  {
+    "category": "ألغاز",
+    "easy": 343,
+    "medium": 193,
+    "hard": 29,
+    "total": 565
+  },
+  {
+    "category": "عواصم",
+    "easy": 112,
+    "medium": 112,
+    "hard": 21,
+    "total": 245
+  },
+  {
+    "category": "قصة فيلم",
+    "easy": 204,
+    "medium": 18,
+    "hard": 8,
+    "total": 230
+  },
+  {
+    "category": "علوم وفضاء",
+    "easy": 81,
+    "medium": 70,
+    "hard": 76,
+    "total": 227
+  },
+  {
+    "category": "رياضة",
+    "easy": 143,
+    "medium": 47,
+    "hard": 13,
+    "total": 203
+  },
+  {
+    "category": "حيوانات",
+    "easy": 160,
+    "medium": 9,
+    "hard": 12,
+    "total": 181
+  },
+  {
+    "category": "أمثال",
+    "easy": 134,
+    "medium": 11,
+    "hard": 2,
+    "total": 147
+  },
+  {
+    "category": "جسم الإنسان",
+    "easy": 54,
+    "medium": 51,
+    "hard": 27,
+    "total": 132
+  },
+  {
+    "category": "جغرافيا",
+    "easy": 47,
+    "medium": 53,
+    "hard": 19,
+    "total": 119
+  },
+  {
+    "category": "دين واسلاميات",
+    "easy": 70,
+    "medium": 40,
+    "hard": 8,
+    "total": 118
+  },
+  {
+    "category": "دول",
+    "easy": 59,
+    "medium": 32,
+    "hard": 16,
+    "total": 107
+  },
+  {
+    "category": "تاريخ",
+    "easy": 38,
+    "medium": 34,
+    "hard": 20,
+    "total": 92
+  },
+  {
+    "category": "عملات",
+    "easy": 49,
+    "medium": 28,
+    "hard": 5,
+    "total": 82
+  },
+  {
+    "category": "كأس العالم",
+    "easy": 46,
+    "medium": 27,
+    "hard": 9,
+    "total": 82
+  },
+  {
+    "category": "معلومات عامة",
+    "easy": 36,
+    "medium": 9,
+    "hard": 2,
+    "total": 47
+  },
+  {
+    "category": "طعام وشراب",
+    "easy": 23,
+    "medium": 12,
+    "hard": 11,
+    "total": 46
+  },
+  {
+    "category": "فنون وسينما",
+    "easy": 25,
+    "medium": 15,
+    "hard": 6,
+    "total": 46
+  },
+  {
+    "category": "اختراعات",
+    "easy": 26,
+    "medium": 12,
+    "hard": 5,
+    "total": 43
+  },
+  {
+    "category": "سياحة وسفر",
+    "easy": 22,
+    "medium": 12,
+    "hard": 6,
+    "total": 40
+  },
+  {
+    "category": "صحة",
+    "easy": 15,
+    "medium": 17,
+    "hard": 8,
+    "total": 40
+  },
+  {
+    "category": "تقنية",
+    "easy": 20,
+    "medium": 13,
+    "hard": 6,
+    "total": 39
+  },
+  {
+    "category": "نباتات",
+    "easy": 18,
+    "medium": 13,
+    "hard": 8,
+    "total": 39
+  },
+  {
+    "category": "سبيس تون",
+    "easy": 23,
+    "medium": 13,
+    "hard": 2,
+    "total": 38
+  },
+  {
+    "category": "سيرة ذاتية",
+    "easy": 18,
+    "medium": 17,
+    "hard": 2,
+    "total": 37
+  },
+  {
+    "category": "قصص الأنبياء",
+    "easy": 23,
+    "medium": 11,
+    "hard": 2,
+    "total": 36
+  },
+  {
+    "category": "كلثوميات",
+    "easy": 12,
+    "medium": 17,
+    "hard": 7,
+    "total": 36
+  },
+  {
+    "category": "سيارات",
+    "easy": 17,
+    "medium": 13,
+    "hard": 5,
+    "total": 35
+  },
+  {
+    "category": "منوعات",
+    "easy": 13,
+    "medium": 16,
+    "hard": 6,
+    "total": 35
+  },
+  {
+    "category": "لغات",
+    "easy": 18,
+    "medium": 12,
+    "hard": 4,
+    "total": 34
+  },
+  {
+    "category": "قصة مسلسل",
+    "easy": 13,
+    "medium": 16,
+    "hard": 4,
+    "total": 33
+  }
+]

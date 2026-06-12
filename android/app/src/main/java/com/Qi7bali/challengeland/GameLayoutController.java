@@ -114,6 +114,54 @@ final class GameLayoutController {
         configureAnswerInnerControls(rowHeightDp, shortScreen);
         configureQuestionCounter(screenHeightDp);
         configureScoreBoard(screenWidthDp, screenHeightDp);
+        configureHostAndPlate(screenHeightDp);
+    }
+
+    // Base (XML) dimensions of the presenter + name plate, tuned for a standard
+    // (~480dp tall) landscape screen.
+    private static final int HOST_WIDTH_DP = 208;
+    private static final int HOST_HEIGHT_DP = 141;
+    private static final int HOST_BOTTOM_MARGIN_DP = 240;
+    private static final int PLATE_WIDTH_DP = 152;
+    private static final int PLATE_HEIGHT_DP = 64;
+    private static final int PLATE_BOTTOM_MARGIN_DP = 182;
+    private static final float PLATE_TEXT_SP = 19f;
+
+    /**
+     * The presenter and his name plate use fixed-size art sized for a standard
+     * (~480dp tall) landscape screen. On shorter screens the presenter's head would
+     * clip off the top, so scale the whole unit down proportionally. Normal and large
+     * screens (>= 400dp tall) keep the XML-tuned placement untouched.
+     */
+    private void configureHostAndPlate(float screenHeightDp) {
+        final float scale = Math.min(1f, screenHeightDp / 400f);
+        if (scale > 0.995f) {
+            return;
+        }
+
+        View host = activity.findViewById(R.id.rlyPerson);
+        if (host != null) {
+            host.setPivotX(activity.dp(HOST_WIDTH_DP) / 2f);   // shrink about the bottom-centre
+            host.setPivotY(activity.dp(HOST_HEIGHT_DP));
+            host.setScaleX(-scale);                            // keep the mirrored facing
+            host.setScaleY(scale);
+            setBottomMargin(host, Math.round(HOST_BOTTOM_MARGIN_DP * scale));
+        }
+
+        View plate = activity.findViewById(R.id.hostNamePlate);
+        if (plate != null) {
+            ViewGroup.LayoutParams params = plate.getLayoutParams();
+            if (params != null) {
+                params.width = activity.dp(Math.round(PLATE_WIDTH_DP * scale));
+                params.height = activity.dp(Math.round(PLATE_HEIGHT_DP * scale));
+                plate.setLayoutParams(params);
+            }
+            setBottomMargin(plate, Math.round(PLATE_BOTTOM_MARGIN_DP * scale));
+            TextView plateText = plate.findViewById(R.id.txtHostNamePlate);
+            if (plateText != null) {
+                plateText.setTextSize(TypedValue.COMPLEX_UNIT_SP, PLATE_TEXT_SP * scale);
+            }
+        }
     }
 
     // ---- Shared question/answer vertical metrics (used by the contestants controller too) ----

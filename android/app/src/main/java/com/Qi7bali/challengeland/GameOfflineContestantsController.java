@@ -8,6 +8,7 @@ import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewOutlineProvider;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -60,7 +61,7 @@ final class GameOfflineContestantsController {
             "خالد", "عمر", "فهد", "مازن", "محمود", "إيلين", "سارة", "تاليا"
     };
 
-    /** Per-character looping clip (res/raw); 0 means fall back to the static image. */
+    /** Per-character looping idle clip (res/raw); 0 means fall back to the static image. */
     private static final int[] CONTESTANT_VIDEOS = {
             R.raw.video_khaled,
             R.raw.video_omar,
@@ -72,6 +73,30 @@ final class GameOfflineContestantsController {
             R.raw.video_talia
     };
 
+    // Per-character one-shot reaction clips played when the round is revealed; the
+    // figure returns to its idle loop afterwards. 0 = no reaction yet (stays idle).
+    // Filled in per character as the clips become available.
+    private static final int[] CONTESTANT_VIDEOS_CORRECT = new int[CHARACTER_COUNT];
+    private static final int[] CONTESTANT_VIDEOS_WRONG = new int[CHARACTER_COUNT];
+    static {
+        CONTESTANT_VIDEOS_CORRECT[0] = R.raw.video_khaled_correct;  // Khaled
+        CONTESTANT_VIDEOS_WRONG[0]   = R.raw.video_khaled_wrong;
+        CONTESTANT_VIDEOS_CORRECT[1] = R.raw.video_omar_correct;    // Omar
+        CONTESTANT_VIDEOS_WRONG[1]   = R.raw.video_omar_wrong;
+        CONTESTANT_VIDEOS_CORRECT[2] = R.raw.video_fahad_correct;   // Fahad
+        CONTESTANT_VIDEOS_WRONG[2]   = R.raw.video_fahad_wrong;
+        CONTESTANT_VIDEOS_CORRECT[3] = R.raw.video_mazen_correct;   // Mazen
+        CONTESTANT_VIDEOS_WRONG[3]   = R.raw.video_mazen_wrong;
+        CONTESTANT_VIDEOS_CORRECT[4] = R.raw.video_mahmoud_correct; // Mahmoud
+        CONTESTANT_VIDEOS_WRONG[4]   = R.raw.video_mahmoud_wrong;
+        CONTESTANT_VIDEOS_CORRECT[5] = R.raw.video_ellen_correct;   // Ellen
+        CONTESTANT_VIDEOS_WRONG[5]   = R.raw.video_ellen_wrong;
+        CONTESTANT_VIDEOS_CORRECT[6] = R.raw.video_sarah_correct;   // Sarah
+        CONTESTANT_VIDEOS_WRONG[6]   = R.raw.video_sarah_wrong;
+        CONTESTANT_VIDEOS_CORRECT[7] = R.raw.video_talia_correct;   // Talia
+        CONTESTANT_VIDEOS_WRONG[7]   = R.raw.video_talia_wrong;
+    }
+
     /** Podium artwork aspect (width / height, 1086 x 1448). */
     private static final float PODIUM_ASPECT = 1086f / 1448f;
     /** Contestant artwork aspect (width / height, 988 x 2390). */
@@ -82,6 +107,13 @@ final class GameOfflineContestantsController {
     private static final float CONTESTANT_SCALE = 1.7f;
     /** Aspect (width / height) of the whole podium+contestant stack, used for fitting. */
     private static final float STACK_ASPECT = PODIUM_ASPECT / CONTESTANT_SCALE;
+    /**
+     * Trims the bottom of the contestant (as a fraction of podium height) so the
+     * legs/feet are clipped behind the podium body instead of poking out beside the
+     * narrow podium base. The head and upper body stay at the same height. Tuned to
+     * the worst case (feet sitting right at the frame bottom, e.g. Sarah/Mazen).
+     */
+    private static final float FOOT_CLIP_F = 0.35f;
 
     // Panel placement on the podium: vertical centre as a fraction of the rendered
     // podium height, measured from the podium bottom (the panels are part of the
@@ -112,6 +144,7 @@ final class GameOfflineContestantsController {
     private TextView[] scoreViews;
     private TextView[] nameViews;
     private ImageView[] statusViews;
+    private ChromaVideoView[] slotVideos;
     private final List<ChromaVideoView> videoViews = new ArrayList<>();
     private TextView[] boardNameViews;
     private TextView[] boardScoreViews;
@@ -152,6 +185,7 @@ final class GameOfflineContestantsController {
         scoreViews = new TextView[count];
         nameViews = new TextView[count];
         statusViews = new ImageView[count];
+        slotVideos = new ChromaVideoView[count];
 
         try {
             balooFont = ResourcesCompat.getFont(activity, R.font.baloo);
@@ -207,7 +241,6 @@ final class GameOfflineContestantsController {
 
         final float podiumHeightDp = podiumWidthDp / PODIUM_ASPECT;
         final float contestantHeightDp = podiumHeightDp * CONTESTANT_SCALE; // the tallest layer
-        final float contestantWidthDp = contestantHeightDp * CONTESTANT_ASPECT;
 
         // Match the row height to the full stack so it anchors to the bottom correctly;
         // the contestant overflows above the podium (clipChildren is false).
@@ -224,14 +257,15 @@ final class GameOfflineContestantsController {
             cell.setClipToPadding(false);
 
             // The contestant stands behind the podium (added first -> drawn underneath).
-            // Three characters are animated clips with their black background keyed
-            // out at draw time; the rest are static artwork.
+            // Each character is an animated clip with its black background keyed out at
+            // draw time (static artwork is the fallback).
             int videoRes = CONTESTANT_VIDEOS[charIdx];
             View contestant;
             float contestantBoxWidthDp;
             if (videoRes != 0) {
                 ChromaVideoView video = new ChromaVideoView(activity, videoRes);
                 videoViews.add(video);
+                slotVideos[i] = video;
                 contestant = video;
                 contestantBoxWidthDp = contestantHeightDp * VIDEO_ASPECT;
             } else {
@@ -239,13 +273,37 @@ final class GameOfflineContestantsController {
                 image.setScaleType(ImageView.ScaleType.FIT_CENTER);
                 image.setImageResource(CONTESTANT_DRAWABLES[charIdx]);
                 contestant = image;
-                contestantBoxWidthDp = contestantWidthDp;
+                contestantBoxWidthDp = contestantHeightDp * CONTESTANT_ASPECT;
             }
+
+            // Wrap the figure in a frame that clips its bottom behind the podium body,
+            // so the legs/feet are trimmed instead of poking out beside the narrow
+            // podium base. The frame is only as wide as the figure (so a raised hand /
+            // shoulders are never clipped sideways) and its bottom sits FOOT_CLIP_F
+            // above the floor; the figure inside reaches the floor and overflows below,
+            // where it gets clipped. The head (top) stays free at the same height.
+            final float footClipDp = FOOT_CLIP_F * podiumHeightDp;
+            FrameLayout figureClip = new FrameLayout(activity);
+            FrameLayout.LayoutParams clipParams = new FrameLayout.LayoutParams(
+                    px(contestantBoxWidthDp, density),
+                    px(contestantHeightDp - footClipDp, density));
+            clipParams.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
+            clipParams.bottomMargin = px(footClipDp, density);
+            figureClip.setLayoutParams(clipParams);
+            figureClip.setClipChildren(true);
+            figureClip.setClipToPadding(true);
+            // Outline clip reliably trims the child TextureView (the video) to the
+            // frame bounds, which plain clipChildren can miss on some GPUs.
+            figureClip.setOutlineProvider(ViewOutlineProvider.BOUNDS);
+            figureClip.setClipToOutline(true);
+
             FrameLayout.LayoutParams contestantParams = new FrameLayout.LayoutParams(
                     px(contestantBoxWidthDp, density), px(contestantHeightDp, density));
             contestantParams.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
+            contestantParams.bottomMargin = -px(footClipDp, density);
             contestant.setLayoutParams(contestantParams);
-            cell.addView(contestant);
+            figureClip.addView(contestant);
+            cell.addView(figureClip);
 
             // The podium is drawn in front, anchored to the bottom of the cell.
             ImageView podium = new ImageView(activity);
@@ -316,6 +374,9 @@ final class GameOfflineContestantsController {
         for (int i = 0; i < count; i++) {
             roundCorrect[i] = false;
             setStatusIcon(i, R.drawable.ic_status_waiting);
+            if (slotVideos != null && slotVideos[i] != null) {
+                slotVideos[i].resetToIdle(); // drop any lingering reaction from last round
+            }
         }
         for (int i = 1; i < count; i++) {
             roundCorrect[i] = rollCorrect(questionLevel, intelligence[i]);
@@ -338,6 +399,7 @@ final class GameOfflineContestantsController {
             } else {
                 setStatusIcon(i, R.drawable.ic_status_wrong);
             }
+            triggerReaction(i, roundCorrect[i]);
         }
         refreshScoreBoard();
     }
@@ -357,6 +419,7 @@ final class GameOfflineContestantsController {
     /** Shows the correct/wrong status icon on a contestant's podium (board mode). */
     void showSlotResult(int slot, boolean correct) {
         setStatusIcon(slot, correct ? R.drawable.ic_status_correct : R.drawable.ic_status_wrong);
+        triggerReaction(slot, correct);
     }
 
     /** Rolls whether a specific bot answers a board question correctly. */
@@ -439,6 +502,16 @@ final class GameOfflineContestantsController {
         }
     }
 
+    /** Plays the slot's correct/wrong reaction clip, if that character has one. */
+    private void triggerReaction(int slot, boolean correct) {
+        if (slotVideos == null || slot >= slotVideos.length || slotVideos[slot] == null) {
+            return;
+        }
+        int charIdx = (selectedCharacterIndex + slot) % CHARACTER_COUNT;
+        int resId = correct ? CONTESTANT_VIDEOS_CORRECT[charIdx] : CONTESTANT_VIDEOS_WRONG[charIdx];
+        slotVideos[slot].playReaction(resId); // no-op when resId == 0
+    }
+
     private String resolvePlayerName() {
         String name = activity.myName;
         if (name == null || name.trim().isEmpty()) {
@@ -449,13 +522,20 @@ final class GameOfflineContestantsController {
     }
 
     private boolean rollCorrect(String level, int intel) {
+        // Success odds fall monotonically with question level (data uses 0..8), so the
+        // bots are not better on the hard high-value cells than on the easy ones.
         int base;
         switch (level == null ? "" : level) {
             case "0": base = 90; break;
             case "1": base = 78; break;
             case "2": base = 62; break;
             case "3": base = 48; break;
-            default: base = 80; break;
+            case "4": base = 40; break;
+            case "5": base = 34; break;
+            case "6": base = 28; break;
+            case "7": base = 24; break;
+            case "8": base = 20; break;
+            default: base = 60; break; // unknown level
         }
         int chance = base + (intel - 68) / 2;
         if (chance < 18) chance = 18;

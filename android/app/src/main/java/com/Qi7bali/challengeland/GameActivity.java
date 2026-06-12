@@ -4,6 +4,8 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.media.MediaPlayer;
@@ -30,12 +32,15 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.ValueEventListener;
 
+import java.io.InputStream;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
@@ -182,23 +187,37 @@ public class GameActivity extends AppCompatActivity {
 
     // ---- Offline board ("سين جيم") mode ----
     boolean boardMode = false;
-    static final int[] BOARD_VALUES = {25, 50, 75};
-    static final int BOARD_COLS = 6;
-    static final int BOARD_ROWS = 3;
+    static final int[] BOARD_VALUES = {200, 400, 600};
+    // Classic سين جيم card: every category carries two questions per value — rows 0..2
+    // are the pills left of the artwork card, rows 3..5 the ones right of it.
+    static final int BOARD_ROWS = 6;
+    // The question pool is bucketed into 3 difficulty tiers (200=easy/400=medium/600=hard).
+    static final int BOARD_POOL_TIERS = 3;
     private LinkedHashMap<String, ArrayList<ArrayList<Question>>> boardPool;
     private final ArrayList<String> boardAllCategories = new ArrayList<>();
     private final ArrayList<String> boardSelectedCategories = new ArrayList<>();
     private Question[][] boardCellQuestion;     // [col][row]
     private boolean[][] boardCellConsumed;      // [col][row]
+    private int boardCols;                      // category count = number of players, so the
+                                                // board holds exactly 6 cells per player
     private int boardCellsRemaining;
     private int boardTurnIndex;                 // 0-based turn counter
+    private int boardTotalTurns;                // turns actually played: largest multiple of
+                                                // the player count <= total cells, so everyone
+                                                // answers the exact same number of questions
     private int boardPickerSlot;                // current picker (contestant slot)
     private boolean boardPickerIsHuman;
     private Question boardCurrentQuestion;
     private int boardPickedCol, boardPickedRow;
     private final Random boardRandom = new Random();
     private Typeface boardFont;
+    private HashMap<String, String> categoryAssetIndex;   // normalized name -> asset path
+    private final HashMap<String, Bitmap> categoryBitmapCache = new HashMap<>();
     static final int BOARD_SELECT_SECONDS = 30;
+    // How long to linger on the answer reveal (status icon + reaction clip) before the
+    // board overlay covers it again for the next turn. Kept generous so the reaction
+    // videos have time to play out.
+    static final int BOARD_REVEAL_HOLD_MS = 5000;
     private CountDownTimer boardSelectTimer;
     private TextView boardSelectCountdownView;
 
@@ -1470,7 +1489,7 @@ public class GameActivity extends AppCompatActivity {
                                     "", 1000, 2000, R.drawable.mouth_05, false);
                         }
                         CAN_HOME = true;
-                        handler.postDelayed(this, 3000);
+                        handler.postDelayed(this, boardMode ? BOARD_REVEAL_HOLD_MS : 3000);
                         break;
                     case 2:
                         if (boardMode) {
@@ -1540,11 +1559,16 @@ public class GameActivity extends AppCompatActivity {
     //  Offline board ("سين جيم") mode
     //  Flow: category select -> board grid -> question -> board -> ... -> end.
     //  You and the AI bots take turns picking a (category, value) cell; the
-    //  picker answers and earns the cell value. Ends when all 18 cells are used.
+    //  picker answers and earns the cell value. The board holds one category per
+    //  player with 6 cells each, so every contestant answers exactly 6 questions.
     // =====================================================================
 
     private void startBoardMode() {
         applyBoardModeChrome();
+        // One category card per player so every contestant answers exactly 6 questions
+        // (two per value). Capped to the categories actually available.
+        int players = offlineContestants.contestantCount();
+        boardCols = Math.max(1, Math.min(players, boardAllCategories.size()));
         showCategorySelect();
     }
 
@@ -1594,14 +1618,14 @@ public class GameActivity extends AppCompatActivity {
         root.setPadding(dpx(24), dpx(14), dpx(24), dpx(14));
         scroll.addView(root);
 
-        TextView title = makeBoardText("اختر 6 فئات للعب", 22f, 0xFFFFFFFF, Gravity.CENTER);
+        TextView title = makeBoardText("اختر " + boardCols + " فئات للعب", 22f, 0xFFFFFFFF, Gravity.CENTER);
         LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         tlp.bottomMargin = dpx(4);
         title.setLayoutParams(tlp);
         root.addView(title);
 
-        final TextView counter = makeBoardText("0 / 6", 16f, 0xFFFFD761, Gravity.CENTER);
+        final TextView counter = makeBoardText("0 / " + boardCols, 16f, 0xFFFFD761, Gravity.CENTER);
         LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         clp.bottomMargin = dpx(10);
@@ -1631,15 +1655,15 @@ public class GameActivity extends AppCompatActivity {
                                 selected.remove(category);
                                 tile.setBackground(categoryTileBg(false));
                             } else {
-                                if (selected.size() >= BOARD_COLS) {
-                                    Toast.makeText(GameActivity.this, "اخترت 6 فئات بالفعل", Toast.LENGTH_SHORT).show();
+                                if (selected.size() >= boardCols) {
+                                    Toast.makeText(GameActivity.this, "اخترت " + boardCols + " فئات بالفعل", Toast.LENGTH_SHORT).show();
                                     return;
                                 }
                                 selected.add(category);
                                 tile.setBackground(categoryTileBg(true));
                             }
-                            counter.setText(selected.size() + " / 6");
-                            boolean ready = selected.size() == BOARD_COLS;
+                            counter.setText(selected.size() + " / " + boardCols);
+                            boolean ready = selected.size() == boardCols;
                             confirm.setEnabled(ready);
                             confirm.setAlpha(ready ? 1f : 0.5f);
                         }
@@ -1668,7 +1692,7 @@ public class GameActivity extends AppCompatActivity {
         confirm.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if (selected.size() == BOARD_COLS) {
+                if (selected.size() == boardCols) {
                     onCategoriesChosen(new ArrayList<>(selected));
                 }
             }
@@ -1680,15 +1704,26 @@ public class GameActivity extends AppCompatActivity {
 
     private FrameLayout makeCategoryTile(String category) {
         FrameLayout tile = new FrameLayout(this);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dpx(60), 1f);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dpx(86), 1f);
         lp.setMargins(dpx(5), dpx(5), dpx(5), dpx(5));
         tile.setLayoutParams(lp);
         tile.setBackground(categoryTileBg(false));
-        TextView label = makeBoardText(category, 13f, 0xFFFFFFFF, Gravity.CENTER);
-        label.setMaxLines(2);
+        Bitmap art = categoryBitmap(category);
+        if (art != null) {
+            ImageView img = new ImageView(this);
+            img.setImageBitmap(art);
+            img.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            img.setPadding(dpx(6), dpx(4), dpx(6), dpx(24));
+            img.setLayoutParams(new FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+            tile.addView(img);
+        }
+        TextView label = makeBoardText(category, 12f, 0xFFFFFFFF, Gravity.CENTER);
+        label.setMaxLines(1);
         label.setPadding(dpx(4), dpx(2), dpx(4), dpx(2));
         label.setLayoutParams(new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT,
+                Gravity.BOTTOM));
         tile.addView(label);
         return tile;
     }
@@ -1696,18 +1731,29 @@ public class GameActivity extends AppCompatActivity {
     private void onCategoriesChosen(ArrayList<String> chosen) {
         boardSelectedCategories.clear();
         boardSelectedCategories.addAll(chosen);
-        boardCellQuestion = new Question[BOARD_COLS][BOARD_ROWS];
-        boardCellConsumed = new boolean[BOARD_COLS][BOARD_ROWS];
+        boardCellQuestion = new Question[boardCols][BOARD_ROWS];
+        boardCellConsumed = new boolean[boardCols][BOARD_ROWS];
         Set<Question> used = new HashSet<>();
-        for (int col = 0; col < BOARD_COLS; col++) {
+        for (int col = 0; col < boardCols; col++) {
             String cat = boardSelectedCategories.get(col);
             for (int row = 0; row < BOARD_ROWS; row++) {
-                boardCellQuestion[col][row] = drawBoardQuestion(cat, row, used);
+                boardCellQuestion[col][row] = drawBoardQuestion(cat, boardTierForRow(row), used);
             }
         }
-        boardCellsRemaining = BOARD_COLS * BOARD_ROWS;
+        boardCellsRemaining = boardCols * BOARD_ROWS;
         boardTurnIndex = 0;
+        // Play only a whole number of full rounds so every contestant picks (and answers)
+        // the same count of questions, regardless of how many players there are.
+        int playerCount = offlineContestants.contestantCount();
+        boardTotalTurns = playerCount > 0
+                ? (boardCellsRemaining / playerCount) * playerCount
+                : boardCellsRemaining;
         beginBoardTurn();
+    }
+
+    /** Maps a cell row (0..5) onto its difficulty tier; both side columns run 200/400/600. */
+    private int boardTierForRow(int row) {
+        return row % BOARD_VALUES.length;
     }
 
     /** Draws one unused question for a (category, tier) cell, with fallbacks. */
@@ -1715,10 +1761,10 @@ public class GameActivity extends AppCompatActivity {
         Question q = pickUnused(boardTierList(category, tier), used);
         if (q != null) return q;
         // Same category, nearest other tiers.
-        for (int d = 1; d < BOARD_ROWS; d++) {
+        for (int d = 1; d < BOARD_POOL_TIERS; d++) {
             int[] alts = {tier - d, tier + d};
             for (int t : alts) {
-                if (t >= 0 && t < BOARD_ROWS) {
+                if (t >= 0 && t < BOARD_POOL_TIERS) {
                     q = pickUnused(boardTierList(category, t), used);
                     if (q != null) return q;
                 }
@@ -1727,7 +1773,7 @@ public class GameActivity extends AppCompatActivity {
         // Fallback bucket.
         q = pickUnused(boardTierList(LocalQuestions.FALLBACK_CATEGORY, tier), used);
         if (q != null) return q;
-        for (int t = 0; t < BOARD_ROWS; t++) {
+        for (int t = 0; t < BOARD_POOL_TIERS; t++) {
             q = pickUnused(boardTierList(LocalQuestions.FALLBACK_CATEGORY, t), used);
             if (q != null) return q;
         }
@@ -1766,7 +1812,7 @@ public class GameActivity extends AppCompatActivity {
     // ---- Turn loop -------------------------------------------------------
 
     private void beginBoardTurn() {
-        if (boardCellsRemaining <= 0) {
+        if (boardCellsRemaining <= 0 || boardTurnIndex >= boardTotalTurns) {
             finishBoardMatch();
             return;
         }
@@ -1798,7 +1844,7 @@ public class GameActivity extends AppCompatActivity {
 
     private int[] pickRandomRemainingCell() {
         ArrayList<int[]> remaining = new ArrayList<>();
-        for (int c = 0; c < BOARD_COLS; c++) {
+        for (int c = 0; c < boardCols; c++) {
             for (int r = 0; r < BOARD_ROWS; r++) {
                 if (!boardCellConsumed[c][r]) remaining.add(new int[]{c, r});
             }
@@ -1824,16 +1870,16 @@ public class GameActivity extends AppCompatActivity {
 
     private void endBoardTurn() {
         if (boardPickedCol >= 0 && boardPickedRow >= 0
-                && boardPickedCol < BOARD_COLS && boardPickedRow < BOARD_ROWS) {
+                && boardPickedCol < boardCols && boardPickedRow < BOARD_ROWS) {
             boardCellConsumed[boardPickedCol][boardPickedRow] = true;
         }
         boardCellsRemaining--;
         boardCurrentQuestion = null;
-        if (boardCellsRemaining <= 0) {
+        boardTurnIndex++;
+        if (boardCellsRemaining <= 0 || boardTurnIndex >= boardTotalTurns) {
             finishBoardMatch();
             return;
         }
-        boardTurnIndex++;
         beginBoardTurn();
     }
 
@@ -1853,12 +1899,18 @@ public class GameActivity extends AppCompatActivity {
         overlay.setVisibility(View.VISIBLE);
         overlay.bringToFront();
 
+        ScrollView gridScroll = new ScrollView(this);
+        gridScroll.setLayoutParams(new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+        gridScroll.setFillViewport(true);
+        gridScroll.setVerticalScrollBarEnabled(false);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setGravity(Gravity.CENTER);
         root.setLayoutParams(new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT));
         root.setPadding(dpx(16), dpx(8), dpx(16), dpx(8));
+        gridScroll.addView(root);
 
         String bannerText = boardPickerIsHuman ? "دورك.. اختر فئة وقيمة"
                 : ("دور " + offlineContestants.nameForSlot(boardPickerSlot));
@@ -1911,35 +1963,32 @@ public class GameActivity extends AppCompatActivity {
         scoresScroll.addView(scoresRow);
         root.addView(scoresScroll);
 
-        LinearLayout colsRow = new LinearLayout(this);
-        colsRow.setOrientation(LinearLayout.HORIZONTAL);
-        colsRow.setLayoutParams(new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
-        for (int col = 0; col < BOARD_COLS; col++) {
-            LinearLayout colLay = new LinearLayout(this);
-            colLay.setOrientation(LinearLayout.VERTICAL);
-            LinearLayout.LayoutParams colLp = new LinearLayout.LayoutParams(0,
-                    LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-            colLp.setMargins(dpx(4), 0, dpx(4), 0);
-            colLay.setLayoutParams(colLp);
-
-            TextView header = makeBoardText(boardSelectedCategories.get(col), 12f, 0xFFFFFFFF, Gravity.CENTER);
-            header.setMaxLines(2);
-            header.setBackground(headerBg());
-            LinearLayout.LayoutParams hlp = new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT, dpx(44));
-            hlp.bottomMargin = dpx(6);
-            header.setLayoutParams(hlp);
-            header.setPadding(dpx(2), dpx(2), dpx(2), dpx(2));
-            colLay.addView(header);
-
-            for (int row = 0; row < BOARD_ROWS; row++) {
-                colLay.addView(makeBoardCell(col, row));
+        // Category blocks, three per row like the classic سين جيم board: value pills
+        // (200/400/600) flank a centre card holding the category artwork and name.
+        LinearLayout blockRow = null;
+        for (int col = 0; col < boardCols; col++) {
+            if (col % 3 == 0) {
+                blockRow = new LinearLayout(this);
+                blockRow.setOrientation(LinearLayout.HORIZONTAL);
+                LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+                rowLp.bottomMargin = dpx(10);
+                blockRow.setLayoutParams(rowLp);
+                root.addView(blockRow);
             }
-            colsRow.addView(colLay);
+            blockRow.addView(makeCategoryBlock(col));
         }
-        root.addView(colsRow);
-        overlay.addView(root);
+        // Pad a partial last row so its blocks keep the same width as full rows.
+        if (blockRow != null) {
+            for (int i = ((boardCols - 1) % 3) + 1; i < 3; i++) {
+                View spacer = new View(this);
+                LinearLayout.LayoutParams sLp = new LinearLayout.LayoutParams(0, 1, 1f);
+                sLp.setMargins(dpx(6), 0, dpx(6), 0);
+                spacer.setLayoutParams(sLp);
+                blockRow.addView(spacer);
+            }
+        }
+        overlay.addView(gridScroll);
 
         if (boardPickerIsHuman) {
             startBoardSelectTimer();
@@ -1982,19 +2031,46 @@ public class GameActivity extends AppCompatActivity {
         }
     }
 
-    private View makeBoardCell(final int col, final int row) {
+    /** One category block: 200/400/600 pills on each side of the artwork card. */
+    private View makeCategoryBlock(final int col) {
+        LinearLayout block = new LinearLayout(this);
+        block.setOrientation(LinearLayout.HORIZONTAL);
+        block.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0,
+                LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        lp.setMargins(dpx(6), 0, dpx(6), 0);
+        block.setLayoutParams(lp);
+        block.addView(makePillColumn(col, 0));
+        block.addView(makeCategoryCard(col));
+        block.addView(makePillColumn(col, BOARD_VALUES.length));
+        return block;
+    }
+
+    private View makePillColumn(final int col, final int firstRow) {
+        LinearLayout column = new LinearLayout(this);
+        column.setOrientation(LinearLayout.VERTICAL);
+        column.setLayoutParams(new LinearLayout.LayoutParams(0,
+                LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        for (int i = 0; i < BOARD_VALUES.length; i++) {
+            column.addView(makeValuePill(col, firstRow + i));
+        }
+        return column;
+    }
+
+    private View makeValuePill(final int col, final int row) {
         final boolean consumed = boardCellConsumed[col][row];
-        TextView cell = makeBoardText(consumed ? "✓" : String.valueOf(BOARD_VALUES[row]),
-                consumed ? 16f : 20f, 0xFFFFFFFF, Gravity.CENTER);
-        cell.setBackground(valueCellBg(row, consumed));
+        TextView pill = makeBoardText(
+                consumed ? "✓" : String.valueOf(BOARD_VALUES[row % BOARD_VALUES.length]),
+                16f, consumed ? 0xFFFFFFFF : 0xFF8E1B1B, Gravity.CENTER);
+        pill.setBackground(valuePillBg(consumed));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dpx(42));
-        lp.bottomMargin = dpx(6);
-        cell.setLayoutParams(lp);
+                LinearLayout.LayoutParams.MATCH_PARENT, dpx(32));
+        lp.setMargins(dpx(3), dpx(3), dpx(3), dpx(3));
+        pill.setLayoutParams(lp);
         if (consumed) {
-            cell.setAlpha(0.45f);
+            pill.setAlpha(0.5f);
         } else {
-            cell.setOnClickListener(new View.OnClickListener() {
+            pill.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
                     if (!boardMode || !boardPickerIsHuman) return;
@@ -2003,7 +2079,38 @@ public class GameActivity extends AppCompatActivity {
                 }
             });
         }
-        return cell;
+        return pill;
+    }
+
+    private View makeCategoryCard(int col) {
+        FrameLayout card = new FrameLayout(this);
+        // Matches the pill column height: 3 pills x (32 + 6)dp of margins.
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dpx(108), 1.1f);
+        lp.setMargins(dpx(3), dpx(3), dpx(3), dpx(3));
+        card.setLayoutParams(lp);
+        card.setBackground(categoryCardBg());
+        String category = boardSelectedCategories.get(col);
+        Bitmap art = categoryBitmap(category);
+        if (art != null) {
+            ImageView img = new ImageView(this);
+            img.setImageBitmap(art);
+            img.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            img.setPadding(dpx(4), dpx(4), dpx(4), dpx(24));
+            img.setLayoutParams(new FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+            card.addView(img);
+        }
+        TextView banner = makeBoardText(category, 11f, 0xFFFFFFFF, Gravity.CENTER);
+        banner.setMaxLines(1);
+        banner.setBackground(bannerBg());
+        banner.setPadding(dpx(8), dpx(1), dpx(8), dpx(1));
+        FrameLayout.LayoutParams bLp = new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT,
+                Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
+        bLp.bottomMargin = dpx(4);
+        banner.setLayoutParams(bLp);
+        card.addView(banner);
+        return card;
     }
 
     private void hideBoardOverlay() {
@@ -2115,14 +2222,14 @@ public class GameActivity extends AppCompatActivity {
                     public void run() {
                         if (!EXITING) endBoardTurn();
                     }
-                }, 2600);
+                }, BOARD_REVEAL_HOLD_MS);
             }
         }, 1300);
     }
 
     private int currentBoardCellValue() {
-        if (boardPickedRow >= 0 && boardPickedRow < BOARD_VALUES.length) {
-            return BOARD_VALUES[boardPickedRow];
+        if (boardPickedRow >= 0 && boardPickedRow < BOARD_ROWS) {
+            return BOARD_VALUES[boardPickedRow % BOARD_VALUES.length];
         }
         return 0;
     }
@@ -2157,6 +2264,74 @@ public class GameActivity extends AppCompatActivity {
         return boardFont;
     }
 
+    /** Finds the artwork in assets/categories whose file name matches the category. */
+    private String categoryAssetPath(String category) {
+        if (categoryAssetIndex == null) {
+            categoryAssetIndex = new HashMap<>();
+            try {
+                String[] files = getAssets().list("categories");
+                if (files != null) {
+                    for (String f : files) {
+                        int dot = f.lastIndexOf('.');
+                        String base = dot > 0 ? f.substring(0, dot) : f;
+                        categoryAssetIndex.put(normalizeArabic(base), "categories/" + f);
+                    }
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        String norm = normalizeArabic(category);
+        String exact = categoryAssetIndex.get(norm);
+        if (exact != null) return exact;
+        // Fall back to the longest file name contained in the category name (or vice
+        // versa) so "جغرافيا ودول" finds جغرافيا.png and "رياضه" finds رياضة.png.
+        String best = null;
+        int bestLen = 0;
+        for (Map.Entry<String, String> e : categoryAssetIndex.entrySet()) {
+            String key = e.getKey();
+            if (key.length() > bestLen && (norm.contains(key) || key.contains(norm))) {
+                best = e.getValue();
+                bestLen = key.length();
+            }
+        }
+        return best;
+    }
+
+    private Bitmap categoryBitmap(String category) {
+        String path = categoryAssetPath(category);
+        if (path == null) return null;
+        Bitmap cached = categoryBitmapCache.get(path);
+        if (cached != null) return cached;
+        InputStream in = null;
+        try {
+            in = getAssets().open(path);
+            Bitmap bmp = BitmapFactory.decodeStream(in);
+            if (bmp != null) categoryBitmapCache.put(path, bmp);
+            return bmp;
+        } catch (Exception e) {
+            return null;
+        } finally {
+            try {
+                if (in != null) in.close();
+            } catch (Exception ignored) {
+            }
+        }
+    }
+
+    /** Strips tashkeel and unifies alef/teh-marbuta variants for tolerant matching. */
+    private static String normalizeArabic(String s) {
+        if (s == null) return "";
+        StringBuilder b = new StringBuilder(s.length());
+        for (char c : s.trim().toCharArray()) {
+            if (c >= 'ً' && c <= 'ْ') continue; // harakat incl. shadda
+            if (c == 'أ' || c == 'إ' || c == 'آ') c = 'ا'; // hamza alef -> alef
+            else if (c == 'ة') c = 'ه'; // teh marbuta -> heh
+            else if (c == 'ى') c = 'ي'; // alef maqsura -> yeh
+            b.append(c);
+        }
+        return b.toString();
+    }
+
     private TextView makeBoardText(String text, float sizeSp, int color, int gravity) {
         TextView tv = new TextView(this);
         tv.setText(text);
@@ -2178,16 +2353,24 @@ public class GameActivity extends AppCompatActivity {
         return d;
     }
 
-    private GradientDrawable valueCellBg(int tier, boolean consumed) {
+    private GradientDrawable valuePillBg(boolean consumed) {
         GradientDrawable d = new GradientDrawable();
-        int color;
-        if (consumed) color = 0xFF2A3550;
-        else if (tier == 0) color = 0xFF2E9E5B;
-        else if (tier == 1) color = 0xFFE08A1E;
-        else color = 0xFFC0392B;
-        d.setColor(color);
+        d.setColor(consumed ? 0xFF39415A : 0xFFEAEAF0);
+        d.setCornerRadius(dpx(16));
+        return d;
+    }
+
+    private GradientDrawable categoryCardBg() {
+        GradientDrawable d = new GradientDrawable();
+        d.setColor(0xFFF4F6FA);
         d.setCornerRadius(dpx(10));
-        d.setStroke(dpx(1), 0x55FFFFFF);
+        return d;
+    }
+
+    private GradientDrawable bannerBg() {
+        GradientDrawable d = new GradientDrawable();
+        d.setColor(0xFFF0822A);
+        d.setCornerRadius(dpx(7));
         return d;
     }
 
