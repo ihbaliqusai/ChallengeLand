@@ -236,6 +236,28 @@ public class GameActivity extends AppCompatActivity {
     private boolean boardOptionsRevealed = false;      // player chose to see the options (half value)
     private boolean boardAwaitingTypedInput = false;   // panel is live and not yet acted upon
 
+    // ---- Online board (two real players on one synced سين جيم board) ----
+    // Reaches this path via OpponentActivity matchmaking (matchMode "board"). Turn
+    // order is deterministic (owner picks on even turns); each turn's cell + answer
+    // result is exchanged under Games/{gameID}/board. A bot fallback (no human found)
+    // plays the plain offline board instead — boardOnline stays false there.
+    boolean boardOnline = false;
+    private boolean boardOpponentLeft = false;
+    private boolean boardStarted = false;
+    private int boardOnlineTurn = 0;
+    private boolean boardWatchEntered = false;          // opponent's pick has been shown this turn
+    private boolean boardWatchQuestionShown = false;    // watcher question screen is up
+    private boolean boardWatchResultApplied = false;    // opponent's result has been revealed
+    private boolean boardOpponentResultReady = false;
+    private boolean boardOpponentCorrect = false;
+    private boolean boardOpponentHalf = false;
+    private DatabaseReference boardPicksRef;
+    private ValueEventListener boardPicksListener;
+    private DatabaseReference boardReadyRef;
+    private ValueEventListener boardReadyListener;
+    private DatabaseReference boardTurnRef;
+    private ValueEventListener boardTurnListener;
+
     private boolean questionsReady = false;
     private boolean startPending = false;
     private boolean questionsLoadFailed = false;
@@ -334,6 +356,7 @@ public class GameActivity extends AppCompatActivity {
         String modeExtra = getIntent().getStringExtra("mode");
         String matchModeExtra = getIntent().getStringExtra("matchMode");
         GameCampaignLaunchConfig.load(this, modeExtra, matchModeExtra);
+        final boolean onlineBoardMatch = modeOnline && "board".equals(matchModeExtra);
 
 
         findViewById(android.R.id.content).post(new Runnable() {
@@ -346,13 +369,17 @@ public class GameActivity extends AppCompatActivity {
         person = new Person((RelativeLayout) (findViewById(R.id.rlyPerson)));
         playSound(R.raw.main_theme_4, false, false);
 
-        if (modeOnline || campaignBossBattle) {
+        if ((modeOnline && !onlineBoardMatch) || campaignBossBattle) {
             opponentHudController.initCompetitiveHudViews();
         }
 
         if (modeOnline) {
             if (Data.isNetworkAvailable(GameActivity.this)) {
                 parseOpponentsFromIntent();
+
+                if (onlineBoardMatch) {
+                    setupBoardMatch();
+                } else {
 
                 if (eliminationMode) {
                     labScore.setText("الصحيح");
@@ -396,6 +423,7 @@ public class GameActivity extends AppCompatActivity {
                     });
                 } else {
                     getGame();
+                }
                 }
             } else {
                 Toast.makeText(GameActivity.this, "لا يوجد اتصال بالإنترنت", Toast.LENGTH_SHORT).show();
@@ -513,7 +541,9 @@ public class GameActivity extends AppCompatActivity {
                 switch (t) {
                     case 1:
                         person.moveShow2Hands(2000);
-                        if (modeOnline) {
+                        if (boardMode) {
+                            showDialog("مرحبا بكم في تحدي الفئات.. اختاروا فئاتكم", "", 800, 2200, R.drawable.mouth_01, false);
+                        } else if (modeOnline) {
                             rlyScore.setVisibility(View.VISIBLE);
                             Animations.move(rlyScore, 500, -300, 0, 0, 0);
                             showDialog("مرحبا بكما في مباراة جديدة", "", 800, 2000, R.drawable.mouth_01, false);
@@ -521,8 +551,6 @@ public class GameActivity extends AppCompatActivity {
                             campaignHudController.hideMoneyBox();
                             campaignHudController.showGameplayHud();
                             showDialog(getCampaignOpeningMessage(), "", 800, 2200, R.drawable.mouth_01, false);
-                        } else if (boardMode) {
-                            showDialog("مرحبا بكم في تحدي الفئات.. اختاروا فئاتكم", "", 800, 2200, R.drawable.mouth_01, false);
                         } else {
                             showDialog("مرحبا بكم في أرض التحدي", "", 800, 2200, R.drawable.mouth_01, false);
                         }
@@ -531,7 +559,14 @@ public class GameActivity extends AppCompatActivity {
                     case 2:
                         person.moveShowHand(1000);
                         if (boardMode) {
-                            startBoardMode();
+                            if (boardOnline) {
+                                // The synced board runs its own setup (category pick →
+                                // shared board built by the owner); just hide the
+                                // millionaire chrome here.
+                                applyBoardModeChrome();
+                            } else {
+                                startBoardMode();
+                            }
                         } else {
                             startMatchFlow();
                         }
@@ -581,7 +616,7 @@ public class GameActivity extends AppCompatActivity {
                             btnCloseVote.setVisibility(View.INVISIBLE);
                             imgSelected.setImageResource(R.drawable.frame_final);
 
-                            if (modeOnline) {
+                            if (modeOnline && !boardMode) {
                                 if (Data.isNetworkAvailable(GameActivity.this)) {
                                     stopTimer(false);
                                     CAN_PLAY = false;
@@ -1293,7 +1328,9 @@ public class GameActivity extends AppCompatActivity {
             handleCampaignStageAnswer(timeout);
             return;
         }
-        if (isOfflineContestantMode()) {
+        // The board (offline OR online) resolves a single picker's answer, never the
+        // classic simultaneous online round — route it before the modeOnline path.
+        if (isOfflineContestantMode() || boardMode) {
             handleOfflineContestantAnswer(timeout);
             return;
         }
@@ -1493,6 +1530,9 @@ public class GameActivity extends AppCompatActivity {
                             // (they were hidden behind the text box for a typed turn).
                             showBoardTypedPanel(false);
                             setBoardAnswerOptionsVisible(true);
+                            if (boardOnline) {
+                                writeOnlineTurnResult(boardOnlineTurn, playerCorrect, boardOptionsRevealed);
+                            }
                         } else {
                             offlineContestants.revealRound(playerCorrect);
                         }
@@ -1884,6 +1924,10 @@ public class GameActivity extends AppCompatActivity {
         boardPickedCol = col;
         boardPickedRow = row;
         boardCurrentQuestion = boardCellQuestion[col][row];
+        if (boardOnline) {
+            cancelBoardSelectTimer();
+            writeOnlineTurnPick(boardOnlineTurn, col, row);
+        }
         enterBoardQuestion(true);
     }
 
@@ -1900,8 +1944,13 @@ public class GameActivity extends AppCompatActivity {
                 && boardPickedCol < boardCols && boardPickedRow < BOARD_ROWS) {
             boardCellConsumed[boardPickedCol][boardPickedRow] = true;
         }
-        boardCellsRemaining--;
         boardCurrentQuestion = null;
+        if (boardOnline) {
+            // Online turns are driven by boardOnlineTurn, not the round-robin index.
+            advanceOnlineBoardTurn();
+            return;
+        }
+        boardCellsRemaining--;
         boardTurnIndex++;
         if (boardCellsRemaining <= 0 || boardTurnIndex >= boardTotalTurns) {
             finishBoardMatch();
@@ -1912,7 +1961,564 @@ public class GameActivity extends AppCompatActivity {
 
     private void finishBoardMatch() {
         hideBoardOverlay();
+        if (boardOnline) {
+            markMyGameState("finished");
+            detachBoardListeners();
+            detachOpponentStatusListener();
+        }
         finishOfflineCompetition();
+    }
+
+    // =====================================================================
+    //  Online board ("سين جيم") — two real players, one synced board.
+    //  Slot 0 is me, slot 1 the matched opponent. Each player picks one
+    //  category; the owner assembles the 2x6 board and pushes its questions to
+    //  Games/{gameID}/board. Turns alternate (owner on even turns); on your turn
+    //  you pick + answer (writing the result), on the opponent's turn you watch
+    //  their pick and result. A bot fallback plays the plain offline board.
+    // =====================================================================
+
+    /** Entry point for an online speed-challenge board match (after matchmaking). */
+    private void setupBoardMatch() {
+        int characterIndex = Math.max(0, getIntent().getIntExtra("characterIndex", 0));
+        boardMode = true;
+        offlineContestants.setupForBoard(2, characterIndex);
+        MatchOpponent primary = getPrimaryOpponent();
+        if (primary != null && !primary.bot && primary.name != null) {
+            offlineContestants.setContestantName(1, primary.name);
+        }
+        boardPool = LocalQuestions.loadBoardPool(this);
+        buildBoardCategoryList();
+        questionsReady = true;
+        // No human found → fall back to the plain offline board (the intro flow starts
+        // it, like offline). With a real opponent, drive the synced online board.
+        boardOnline = !(primary == null || primary.bot);
+        if (boardOnline) {
+            startOnlineBoardSession();
+        }
+    }
+
+    private DatabaseReference boardRef() {
+        return FirebaseDatabase.getInstance().getReference()
+                .child("Games").child(gameID).child("board");
+    }
+
+    /** Owner creates the game session; the joiner looks it up. Then both pick a category. */
+    private void startOnlineBoardSession() {
+        if (meOwner) {
+            new Data().createGameID(myID, getOpponentIds(), new OnCreateGameIdListener() {
+                @Override
+                public void onSuccess(String createdGameID) {
+                    if (EXITING) return;
+                    gameID = createdGameID;
+                    beginOnlineGameSession();
+                    attachOpponentStatusListener();
+                    for (MatchOpponent opponent : opponents) {
+                        if (!opponent.bot && opponent.id != null && !opponent.id.trim().isEmpty()) {
+                            FirebaseDatabase.getInstance().getReference()
+                                    .child("temp").child(opponent.id).child("gameID").setValue(createdGameID);
+                        }
+                    }
+                    showOnlineBoardCategorySelect();
+                }
+
+                @Override
+                public void onFailed(DatabaseError error) {
+                    Toast.makeText(GameActivity.this, "تعذر إنشاء المباراة", Toast.LENGTH_SHORT).show();
+                    finish();
+                }
+            });
+        } else {
+            // getGameID keeps a listener attached and fires again when the owner writes
+            // the temp gameID, so an empty first result just means "wait".
+            new Data().getGameID(myID, new OnGetGameIdListener() {
+                @Override
+                public void onSuccess(String foundGameID) {
+                    if (EXITING || (gameID != null && !gameID.trim().isEmpty())) return;
+                    if (foundGameID == null || foundGameID.trim().isEmpty()) return;
+                    gameID = foundGameID;
+                    Data.removeTempGameID(foundGameID);
+                    beginOnlineGameSession();
+                    attachOpponentStatusListener();
+                    showOnlineBoardCategorySelect();
+                }
+
+                @Override
+                public void onFailed(DatabaseError error) {
+                }
+            });
+        }
+    }
+
+    // ---- Online category select (each player picks exactly one) ----------
+
+    private void showOnlineBoardCategorySelect() {
+        final FrameLayout overlay = (FrameLayout) findViewById(R.id.boardOverlay);
+        if (overlay == null) return;
+        overlay.removeAllViews();
+        overlay.setBackgroundColor(0xF2071026);
+        overlay.setVisibility(View.VISIBLE);
+        overlay.bringToFront();
+
+        ScrollView scroll = new ScrollView(this);
+        scroll.setLayoutParams(new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setGravity(Gravity.CENTER_HORIZONTAL);
+        root.setPadding(dpx(24), dpx(14), dpx(24), dpx(14));
+        scroll.addView(root);
+
+        TextView title = makeBoardText("اختر فئتك للمنافسة", 22f, 0xFFFFFFFF, Gravity.CENTER);
+        LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        tlp.bottomMargin = dpx(10);
+        title.setLayoutParams(tlp);
+        root.addView(title);
+
+        final ArrayList<String> selected = new ArrayList<>();
+        final Button confirm = new Button(this);
+        final int cols = 4;
+        final int total = boardAllCategories.size();
+        final int rows = Math.max(1, (total + cols - 1) / cols);
+        final ArrayList<FrameLayout> tiles = new ArrayList<>();
+        int idx = 0;
+        for (int r = 0; r < rows; r++) {
+            LinearLayout rowLayout = new LinearLayout(this);
+            rowLayout.setOrientation(LinearLayout.HORIZONTAL);
+            rowLayout.setLayoutParams(new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+            for (int c = 0; c < cols; c++) {
+                if (idx < total) {
+                    final String category = boardAllCategories.get(idx);
+                    final FrameLayout tile = makeCategoryTile(category);
+                    tiles.add(tile);
+                    tile.setOnClickListener(new View.OnClickListener() {
+                        @Override
+                        public void onClick(View v) {
+                            selected.clear();
+                            selected.add(category);
+                            for (FrameLayout t : tiles) {
+                                t.setBackground(categoryTileBg(false));
+                            }
+                            tile.setBackground(categoryTileBg(true));
+                            confirm.setEnabled(true);
+                            confirm.setAlpha(1f);
+                        }
+                    });
+                    rowLayout.addView(tile);
+                } else {
+                    View spacer = new View(this);
+                    spacer.setLayoutParams(new LinearLayout.LayoutParams(0, dpx(60), 1f));
+                    rowLayout.addView(spacer);
+                }
+                idx++;
+            }
+            root.addView(rowLayout);
+        }
+
+        confirm.setText("تأكيد");
+        confirm.setAllCaps(false);
+        confirm.setTextColor(0xFFFFFFFF);
+        if (getBoardFont() != null) confirm.setTypeface(getBoardFont(), Typeface.BOLD);
+        confirm.setBackground(pillBg(0xFF29B6F6));
+        confirm.setEnabled(false);
+        confirm.setAlpha(0.5f);
+        LinearLayout.LayoutParams cflp = new LinearLayout.LayoutParams(dpx(200), dpx(50));
+        cflp.topMargin = dpx(14);
+        confirm.setLayoutParams(cflp);
+        confirm.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (!selected.isEmpty()) {
+                    onOnlineCategoryChosen(selected.get(0));
+                }
+            }
+        });
+        root.addView(confirm);
+        overlay.addView(scroll);
+    }
+
+    private void onOnlineCategoryChosen(String category) {
+        if (gameID == null || gameID.trim().isEmpty()) return;
+        showBoardWaitingOverlay("اخترت: " + category + "\nبانتظار اختيار الخصم...");
+        boardRef().child("picks").child(myID).child("category").setValue(category);
+        attachBoardReadyListener();
+        if (meOwner) {
+            attachBoardPicksListener();
+        }
+    }
+
+    private void showBoardWaitingOverlay(String message) {
+        FrameLayout overlay = (FrameLayout) findViewById(R.id.boardOverlay);
+        if (overlay == null) return;
+        overlay.removeAllViews();
+        overlay.setBackgroundColor(0xF2071026);
+        overlay.setVisibility(View.VISIBLE);
+        overlay.bringToFront();
+        TextView tv = makeBoardText(message, 18f, 0xFFFFD761, Gravity.CENTER);
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.CENTER);
+        lp.leftMargin = dpx(24);
+        lp.rightMargin = dpx(24);
+        tv.setLayoutParams(lp);
+        overlay.addView(tv);
+    }
+
+    // ---- Board build & sync ---------------------------------------------
+
+    /** Owner only: when both categories are in, assemble the board and push it. */
+    private void attachBoardPicksListener() {
+        if (boardPicksRef != null || gameID == null || gameID.trim().isEmpty()) return;
+        final String ownerId = myID;
+        final String joinerId = opponentID;
+        boardPicksRef = boardRef().child("picks");
+        boardPicksListener = new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot snapshot) {
+                if (EXITING || boardStarted || boardCellQuestion != null) return;
+                String ownerCat = snapshot.child(ownerId).child("category").getValue(String.class);
+                String joinerCat = snapshot.child(joinerId).child("category").getValue(String.class);
+                if (ownerCat == null || ownerCat.isEmpty() || joinerCat == null || joinerCat.isEmpty()) {
+                    return;
+                }
+                buildAndPushOnlineBoard(ownerCat, joinerCat);
+            }
+
+            @Override
+            public void onCancelled(DatabaseError error) {
+            }
+        };
+        boardPicksRef.addValueEventListener(boardPicksListener);
+    }
+
+    /** Both players: start the board once the owner has published ready cells. */
+    private void attachBoardReadyListener() {
+        if (boardReadyRef != null || gameID == null || gameID.trim().isEmpty()) return;
+        boardReadyRef = boardRef();
+        boardReadyListener = new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot snapshot) {
+                if (EXITING || boardStarted) return;
+                Boolean ready = snapshot.child("ready").getValue(Boolean.class);
+                if (ready == null || !ready || !snapshot.child("cells").exists()) return;
+                boardStarted = true;
+                loadOnlineBoardFromFirebase(snapshot);
+                detachBoardSetupListeners();
+            }
+
+            @Override
+            public void onCancelled(DatabaseError error) {
+            }
+        };
+        boardReadyRef.addValueEventListener(boardReadyListener);
+    }
+
+    private void buildAndPushOnlineBoard(String ownerCat, String joinerCat) {
+        if (boardCellQuestion != null) return;
+        boardSelectedCategories.clear();
+        boardSelectedCategories.add(ownerCat);
+        boardSelectedCategories.add(joinerCat);
+        boardCols = 2;
+        boardCellQuestion = new Question[2][BOARD_ROWS];
+        boardCellConsumed = new boolean[2][BOARD_ROWS];
+        Set<Question> used = new HashSet<>();
+        for (int col = 0; col < 2; col++) {
+            String cat = boardSelectedCategories.get(col);
+            for (int row = 0; row < BOARD_ROWS; row++) {
+                boardCellQuestion[col][row] = drawBoardQuestion(cat, boardTierForRow(row), used);
+            }
+        }
+        HashMap<String, Object> payload = new HashMap<>();
+        payload.put("categories/0", ownerCat);
+        payload.put("categories/1", joinerCat);
+        for (int col = 0; col < 2; col++) {
+            for (int row = 0; row < BOARD_ROWS; row++) {
+                Question q = boardCellQuestion[col][row];
+                String key = "cells/" + col + "_" + row;
+                payload.put(key + "/Level", q != null && q.getLevel() != null ? q.getLevel() : "0");
+                payload.put(key + "/Q", q != null && q.getQ() != null ? q.getQ() : "");
+                payload.put(key + "/R", q != null && q.getR() != null ? q.getR() : "");
+                payload.put(key + "/W1", q != null && q.getW1() != null ? q.getW1() : "");
+                payload.put(key + "/W2", q != null && q.getW2() != null ? q.getW2() : "");
+                payload.put(key + "/W3", q != null && q.getW3() != null ? q.getW3() : "");
+                payload.put(key + "/Category", q != null && q.getCategory() != null
+                        ? q.getCategory() : boardSelectedCategories.get(col));
+            }
+        }
+        payload.put("ready", true);
+        boardRef().updateChildren(payload);
+    }
+
+    private void loadOnlineBoardFromFirebase(DataSnapshot snapshot) {
+        boardSelectedCategories.clear();
+        String c0 = snapshot.child("categories").child("0").getValue(String.class);
+        String c1 = snapshot.child("categories").child("1").getValue(String.class);
+        boardSelectedCategories.add(c0 == null ? "" : c0);
+        boardSelectedCategories.add(c1 == null ? "" : c1);
+        boardCols = 2;
+        boardCellQuestion = new Question[2][BOARD_ROWS];
+        boardCellConsumed = new boolean[2][BOARD_ROWS];
+        for (int col = 0; col < 2; col++) {
+            for (int row = 0; row < BOARD_ROWS; row++) {
+                DataSnapshot cs = snapshot.child("cells").child(col + "_" + row);
+                Question q = new Question();
+                q.setLevel(boardCellString(cs.child("Level"), "0"));
+                q.setQ(boardCellString(cs.child("Q"), ""));
+                q.setR(boardCellString(cs.child("R"), ""));
+                q.setW1(boardCellString(cs.child("W1"), ""));
+                q.setW2(boardCellString(cs.child("W2"), ""));
+                q.setW3(boardCellString(cs.child("W3"), ""));
+                q.setCategory(boardCellString(cs.child("Category"), boardSelectedCategories.get(col)));
+                boardCellQuestion[col][row] = q;
+            }
+        }
+        boardCellsRemaining = 2 * BOARD_ROWS;
+        boardTotalTurns = 2 * BOARD_ROWS;
+        hideBoardOverlay();
+        beginOnlineBoardTurn(0);
+    }
+
+    private String boardCellString(DataSnapshot snap, String fallback) {
+        Object value = snap.getValue();
+        return value == null ? fallback : String.valueOf(value);
+    }
+
+    // ---- Online turn loop ------------------------------------------------
+
+    private void beginOnlineBoardTurn(int turn) {
+        detachBoardTurnListener();
+        boardOnlineTurn = turn;
+        boardWatchEntered = false;
+        boardWatchQuestionShown = false;
+        boardWatchResultApplied = false;
+        boardOpponentResultReady = false;
+        boardPickedCol = -1;
+        boardPickedRow = -1;
+        boardCurrentQuestion = null;
+        if (turn >= boardTotalTurns) {
+            finishBoardMatch();
+            return;
+        }
+        boolean myTurn = meOwner ? (turn % 2 == 0) : (turn % 2 == 1);
+        boardPickerIsHuman = myTurn;
+        boardPickerSlot = myTurn ? 0 : 1;
+        showBoardGrid();
+        if (myTurn) {
+            // The human picks a cell via the grid (onCellPicked → writes the pick).
+            return;
+        }
+        if (boardOpponentLeft) {
+            new Handler().postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    if (!EXITING && boardMode) runOpponentBotTurn();
+                }
+            }, 1200);
+        } else {
+            attachBoardTurnListener(turn);
+        }
+    }
+
+    private void advanceOnlineBoardTurn() {
+        beginOnlineBoardTurn(boardOnlineTurn + 1);
+    }
+
+    private void writeOnlineTurnPick(int turn, int col, int row) {
+        if (gameID == null || gameID.trim().isEmpty()) return;
+        HashMap<String, Object> payload = new HashMap<>();
+        payload.put("col", col);
+        payload.put("row", row);
+        boardRef().child("turns").child("t" + turn).updateChildren(payload);
+    }
+
+    private void writeOnlineTurnResult(int turn, boolean correct, boolean half) {
+        if (gameID == null || gameID.trim().isEmpty()) return;
+        HashMap<String, Object> payload = new HashMap<>();
+        payload.put("correct", correct);
+        payload.put("half", half);
+        payload.put("done", true);
+        boardRef().child("turns").child("t" + turn).updateChildren(payload);
+    }
+
+    private void attachBoardTurnListener(final int turn) {
+        if (gameID == null || gameID.trim().isEmpty()) return;
+        detachBoardTurnListener();
+        boardTurnRef = boardRef().child("turns").child("t" + turn);
+        boardTurnListener = new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot snapshot) {
+                if (EXITING || boardOnlineTurn != turn || boardPickerIsHuman) return;
+                Long col = snapshot.child("col").getValue(Long.class);
+                Long row = snapshot.child("row").getValue(Long.class);
+                if (col != null && row != null && !boardWatchEntered) {
+                    boardWatchEntered = true;
+                    boardPickedCol = col.intValue();
+                    boardPickedRow = row.intValue();
+                    if (boardPickedCol >= 0 && boardPickedCol < boardCols
+                            && boardPickedRow >= 0 && boardPickedRow < BOARD_ROWS) {
+                        boardCurrentQuestion = boardCellQuestion[boardPickedCol][boardPickedRow];
+                        boardCellConsumed[boardPickedCol][boardPickedRow] = true;
+                    }
+                    enterOnlineWatchQuestion();
+                }
+                Boolean done = snapshot.child("done").getValue(Boolean.class);
+                if (done != null && done) {
+                    Boolean correct = snapshot.child("correct").getValue(Boolean.class);
+                    Boolean half = snapshot.child("half").getValue(Boolean.class);
+                    boardOpponentCorrect = correct != null && correct;
+                    boardOpponentHalf = half != null && half;
+                    boardOpponentResultReady = true;
+                    maybeApplyOpponentResult();
+                }
+            }
+
+            @Override
+            public void onCancelled(DatabaseError error) {
+            }
+        };
+        boardTurnRef.addValueEventListener(boardTurnListener);
+    }
+
+    /** Watcher view: show the question the opponent picked, then wait for their result. */
+    private void enterOnlineWatchQuestion() {
+        if (EXITING) return;
+        if (boardCurrentQuestion == null) {
+            boardWatchQuestionShown = true;
+            maybeApplyOpponentResult();
+            return;
+        }
+        hideBoardOverlay();
+        initQuestion();
+        boardPickerIsHuman = false;
+        CAN_PLAY = false;
+        Question q = boardCurrentQuestion;
+        txtQ.setText(q.Q);
+        applyQuestionTextSize(q.Q);
+        final ArrayList<Integer> answerOrder = getQuestionShuffled(q);
+        currentAnswerOrder.clear();
+        currentAnswerOrder.addAll(answerOrder);
+        final ArrayList<String> answerDisplayTexts = new ArrayList<>();
+        for (int i = 0; i < answerOrder.size(); i++) {
+            answerDisplayTexts.add(getAnswerText(q, answerOrder.get(i)));
+        }
+        applyAnswerTextSizes(answerDisplayTexts);
+        showBoardTypedPanel(false);
+        setBoardAnswerOptionsVisible(true);
+        for (int i = 0; i < 4; i++) {
+            bindBoardAnswerView(i, answerOrder.get(i), answerDisplayTexts.get(i));
+        }
+        showDialog("دور " + offlineContestants.nameForSlot(1) + "..", "", 600, 1500, R.drawable.mouth_01, false);
+        boardWatchQuestionShown = true;
+        maybeApplyOpponentResult();
+    }
+
+    private void maybeApplyOpponentResult() {
+        if (boardWatchResultApplied || !boardWatchQuestionShown || !boardOpponentResultReady) return;
+        boardWatchResultApplied = true;
+        final boolean correct = boardOpponentCorrect;
+        int value = currentBoardCellValue();
+        if (boardOpponentHalf) value = value / 2;
+        if (imgRight != null) imgRight.setImageResource(R.drawable.frame_right);
+        if (correct) {
+            offlineContestants.awardCell(1, value);
+            playSound(R.raw.correct_answer, false, false);
+        } else {
+            playSound(R.raw.wrong_answer, false, false);
+        }
+        offlineContestants.showSlotResult(1, correct);
+        CAN_HOME = true;
+        String oppName = offlineContestants.nameForSlot(1);
+        showDialog(oppName + (correct ? " أجاب إجابة صحيحة" : " أجاب إجابة خاطئة"),
+                "", 700, 2000, correct ? R.drawable.mouth_01 : R.drawable.mouth_05, false);
+        new Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if (!EXITING) advanceOnlineBoardTurn();
+            }
+        }, BOARD_REVEAL_HOLD_MS);
+    }
+
+    // ---- Disconnect handling --------------------------------------------
+
+    private void handleBoardOpponentLeft() {
+        if (boardOpponentLeft) return;
+        boardOpponentLeft = true;
+        detachBoardTurnListener();
+        if (!boardStarted) {
+            // Opponent vanished during setup → finish the board solo against a bot.
+            ensureSoloBoardFallback();
+            return;
+        }
+        // If we're mid-watch on their turn and it hasn't resolved, take over as a bot.
+        if (boardMode && !boardPickerIsHuman && !boardWatchResultApplied) {
+            runOpponentBotTurn();
+        }
+    }
+
+    private void ensureSoloBoardFallback() {
+        if (boardStarted) return;
+        boardStarted = true;
+        boardOnline = false;
+        detachBoardSetupListeners();
+        offlineContestants.setContestantName(1, "الكمبيوتر");
+        hideBoardOverlay();
+        startBoardMode();
+    }
+
+    /** Drives the opponent's slot as a bot for one turn (after they disconnect). */
+    private void runOpponentBotTurn() {
+        if (boardPickedCol < 0 || boardPickedRow < 0) {
+            int[] cell = pickRandomRemainingCell();
+            if (cell == null) {
+                finishBoardMatch();
+                return;
+            }
+            boardPickedCol = cell[0];
+            boardPickedRow = cell[1];
+        }
+        boardPickerSlot = 1;
+        boardPickerIsHuman = false;
+        boardCurrentQuestion = boardCellQuestion[boardPickedCol][boardPickedRow];
+        // showBoardQuestion(.., false) reveals the options and schedules the bot answer,
+        // which resolves the cell and calls endBoardTurn → advanceOnlineBoardTurn.
+        enterBoardQuestion(false);
+    }
+
+    // ---- Listener teardown ----------------------------------------------
+
+    private void detachBoardPicksListener() {
+        if (boardPicksRef != null && boardPicksListener != null) {
+            boardPicksRef.removeEventListener(boardPicksListener);
+        }
+        boardPicksRef = null;
+        boardPicksListener = null;
+    }
+
+    private void detachBoardReadyListener() {
+        if (boardReadyRef != null && boardReadyListener != null) {
+            boardReadyRef.removeEventListener(boardReadyListener);
+        }
+        boardReadyRef = null;
+        boardReadyListener = null;
+    }
+
+    private void detachBoardTurnListener() {
+        if (boardTurnRef != null && boardTurnListener != null) {
+            boardTurnRef.removeEventListener(boardTurnListener);
+        }
+        boardTurnRef = null;
+        boardTurnListener = null;
+    }
+
+    private void detachBoardSetupListeners() {
+        detachBoardPicksListener();
+        detachBoardReadyListener();
+    }
+
+    private void detachBoardListeners() {
+        detachBoardSetupListeners();
+        detachBoardTurnListener();
     }
 
     // ---- Board grid screen ----------------------------------------------
@@ -1992,11 +2598,14 @@ public class GameActivity extends AppCompatActivity {
         scoresScroll.addView(scoresRow);
         root.addView(scoresScroll);
 
-        // Category blocks, three per row like the classic سين جيم board: value pills
-        // (200/400/600) flank a centre card holding the category artwork and name.
+        // Category blocks, classic سين جيم layout: value pills (200/400/600) flank a
+        // centre card holding the artwork and name. Up to three blocks per row, but with
+        // only two categories (the online 1v1 board) use two so they fill the width
+        // instead of being squeezed into two thirds with an empty column.
+        final int perRow = Math.min(Math.max(boardCols, 1), 3);
         LinearLayout blockRow = null;
         for (int col = 0; col < boardCols; col++) {
-            if (col % 3 == 0) {
+            if (col % perRow == 0) {
                 blockRow = new LinearLayout(this);
                 blockRow.setOrientation(LinearLayout.HORIZONTAL);
                 LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(
@@ -2009,7 +2618,7 @@ public class GameActivity extends AppCompatActivity {
         }
         // Pad a partial last row so its blocks keep the same width as full rows.
         if (blockRow != null) {
-            for (int i = ((boardCols - 1) % 3) + 1; i < 3; i++) {
+            for (int i = ((boardCols - 1) % perRow) + 1; i < perRow; i++) {
                 View spacer = new View(this);
                 LinearLayout.LayoutParams sLp = new LinearLayout.LayoutParams(0, 1, 1f);
                 sLp.setMargins(dpx(6), 0, dpx(6), 0);
@@ -3508,6 +4117,11 @@ public class GameActivity extends AppCompatActivity {
         if (opponent == null) {
             return;
         }
+        if (boardOnline) {
+            opponent.left = true;
+            handleBoardOpponentLeft();
+            return;
+        }
         opponent.left = true;
         applyBotIdentity(opponent, true);
         if (opponent.statusRef != null && opponent.statusListener != null) {
@@ -5002,11 +5616,11 @@ public class GameActivity extends AppCompatActivity {
                 pbTime.setProgress(0);
                 txtProgress.setText(String.valueOf(startTicks / 10));
                 rlyProgress.setAlpha(1f); // the ring starts transparent in XML; force it opaque
-                if (modeOnline && hasBotOpponents()) {
+                if (modeOnline && !boardMode && hasBotOpponents()) {
                     randomTime = getFictitiousRandomTime();
                 }
                 Animations.progressZoomIn(rlyProgress);
-                if (modeOnline) {
+                if (modeOnline && !boardMode) {
                     scheduleBotAnswersForCurrentQuestion();
                 } else if (campaignBossBattle) {
                     scheduleCampaignBossAnswer();
@@ -5038,7 +5652,7 @@ public class GameActivity extends AppCompatActivity {
                             this.cancel();
                             PROGRESS_VALUE = 300;
                             //TIMER_VALUE = 10000;
-                            if (modeOnline) {
+                            if (modeOnline && !boardMode) {
                                 CAN_PLAY = false;
                                 // Only submit timeout if the player hasn't already
                                 // submitted (or selected an answer awaiting confirm).
@@ -5281,7 +5895,7 @@ public class GameActivity extends AppCompatActivity {
         GameLifelineController.setVote(this, imgVote2);
         GameLifelineController.setVote(this, imgVote3);
         GameLifelineController.setVote(this, imgVote4);
-        if(modeOnline || campaignBossBattle) {
+        if((modeOnline || campaignBossBattle) && !boardMode) {
             imgAnswer1Player1.setVisibility(View.INVISIBLE);
             imgAnswer2Player1.setVisibility(View.INVISIBLE);
             imgAnswer3Player1.setVisibility(View.INVISIBLE);
@@ -5606,6 +6220,7 @@ public class GameActivity extends AppCompatActivity {
         detachOpponentRoundListener();
         detachQuestionSyncListener();
         detachServerTimeOffsetListener();
+        detachBoardListeners();
         if(cdtProgress != null) cdtProgress.cancel();
         cancelBoardSelectTimer();
         stopCampaignStageTimer();

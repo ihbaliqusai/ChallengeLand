@@ -434,6 +434,22 @@ final class GameOfflineContestantsController {
         return names[slot];
     }
 
+    /** Overrides a contestant slot's display name (used to show a real online opponent). */
+    void setContestantName(int slot, String name) {
+        if (names == null || slot < 0 || slot >= names.length || name == null || name.trim().isEmpty()) {
+            return;
+        }
+        String trimmed = name.trim();
+        if (trimmed.length() > 9) {
+            trimmed = trimmed.substring(0, 9);
+        }
+        names[slot] = trimmed;
+        if (nameViews != null && slot < nameViews.length && nameViews[slot] != null) {
+            nameViews[slot].setText(trimmed);
+        }
+        refreshScoreBoard();
+    }
+
     int scoreForSlot(int slot) {
         if (scores == null || slot < 0 || slot >= scores.length) return 0;
         return scores[slot];

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 10-inch tablets / very wide landscape screens. -->
+    <dimen name="qa_h_margin">180dp</dimen>
+    <dimen name="qa_top_margin">80dp</dimen>
+</resources>

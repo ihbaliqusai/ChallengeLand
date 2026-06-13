@@ -160,12 +160,13 @@
 
     <LinearLayout
         android:id="@+id/llyQA"
-        android:layout_width="540dp"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_alignParentTop="true"
         android:layout_centerHorizontal="true"
-        android:layout_marginStart="20dp"
-        android:layout_marginTop="70dp"
+        android:layout_marginStart="@dimen/qa_h_margin"
+        android:layout_marginEnd="@dimen/qa_h_margin"
+        android:layout_marginTop="@dimen/qa_top_margin"
         android:clipChildren="false"
         android:clipToPadding="false"
         android:orientation="vertical">
