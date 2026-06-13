@@ -28,7 +28,7 @@
         <activity android:name=".OpponentActivity" android:screenOrientation="sensorLandscape" />
         <activity android:name=".WinnerActivity" android:screenOrientation="sensorLandscape" />
         <activity android:name="com.google.android.gms.auth.api.signin.internal.SignInHubActivity" android:excludeFromRecents="true" android:exported="false" />
-        <activity android:name=".GameActivity" android:screenOrientation="sensorLandscape" />
+        <activity android:name=".GameActivity" android:screenOrientation="sensorLandscape" android:windowSoftInputMode="adjustPan" />
         <activity android:name=".OfflineSetupActivity" android:screenOrientation="sensorLandscape" />
         <activity android:name=".BaseGameActivity" android:screenOrientation="sensorLandscape" />
         <activity android:name=".BattleGameActivity" android:screenOrientation="sensorLandscape" />

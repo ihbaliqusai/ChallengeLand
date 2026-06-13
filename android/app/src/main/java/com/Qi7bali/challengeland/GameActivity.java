@@ -20,7 +20,12 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
+import android.content.Context;
+import android.text.InputType;
+import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.FrameLayout;
@@ -221,6 +226,16 @@ public class GameActivity extends AppCompatActivity {
     private CountDownTimer boardSelectTimer;
     private TextView boardSelectCountdownView;
 
+    // ---- Board typed-answer mode (human turn) ----
+    // The human types the answer for full value; revealing the four options first
+    // halves the reward. A wrong answer never deducts points (loses only the turn).
+    private LinearLayout llyA1, llyA2;                 // the two answer-option rows
+    private View boardTypedAnswerPanel;                // text box + submit/reveal buttons
+    private EditText boardAnswerInput;
+    private Button btnBoardSubmitAnswer, btnBoardRevealOptions;
+    private boolean boardOptionsRevealed = false;      // player chose to see the options (half value)
+    private boolean boardAwaitingTypedInput = false;   // panel is live and not yet acted upon
+
     private boolean questionsReady = false;
     private boolean startPending = false;
     private boolean questionsLoadFailed = false;
@@ -413,6 +428,11 @@ public class GameActivity extends AppCompatActivity {
         txtQuestionCounter = findViewById(R.id.txtQuestionCounter);
         updateQuestionCounter();
         pbTime.setMax(300);
+        // The board ("سين جيم") screen has no "1/10" counter — hide it before the
+        // intro/category-select so it never flashes at the top.
+        if (boardMode) {
+            setGone(R.id.questionCounterPanel);
+        }
 
         rlyDialog = findViewById(R.id.rlyDialog);
         txtDialog = findViewById(R.id.txtDialog);
@@ -422,6 +442,8 @@ public class GameActivity extends AppCompatActivity {
         rlyCall = findViewById(R.id.rlyCall);
 
         llyQA = findViewById(R.id.llyQA);
+        llyA1 = findViewById(R.id.llyA1);
+        llyA2 = findViewById(R.id.llyA2);
         llySteps = findViewById(R.id.llySteps);
 
         imgHelp5050 = findViewById(R.id.imgHelp5050);
@@ -502,7 +524,7 @@ public class GameActivity extends AppCompatActivity {
                         } else if (boardMode) {
                             showDialog("مرحبا بكم في تحدي الفئات.. اختاروا فئاتكم", "", 800, 2200, R.drawable.mouth_01, false);
                         } else {
-                            showDialog("مرحبا بكم في تحدي تشالنج لاند", "", 800, 2200, R.drawable.mouth_01, false);
+                            showDialog("مرحبا بكم في أرض التحدي", "", 800, 2200, R.drawable.mouth_01, false);
                         }
                         handler.postDelayed(this, 3000);
                         break;
@@ -1464,14 +1486,19 @@ public class GameActivity extends AppCompatActivity {
                         T_LIGHTS = 3;
                         if (boardMode) {
                             if (playerCorrect) {
-                                offlineContestants.awardCell(0, currentBoardCellValue());
+                                offlineContestants.awardCell(0, currentBoardAwardValue());
                             }
                             offlineContestants.showSlotResult(0, playerCorrect);
+                            // Reveal the options so the player sees the correct answer
+                            // (they were hidden behind the text box for a typed turn).
+                            showBoardTypedPanel(false);
+                            setBoardAnswerOptionsVisible(true);
                         } else {
                             offlineContestants.revealRound(playerCorrect);
                         }
                         if (playerCorrect) {
                             if (imgSelected != null) imgSelected.setImageResource(R.drawable.frame_right);
+                            else if (imgRight != null) imgRight.setImageResource(R.drawable.frame_right);
                             PlayerStats.recordCorrectAnswer(GameActivity.this);
                             person.like(1000);
                             person.raiseEyeBrowsUp(1000, false, true);
@@ -1892,6 +1919,8 @@ public class GameActivity extends AppCompatActivity {
 
     private void showBoardGrid() {
         cancelBoardSelectTimer();
+        boardAwaitingTypedInput = false;
+        showBoardTypedPanel(false);
         final FrameLayout overlay = (FrameLayout) findViewById(R.id.boardOverlay);
         if (overlay == null) return;
         overlay.removeAllViews();
@@ -2121,7 +2150,11 @@ public class GameActivity extends AppCompatActivity {
 
     // ---- Board question display & resolution ----------------------------
 
-    /** Shows a chosen board question; enables the timer/clicks only for the human. */
+    /**
+     * Shows a chosen board question. The human gets a text box (type the answer for
+     * full value, or reveal the four options for half value); the bots keep the
+     * classic staggered reveal and pick one of the four options.
+     */
     private void showBoardQuestion(final Question question, final boolean humanTurn) {
         if (EXITING || question == null) return;
         boardCurrentQuestion = question;
@@ -2137,6 +2170,19 @@ public class GameActivity extends AppCompatActivity {
         }
         applyAnswerTextSizes(answerDisplayTexts);
 
+        if (humanTurn) {
+            // Bind the options up front (kept hidden) so a later "reveal" works and the
+            // correct answer can be highlighted, then open the text box.
+            for (int i = 0; i < 4; i++) {
+                bindBoardAnswerView(i, answerOrder.get(i), answerDisplayTexts.get(i));
+            }
+            startBoardTypedTurn();
+            return;
+        }
+
+        // Bot turn: ensure the text box is gone and the four options are visible.
+        showBoardTypedPanel(false);
+        setBoardAnswerOptionsVisible(true);
         final Handler handler = new Handler();
         Runnable runnable = new Runnable() {
             int i = -1;
@@ -2150,34 +2196,220 @@ public class GameActivity extends AppCompatActivity {
                     case 1:
                     case 2:
                     case 3:
-                        int answerKey = answerOrder.get(i);
-                        listAnswerViews.get(i).setText(answerDisplayTexts.get(i));
-                        if (answerKey == ANSWER_KEY_RIGHT) {
-                            rightAnswer = i + 1;
-                            listAnswerViews.get(i).setTag("1");
-                            txtRight = listAnswerViews.get(i);
-                            rlyRight = (RelativeLayout) ((ViewGroup) txtRight.getParent());
-                            imgRight = (ImageView) rlyRight.getChildAt(0);
-                        } else {
-                            listAnswerViews.get(i).setTag("0");
-                        }
+                        bindBoardAnswerView(i, answerOrder.get(i), answerDisplayTexts.get(i));
                         handler.postDelayed(this, 700);
                         break;
                     case 4:
-                        if (humanTurn) {
-                            CAN_PLAY = true;
-                            questionStartTimeMs = System.currentTimeMillis();
-                            startTimer(true);
-                            showDialog("اختر الإجابة الصحيحة", "", 600, 1200, R.drawable.mouth_01, true);
-                        } else {
-                            CAN_PLAY = false;
-                            scheduleBotBoardAnswer();
-                        }
+                        CAN_PLAY = false;
+                        scheduleBotBoardAnswer();
                         break;
                 }
             }
         };
         handler.postDelayed(runnable, 700);
+    }
+
+    /** Sets one option's text and tag, tracking which view holds the correct answer. */
+    private void bindBoardAnswerView(int i, int answerKey, String text) {
+        listAnswerViews.get(i).setText(text);
+        if (answerKey == ANSWER_KEY_RIGHT) {
+            rightAnswer = i + 1;
+            listAnswerViews.get(i).setTag("1");
+            txtRight = listAnswerViews.get(i);
+            rlyRight = (RelativeLayout) ((ViewGroup) txtRight.getParent());
+            imgRight = (ImageView) rlyRight.getChildAt(0);
+        } else {
+            listAnswerViews.get(i).setTag("0");
+        }
+    }
+
+    // ---- Typed-answer panel (human board turn) --------------------------
+
+    /** Opens the text box for the human's board turn; the four options stay hidden. */
+    private void startBoardTypedTurn() {
+        boardOptionsRevealed = false;
+        boardAwaitingTypedInput = true;
+        // No option is "selected" yet — clear stale references from earlier turns so
+        // a correct typed answer highlights the right frame (via imgRight) instead.
+        imgSelected = null;
+        rlySelected = null;
+        txtSelected = null;
+        setBoardAnswerOptionsVisible(false);
+        showBoardTypedPanel(true);
+        final Handler handler = new Handler();
+        handler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if (EXITING || !boardMode || !boardAwaitingTypedInput) return;
+                CAN_PLAY = false; // frame taps stay disabled until options are revealed
+                questionStartTimeMs = System.currentTimeMillis();
+                startTimer(true);
+                // Don't force the keyboard open: the player reads the question and
+                // chooses to type (tap the box) or reveal the options. The keyboard
+                // would otherwise cover the "reveal options" button in landscape.
+                if (boardAnswerInput != null) boardAnswerInput.requestFocus();
+            }
+        }, 700);
+    }
+
+    /** Lazily builds the text box + submit/reveal buttons inside the Q/A column. */
+    private void ensureBoardTypedPanel() {
+        if (boardTypedAnswerPanel != null || llyQA == null) return;
+
+        LinearLayout panel = new LinearLayout(this);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        panel.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+        LinearLayout.LayoutParams panelLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        panelLp.topMargin = dpx(4);
+        panel.setLayoutParams(panelLp);
+
+        EditText input = new EditText(this);
+        input.setSingleLine(true);
+        // NO_EXTRACT_UI stops the keyboard taking over the whole screen with its
+        // landscape full-screen "extract" editor (the big black box + DONE button).
+        input.setImeOptions(EditorInfo.IME_ACTION_DONE | EditorInfo.IME_FLAG_NO_EXTRACT_UI);
+        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+        input.setHint("اكتب إجابتك هنا");
+        input.setHintTextColor(0x99FFFFFF);
+        input.setTextColor(0xFFFFFFFF);
+        input.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f);
+        input.setGravity(Gravity.CENTER);
+        input.setTextDirection(View.TEXT_DIRECTION_RTL);
+        input.setPadding(dpx(16), dpx(8), dpx(16), dpx(8));
+        GradientDrawable inputBg = new GradientDrawable();
+        inputBg.setColor(0xFF0E2347);
+        inputBg.setCornerRadius(dpx(12));
+        inputBg.setStroke(dpx(2), 0xFF61FF39);
+        input.setBackground(inputBg);
+        if (getBoardFont() != null) input.setTypeface(getBoardFont(), Typeface.BOLD);
+        LinearLayout.LayoutParams inLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dpx(52));
+        input.setLayoutParams(inLp);
+        input.setOnEditorActionListener(new TextView.OnEditorActionListener() {
+            @Override
+            public boolean onEditorAction(TextView v, int actionId, android.view.KeyEvent event) {
+                if (actionId == EditorInfo.IME_ACTION_DONE) {
+                    onBoardSubmitTypedAnswer();
+                    return true;
+                }
+                return false;
+            }
+        });
+        panel.addView(input);
+
+        LinearLayout buttonsRow = new LinearLayout(this);
+        buttonsRow.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        rowLp.topMargin = dpx(8);
+        buttonsRow.setLayoutParams(rowLp);
+
+        Button submit = makeBoardButton("تأكيد الإجابة", 0xFF2E9E2E);
+        submit.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                onBoardSubmitTypedAnswer();
+            }
+        });
+        Button reveal = makeBoardButton("إظهار الخيارات (نصف القيمة)", 0xFFD9892B);
+        reveal.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                onBoardRevealOptions();
+            }
+        });
+        buttonsRow.addView(submit);
+        buttonsRow.addView(reveal);
+        panel.addView(buttonsRow);
+
+        boardTypedAnswerPanel = panel;
+        boardAnswerInput = input;
+        btnBoardSubmitAnswer = submit;
+        btnBoardRevealOptions = reveal;
+        llyQA.addView(panel);
+    }
+
+    private Button makeBoardButton(String text, int color) {
+        Button b = new Button(this);
+        b.setText(text);
+        b.setAllCaps(false);
+        b.setTextColor(0xFFFFFFFF);
+        b.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f);
+        b.setPadding(dpx(4), 0, dpx(4), 0);
+        b.setBackground(pillBg(color));
+        if (getBoardFont() != null) b.setTypeface(getBoardFont(), Typeface.BOLD);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dpx(46), 1f);
+        lp.setMargins(dpx(4), 0, dpx(4), 0);
+        b.setLayoutParams(lp);
+        return b;
+    }
+
+    private void showBoardTypedPanel(boolean show) {
+        if (show) ensureBoardTypedPanel();
+        if (boardTypedAnswerPanel == null) return;
+        boardTypedAnswerPanel.setVisibility(show ? View.VISIBLE : View.GONE);
+        if (show && boardAnswerInput != null) {
+            boardAnswerInput.setText("");
+            boardAnswerInput.setEnabled(true);
+            if (btnBoardSubmitAnswer != null) btnBoardSubmitAnswer.setEnabled(true);
+            if (btnBoardRevealOptions != null) btnBoardRevealOptions.setEnabled(true);
+        }
+        if (!show) hideKeyboard();
+    }
+
+    private void setBoardAnswerOptionsVisible(boolean visible) {
+        int v = visible ? View.VISIBLE : View.GONE;
+        if (llyA1 != null) llyA1.setVisibility(v);
+        if (llyA2 != null) llyA2.setVisibility(v);
+    }
+
+    private void hideKeyboard() {
+        InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+        if (imm == null) return;
+        View focus = getCurrentFocus();
+        if (focus != null) {
+            imm.hideSoftInputFromWindow(focus.getWindowToken(), 0);
+        } else if (boardAnswerInput != null) {
+            imm.hideSoftInputFromWindow(boardAnswerInput.getWindowToken(), 0);
+        }
+    }
+
+    /** Player chose to reveal the four options: switch to multiple-choice, half value. */
+    private void onBoardRevealOptions() {
+        if (!boardMode || !boardAwaitingTypedInput) return;
+        boardAwaitingTypedInput = false;
+        boardOptionsRevealed = true;
+        showBoardTypedPanel(false);
+        setBoardAnswerOptionsVisible(true);
+        CAN_PLAY = true; // the player now taps one of the four options
+        showDialog("اختر الإجابة الصحيحة (نصف القيمة)", "", 600, 1200, R.drawable.mouth_01, true);
+    }
+
+    /** Player submitted a typed answer: grade it (full value) and resolve the turn. */
+    private void onBoardSubmitTypedAnswer() {
+        if (!boardMode || !boardAwaitingTypedInput) return;
+        String typed = boardAnswerInput != null ? boardAnswerInput.getText().toString() : "";
+        if (typed.trim().isEmpty()) {
+            Toast.makeText(this, "اكتب إجابتك أولاً", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        boardAwaitingTypedInput = false;
+        boardOptionsRevealed = false;
+        if (btnBoardSubmitAnswer != null) btnBoardSubmitAnswer.setEnabled(false);
+        if (btnBoardRevealOptions != null) btnBoardRevealOptions.setEnabled(false);
+        showBoardTypedPanel(false);
+
+        boolean correct = BoardAnswerMatcher.isCorrect(typed, boardCurrentQuestion);
+        myAnswer = correct ? rightAnswer : 0; // 0 never equals a 1-based right index
+        CAN_PLAY = false;
+        checkAnswer(false);
+    }
+
+    /** Award for the human's board cell: full value, or half if the options were revealed. */
+    private int currentBoardAwardValue() {
+        int value = currentBoardCellValue();
+        return boardOptionsRevealed ? value / 2 : value;
     }
 
     private void scheduleBotBoardAnswer() {
@@ -4762,11 +4994,14 @@ public class GameActivity extends AppCompatActivity {
         int randomTime = 15;
         if (!EXITING) {
             if (start) {
-                PROGRESS_VALUE = 300;
+                int startTicks = boardMode ? 450 : 300; // board answer timer is 45s (others 30s)
+                PROGRESS_VALUE = startTicks;
                 //TIMER_VALUE = 10000;
+                pbTime.setMax(startTicks);
                 pbTime.setRingProgressColor(getResources().getColor(R.color.progressGreen));
                 pbTime.setProgress(0);
-                txtProgress.setText("30");
+                txtProgress.setText(String.valueOf(startTicks / 10));
+                rlyProgress.setAlpha(1f); // the ring starts transparent in XML; force it opaque
                 if (modeOnline && hasBotOpponents()) {
                     randomTime = getFictitiousRandomTime();
                 }

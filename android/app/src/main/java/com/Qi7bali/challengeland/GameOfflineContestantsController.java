@@ -598,11 +598,13 @@ final class GameOfflineContestantsController {
         final float rowLeftDp = boardWidthDp * 0.08f;
         final float rowWidthDp = boardWidthDp * 0.84f;
         final float avatarSizeDp = clamp(rowHeightDp * 0.88f, 18f, 26f);
-        final float scoreWidthDp = boardWidthDp * 0.17f;
+        // Wide enough for multi-thousand board scores (200/400/600 cells add up); the
+        // old 0.17 width clipped anything past two digits.
+        final float scoreWidthDp = boardWidthDp * 0.30f;
         final float nameStartDp = avatarSizeDp + boardWidthDp * 0.035f;
         final float nameEndDp = scoreWidthDp + boardWidthDp * 0.035f;
         final float nameTextSp = clamp(rowHeightDp * 0.42f, 8f, 12f);
-        final float scoreTextSp = clamp(rowHeightDp * 0.64f, 12f, 18f);
+        final float scoreTextSp = clamp(rowHeightDp * 0.55f, 10f, 15f);
 
         final int visibleRows = getVisibleBoardRowCount();
         boardNameViews = new TextView[visibleRows];
@@ -634,6 +636,9 @@ final class GameOfflineContestantsController {
             rowFrame.addView(avatar);
 
             TextView score = makeBoardText(scoreTextSp, "#FFD761", Gravity.CENTER);
+            score.setSingleLine(true);
+            // Nudge the rank a hair to the right (screen-space, RTL-independent).
+            score.setTranslationX(px(4f, density));
             FrameLayout.LayoutParams scoreParams = new FrameLayout.LayoutParams(
                     px(scoreWidthDp, density),
                     FrameLayout.LayoutParams.MATCH_PARENT
@@ -690,7 +695,8 @@ final class GameOfflineContestantsController {
                 boardNameViews[rowIndex].setText(names[playerIndex]);
             }
             if (boardScoreViews[rowIndex] != null) {
-                boardScoreViews[rowIndex].setText(String.valueOf(scores[playerIndex]));
+                // Rows are already ordered best-first, so the rank is the row position.
+                boardScoreViews[rowIndex].setText(ordinal(rowIndex + 1));
             }
             if (boardAvatarViews[rowIndex] != null) {
                 boardAvatarViews[rowIndex].setImageResource(
@@ -698,6 +704,23 @@ final class GameOfflineContestantsController {
                 );
             }
         }
+    }
+
+    /** English ordinal for a rank: 1->"1st", 2->"2nd", 3->"3rd", 4->"4th", 11->"11th"... */
+    private static String ordinal(int n) {
+        int mod100 = n % 100;
+        String suffix;
+        if (mod100 >= 11 && mod100 <= 13) {
+            suffix = "th";
+        } else {
+            switch (n % 10) {
+                case 1: suffix = "st"; break;
+                case 2: suffix = "nd"; break;
+                case 3: suffix = "rd"; break;
+                default: suffix = "th"; break;
+            }
+        }
+        return n + suffix;
     }
 
     private int getVisibleBoardRowCount() {

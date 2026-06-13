@@ -676,7 +676,7 @@
             android:paddingStart="16dp"
             android:paddingEnd="16dp"
             android:paddingBottom="2dp"
-            android:text="تشالنج لاند"
+            android:text="أرض التحدي"
             android:textColor="#FFFFFF"
             android:textSize="19sp"
             android:textStyle="bold" />
