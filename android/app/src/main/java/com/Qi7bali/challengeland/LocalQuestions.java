@@ -108,6 +108,11 @@ public class LocalQuestions {
     /**
      * Maps a difficulty Level ("0".."8") to one of three board tiers:
      * 0 = easy (value 200), 1 = medium (value 400), 2 = hard (value 600).
+     * The split is not a plain range: level 3 sits in the hard tier while 4 & 5
+     * stay medium (per the configured difficulty distribution).
+     *   200 -> levels 0, 1
+     *   400 -> levels 2, 4, 5
+     *   600 -> levels 3, 6, 7, 8
      */
     public static int tierForLevel(String level) {
         int lv;
@@ -116,9 +121,17 @@ public class LocalQuestions {
         } catch (Exception e) {
             lv = 0;
         }
-        if (lv <= 2) return 0;
-        if (lv <= 5) return 1;
-        return 2;
+        switch (lv) {
+            case 0:
+            case 1:
+                return 0; // 200 (easy)
+            case 2:
+            case 4:
+            case 5:
+                return 1; // 400 (medium)
+            default:
+                return 2; // 600 (hard): levels 3, 6, 7, 8 (and any out-of-range)
+        }
     }
 
     /**
