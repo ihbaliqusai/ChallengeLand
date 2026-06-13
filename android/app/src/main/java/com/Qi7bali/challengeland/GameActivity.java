@@ -257,6 +257,33 @@ public class GameActivity extends AppCompatActivity {
     private ValueEventListener boardReadyListener;
     private DatabaseReference boardTurnRef;
     private ValueEventListener boardTurnListener;
+    // Which contestant slot we are currently watching (the picker of the watched turn).
+    // 1 for the 1v1 online board; the picker seat for the team board.
+    private int boardWatchSeat = 1;
+
+    // ---- Online TEAM board (N players in two teams, launched from a room) ----
+    // The group ("تحدي جماعي") room match plays the same سين جيم board but with N
+    // contestants split into team A / team B. A deterministic global seat order
+    // (interleaved A,B,A,B…) is shared by every device, so turns rotate seat-by-seat
+    // and naturally alternate teams. The host (meOwner) builds/pushes the NxBOARD_ROWS
+    // board and drives every bot/abandoned seat; the rest watch via the turn listener.
+    // Synced under Games/{roomId}/board (gameID == roomId). Each cell's value is added
+    // to the picker's team total; the higher team total wins.
+    // boardRoomMatch covers BOTH room board variants launched from the rooms lobby:
+    //   • competition ("نظام التنافس"): 2-8 solo players, highest individual score wins.
+    //   • team ("نظام الفرق"): N players in team A/B, highest team total wins (boardTeamMatch).
+    boolean boardRoomMatch = false;
+    boolean boardTeamMatch = false;
+    String roomId = "";
+    String myTeam = "";
+    private int boardSeatCount = 0;
+    private int mySeat = 0;
+    private String[] boardSeatId;
+    private String[] boardSeatName;
+    private String[] boardSeatTeam;
+    private boolean[] boardSeatIsBot;
+    private boolean[] boardSeatLeft;
+    private int boardMyCorrectCount = 0;
 
     private boolean questionsReady = false;
     private boolean startPending = false;
@@ -357,6 +384,13 @@ public class GameActivity extends AppCompatActivity {
         String matchModeExtra = getIntent().getStringExtra("matchMode");
         GameCampaignLaunchConfig.load(this, modeExtra, matchModeExtra);
         final boolean onlineBoardMatch = modeOnline && "board".equals(matchModeExtra);
+        roomId = safeString(getIntent().getStringExtra("roomId"));
+        myTeam = safeString(getIntent().getStringExtra("myTeam")).trim().toUpperCase();
+        final boolean teamBoardMatch = modeOnline && "team_battle".equals(matchModeExtra)
+                && !roomId.isEmpty();
+        final boolean battleBoardMatch = modeOnline && "battle".equals(matchModeExtra)
+                && !roomId.isEmpty();
+        final boolean roomBoardMatch = teamBoardMatch || battleBoardMatch;
 
 
         findViewById(android.R.id.content).post(new Runnable() {
@@ -369,7 +403,7 @@ public class GameActivity extends AppCompatActivity {
         person = new Person((RelativeLayout) (findViewById(R.id.rlyPerson)));
         playSound(R.raw.main_theme_4, false, false);
 
-        if ((modeOnline && !onlineBoardMatch) || campaignBossBattle) {
+        if ((modeOnline && !onlineBoardMatch && !roomBoardMatch) || campaignBossBattle) {
             opponentHudController.initCompetitiveHudViews();
         }
 
@@ -379,6 +413,8 @@ public class GameActivity extends AppCompatActivity {
 
                 if (onlineBoardMatch) {
                     setupBoardMatch();
+                } else if (roomBoardMatch) {
+                    setupRoomBoardMatch(teamBoardMatch);
                 } else {
 
                 if (eliminationMode) {
@@ -977,6 +1013,9 @@ public class GameActivity extends AppCompatActivity {
                 }
                 MatchOpponent opponent = new MatchOpponent();
                 opponent.id = safeString(item.optString("id"));
+                opponent.seatId = safeString(item.optString("seatId"));
+                if (opponent.seatId.isEmpty()) opponent.seatId = opponent.id;
+                opponent.teamId = safeString(item.optString("teamId")).trim().toUpperCase();
                 opponent.name = safeDisplayName(item.optString("name"), opponents.size() + 1);
                 opponent.photo = safeString(item.optString("photo"));
                 opponent.level = Math.max(1, item.optInt("level", 1));
@@ -1522,10 +1561,13 @@ public class GameActivity extends AppCompatActivity {
                         FAST_LIGHTS = false;
                         T_LIGHTS = 3;
                         if (boardMode) {
+                            // The local human's seat: slot 0 offline/1v1, mySeat on the team board.
+                            final int localSeat = boardPickerSlot;
                             if (playerCorrect) {
-                                offlineContestants.awardCell(0, currentBoardAwardValue());
+                                offlineContestants.awardCell(localSeat, currentBoardAwardValue());
+                                if (boardRoomMatch) boardMyCorrectCount++;
                             }
-                            offlineContestants.showSlotResult(0, playerCorrect);
+                            offlineContestants.showSlotResult(localSeat, playerCorrect);
                             // Reveal the options so the player sees the correct answer
                             // (they were hidden behind the text box for a typed turn).
                             showBoardTypedPanel(false);
@@ -1961,12 +2003,129 @@ public class GameActivity extends AppCompatActivity {
 
     private void finishBoardMatch() {
         hideBoardOverlay();
+        if (boardRoomMatch) {
+            finishRoomBoardMatch();
+            return;
+        }
         if (boardOnline) {
             markMyGameState("finished");
             detachBoardListeners();
             detachOpponentStatusListener();
         }
         finishOfflineCompetition();
+    }
+
+    /** Room board end: tally totals (team or solo), report to the room, return home. */
+    private void finishRoomBoardMatch() {
+        stopTimer(false);
+        CAN_PLAY = false;
+        CAN_HOME = false;
+        hideBoardOverlay();
+        detachBoardListeners();
+
+        final int myScore = offlineContestants.scoreForSlot(mySeat);
+        final boolean win;
+        final String resultMessage;
+        String winnerTeam = "";
+        String winnerId = "";
+
+        if (boardTeamMatch) {
+            int teamAScore = 0, teamBScore = 0;
+            for (int g = 0; g < boardSeatCount; g++) {
+                int s = offlineContestants.scoreForSlot(g);
+                if ("B".equals(boardSeatTeam[g])) teamBScore += s; else teamAScore += s;
+            }
+            final int myTeamScore = "B".equals(myTeam) ? teamBScore : teamAScore;
+            final int enemyTeamScore = "B".equals(myTeam) ? teamAScore : teamBScore;
+            win = myTeamScore > enemyTeamScore;
+            boolean tie = myTeamScore == enemyTeamScore;
+            winnerTeam = teamAScore > teamBScore ? "A" : (teamBScore > teamAScore ? "B" : "");
+            resultMessage = win
+                    ? ("فاز فريقك! " + myTeamScore + " مقابل " + enemyTeamScore)
+                    : (tie ? ("تعادل الفريقان " + myTeamScore + " - " + enemyTeamScore)
+                           : ("خسر فريقك " + myTeamScore + " مقابل " + enemyTeamScore));
+        } else {
+            // Competition: highest individual score wins (ties → no winner).
+            int rank = 1, bestScore = myScore, bestCount = 0;
+            int bestSeat = mySeat;
+            for (int g = 0; g < boardSeatCount; g++) {
+                int s = offlineContestants.scoreForSlot(g);
+                if (s > myScore) rank++;
+                if (s > bestScore) { bestScore = s; bestSeat = g; }
+            }
+            for (int g = 0; g < boardSeatCount; g++) {
+                if (offlineContestants.scoreForSlot(g) == bestScore) bestCount++;
+            }
+            win = (rank == 1);
+            winnerId = bestCount == 1 ? boardSeatId[bestSeat] : "";
+            resultMessage = win
+                    ? ("فزت بالمباراة بـ " + myScore + " نقطة")
+                    : ("انتهت المباراة، ترتيبك " + rank + " من " + boardSeatCount + " بـ " + myScore + " نقطة");
+        }
+
+        persistPendingRoomBoardResult(boardTeamMatch, winnerTeam, winnerId);
+        markMyGameState("finished");
+        detachOpponentStatusListener();
+
+        if (win) {
+            person.moveShow2Hands(2000);
+            person.raiseEyeBrowsUp(1000, false, true);
+            playSound(R.raw.new_level, false, false);
+            showDialog(resultMessage, "", 2000, 3000, R.drawable.mouth_01, false);
+        } else {
+            person.moveShowHand(1000);
+            showDialog(resultMessage, "", 2000, 3000, R.drawable.mouth_05, false);
+        }
+        final Handler handler = new Handler();
+        handler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if (EXITING) return;
+                try {
+                    PlayerStats.recordGameEnd(GameActivity.this, win, myScore);
+                    PlayerProgress.onGameFinished(GameActivity.this, win, myScore,
+                            PlayerStats.getBestStreak(GameActivity.this), usedAllHelps(), usedAnyHelp());
+                } catch (Exception ignored) {
+                }
+                offlineContestants.release();
+                stopCurrentSound();
+                if (cdtProgress != null) cdtProgress.cancel();
+                showInterstitialAd();
+            }
+        }, 4000);
+    }
+
+    /** Writes the room board result so the Flutter side can finalize the room. */
+    private void persistPendingRoomBoardResult(boolean isTeam, String winnerTeam, String winnerId) {
+        if (roomId == null || roomId.trim().isEmpty()) return;
+        try {
+            JSONObject payload = new JSONObject();
+            payload.put("roomId", roomId);
+            payload.put("matchMode", isTeam ? "team_battle" : "battle");
+            payload.put("boardRoom", true);
+            payload.put("isTeam", isTeam);
+            payload.put("meOwner", meOwner);
+            payload.put("winnerTeam", winnerTeam == null ? "" : winnerTeam);
+            payload.put("winnerId", winnerId == null ? "" : winnerId);
+            payload.put("score", offlineContestants.scoreForSlot(mySeat));
+            payload.put("answeredCount", Math.max(0, boardMyCorrectCount));
+            JSONArray array = new JSONArray();
+            for (int g = 0; g < boardSeatCount; g++) {
+                if (g == mySeat) continue;
+                JSONObject o = new JSONObject();
+                o.put("id", boardSeatId[g]);
+                o.put("userId", boardSeatId[g]);
+                o.put("seatId", boardSeatId[g]);
+                o.put("name", boardSeatName[g]);
+                o.put("score", offlineContestants.scoreForSlot(g));
+                o.put("teamId", boardSeatTeam[g] == null ? "" : boardSeatTeam[g]);
+                o.put("bot", boardSeatIsBot[g]);
+                array.put(o);
+            }
+            payload.put("opponentsJson", array.toString());
+            AppPrefs.setPendingRoomMatchResult(this, payload.toString());
+        } catch (Exception ignored) {
+        }
     }
 
     // =====================================================================
@@ -1996,6 +2155,164 @@ public class GameActivity extends AppCompatActivity {
         if (boardOnline) {
             startOnlineBoardSession();
         }
+    }
+
+    // =====================================================================
+    //  Online TEAM board ("تحدي جماعي") — N players in two teams, one synced
+    //  board, launched from a Firestore room (gameID == roomId). Seats are kept
+    //  in a deterministic interleaved order (A,B,A,B…) shared by every device, so
+    //  turn t belongs to seat (t % N) and consecutive turns alternate teams. The
+    //  host (meOwner) builds/pushes the board and drives every bot / abandoned
+    //  seat; everyone else watches. Each cell value is added to the picker's team.
+    // =====================================================================
+
+    /** Entry point for a room board match (competition or team) after the lobby starts. */
+    private void setupRoomBoardMatch(boolean isTeam) {
+        int characterIndex = Math.max(0, getIntent().getIntExtra("characterIndex", 0));
+        boardMode = true;
+        boardRoomMatch = true;
+        boardTeamMatch = isTeam;
+        boardOnline = true;
+        if (isTeam && myTeam.isEmpty()) myTeam = "A";
+        gameID = roomId;
+        buildBoardSeatOrder();
+        offlineContestants.setupForBoard(boardSeatCount, characterIndex);
+        for (int g = 0; g < boardSeatCount; g++) {
+            offlineContestants.setContestantName(g, boardSeatName[g]);
+        }
+        boardPool = LocalQuestions.loadBoardPool(this);
+        buildBoardCategoryList();
+        boardCols = boardSeatCount;
+        questionsReady = true;
+        // gameID is known (== roomId), so begin the session now and open the category
+        // pick once onCreate has finished wiring the rest of the views (deferred to a
+        // post, so the overlay builds against a fully-initialised activity).
+        beginOnlineGameSession();
+        findViewById(android.R.id.content).post(new Runnable() {
+            @Override
+            public void run() {
+                if (!EXITING) showOnlineBoardCategorySelect();
+            }
+        });
+    }
+
+    /**
+     * Builds the deterministic global seat order from me + all room opponents.
+     * Team match → interleave A,B,A,B… (so turns alternate teams); competition →
+     * a single list sorted by userId. Every device produces the same order.
+     */
+    private void buildBoardSeatOrder() {
+        if (boardTeamMatch) {
+            buildTeamSeatOrder();
+        } else {
+            buildSoloSeatOrder();
+        }
+        mySeat = 0;
+        String myKey = boardSeatKeyFor(myID, myID);
+        for (int g = 0; g < boardSeatCount; g++) {
+            if (myKey.equals(boardSeatId[g])) { mySeat = g; break; }
+        }
+    }
+
+    private void buildTeamSeatOrder() {
+        ArrayList<String[]> teamAList = new ArrayList<>();
+        ArrayList<String[]> teamBList = new ArrayList<>();
+        // [seatId, name, team, bot("1"/"0")]
+        addSeatToTeam(teamAList, teamBList, new String[]{
+                boardSeatKeyFor(myID, myID), myName, normalizeTeam(myTeam), "0"});
+        for (MatchOpponent opp : opponents) {
+            if (opp.id == null || opp.id.trim().isEmpty()) continue;
+            addSeatToTeam(teamAList, teamBList, new String[]{
+                    boardSeatKeyFor(opp.id, opp.seatId), opp.name,
+                    normalizeTeam(opp.teamId), opp.bot ? "1" : "0"});
+        }
+        sortSeatsById(teamAList);
+        sortSeatsById(teamBList);
+
+        allocateSeatArrays(teamAList.size() + teamBList.size());
+        int idx = 0, i = 0, j = 0;
+        while (i < teamAList.size() || j < teamBList.size()) {
+            if (i < teamAList.size()) { assignSeat(idx++, teamAList.get(i++)); }
+            if (j < teamBList.size()) { assignSeat(idx++, teamBList.get(j++)); }
+        }
+    }
+
+    private void buildSoloSeatOrder() {
+        ArrayList<String[]> all = new ArrayList<>();
+        // [seatId, name, team(""), bot("1"/"0")]
+        all.add(new String[]{boardSeatKeyFor(myID, myID), myName, "", "0"});
+        for (MatchOpponent opp : opponents) {
+            if (opp.id == null || opp.id.trim().isEmpty()) continue;
+            all.add(new String[]{boardSeatKeyFor(opp.id, opp.seatId), opp.name,
+                    "", opp.bot ? "1" : "0"});
+        }
+        sortSeatsById(all);
+        allocateSeatArrays(all.size());
+        for (int g = 0; g < all.size(); g++) {
+            assignSeat(g, all.get(g));
+        }
+    }
+
+    private void allocateSeatArrays(int count) {
+        boardSeatCount = Math.max(2, count);
+        boardSeatId = new String[boardSeatCount];
+        boardSeatName = new String[boardSeatCount];
+        boardSeatTeam = new String[boardSeatCount];
+        boardSeatIsBot = new boolean[boardSeatCount];
+        boardSeatLeft = new boolean[boardSeatCount];
+    }
+
+    private void assignSeat(int g, String[] seat) {
+        if (g < 0 || g >= boardSeatCount) return;
+        boardSeatId[g] = seat[0];
+        boardSeatName[g] = (seat[1] == null || seat[1].trim().isEmpty()) ? ("لاعب " + (g + 1)) : seat[1];
+        boardSeatTeam[g] = seat[2];
+        boardSeatIsBot[g] = "1".equals(seat[3]);
+        boardSeatLeft[g] = false;
+    }
+
+    private void addSeatToTeam(ArrayList<String[]> teamA, ArrayList<String[]> teamB, String[] seat) {
+        if ("B".equals(seat[2])) teamB.add(seat); else teamA.add(seat);
+    }
+
+    private void sortSeatsById(ArrayList<String[]> list) {
+        java.util.Collections.sort(list, new java.util.Comparator<String[]>() {
+            @Override
+            public int compare(String[] a, String[] b) {
+                return a[0].compareTo(b[0]);
+            }
+        });
+    }
+
+    /**
+     * The board seat key (used for picks + the global seat order). The player's
+     * userId is used so every device derives the same key for every seat: my own
+     * device knows me as myID, and other devices know me by my opponent id (both
+     * are the same userId). seatId is intentionally ignored to stay deterministic.
+     */
+    private String boardSeatKeyFor(String id, String seatId) {
+        return id == null ? "" : id.trim();
+    }
+
+    private String normalizeTeam(String team) {
+        String t = team == null ? "" : team.trim().toUpperCase();
+        return "B".equals(t) ? "B" : "A";
+    }
+
+    private String boardLocalSeatId() {
+        return boardRoomMatch ? boardSeatId[mySeat] : myID;
+    }
+
+    private int seatIndexForId(String id) {
+        if (boardSeatId == null || id == null) return -1;
+        for (int g = 0; g < boardSeatCount; g++) {
+            if (id.equals(boardSeatId[g])) return g;
+        }
+        return -1;
+    }
+
+    private boolean boardSeatIsLocal(int seat) {
+        return boardRoomMatch ? (seat == mySeat) : (seat == 0);
     }
 
     private DatabaseReference boardRef() {
@@ -2141,11 +2458,16 @@ public class GameActivity extends AppCompatActivity {
 
     private void onOnlineCategoryChosen(String category) {
         if (gameID == null || gameID.trim().isEmpty()) return;
-        showBoardWaitingOverlay("اخترت: " + category + "\nبانتظار اختيار الخصم...");
-        boardRef().child("picks").child(myID).child("category").setValue(category);
+        showBoardWaitingOverlay("اخترت: " + category
+                + (boardRoomMatch ? "\nبانتظار بقية اللاعبين..." : "\nبانتظار اختيار الخصم..."));
+        boardRef().child("picks").child(boardLocalSeatId()).child("category").setValue(category);
         attachBoardReadyListener();
         if (meOwner) {
-            attachBoardPicksListener();
+            if (boardRoomMatch) {
+                attachRoomBoardPicksListener();
+            } else {
+                attachBoardPicksListener();
+            }
         }
     }
 
@@ -2183,6 +2505,33 @@ public class GameActivity extends AppCompatActivity {
                     return;
                 }
                 buildAndPushOnlineBoard(ownerCat, joinerCat);
+            }
+
+            @Override
+            public void onCancelled(DatabaseError error) {
+            }
+        };
+        boardPicksRef.addValueEventListener(boardPicksListener);
+    }
+
+    /** Host only: once every human seat has picked, assemble the NxBOARD_ROWS board. */
+    private void attachRoomBoardPicksListener() {
+        if (boardPicksRef != null || gameID == null || gameID.trim().isEmpty()) return;
+        boardPicksRef = boardRef().child("picks");
+        boardPicksListener = new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot snapshot) {
+                if (EXITING || boardStarted || boardCellQuestion != null) return;
+                HashMap<String, String> picks = new HashMap<>();
+                for (int g = 0; g < boardSeatCount; g++) {
+                    if (boardSeatIsBot[g]) continue;
+                    String cat = snapshot.child(boardSeatId[g]).child("category").getValue(String.class);
+                    if (cat == null || cat.isEmpty()) {
+                        return; // still waiting for a human to pick
+                    }
+                    picks.put(boardSeatId[g], cat);
+                }
+                buildAndPushRoomBoard(picks);
             }
 
             @Override
@@ -2250,16 +2599,67 @@ public class GameActivity extends AppCompatActivity {
         boardRef().updateChildren(payload);
     }
 
-    private void loadOnlineBoardFromFirebase(DataSnapshot snapshot) {
+    /** Host only: build the room board (one category per seat) and push it. */
+    private void buildAndPushRoomBoard(HashMap<String, String> picks) {
+        if (boardCellQuestion != null) return;
+        final int cols = boardSeatCount;
         boardSelectedCategories.clear();
-        String c0 = snapshot.child("categories").child("0").getValue(String.class);
-        String c1 = snapshot.child("categories").child("1").getValue(String.class);
-        boardSelectedCategories.add(c0 == null ? "" : c0);
-        boardSelectedCategories.add(c1 == null ? "" : c1);
-        boardCols = 2;
-        boardCellQuestion = new Question[2][BOARD_ROWS];
-        boardCellConsumed = new boolean[2][BOARD_ROWS];
-        for (int col = 0; col < 2; col++) {
+        boardCellQuestion = new Question[cols][BOARD_ROWS];
+        boardCellConsumed = new boolean[cols][BOARD_ROWS];
+        boardCols = cols;
+        Set<Question> used = new HashSet<>();
+        Set<String> takenCategories = new HashSet<>();
+        HashMap<String, Object> payload = new HashMap<>();
+        for (int col = 0; col < cols; col++) {
+            String cat = boardSeatIsBot[col] ? null : picks.get(boardSeatId[col]);
+            if (cat == null || cat.isEmpty()) {
+                cat = randomBoardCategory(takenCategories);
+            }
+            takenCategories.add(cat);
+            boardSelectedCategories.add(cat);
+            payload.put("categories/" + col, cat);
+            for (int row = 0; row < BOARD_ROWS; row++) {
+                Question q = drawBoardQuestion(cat, boardTierForRow(row), used);
+                boardCellQuestion[col][row] = q;
+                String key = "cells/" + col + "_" + row;
+                payload.put(key + "/Level", q != null && q.getLevel() != null ? q.getLevel() : "0");
+                payload.put(key + "/Q", q != null && q.getQ() != null ? q.getQ() : "");
+                payload.put(key + "/R", q != null && q.getR() != null ? q.getR() : "");
+                payload.put(key + "/W1", q != null && q.getW1() != null ? q.getW1() : "");
+                payload.put(key + "/W2", q != null && q.getW2() != null ? q.getW2() : "");
+                payload.put(key + "/W3", q != null && q.getW3() != null ? q.getW3() : "");
+                payload.put(key + "/Category", q != null && q.getCategory() != null
+                        ? q.getCategory() : cat);
+            }
+        }
+        payload.put("ready", true);
+        boardRef().updateChildren(payload);
+    }
+
+    /** A board category not already used by another seat, if possible. */
+    private String randomBoardCategory(Set<String> taken) {
+        if (boardAllCategories.isEmpty()) return LocalQuestions.FALLBACK_CATEGORY;
+        ArrayList<String> remaining = new ArrayList<>();
+        for (String c : boardAllCategories) {
+            if (!taken.contains(c)) remaining.add(c);
+        }
+        if (remaining.isEmpty()) {
+            return boardAllCategories.get(boardRandom.nextInt(boardAllCategories.size()));
+        }
+        return remaining.get(boardRandom.nextInt(remaining.size()));
+    }
+
+    private void loadOnlineBoardFromFirebase(DataSnapshot snapshot) {
+        final int cols = boardRoomMatch ? boardSeatCount : 2;
+        boardSelectedCategories.clear();
+        for (int col = 0; col < cols; col++) {
+            String cat = snapshot.child("categories").child(String.valueOf(col)).getValue(String.class);
+            boardSelectedCategories.add(cat == null ? "" : cat);
+        }
+        boardCols = cols;
+        boardCellQuestion = new Question[cols][BOARD_ROWS];
+        boardCellConsumed = new boolean[cols][BOARD_ROWS];
+        for (int col = 0; col < cols; col++) {
             for (int row = 0; row < BOARD_ROWS; row++) {
                 DataSnapshot cs = snapshot.child("cells").child(col + "_" + row);
                 Question q = new Question();
@@ -2273,8 +2673,8 @@ public class GameActivity extends AppCompatActivity {
                 boardCellQuestion[col][row] = q;
             }
         }
-        boardCellsRemaining = 2 * BOARD_ROWS;
-        boardTotalTurns = 2 * BOARD_ROWS;
+        boardCellsRemaining = cols * BOARD_ROWS;
+        boardTotalTurns = cols * BOARD_ROWS;
         hideBoardOverlay();
         beginOnlineBoardTurn(0);
     }
@@ -2300,9 +2700,14 @@ public class GameActivity extends AppCompatActivity {
             finishBoardMatch();
             return;
         }
+        if (boardRoomMatch) {
+            beginRoomBoardTurn(turn);
+            return;
+        }
         boolean myTurn = meOwner ? (turn % 2 == 0) : (turn % 2 == 1);
         boardPickerIsHuman = myTurn;
         boardPickerSlot = myTurn ? 0 : 1;
+        boardWatchSeat = 1;
         showBoardGrid();
         if (myTurn) {
             // The human picks a cell via the grid (onCellPicked → writes the pick).
@@ -2318,6 +2723,54 @@ public class GameActivity extends AppCompatActivity {
         } else {
             attachBoardTurnListener(turn);
         }
+    }
+
+    /** Room board: turn t belongs to seat (t % N); the host drives bot/abandoned seats. */
+    private void beginRoomBoardTurn(final int turn) {
+        final int pickerSeat = boardSeatCount > 0 ? (turn % boardSeatCount) : 0;
+        boardPickerSlot = pickerSeat;
+        boardWatchSeat = pickerSeat;
+        boolean iAmPicker = (pickerSeat == mySeat);
+        boardPickerIsHuman = iAmPicker;
+        showBoardGrid();
+        if (iAmPicker) {
+            // I pick a cell via the grid (onCellPicked → writes the pick + answer).
+            return;
+        }
+        boolean seatDriven = boardSeatIsBot[pickerSeat] || boardSeatLeft[pickerSeat];
+        if (seatDriven && meOwner) {
+            // Host drives the bot/abandoned seat and broadcasts pick + result.
+            new Handler().postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    if (!EXITING && boardMode) runHostBotSeatTurn(turn, pickerSeat);
+                }
+            }, 1200);
+        } else {
+            // Watch the picker (a remote human, or the host driving a bot seat).
+            attachBoardTurnListener(turn);
+        }
+    }
+
+    /** Host drives one bot/abandoned seat's turn, writing the pick + result to RTDB. */
+    private void runHostBotSeatTurn(int turn, int seat) {
+        if (boardOnlineTurn != turn) return;
+        if (boardPickedCol < 0 || boardPickedRow < 0) {
+            int[] cell = pickRandomRemainingCell();
+            if (cell == null) {
+                advanceOnlineBoardTurn();
+                return;
+            }
+            boardPickedCol = cell[0];
+            boardPickedRow = cell[1];
+        }
+        boardPickerSlot = seat;
+        boardPickerIsHuman = false;
+        boardCurrentQuestion = boardCellQuestion[boardPickedCol][boardPickedRow];
+        writeOnlineTurnPick(turn, boardPickedCol, boardPickedRow);
+        // enterBoardQuestion(false) → bot staggered reveal → resolveBotBoardAnswer(seat),
+        // which (for the team host) also writes the turn result before advancing.
+        enterBoardQuestion(false);
     }
 
     private void advanceOnlineBoardTurn() {
@@ -2408,7 +2861,7 @@ public class GameActivity extends AppCompatActivity {
         for (int i = 0; i < 4; i++) {
             bindBoardAnswerView(i, answerOrder.get(i), answerDisplayTexts.get(i));
         }
-        showDialog("دور " + offlineContestants.nameForSlot(1) + "..", "", 600, 1500, R.drawable.mouth_01, false);
+        showDialog("دور " + offlineContestants.nameForSlot(boardWatchSeat) + "..", "", 600, 1500, R.drawable.mouth_01, false);
         boardWatchQuestionShown = true;
         maybeApplyOpponentResult();
     }
@@ -2421,14 +2874,14 @@ public class GameActivity extends AppCompatActivity {
         if (boardOpponentHalf) value = value / 2;
         if (imgRight != null) imgRight.setImageResource(R.drawable.frame_right);
         if (correct) {
-            offlineContestants.awardCell(1, value);
+            offlineContestants.awardCell(boardWatchSeat, value);
             playSound(R.raw.correct_answer, false, false);
         } else {
             playSound(R.raw.wrong_answer, false, false);
         }
-        offlineContestants.showSlotResult(1, correct);
+        offlineContestants.showSlotResult(boardWatchSeat, correct);
         CAN_HOME = true;
-        String oppName = offlineContestants.nameForSlot(1);
+        String oppName = offlineContestants.nameForSlot(boardWatchSeat);
         showDialog(oppName + (correct ? " أجاب إجابة صحيحة" : " أجاب إجابة خاطئة"),
                 "", 700, 2000, correct ? R.drawable.mouth_01 : R.drawable.mouth_05, false);
         new Handler().postDelayed(new Runnable() {
@@ -2453,6 +2906,29 @@ public class GameActivity extends AppCompatActivity {
         // If we're mid-watch on their turn and it hasn't resolved, take over as a bot.
         if (boardMode && !boardPickerIsHuman && !boardWatchResultApplied) {
             runOpponentBotTurn();
+        }
+    }
+
+    /** Room board: a human seat dropped — the host drives its remaining turns as a bot. */
+    private void handleRoomBoardSeatLeft(MatchOpponent opponent) {
+        int seat = seatIndexForId(boardSeatKeyFor(opponent.id, opponent.seatId));
+        if (seat < 0) seat = seatIndexForId(opponent.id);
+        if (seat >= 0) {
+            boardSeatLeft[seat] = true;
+            boardSeatIsBot[seat] = true;
+        }
+        if (opponent.statusRef != null && opponent.statusListener != null) {
+            opponent.statusRef.removeEventListener(opponent.statusListener);
+        }
+        opponent.statusRef = null;
+        opponent.statusListener = null;
+        // If it's that seat's turn right now and the host is watching it unresolved,
+        // take over immediately so the match doesn't stall.
+        if (meOwner && boardStarted && seat >= 0
+                && seat == (boardSeatCount > 0 ? (boardOnlineTurn % boardSeatCount) : -1)
+                && !boardPickerIsHuman && !boardWatchResultApplied) {
+            detachBoardTurnListener();
+            runHostBotSeatTurn(boardOnlineTurn, seat);
         }
     }
 
@@ -2584,9 +3060,14 @@ public class GameActivity extends AppCompatActivity {
         scoresRow.setGravity(Gravity.CENTER);
         int contestantCount = offlineContestants.contestantCount();
         for (int s = 0; s < contestantCount; s++) {
-            String chipText = offlineContestants.nameForSlot(s) + ": " + offlineContestants.scoreForSlot(s);
-            TextView chip = makeBoardText(chipText, 12f,
-                    s == boardPickerSlot ? 0xFFFFD761 : 0xFFFFFFFF, Gravity.CENTER);
+            String prefix = boardTeamMatch
+                    ? ("[" + ("B".equals(boardSeatTeam[s]) ? "ب" : "أ") + "] ")
+                    : "";
+            String chipText = prefix + offlineContestants.nameForSlot(s) + ": " + offlineContestants.scoreForSlot(s);
+            int chipColor = s == boardPickerSlot
+                    ? 0xFFFFD761
+                    : (boardTeamMatch && "B".equals(boardSeatTeam[s]) ? 0xFF7DD3FC : 0xFFFFFFFF);
+            TextView chip = makeBoardText(chipText, 12f, chipColor, Gravity.CENTER);
             chip.setBackground(headerBg());
             chip.setPadding(dpx(8), dpx(4), dpx(8), dpx(4));
             LinearLayout.LayoutParams chLp = new LinearLayout.LayoutParams(
@@ -2597,6 +3078,26 @@ public class GameActivity extends AppCompatActivity {
         }
         scoresScroll.addView(scoresRow);
         root.addView(scoresScroll);
+
+        // Team board: show the running team totals above the categories.
+        if (boardTeamMatch) {
+            int teamAScore = 0, teamBScore = 0;
+            for (int g = 0; g < boardSeatCount; g++) {
+                int s = offlineContestants.scoreForSlot(g);
+                if ("B".equals(boardSeatTeam[g])) teamBScore += s; else teamAScore += s;
+            }
+            String teamLine = "الفريق أ: " + teamAScore + "   |   الفريق ب: " + teamBScore;
+            TextView teamTotals = makeBoardText(teamLine, 15f,
+                    "B".equals(myTeam) ? 0xFF7DD3FC : 0xFFFFD761, Gravity.CENTER);
+            teamTotals.setBackground(headerBg());
+            teamTotals.setPadding(dpx(14), dpx(4), dpx(14), dpx(4));
+            LinearLayout.LayoutParams ttLp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            ttLp.gravity = Gravity.CENTER_HORIZONTAL;
+            ttLp.bottomMargin = dpx(10);
+            teamTotals.setLayoutParams(ttLp);
+            root.addView(teamTotals);
+        }
 
         // Category blocks, classic سين جيم layout: value pills (200/400/600) flank a
         // centre card holding the artwork and name. Up to three blocks per row, but with
@@ -3055,6 +3556,10 @@ public class GameActivity extends AppCompatActivity {
                     playSound(R.raw.wrong_answer, false, false);
                 }
                 offlineContestants.showSlotResult(slot, correct);
+                // Room host: broadcast the bot/abandoned seat's result so watchers apply it.
+                if (boardOnline && boardRoomMatch && meOwner) {
+                    writeOnlineTurnResult(boardOnlineTurn, correct, false);
+                }
                 String name = offlineContestants.nameForSlot(slot);
                 showDialog(name + (correct ? " أجاب إجابة صحيحة" : " أجاب إجابة خاطئة"),
                         "", 700, 2000, correct ? R.drawable.mouth_01 : R.drawable.mouth_05, false);
@@ -4115,6 +4620,11 @@ public class GameActivity extends AppCompatActivity {
 
     private void convertOpponentToComputer(MatchOpponent opponent) {
         if (opponent == null) {
+            return;
+        }
+        if (boardRoomMatch) {
+            opponent.left = true;
+            handleRoomBoardSeatLeft(opponent);
             return;
         }
         if (boardOnline) {

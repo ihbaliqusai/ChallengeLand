@@ -114,7 +114,11 @@ class MainActivity : FlutterActivity() {
                             "blitz"       -> BlitzGameActivity::class.java
                             "survival"    -> SurvivalGameActivity::class.java
                             "series"      -> SeriesGameActivity::class.java
-                            "team_battle" -> TeamBattleGameActivity::class.java
+                            // The group challenge ("تحدي جماعي") now plays the سين جيم board
+                            // in GameActivity for both variants — competition (solo) and team —
+                            // instead of the classic simultaneous-question engine.
+                            "team_battle" -> GameActivity::class.java
+                            "battle"      -> GameActivity::class.java
                             else          -> BattleGameActivity::class.java
                         }
                         val intent = Intent(this, activityClass).apply {

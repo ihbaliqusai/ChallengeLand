@@ -1578,6 +1578,64 @@ class RoomService {
         });
       });
 
+  /// Finalizes a **board** (سين جيم) room match — competition (solo) or team.
+  /// Unlike the classic battle/team finalize paths, the host writes every seat's
+  /// authoritative board score (humans + bots) in one shot — board totals reach
+  /// thousands, so the per-question score clamp used by the classic path must be
+  /// bypassed. Sets winnerTeamId (team) or winnerId (competition). Host only.
+  Future<void> finalizeRoomBoardMatch({
+    required String roomId,
+    required Map<String, int> seatScores,
+    required bool isTeam,
+    String winnerTeam = '',
+    String winnerId = '',
+    int answeredCount = 6,
+  }) =>
+      _guard(() async {
+        final ref = _rooms.doc(roomId);
+        await _firestore.runTransaction((transaction) async {
+          final snapshot = await transaction.get(ref);
+          if (!snapshot.exists) return;
+
+          final room = Room.fromSnapshot(snapshot);
+          final expectedMode =
+              isTeam ? Room.modeTeamBattle : Room.modeBattle;
+          if (room.mode != expectedMode || room.phase == Room.phaseFinished) {
+            return;
+          }
+
+          final updates = <String, dynamic>{};
+          seatScores.forEach((playerId, score) {
+            if (playerId.isEmpty || !room.containsPlayer(playerId)) return;
+            final safeScore = score < 0 ? 0 : score;
+            updates['players.$playerId.score'] = safeScore;
+            updates['players.$playerId.answeredCount'] =
+                answeredCount < 0 ? 0 : answeredCount;
+            updates['players.$playerId.completedAt'] =
+                FieldValue.serverTimestamp();
+          });
+
+          updates['phase'] = Room.phaseFinished;
+          if (isTeam) {
+            updates['winnerId'] = FieldValue.delete();
+            if (winnerTeam == Room.teamA || winnerTeam == Room.teamB) {
+              updates['winnerTeamId'] = winnerTeam;
+            } else {
+              updates['winnerTeamId'] = FieldValue.delete();
+            }
+          } else {
+            updates['winnerTeamId'] = FieldValue.delete();
+            if (winnerId.isNotEmpty && room.containsPlayer(winnerId)) {
+              updates['winnerId'] = winnerId;
+            } else {
+              updates['winnerId'] = FieldValue.delete();
+            }
+          }
+
+          transaction.update(ref, updates);
+        });
+      });
+
   /// Advance to the next question in elimination mode.
   /// Uses [fromIndex] as a guard to prevent double-advance.
   Future<void> advanceEliminationQuestion({

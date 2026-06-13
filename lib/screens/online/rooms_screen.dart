@@ -175,8 +175,12 @@ class _RoomsScreenState extends State<RoomsScreen>
                             setState(() => _maxPlayers = v),
                         onModeChanged: (v) => setState(() {
                           _mode = v;
-                          if (v == Room.modeTeamBattle && _maxPlayers.isOdd) {
-                            _maxPlayers = _maxPlayers + 1;
+                          if (v == Room.modeTeamBattle &&
+                              !const <int>[4, 6, 8].contains(_maxPlayers)) {
+                            // Team challenge supports only 2vs2 / 3vs3 / 4vs4.
+                            _maxPlayers = _maxPlayers < 4
+                                ? 4
+                                : (_maxPlayers > 8 ? 8 : _maxPlayers + 1);
                           }
                         }),
                         onRoundDurationChanged: (v) =>
@@ -358,9 +362,11 @@ class _CreateJoinPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Both modes play the board: competition = 2-8 solo players;
+    // team challenge = 2vs2 / 3vs3 / 4vs4 → 4 / 6 / 8 seats.
     final allowedPlayerCounts = mode == Room.modeTeamBattle
-        ? const <int>[2, 4, 6, 8, 10, 12]
-        : List<int>.generate(12, (i) => i + 2);
+        ? const <int>[4, 6, 8]
+        : const <int>[2, 3, 4, 5, 6, 7, 8];
 
     return Column(
       children: [
@@ -407,62 +413,18 @@ class _CreateJoinPanel extends StatelessWidget {
               Row(
                 children: [
                   _ModeChip(
-                    label: 'تنافس',
+                    label: 'نظام التنافس',
                     icon: Icons.sports_kabaddi_rounded,
-                    description: 'تنافس على النقاط',
+                    description: 'لوح سين جيم.. كل لاعب لوحده (2-8)',
                     selected: mode == 'battle',
                     selectedColor: const Color(0xFF3B82F6),
                     onTap: () => onModeChanged('battle'),
                   ),
                   const SizedBox(width: 8),
                   _ModeChip(
-                    label: 'إقصاء',
-                    icon: Icons.whatshot_rounded,
-                    description: 'خطأ واحد = خروج',
-                    selected: mode == 'elimination',
-                    selectedColor: const Color(0xFFDC2626),
-                    onTap: () => onModeChanged('elimination'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  _ModeChip(
-                    label: 'سرعة البرق',
-                    icon: Icons.timer_rounded,
-                    description: 'سباق ضد الوقت',
-                    selected: mode == 'blitz',
-                    selectedColor: const Color(0xFF10B981),
-                    onTap: () => onModeChanged('blitz'),
-                  ),
-                  const SizedBox(width: 8),
-                  _ModeChip(
-                    label: 'نجاة',
-                    icon: Icons.favorite_rounded,
-                    description: '3 أرواح لكل لاعب',
-                    selected: mode == 'survival',
-                    selectedColor: const Color(0xFFF97316),
-                    onTap: () => onModeChanged('survival'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  _ModeChip(
-                    label: 'سلسلة',
-                    icon: Icons.emoji_events_rounded,
-                    description: 'أول من يفوز جولتين',
-                    selected: mode == 'series',
-                    selectedColor: const Color(0xFFF59E0B),
-                    onTap: () => onModeChanged('series'),
-                  ),
-                  const SizedBox(width: 8),
-                  _ModeChip(
-                    label: 'فرق',
+                    label: 'نظام الفرق',
                     icon: Icons.groups_rounded,
-                    description: 'حتى 6 ضد 6 بنظام الفريق',
+                    description: 'لوح سين جيم.. فريقان (2-4 لكل فريق)',
                     selected: mode == 'team_battle',
                     selectedColor: const Color(0xFF8B5CF6),
                     onTap: () => onModeChanged('team_battle'),

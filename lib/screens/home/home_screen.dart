@@ -122,10 +122,42 @@ class _HomeScreenState extends State<HomeScreen>
       final myLivesRemaining =
           (payload['myLivesRemaining'] as num?)?.toInt() ?? 0;
       final myEliminated = payload['myEliminated'] == true;
+      final boardRoom = payload['boardRoom'] == true;
+      final isTeamBoard = payload['isTeam'] == true;
+      final meOwner = payload['meOwner'] == true;
+      final winnerTeam = (payload['winnerTeam'] ?? '').toString().trim();
+      final boardWinnerId = (payload['winnerId'] ?? '').toString().trim();
       final opponents = _decodeOpponentsPayload(
         (payload['opponentsJson'] ?? '').toString(),
       );
       if (roomId.isEmpty || matchMode.isEmpty) {
+        await nativeBridgeService.clearPendingRoomMatchResult();
+        return;
+      }
+
+      // Board (سين جيم) room result — competition (solo) or team. The host writes
+      // every seat's authoritative board score in one transaction (board totals
+      // exceed the classic per-question clamp).
+      if (boardRoom) {
+        if (meOwner) {
+          final seatScores = <String, int>{userId: score};
+          for (final opponent in opponents) {
+            final oid = (opponent['userId'] ?? opponent['id'] ?? '')
+                .toString()
+                .trim();
+            if (oid.isNotEmpty) {
+              seatScores[oid] = (opponent['score'] as num?)?.toInt() ?? 0;
+            }
+          }
+          await roomService.finalizeRoomBoardMatch(
+            roomId: roomId,
+            seatScores: seatScores,
+            isTeam: isTeamBoard,
+            winnerTeam: winnerTeam,
+            winnerId: boardWinnerId,
+            answeredCount: answeredCount,
+          );
+        }
         await nativeBridgeService.clearPendingRoomMatchResult();
         return;
       }

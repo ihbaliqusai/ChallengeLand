@@ -11,6 +11,8 @@ import de.hdodenhof.circleimageview.CircleImageView;
 
 final class MatchOpponent {
     String id = "";
+    String seatId = "";
+    String teamId = "";
     String name = "خصم آلي";
     String photo = "";
     int level = 1;
