@@ -115,12 +115,15 @@ service cloud.firestore {
     }
 
     function roomCoreUnchanged() {
+      // isPrivate / roomName / createdAt are optional on a room doc (public, unnamed
+      // rooms omit them). Use safe .get(...) access so a missing field does not raise
+      // an evaluation error (which would wrongly deny a legitimate join/update).
       return request.resource.data.hostId == resource.data.hostId &&
         request.resource.data.mode == resource.data.mode &&
         request.resource.data.maxPlayers == resource.data.maxPlayers &&
-        request.resource.data.createdAt == resource.data.createdAt &&
-        request.resource.data.isPrivate == resource.data.isPrivate &&
-        request.resource.data.roomName == resource.data.roomName;
+        request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null) &&
+        request.resource.data.get('isPrivate', false) == resource.data.get('isPrivate', false) &&
+        request.resource.data.get('roomName', '') == resource.data.get('roomName', '');
     }
 
     match /users/{uid} {

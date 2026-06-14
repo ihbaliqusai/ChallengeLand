@@ -156,6 +156,29 @@ final class GameOfflineContestantsController {
     private int selectedCharacterIndex = 0;
     private boolean active = false;
 
+    // Online room board: the figure (character artwork) chosen per slot, the team of
+    // each seat ("A"/"B"/""), and whether this is a team match. For offline/1v1 the
+    // figure is the classic cycling order and teamMode stays false.
+    private int[] slotCharacter;
+    private String[] slotTeam;
+    private boolean teamMode = false;
+
+    // Character figure genders: indices 0-4 are male, 5-7 female (see CONTESTANT_DRAWABLES).
+    private static final int[] MALE_FIGURES = {0, 1, 2, 3, 4};
+    private static final int[] FEMALE_FIGURES = {5, 6, 7};
+    private static final java.util.HashSet<String> FEMALE_NAMES = new java.util.HashSet<>(
+            java.util.Arrays.asList(
+                    "ليلى", "هدى", "منى", "سارة", "رنا", "ايلين", "إيلين", "تاليا", "تالا",
+                    "فاطمة", "عائشة", "مريم", "نور", "نوره", "نورة", "سلمى", "رؤى", "دانة",
+                    "جنى", "لمى", "رهف", "شهد", "غلا", "أسماء", "اسماء", "هند", "ريم", "ريما",
+                    "دلال", "عبير", "حنان", "إيمان", "ايمان", "آلاء", "الاء", "بيان", "جود",
+                    "لين", "لينا", "دينا", "ميس", "ميساء", "روان", "رغد", "سمر", "رولا", "وعد",
+                    "غدير", "أمل", "امل", "رزان", "ربى", "شذى", "علا", "عُلا", "هيا", "جواهر",
+                    "لطيفة", "موضي", "العنود", "سديم", "رفيف", "تولين", "بتول", "مزنة", "ندى",
+                    "أروى", "اروى", "بشرى", "صفاء", "وفاء", "هبة", "هناء", "رقية", "خديجة",
+                    "زينب", "أمنية", "امنية", "ندين", "جوري", "رتاج", "لارا", "ميرا", "سيرين"
+            ));
+
     GameOfflineContestantsController(GameActivity activity) {
         this.activity = activity;
     }
@@ -173,34 +196,37 @@ final class GameOfflineContestantsController {
         setupInternal(playerCount, characterIndex);
     }
 
+    /**
+     * Online room board: each seat shows a real player/bot name with a figure whose
+     * gender matches that name, plus (for team matches) a team tag/colour so the
+     * podiums clearly read as a team challenge. {@code seatTeams} entries are "A"/"B"
+     * (or "" for the solo competition board).
+     */
+    void setupForRoomBoard(int playerCount, int characterIndex, String[] seatNames,
+                           String[] seatTeams, boolean isTeam) {
+        setupRoomInternal(playerCount, characterIndex, seatNames, seatTeams, isTeam);
+    }
+
     private void setupInternal(int playerCount, int characterIndex) {
         count = Math.max(2, Math.min(8, playerCount));
         characterIndex = ((characterIndex % CHARACTER_COUNT) + CHARACTER_COUNT) % CHARACTER_COUNT;
         selectedCharacterIndex = characterIndex;
+        teamMode = false;
+        slotTeam = null;
 
-        names = new String[count];
-        scores = new int[count];
-        intelligence = new int[count];
-        roundCorrect = new boolean[count];
-        scoreViews = new TextView[count];
-        nameViews = new TextView[count];
-        statusViews = new ImageView[count];
-        slotVideos = new ChromaVideoView[count];
-
-        try {
-            balooFont = ResourcesCompat.getFont(activity, R.font.baloo);
-        } catch (Exception ignored) {
-            balooFont = null;
-        }
+        allocateContestantArrays();
+        slotCharacter = new int[count];
 
         // Slot 0 is the human (account name); each bot takes its character's fixed name.
         names[0] = resolvePlayerName();
+        slotCharacter[0] = characterIndex % CHARACTER_COUNT;
         for (int i = 1; i < count; i++) {
             intelligence[i] = 48 + random.nextInt(42); // 48..89
             names[i] = CHARACTER_NAMES[(characterIndex + i) % CHARACTER_COUNT];
+            slotCharacter[i] = (characterIndex + i) % CHARACTER_COUNT;
         }
 
-        buildPodiums(characterIndex);
+        buildPodiums();
         buildScoreBoard();
 
         active = true;
@@ -209,7 +235,99 @@ final class GameOfflineContestantsController {
         if (namePlate != null) namePlate.setVisibility(View.VISIBLE);
     }
 
-    private void buildPodiums(int characterIndex) {
+    private void setupRoomInternal(int playerCount, int characterIndex, String[] seatNames,
+                                   String[] seatTeams, boolean isTeam) {
+        count = Math.max(2, Math.min(8, playerCount));
+        characterIndex = ((characterIndex % CHARACTER_COUNT) + CHARACTER_COUNT) % CHARACTER_COUNT;
+        selectedCharacterIndex = characterIndex;
+        teamMode = isTeam;
+
+        allocateContestantArrays();
+        slotCharacter = new int[count];
+        slotTeam = new String[count];
+
+        int maleCursor = 0, femaleCursor = 0;
+        for (int i = 0; i < count; i++) {
+            String rawName = (seatNames != null && i < seatNames.length) ? seatNames[i] : null;
+            String team = (seatTeams != null && i < seatTeams.length) ? seatTeams[i] : "";
+            slotTeam[i] = team == null ? "" : team.trim().toUpperCase();
+            if (i > 0) intelligence[i] = 48 + random.nextInt(42);
+
+            // Pick a figure whose gender matches the displayed name.
+            if (isFemaleName(rawName)) {
+                slotCharacter[i] = FEMALE_FIGURES[femaleCursor % FEMALE_FIGURES.length];
+                femaleCursor++;
+            } else {
+                slotCharacter[i] = MALE_FIGURES[maleCursor % MALE_FIGURES.length];
+                maleCursor++;
+            }
+            names[i] = decorateSeatName(rawName, i, slotTeam[i]);
+        }
+
+        buildPodiums();
+        buildScoreBoard();
+
+        active = true;
+        if (row != null) row.setVisibility(View.VISIBLE);
+        View namePlate = activity.findViewById(R.id.hostNamePlate);
+        if (namePlate != null) namePlate.setVisibility(View.VISIBLE);
+    }
+
+    private void allocateContestantArrays() {
+        names = new String[count];
+        scores = new int[count];
+        intelligence = new int[count];
+        roundCorrect = new boolean[count];
+        scoreViews = new TextView[count];
+        nameViews = new TextView[count];
+        statusViews = new ImageView[count];
+        slotVideos = new ChromaVideoView[count];
+        try {
+            balooFont = ResourcesCompat.getFont(activity, R.font.baloo);
+        } catch (Exception ignored) {
+            balooFont = null;
+        }
+    }
+
+    /** Trims a seat name and, for team matches, prefixes its team letter (أ/ب). */
+    private String decorateSeatName(String rawName, int slot, String team) {
+        String base = (rawName == null || rawName.trim().isEmpty())
+                ? ("لاعب " + (slot + 1)) : rawName.trim();
+        if (teamMode && ("A".equals(team) || "B".equals(team))) {
+            String tag = "A".equals(team) ? "أ" : "ب";
+            if (base.length() > 7) base = base.substring(0, 7);
+            return tag + "-" + base;
+        }
+        if (base.length() > 9) base = base.substring(0, 9);
+        return base;
+    }
+
+    private boolean isFemaleName(String name) {
+        if (name == null) return false;
+        String n = name.trim();
+        if (n.isEmpty()) return false;
+        int space = n.indexOf(' ');
+        String first = space > 0 ? n.substring(0, space) : n;
+        if (FEMALE_NAMES.contains(first)) return true;
+        if (first.endsWith("ة") || first.endsWith("اء")) return true;
+        if (first.endsWith("ى")) {
+            // A few common male names also end in ى.
+            return !(first.equals("يحيى") || first.equals("موسى")
+                    || first.equals("عيسى") || first.equals("مصطفى"));
+        }
+        return false;
+    }
+
+    private int teamColor(String team) {
+        if ("B".equals(team)) return 0xFF7DD3FC; // team B — blue
+        return 0xFFFFD761;                       // team A — gold
+    }
+
+    private String teamColorHex(String team) {
+        return "B".equals(team) ? "#7DD3FC" : "#FFD761";
+    }
+
+    private void buildPodiums() {
         row = activity.findViewById(R.id.contestantsRow);
         if (row == null) {
             return;
@@ -249,7 +367,8 @@ final class GameOfflineContestantsController {
         row.setLayoutParams(rowParams);
 
         for (int i = 0; i < count; i++) {
-            int charIdx = (characterIndex + i) % CHARACTER_COUNT;
+            int charIdx = slotCharacter != null ? slotCharacter[i]
+                    : (selectedCharacterIndex + i) % CHARACTER_COUNT;
 
             FrameLayout cell = new FrameLayout(activity);
             cell.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f));
@@ -316,9 +435,13 @@ final class GameOfflineContestantsController {
             cell.addView(podium);
 
             final float hp = podiumHeightDp; // the panels live on the podium artwork
+            // Team match: tint each podium's score with its team colour so the
+            // contestants at the bottom clearly read as a team challenge.
+            String scoreColorHex = (teamMode && slotTeam != null)
+                    ? teamColorHex(slotTeam[i]) : "#61FF39";
             TextView score = makeLabel(0.62f * podiumWidthDp, SCORE_BOX_H_F * hp,
                     (SCORE_CENTER_F - SCORE_BOX_H_F / 2f) * hp,
-                    "0", SCORE_TEXT_F * hp, "#61FF39", density);
+                    "0", SCORE_TEXT_F * hp, scoreColorHex, density);
             cell.addView(score);
             scoreViews[i] = score;
 
@@ -455,6 +578,28 @@ final class GameOfflineContestantsController {
         return scores[slot];
     }
 
+    /** The character figure index drawn for a slot (used by the results screen). */
+    int characterForSlot(int slot) {
+        if (slotCharacter != null && slot >= 0 && slot < slotCharacter.length) {
+            return slotCharacter[slot];
+        }
+        return (selectedCharacterIndex + Math.max(0, slot)) % CHARACTER_COUNT;
+    }
+
+    /** The team ("A"/"B"/"") a slot belongs to (room board only). */
+    String teamForSlot(int slot) {
+        if (slotTeam != null && slot >= 0 && slot < slotTeam.length) {
+            return slotTeam[slot] == null ? "" : slotTeam[slot];
+        }
+        return "";
+    }
+
+    /** Looping celebration (correct) / sad (wrong) reaction clip for a character figure. */
+    static int reactionVideoForCharacter(int charIndex, boolean correct) {
+        if (charIndex < 0 || charIndex >= CHARACTER_COUNT) charIndex = 0;
+        return correct ? CONTESTANT_VIDEOS_CORRECT[charIndex] : CONTESTANT_VIDEOS_WRONG[charIndex];
+    }
+
     int contestantCount() {
         return count;
     }
@@ -523,7 +668,8 @@ final class GameOfflineContestantsController {
         if (slotVideos == null || slot >= slotVideos.length || slotVideos[slot] == null) {
             return;
         }
-        int charIdx = (selectedCharacterIndex + slot) % CHARACTER_COUNT;
+        int charIdx = slotCharacter != null ? slotCharacter[slot]
+                : (selectedCharacterIndex + slot) % CHARACTER_COUNT;
         int resId = correct ? CONTESTANT_VIDEOS_CORRECT[charIdx] : CONTESTANT_VIDEOS_WRONG[charIdx];
         slotVideos[slot].playReaction(resId); // no-op when resId == 0
     }
@@ -703,6 +849,17 @@ final class GameOfflineContestantsController {
                 || names == null || scores == null) {
             return;
         }
+        // Team match: the results list shows the two team totals (with team colours)
+        // so it clearly reads as a team challenge instead of individual ranks.
+        if (teamMode && slotTeam != null) {
+            int teamA = 0, teamB = 0;
+            for (int g = 0; g < count; g++) {
+                if ("B".equals(slotTeam[g])) teamB += scores[g]; else teamA += scores[g];
+            }
+            setTeamScoreRow(0, "الفريق أ", teamA, teamColor("A"));
+            setTeamScoreRow(1, "الفريق ب", teamB, teamColor("B"));
+            return;
+        }
         int visibleRows = Math.min(getVisibleBoardRowCount(), boardNameViews.length);
         int[] order = getScoreBoardOrder(visibleRows);
         for (int rowIndex = 0; rowIndex < visibleRows; rowIndex++) {
@@ -715,10 +872,27 @@ final class GameOfflineContestantsController {
                 boardScoreViews[rowIndex].setText(ordinal(rowIndex + 1));
             }
             if (boardAvatarViews[rowIndex] != null) {
-                boardAvatarViews[rowIndex].setImageResource(
-                        EMOTE_DRAWABLES[(selectedCharacterIndex + playerIndex) % CHARACTER_COUNT]
-                );
+                int figure = slotCharacter != null ? slotCharacter[playerIndex]
+                        : (selectedCharacterIndex + playerIndex) % CHARACTER_COUNT;
+                boardAvatarViews[rowIndex].setImageResource(EMOTE_DRAWABLES[figure]);
             }
+        }
+    }
+
+    private void setTeamScoreRow(int rowIndex, String label, int total, int color) {
+        if (rowIndex < 0 || boardNameViews == null || rowIndex >= boardNameViews.length) return;
+        if (boardNameViews[rowIndex] != null) {
+            boardNameViews[rowIndex].setText(label);
+            boardNameViews[rowIndex].setTextColor(color);
+        }
+        if (boardScoreViews != null && rowIndex < boardScoreViews.length
+                && boardScoreViews[rowIndex] != null) {
+            boardScoreViews[rowIndex].setText(String.valueOf(total));
+            boardScoreViews[rowIndex].setTextColor(color);
+        }
+        if (boardAvatarViews != null && rowIndex < boardAvatarViews.length
+                && boardAvatarViews[rowIndex] != null) {
+            boardAvatarViews[rowIndex].setVisibility(View.INVISIBLE);
         }
     }
 
@@ -740,6 +914,8 @@ final class GameOfflineContestantsController {
     }
 
     private int getVisibleBoardRowCount() {
+        // Team match: exactly two rows — one per team total.
+        if (teamMode) return Math.min(SCORE_BOARD_ROWS, 2);
         return Math.min(SCORE_BOARD_ROWS, count);
     }
 

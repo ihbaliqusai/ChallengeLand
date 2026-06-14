@@ -284,6 +284,9 @@ public class GameActivity extends AppCompatActivity {
     private boolean[] boardSeatIsBot;
     private boolean[] boardSeatLeft;
     private int boardMyCorrectCount = 0;
+    // Celebration/sad result screen shown after a room board match ends.
+    private final ArrayList<ChromaVideoView> resultVideoViews = new ArrayList<>();
+    private boolean boardResultProceeded = false;
 
     private boolean questionsReady = false;
     private boolean startPending = false;
@@ -1630,6 +1633,8 @@ public class GameActivity extends AppCompatActivity {
         CAN_HOME = false;
         if (boardMode) {
             hideBoardOverlay();
+            finishBoardCelebration();
+            return;
         }
         final boolean win = offlineContestants.playerIsWinner();
         final int rank = offlineContestants.playerRank();
@@ -1662,6 +1667,38 @@ public class GameActivity extends AppCompatActivity {
                 showInterstitialAd();
             }
         }, 4000);
+    }
+
+    /** Solo board (offline سين جيم, or 1v1 speed): celebration results screen. */
+    private void finishBoardCelebration() {
+        final int count = offlineContestants.contestantCount();
+        final int myScore = offlineContestants.scoreForSlot(0); // slot 0 = me
+        int bestScore = 0;
+        for (int g = 0; g < count; g++) {
+            bestScore = Math.max(bestScore, offlineContestants.scoreForSlot(g));
+        }
+        final boolean[] seatWon = new boolean[count];
+        int rank = 1;
+        for (int g = 0; g < count; g++) {
+            int s = offlineContestants.scoreForSlot(g);
+            seatWon[g] = (s == bestScore);
+            if (s > myScore) rank++;
+        }
+        final boolean win = seatWon.length > 0 && seatWon[0];
+        String headline = win ? "🏆 فزت بالمباراة!"
+                : ("انتهت المباراة — ترتيبك " + rank + " من " + count);
+        try {
+            PlayerStats.recordGameEnd(GameActivity.this, win, myScore);
+            PlayerProgress.onGameFinished(GameActivity.this, win, myScore,
+                    PlayerStats.getBestStreak(GameActivity.this), usedAllHelps(), usedAnyHelp());
+        } catch (Exception ignored) {
+        }
+        if (win) {
+            person.moveShow2Hands(1500);
+            person.raiseEyeBrowsUp(1000, false, true);
+        }
+        playSound(win ? R.raw.new_level : R.raw.wrong_answer, false, false);
+        showBoardResultScreen(headline, 0, 0, 0, seatWon);
     }
 
     // =====================================================================
@@ -2015,7 +2052,7 @@ public class GameActivity extends AppCompatActivity {
         finishOfflineCompetition();
     }
 
-    /** Room board end: tally totals (team or solo), report to the room, return home. */
+    /** Room board end: tally totals (team or solo), report to the room, show results. */
     private void finishRoomBoardMatch() {
         stopTimer(false);
         CAN_PLAY = false;
@@ -2024,13 +2061,14 @@ public class GameActivity extends AppCompatActivity {
         detachBoardListeners();
 
         final int myScore = offlineContestants.scoreForSlot(mySeat);
+        final boolean[] seatWon = new boolean[boardSeatCount];
         final boolean win;
-        final String resultMessage;
         String winnerTeam = "";
         String winnerId = "";
+        int teamAScore = 0, teamBScore = 0;
+        String headline;
 
         if (boardTeamMatch) {
-            int teamAScore = 0, teamBScore = 0;
             for (int g = 0; g < boardSeatCount; g++) {
                 int s = offlineContestants.scoreForSlot(g);
                 if ("B".equals(boardSeatTeam[g])) teamBScore += s; else teamAScore += s;
@@ -2040,59 +2078,289 @@ public class GameActivity extends AppCompatActivity {
             win = myTeamScore > enemyTeamScore;
             boolean tie = myTeamScore == enemyTeamScore;
             winnerTeam = teamAScore > teamBScore ? "A" : (teamBScore > teamAScore ? "B" : "");
-            resultMessage = win
-                    ? ("فاز فريقك! " + myTeamScore + " مقابل " + enemyTeamScore)
-                    : (tie ? ("تعادل الفريقان " + myTeamScore + " - " + enemyTeamScore)
-                           : ("خسر فريقك " + myTeamScore + " مقابل " + enemyTeamScore));
+            for (int g = 0; g < boardSeatCount; g++) {
+                seatWon[g] = tie || winnerTeam.equals(boardSeatTeam[g]);
+            }
+            headline = win ? "🏆 فاز فريقك!" : (tie ? "🤝 تعادل الفريقان!" : "💔 خسر فريقك");
         } else {
-            // Competition: highest individual score wins (ties → no winner).
-            int rank = 1, bestScore = myScore, bestCount = 0;
-            int bestSeat = mySeat;
+            int rank = 1, bestScore = myScore, bestCount = 0, bestSeat = mySeat;
             for (int g = 0; g < boardSeatCount; g++) {
                 int s = offlineContestants.scoreForSlot(g);
                 if (s > myScore) rank++;
                 if (s > bestScore) { bestScore = s; bestSeat = g; }
             }
             for (int g = 0; g < boardSeatCount; g++) {
-                if (offlineContestants.scoreForSlot(g) == bestScore) bestCount++;
+                boolean top = offlineContestants.scoreForSlot(g) == bestScore;
+                seatWon[g] = top;
+                if (top) bestCount++;
             }
             win = (rank == 1);
             winnerId = bestCount == 1 ? boardSeatId[bestSeat] : "";
-            resultMessage = win
-                    ? ("فزت بالمباراة بـ " + myScore + " نقطة")
-                    : ("انتهت المباراة، ترتيبك " + rank + " من " + boardSeatCount + " بـ " + myScore + " نقطة");
+            headline = win ? "🏆 فزت بالمباراة!"
+                    : ("انتهت المباراة — ترتيبك " + rank + " من " + boardSeatCount);
         }
 
         persistPendingRoomBoardResult(boardTeamMatch, winnerTeam, winnerId);
         markMyGameState("finished");
         detachOpponentStatusListener();
-
-        if (win) {
-            person.moveShow2Hands(2000);
-            person.raiseEyeBrowsUp(1000, false, true);
-            playSound(R.raw.new_level, false, false);
-            showDialog(resultMessage, "", 2000, 3000, R.drawable.mouth_01, false);
-        } else {
-            person.moveShowHand(1000);
-            showDialog(resultMessage, "", 2000, 3000, R.drawable.mouth_05, false);
+        try {
+            PlayerStats.recordGameEnd(GameActivity.this, win, myScore);
+            PlayerProgress.onGameFinished(GameActivity.this, win, myScore,
+                    PlayerStats.getBestStreak(GameActivity.this), usedAllHelps(), usedAnyHelp());
+        } catch (Exception ignored) {
         }
-        final Handler handler = new Handler();
-        handler.postDelayed(new Runnable() {
+        if (win) {
+            person.moveShow2Hands(1500);
+            person.raiseEyeBrowsUp(1000, false, true);
+        }
+        playSound(win ? R.raw.new_level : R.raw.wrong_answer, false, false);
+        showBoardResultScreen(headline, teamAScore, teamBScore, mySeat, seatWon);
+    }
+
+    // =====================================================================
+    //  Celebration / sad results screen (all board modes: offline, 1v1, room)
+    //  A full-screen overlay where every contestant loops their celebration
+    //  (winners) or sad (losers) reaction clip, with team/score chrome.
+    // =====================================================================
+
+    private void showBoardResultScreen(String headline, int teamAScore, int teamBScore,
+                                       int meSeatIndex, boolean[] seatWon) {
+        final FrameLayout overlay = (FrameLayout) findViewById(R.id.boardOverlay);
+        if (overlay == null) {
+            proceedAfterBoardResult();
+            return;
+        }
+        final int meSeat = (meSeatIndex >= 0 && meSeatIndex < seatWon.length) ? meSeatIndex : 0;
+        boardResultProceeded = false;
+        releaseResultVideos();
+        // Free the in-game podium video players first so only the result clips run
+        // (scores/figures stay readable — release() doesn't clear that data).
+        offlineContestants.release();
+        overlay.removeAllViews();
+        overlay.setBackgroundColor(0xF20A0F2E);
+        overlay.setVisibility(View.VISIBLE);
+        overlay.bringToFront();
+
+        ScrollView scroll = new ScrollView(this);
+        scroll.setLayoutParams(new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+        scroll.setFillViewport(true);
+        scroll.setVerticalScrollBarEnabled(false);
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setGravity(Gravity.CENTER);
+        root.setPadding(dpx(16), dpx(18), dpx(16), dpx(18));
+        scroll.addView(root);
+
+        // Headline
+        TextView title = makeBoardText(headline, 28f,
+                seatWon[meSeat] ? 0xFFFFD761 : 0xFFE2E8F0, Gravity.CENTER);
+        LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        tlp.bottomMargin = dpx(4);
+        title.setLayoutParams(tlp);
+        root.addView(title);
+
+        // Score summary line
+        String summary = boardTeamMatch
+                ? ("الفريق أ  " + teamAScore + "   —   " + teamBScore + "  الفريق ب")
+                : ("نقاطك: " + offlineContestants.scoreForSlot(meSeat));
+        TextView sub = makeBoardText(summary, 16f, 0xFFB9C4DE, Gravity.CENTER);
+        LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        slp.bottomMargin = dpx(14);
+        sub.setLayoutParams(slp);
+        root.addView(sub);
+
+        // Contestant order: winners first, then by score descending.
+        final int count = seatWon.length;
+        final Integer[] order = new Integer[count];
+        for (int g = 0; g < count; g++) order[g] = g;
+        java.util.Arrays.sort(order, new java.util.Comparator<Integer>() {
+            @Override
+            public int compare(Integer a, Integer b) {
+                if (seatWon[a] != seatWon[b]) return seatWon[a] ? -1 : 1;
+                return Integer.compare(offlineContestants.scoreForSlot(b),
+                        offlineContestants.scoreForSlot(a));
+            }
+        });
+
+        android.widget.HorizontalScrollView cardsScroll = new android.widget.HorizontalScrollView(this);
+        cardsScroll.setHorizontalScrollBarEnabled(false);
+        LinearLayout.LayoutParams csLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        csLp.gravity = Gravity.CENTER_HORIZONTAL;
+        cardsScroll.setLayoutParams(csLp);
+        LinearLayout cardsRow = new LinearLayout(this);
+        cardsRow.setOrientation(LinearLayout.HORIZONTAL);
+        cardsRow.setGravity(Gravity.BOTTOM);
+        cardsRow.setClipChildren(false);
+        cardsRow.setClipToPadding(false);
+        cardsRow.setPadding(dpx(6), dpx(8), dpx(6), dpx(8));
+        for (int i = 0; i < order.length; i++) {
+            cardsRow.addView(makeResultCard(order[i], seatWon[order[i]]));
+        }
+        cardsScroll.addView(cardsRow);
+        root.addView(cardsScroll);
+
+        // Return button
+        Button back = new Button(this);
+        back.setText("العودة للقائمة");
+        back.setAllCaps(false);
+        back.setTextColor(0xFFFFFFFF);
+        back.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f);
+        if (getBoardFont() != null) back.setTypeface(getBoardFont(), Typeface.BOLD);
+        back.setBackground(pillBg(0xFF29B6F6));
+        LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(dpx(220), dpx(52));
+        blp.topMargin = dpx(18);
+        back.setLayoutParams(blp);
+        back.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                proceedAfterBoardResult();
+            }
+        });
+        root.addView(back);
+
+        overlay.addView(scroll);
+
+        // Auto-continue if the player lingers.
+        new Handler().postDelayed(new Runnable() {
             @Override
             public void run() {
-                if (EXITING) return;
-                try {
-                    PlayerStats.recordGameEnd(GameActivity.this, win, myScore);
-                    PlayerProgress.onGameFinished(GameActivity.this, win, myScore,
-                            PlayerStats.getBestStreak(GameActivity.this), usedAllHelps(), usedAnyHelp());
-                } catch (Exception ignored) {
-                }
-                offlineContestants.release();
-                stopCurrentSound();
-                if (cdtProgress != null) cdtProgress.cancel();
-                showInterstitialAd();
+                if (!EXITING) proceedAfterBoardResult();
             }
-        }, 4000);
+        }, 16000);
+    }
+
+    /** One contestant card: a looping celebration/sad clip + name + score, with chrome. */
+    private View makeResultCard(int seat, boolean won) {
+        final boolean teamB = boardTeamMatch && "B".equals(boardSeatTeam[seat]);
+        final int accent = !boardTeamMatch
+                ? (won ? 0xFFFFD761 : 0xFF64748B)
+                : (teamB ? 0xFF7DD3FC : 0xFFFFD761);
+
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setGravity(Gravity.CENTER_HORIZONTAL);
+        card.setClipChildren(false);
+        card.setClipToPadding(false);
+        LinearLayout.LayoutParams cardLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        cardLp.setMargins(dpx(6), 0, dpx(6), 0);
+        card.setLayoutParams(cardLp);
+        if (!won) card.setAlpha(0.88f);
+
+        // Crown above winners.
+        TextView crown = makeBoardText(won ? "👑" : "", 20f, 0xFFFFD761, Gravity.CENTER);
+        LinearLayout.LayoutParams crLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, dpx(26));
+        crLp.gravity = Gravity.CENTER_HORIZONTAL;
+        crown.setLayoutParams(crLp);
+        card.addView(crown);
+
+        // Video stage: a rounded "spotlight" panel with the chroma-keyed clip on top.
+        final float videoAspect = 720f / 1280f;
+        int videoH = dpx(won ? 172 : 148);
+        int videoW = Math.round(videoH * videoAspect);
+        FrameLayout stage = new FrameLayout(this);
+        LinearLayout.LayoutParams stLp = new LinearLayout.LayoutParams(videoW, videoH);
+        stage.setLayoutParams(stLp);
+        stage.setClipChildren(false);
+
+        GradientDrawable stageBg = new GradientDrawable(
+                GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[]{ (accent & 0x00FFFFFF) | 0x33000000, 0x66061026 });
+        stageBg.setCornerRadius(dpx(16));
+        stageBg.setStroke(dpx(won ? 3 : 2), accent);
+        stage.setBackground(stageBg);
+
+        int charIdx = offlineContestants.characterForSlot(seat);
+        int videoRes = GameOfflineContestantsController.reactionVideoForCharacter(charIdx, won);
+        if (videoRes != 0) {
+            ChromaVideoView video = new ChromaVideoView(this, videoRes);
+            resultVideoViews.add(video);
+            // The stage is already aspect-correct (videoW = videoH * 720/1280), so fill it.
+            FrameLayout.LayoutParams vLp = new FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT);
+            vLp.gravity = Gravity.CENTER;
+            video.setLayoutParams(vLp);
+            stage.addView(video);
+        }
+        card.addView(stage);
+
+        // Name
+        String rawName = resultSeatName(seat);
+        if (rawName.length() > 10) rawName = rawName.substring(0, 10);
+        TextView name = makeBoardText(rawName, 13f, 0xFFFFFFFF, Gravity.CENTER);
+        name.setMaxLines(1);
+        LinearLayout.LayoutParams nLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        nLp.topMargin = dpx(6);
+        nLp.width = videoW + dpx(12);
+        name.setLayoutParams(nLp);
+        card.addView(name);
+
+        // Score pill (team-tinted for team mode, gold for solo winner)
+        TextView scoreView = makeBoardText(String.valueOf(offlineContestants.scoreForSlot(seat)),
+                14f, 0xFF0A0F2E, Gravity.CENTER);
+        scoreView.setPadding(dpx(12), dpx(2), dpx(12), dpx(2));
+        scoreView.setBackground(pillBg(accent));
+        LinearLayout.LayoutParams scLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        scLp.gravity = Gravity.CENTER_HORIZONTAL;
+        scLp.topMargin = dpx(4);
+        scoreView.setLayoutParams(scLp);
+        card.addView(scoreView);
+
+        // Team tag (team mode only)
+        if (boardTeamMatch) {
+            TextView tag = makeBoardText(teamB ? "الفريق ب" : "الفريق أ", 11f, accent, Gravity.CENTER);
+            LinearLayout.LayoutParams tgLp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            tgLp.gravity = Gravity.CENTER_HORIZONTAL;
+            tgLp.topMargin = dpx(3);
+            tag.setLayoutParams(tgLp);
+            card.addView(tag);
+        }
+
+        if (won) {
+            card.setScaleX(0.9f);
+            card.setScaleY(0.9f);
+            card.animate().scaleX(1f).scaleY(1f).setDuration(420).start();
+        }
+        return card;
+    }
+
+    /** Card name: raw seat name for the room board, the contestant name otherwise. */
+    private String resultSeatName(int seat) {
+        if (boardRoomMatch && boardSeatName != null && seat >= 0 && seat < boardSeatName.length
+                && boardSeatName[seat] != null && !boardSeatName[seat].trim().isEmpty()) {
+            return boardSeatName[seat];
+        }
+        String n = offlineContestants.nameForSlot(seat);
+        return (n == null || n.trim().isEmpty()) ? ("لاعب " + (seat + 1)) : n;
+    }
+
+    private void releaseResultVideos() {
+        for (int i = 0; i < resultVideoViews.size(); i++) {
+            try {
+                resultVideoViews.get(i).release();
+            } catch (Exception ignored) {
+            }
+        }
+        resultVideoViews.clear();
+    }
+
+    private void proceedAfterBoardResult() {
+        if (boardResultProceeded) return;
+        boardResultProceeded = true;
+        releaseResultVideos();
+        hideBoardOverlay();
+        offlineContestants.release();
+        stopCurrentSound();
+        if (cdtProgress != null) cdtProgress.cancel();
+        showInterstitialAd();
     }
 
     /** Writes the room board result so the Flutter side can finalize the room. */
@@ -2141,11 +2409,12 @@ public class GameActivity extends AppCompatActivity {
     private void setupBoardMatch() {
         int characterIndex = Math.max(0, getIntent().getIntExtra("characterIndex", 0));
         boardMode = true;
-        offlineContestants.setupForBoard(2, characterIndex);
         MatchOpponent primary = getPrimaryOpponent();
-        if (primary != null && !primary.bot && primary.name != null) {
-            offlineContestants.setContestantName(1, primary.name);
-        }
+        String opponentSeatName = (primary != null && primary.name != null
+                && !primary.name.trim().isEmpty()) ? primary.name : "الكمبيوتر";
+        // Slot 0 = me, slot 1 = opponent — each gets a figure matching its name's gender.
+        offlineContestants.setupForRoomBoard(2, characterIndex,
+                new String[]{ myName, opponentSeatName }, new String[]{ "", "" }, false);
         boardPool = LocalQuestions.loadBoardPool(this);
         buildBoardCategoryList();
         questionsReady = true;
@@ -2176,10 +2445,10 @@ public class GameActivity extends AppCompatActivity {
         if (isTeam && myTeam.isEmpty()) myTeam = "A";
         gameID = roomId;
         buildBoardSeatOrder();
-        offlineContestants.setupForBoard(boardSeatCount, characterIndex);
-        for (int g = 0; g < boardSeatCount; g++) {
-            offlineContestants.setContestantName(g, boardSeatName[g]);
-        }
+        // setupForRoomBoard assigns each seat a gender-matched figure for its name and
+        // (for team matches) a team tag/colour on the podium.
+        offlineContestants.setupForRoomBoard(boardSeatCount, characterIndex,
+                boardSeatName, boardSeatTeam, isTeam);
         boardPool = LocalQuestions.loadBoardPool(this);
         buildBoardCategoryList();
         boardCols = boardSeatCount;
@@ -6735,6 +7004,7 @@ public class GameActivity extends AppCompatActivity {
         cancelBoardSelectTimer();
         stopCampaignStageTimer();
         if (offlineContestants != null) offlineContestants.release();
+        releaseResultVideos();
         if (soundController != null) soundController.releaseCurrent();
         GameSoundController.release(mpBeep);
         mpBeep = null;
