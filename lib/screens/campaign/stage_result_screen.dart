@@ -7,7 +7,6 @@ import '../../core/app_state.dart';
 import '../../models/campaign_stage.dart';
 import '../../models/stage_attempt.dart';
 import '../../services/campaign_mode_engine.dart';
-import '../../services/campaign_question_selector.dart';
 import '../../services/campaign_result_handler.dart';
 import '../../services/campaign_service.dart';
 import '../../services/native_bridge_service.dart';
@@ -43,7 +42,6 @@ class _StageResultScreenState extends State<StageResultScreen>
   static const Duration _pendingResultRetryDelay = Duration(milliseconds: 350);
   static const Duration _missingResultTimeout = Duration(seconds: 8);
 
-  final CampaignQuestionSelector _questionSelector = CampaignQuestionSelector();
   bool _launchingStage = false;
   bool _waitingForResult = false;
   bool _returnedFromNative = false;
@@ -434,23 +432,11 @@ class _StageResultScreenState extends State<StageResultScreen>
     final nativeBridge = context.read<NativeBridgeService>();
     final messenger = ScaffoldMessenger.of(context);
     try {
-      final questionIds = await _questionSelector.selectQuestionIds(stage);
-      final levelSummary =
-          await _questionSelector.levelSummaryForQuestionIds(questionIds);
-      final effectiveAllowedLevels = <String>{
-        ...stage.allowedLevels,
-        ...levelSummary.keys,
-      }.where((level) => level.trim().isNotEmpty).toList(growable: false);
-      if (kDebugMode) {
-        debugPrint(
-          'Retry campaign stage=${stage.id} order=${stage.order} '
-          'allowed=${stage.allowedLevels} questionIds=$questionIds '
-          'levels=$levelSummary nativeAllowed=$effectiveAllowedLevels',
-        );
-      }
-      if (questionIds.length < stage.questionCount) {
-        throw StateError('Not enough campaign questions selected');
-      }
+      // The board loads its own question pool natively — no id selection needed.
+      const questionIds = <int>[];
+      final effectiveAllowedLevels = stage.allowedLevels
+          .where((level) => level.trim().isNotEmpty)
+          .toList(growable: false);
       final launchConfig = const CampaignModeEngine().buildLaunchConfig(stage);
       await nativeBridge.launchCampaignStage(
         campaignId: launchConfig['campaignId'] as String? ?? stage.campaignId,
@@ -482,6 +468,18 @@ class _StageResultScreenState extends State<StageResultScreen>
         seriesWinsRequired: launchConfig['seriesWinsRequired'] as int? ?? 0,
         teamAllyName: launchConfig['teamAllyName'] as String? ?? '',
         teamEnemyName: launchConfig['teamEnemyName'] as String? ?? '',
+        campaignBoard: launchConfig['campaignBoard'] as bool? ?? true,
+        boardKind: launchConfig['boardKind'] as String? ?? 'solo',
+        boardTargetScore: launchConfig['boardTargetScore'] as int? ?? 0,
+        boardSoloPicks: launchConfig['boardSoloPicks'] as int? ?? 6,
+        boardSoloCols: launchConfig['boardSoloCols'] as int? ?? 4,
+        boardBotCount: launchConfig['boardBotCount'] as int? ?? 0,
+        boardBotIntelligence: launchConfig['boardBotIntelligence'] as int? ?? 0,
+        categoryPolicy: launchConfig['categoryPolicy'] as String? ?? 'playerPick',
+        worldCategories:
+            (launchConfig['worldCategories'] as List<dynamic>? ?? const <dynamic>[])
+                .map((dynamic e) => e.toString())
+                .toList(growable: false),
       );
       if (mounted) setState(() => _waitingForResult = true);
     } catch (_) {

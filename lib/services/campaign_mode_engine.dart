@@ -120,31 +120,45 @@ class CampaignModeEngine {
 
   bool isBossMode(CampaignMode mode) => mode == CampaignMode.bossBattle;
 
+  /// Every رحلة المليون stage now plays the سين جيم board. We pass `stageType` /
+  /// `campaignMode` as `'board'` so the native side runs the board engine (not the
+  /// legacy single-question / boss flow), plus the board params (solo target or boss
+  /// bots) and the world's themed category set.
   Map<String, dynamic> buildLaunchConfig(CampaignStage stage) {
+    final bool isBoss = stage.isBossStage;
     return <String, dynamic>{
       'campaignId': stage.campaignId,
       'stageId': stage.id,
-      'stageType': stage.type.value,
-      'campaignMode': stage.campaignMode.value,
-      'winCondition': stage.winCondition.value,
+      'stageType': 'board',
+      'campaignMode': 'board',
+      'winCondition': isBoss ? 'beatOpponent' : 'beatTargetScore',
       'questionCount': stage.questionCount,
-      'timeLimitSeconds': stage.timeLimitSeconds,
+      'timeLimitSeconds': 0,
       'allowedLevels': stage.allowedLevels,
-      'allow5050': stage.allow5050,
-      'allowAudience': stage.allowAudience,
-      'allowCall': stage.allowCall,
-      'lives': stage.lives,
-      'maxWrongAnswers': stage.maxWrongAnswers,
-      'targetScore': stage.targetScore,
-      'opponentName': stage.opponentName,
-      'opponentAccuracy': stage.opponentAccuracy,
-      'opponentStartScore': stage.opponentStartScore,
-      'bossBotName': stage.bossBotName,
-      'bossBotIntelligence': stage.bossBotIntelligence,
-      'seriesRounds': stage.seriesRounds,
-      'seriesWinsRequired': stage.seriesWinsRequired,
-      'teamAllyName': stage.teamAllyName,
-      'teamEnemyName': stage.teamEnemyName,
+      'allow5050': false,
+      'allowAudience': false,
+      'allowCall': false,
+      // رحلة المليون board params
+      'campaignBoard': true,
+      'boardKind': isBoss ? 'boss' : 'solo',
+      'boardTargetScore': stage.boardTargetScore,
+      'boardSoloPicks': stage.boardSoloPicks,
+      'boardSoloCols': stage.boardSoloCols,
+      'boardBotCount': stage.botCount,
+      'boardBotIntelligence': stage.botIntelligence,
+      'categoryPolicy': stage.categoryPolicy,
+      'worldCategories': stage.categories,
     };
+  }
+
+  /// Short objective shown on the stage intro, in board terms.
+  String boardObjectiveText(CampaignStage stage) {
+    if (stage.isBossStage) {
+      final n = stage.botCount > 0 ? stage.botCount : 1;
+      return n == 1
+          ? 'تغلّب على الزعيم على اللوحة'
+          : 'تغلّب على $n زعماء على اللوحة';
+    }
+    return 'اجمع ${stage.boardTargetScore} نقطة على اللوحة';
   }
 }

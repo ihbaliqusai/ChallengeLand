@@ -102,6 +102,15 @@ class NativeBridgeService {
     int seriesWinsRequired = 0,
     String teamAllyName = '',
     String teamEnemyName = '',
+    bool campaignBoard = false,
+    String boardKind = 'solo',
+    int boardTargetScore = 0,
+    int boardSoloPicks = 6,
+    int boardSoloCols = 4,
+    int boardBotCount = 0,
+    int boardBotIntelligence = 0,
+    String categoryPolicy = 'playerPick',
+    List<String> worldCategories = const <String>[],
   }) async {
     await _channel.invokeMethod('launchCampaignStage', <String, dynamic>{
       'campaignId': campaignId,
@@ -128,6 +137,15 @@ class NativeBridgeService {
       'seriesWinsRequired': seriesWinsRequired,
       'teamAllyName': teamAllyName,
       'teamEnemyName': teamEnemyName,
+      'campaignBoard': campaignBoard,
+      'boardKind': boardKind,
+      'boardTargetScore': boardTargetScore,
+      'boardSoloPicks': boardSoloPicks,
+      'boardSoloCols': boardSoloCols,
+      'boardBotCount': boardBotCount,
+      'boardBotIntelligence': boardBotIntelligence,
+      'categoryPolicy': categoryPolicy,
+      'worldCategories': worldCategories,
     });
   }
 

@@ -177,6 +177,17 @@ class MainActivity : FlutterActivity() {
                                 putExtra("seriesWinsRequired", intArg(call.argument<Any>("seriesWinsRequired"), 0))
                                 putExtra("teamAllyName", stringArg(call.argument<Any>("teamAllyName"), ""))
                                 putExtra("teamEnemyName", stringArg(call.argument<Any>("teamEnemyName"), ""))
+                                // رحلة المليون — سين جيم board stage params
+                                putExtra("campaignBoard", boolArg(call.argument<Any>("campaignBoard"), false))
+                                putExtra("boardKind", stringArg(call.argument<Any>("boardKind"), "solo"))
+                                putExtra("boardTargetScore", intArg(call.argument<Any>("boardTargetScore"), 0))
+                                putExtra("boardSoloPicks", intArg(call.argument<Any>("boardSoloPicks"), 6))
+                                putExtra("boardSoloCols", intArg(call.argument<Any>("boardSoloCols"), 4))
+                                putExtra("boardBotCount", intArg(call.argument<Any>("boardBotCount"), 0))
+                                putExtra("boardBotIntelligence", intArg(call.argument<Any>("boardBotIntelligence"), 0))
+                                putExtra("categoryPolicy", stringArg(call.argument<Any>("categoryPolicy"), "playerPick"))
+                                putStringArrayListExtra("worldCategories", stringArrayListArg(call.argument<Any>("worldCategories")))
+                                putExtra("characterIndex", intArg(call.argument<Any>("characterIndex"), 0))
                             }
                             startActivity(intent)
                             result.success(true)

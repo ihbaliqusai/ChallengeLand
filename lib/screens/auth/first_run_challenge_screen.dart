@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 import '../../models/campaign_stage.dart';
 import '../../services/campaign_defaults.dart';
 import '../../services/campaign_mode_engine.dart';
-import '../../services/campaign_question_selector.dart';
 import '../../services/campaign_result_handler.dart';
 import '../../services/native_bridge_service.dart';
 
@@ -19,7 +18,6 @@ class FirstRunChallengeScreen extends StatefulWidget {
 
 class _FirstRunChallengeScreenState extends State<FirstRunChallengeScreen>
     with WidgetsBindingObserver, SingleTickerProviderStateMixin {
-  final CampaignQuestionSelector _questionSelector = CampaignQuestionSelector();
   final CampaignModeEngine _modeEngine = const CampaignModeEngine();
   late final AnimationController _pulseCtrl;
   bool _launching = false;
@@ -89,23 +87,17 @@ class _FirstRunChallengeScreenState extends State<FirstRunChallengeScreen>
     final nativeBridge = context.read<NativeBridgeService>();
 
     try {
-      final questionIds = await _questionSelector.selectQuestionIds(stage);
-      final levelSummary =
-          await _questionSelector.levelSummaryForQuestionIds(questionIds);
-      final effectiveAllowedLevels = <String>{
-        ...stage.allowedLevels,
-        ...levelSummary.keys,
-      }.where((level) => level.trim().isNotEmpty).toList(growable: false);
+      // The board loads its own question pool natively — no id selection needed.
+      const questionIds = <int>[];
+      final effectiveAllowedLevels = stage.allowedLevels
+          .where((level) => level.trim().isNotEmpty)
+          .toList(growable: false);
 
       if (kDebugMode) {
         debugPrint(
-          'First run campaign stage=${stage.id} questionIds=$questionIds '
-          'levels=$levelSummary nativeAllowed=$effectiveAllowedLevels',
+          'First run campaign board stage=${stage.id} '
+          'target=${stage.boardTargetScore} policy=${stage.categoryPolicy}',
         );
-      }
-
-      if (questionIds.length < stage.questionCount) {
-        throw StateError('Not enough first-run questions selected');
       }
 
       final launchConfig = _modeEngine.buildLaunchConfig(stage);
@@ -139,6 +131,18 @@ class _FirstRunChallengeScreenState extends State<FirstRunChallengeScreen>
         seriesWinsRequired: launchConfig['seriesWinsRequired'] as int? ?? 0,
         teamAllyName: launchConfig['teamAllyName'] as String? ?? '',
         teamEnemyName: launchConfig['teamEnemyName'] as String? ?? '',
+        campaignBoard: launchConfig['campaignBoard'] as bool? ?? true,
+        boardKind: launchConfig['boardKind'] as String? ?? 'solo',
+        boardTargetScore: launchConfig['boardTargetScore'] as int? ?? 0,
+        boardSoloPicks: launchConfig['boardSoloPicks'] as int? ?? 6,
+        boardSoloCols: launchConfig['boardSoloCols'] as int? ?? 4,
+        boardBotCount: launchConfig['boardBotCount'] as int? ?? 0,
+        boardBotIntelligence: launchConfig['boardBotIntelligence'] as int? ?? 0,
+        categoryPolicy: launchConfig['categoryPolicy'] as String? ?? 'playerPick',
+        worldCategories:
+            (launchConfig['worldCategories'] as List<dynamic>? ?? const <dynamic>[])
+                .map((dynamic e) => e.toString())
+                .toList(growable: false),
       );
       if (mounted) setState(() => _waitingForResult = true);
     } catch (_) {

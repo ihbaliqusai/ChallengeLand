@@ -288,6 +288,25 @@ public class GameActivity extends AppCompatActivity {
     private final ArrayList<ChromaVideoView> resultVideoViews = new ArrayList<>();
     private boolean boardResultProceeded = false;
 
+    // ---- Campaign board ("رحلة المليون" stage on the سين جيم board) ----
+    // Each Million-Journey stage now plays the سين جيم board. Solo stages (order not a
+    // multiple of 10): count == 1, the player takes boardSoloPicks turns and must reach
+    // boardTargetScore. Boss stages (every 10th): count == 1 + boardBotCount competitive
+    // board, win = finish strictly first (beat every boss). Categories are chosen per
+    // boardCategoryPolicy. The result bridges into the existing campaign pipeline
+    // (persistPendingCampaignStageResult -> Flutter stars/rewards/progress).
+    // These are package-private so GameCampaignLaunchConfig can populate them.
+    boolean campaignBoard = false;
+    boolean boardCampaignMatch = false;
+    String boardCampaignKind = "solo";          // "solo" | "boss"
+    int boardTargetScore = 0;
+    int boardSoloPicks = 6;
+    int boardSoloCols = 4;
+    int boardBotCount = 0;
+    int boardBotIntelligence = 0;
+    String boardCategoryPolicy = "playerPick";  // playerPick | curated | random | worldThemed
+    final ArrayList<String> boardWorldCategories = new ArrayList<>();
+
     private boolean questionsReady = false;
     private boolean startPending = false;
     private boolean questionsLoadFailed = false;
@@ -481,6 +500,9 @@ public class GameActivity extends AppCompatActivity {
                 boardPool = LocalQuestions.loadBoardPool(this);
                 buildBoardCategoryList();
                 questionsReady = true;
+            } else if (campaignBoard) {
+                // رحلة المليون stage played on the سين جيم board (solo or boss).
+                setupCampaignBoardMatch(getIntent().getIntExtra("characterIndex", 0));
             } else {
                 getQuestions("");
             }
@@ -581,7 +603,12 @@ public class GameActivity extends AppCompatActivity {
                     case 1:
                         person.moveShow2Hands(2000);
                         if (boardMode) {
-                            showDialog("مرحبا بكم في تحدي الفئات.. اختاروا فئاتكم", "", 800, 2200, R.drawable.mouth_01, false);
+                            String boardGreeting = boardCampaignMatch
+                                    ? ("boss".equals(boardCampaignKind)
+                                        ? "مواجهة الزعماء.. استعد!"
+                                        : "رحلتك نحو المليون.. اجمع نقاط الهدف!")
+                                    : "مرحبا بكم في تحدي الفئات.. اختاروا فئاتكم";
+                            showDialog(boardGreeting, "", 800, 2200, R.drawable.mouth_01, false);
                         } else if (modeOnline) {
                             rlyScore.setVisibility(View.VISIBLE);
                             Animations.move(rlyScore, 500, -300, 0, 0, 0);
@@ -1357,7 +1384,7 @@ public class GameActivity extends AppCompatActivity {
     private void checkAnswer(final boolean timeout) {
         // The money-ladder amount is irrelevant for online and offline-contestant
         // (board) modes, which both resolve the round without it.
-        final int amount = (modeOnline || isOfflineContestantMode())
+        final int amount = (modeOnline || isOfflineContestantMode() || boardMode)
                 ? 0
                 : Integer.parseInt(getCurrentStepAmount().replace("$", ""));
         if (!timeout) {
@@ -1366,7 +1393,9 @@ public class GameActivity extends AppCompatActivity {
             FAST_LIGHTS = true;
         }
         CAN_HOME = true;
-        if (campaignMode && !modeOnline) {
+        // Board campaign stages run on the سين جيم board (handled below), not the
+        // classic single-question campaign flow — so exclude boardMode here.
+        if (campaignMode && !modeOnline && !boardMode) {
             handleCampaignStageAnswer(timeout);
             return;
         }
@@ -1568,7 +1597,7 @@ public class GameActivity extends AppCompatActivity {
                             final int localSeat = boardPickerSlot;
                             if (playerCorrect) {
                                 offlineContestants.awardCell(localSeat, currentBoardAwardValue());
-                                if (boardRoomMatch) boardMyCorrectCount++;
+                                if (boardRoomMatch || boardCampaignMatch) boardMyCorrectCount++;
                             }
                             offlineContestants.showSlotResult(localSeat, playerCorrect);
                             // Reveal the options so the player sees the correct answer
@@ -1701,6 +1730,61 @@ public class GameActivity extends AppCompatActivity {
         showBoardResultScreen(headline, 0, 0, 0, seatWon);
     }
 
+    /** رحلة المليون stage end: solo (reach boardTargetScore) or boss (beat every bot).
+     *  Bridges into the campaign pipeline so Flutter awards stars/rewards/progress. */
+    private void finishCampaignBoardMatch() {
+        stopTimer(false);
+        CAN_PLAY = false;
+        CAN_HOME = false;
+        hideBoardOverlay();
+
+        final int count = Math.max(1, offlineContestants.contestantCount());
+        final int myScore = offlineContestants.scoreForSlot(0);
+        final boolean[] seatWon = new boolean[count];
+        final boolean completed;
+        final String headline;
+
+        if ("boss".equals(boardCampaignKind)) {
+            boolean beat = count > 1;
+            int bestScore = myScore;
+            for (int g = 1; g < count; g++) {
+                int s = offlineContestants.scoreForSlot(g);
+                if (s >= myScore) beat = false;   // must strictly beat every boss
+                if (s > bestScore) bestScore = s;
+            }
+            completed = beat;
+            for (int g = 0; g < count; g++) {
+                seatWon[g] = offlineContestants.scoreForSlot(g) == bestScore;
+            }
+            headline = completed ? "🏆 هزمت الزعماء!" : "💔 لم تتغلّب على الزعماء";
+        } else {
+            completed = myScore >= boardTargetScore;
+            seatWon[0] = completed;
+            headline = completed
+                    ? ("🏆 تجاوزت الهدف!  " + myScore + " / " + boardTargetScore)
+                    : ("💔 لم تبلغ الهدف  " + myScore + " / " + boardTargetScore);
+        }
+
+        // Feed the campaign result pipeline (score/correct counts -> stars in Flutter).
+        campaignCorrectAnswers = Math.max(0, boardMyCorrectCount);
+        campaignAnsweredQuestions = Math.max(0, boardTurnIndex);
+        campaignWrongAnswers = Math.max(0, boardTurnIndex - boardMyCorrectCount);
+        persistPendingCampaignStageResult(completed, myScore, campaignWrongAnswers);
+
+        try {
+            PlayerStats.recordGameEnd(GameActivity.this, completed, myScore);
+            PlayerProgress.onGameFinished(GameActivity.this, completed, myScore,
+                    PlayerStats.getBestStreak(GameActivity.this), usedAllHelps(), usedAnyHelp());
+        } catch (Exception ignored) {
+        }
+        if (completed) {
+            person.moveShow2Hands(1500);
+            person.raiseEyeBrowsUp(1000, false, true);
+        }
+        playSound(completed ? R.raw.new_level : R.raw.wrong_answer, false, false);
+        showBoardResultScreen(headline, 0, 0, 0, seatWon);
+    }
+
     // =====================================================================
     //  Offline board ("سين جيم") mode
     //  Flow: category select -> board grid -> question -> board -> ... -> end.
@@ -1711,11 +1795,78 @@ public class GameActivity extends AppCompatActivity {
 
     private void startBoardMode() {
         applyBoardModeChrome();
+        if (boardCampaignMatch) {
+            startCampaignBoardMode();
+            return;
+        }
         // One category card per player so every contestant answers exactly 6 questions
         // (two per value). Capped to the categories actually available.
         int players = offlineContestants.contestantCount();
         boardCols = Math.max(1, Math.min(players, boardAllCategories.size()));
         showCategorySelect();
+    }
+
+    /** Sets up the offline board contestants for a رحلة المليون stage (solo or boss). */
+    private void setupCampaignBoardMatch(int characterIndex) {
+        boardMode = true;
+        boardCampaignMatch = true;
+        boardPool = LocalQuestions.loadBoardPool(this);
+        buildBoardCategoryList();
+        if ("boss".equals(boardCampaignKind)) {
+            int players = Math.max(2, Math.min(8, 1 + Math.max(1, boardBotCount)));
+            offlineContestants.setupForBoard(players, characterIndex);
+            if (boardBotIntelligence > 0) {
+                offlineContestants.setBoardBotIntelligence(boardBotIntelligence);
+            }
+            for (int i = 1; i < players; i++) {
+                offlineContestants.setContestantName(i, "الزعيم " + i);
+            }
+        } else {
+            offlineContestants.setupForSoloBoard(characterIndex);
+        }
+        questionsReady = true;
+    }
+
+    /** Campaign board start: pick the board width + categories per the stage policy. */
+    private void startCampaignBoardMode() {
+        if ("boss".equals(boardCampaignKind)) {
+            int players = offlineContestants.contestantCount();
+            boardCols = Math.max(2, Math.min(players, boardAllCategories.size()));
+        } else {
+            boardCols = Math.max(2, Math.min(boardSoloCols, boardAllCategories.size()));
+        }
+        if ("playerPick".equals(boardCategoryPolicy)) {
+            showCategorySelect();
+        } else {
+            onCategoriesChosen(pickCampaignCategories(boardCols));
+        }
+    }
+
+    /** Auto-picks {@code n} categories for a campaign stage. worldThemed/curated prefer
+     *  boardWorldCategories (the world's themed set) and top up with random categories;
+     *  random uses the whole pool. */
+    private ArrayList<String> pickCampaignCategories(int n) {
+        ArrayList<String> pool = new ArrayList<>();
+        if (!"random".equals(boardCategoryPolicy)) {
+            for (String c : boardWorldCategories) {
+                if (c != null && boardAllCategories.contains(c) && !pool.contains(c)) {
+                    pool.add(c);
+                }
+            }
+        }
+        Collections.shuffle(pool, boardRandom);
+        if (pool.size() > n) {
+            pool = new ArrayList<>(pool.subList(0, n));
+        }
+        if (pool.size() < n) {
+            ArrayList<String> rest = new ArrayList<>(boardAllCategories);
+            Collections.shuffle(rest, boardRandom);
+            for (String c : rest) {
+                if (pool.size() >= n) break;
+                if (!pool.contains(c)) pool.add(c);
+            }
+        }
+        return pool;
     }
 
     /** Hides the millionaire-style chrome that has no place on the board.
@@ -1894,6 +2045,11 @@ public class GameActivity extends AppCompatActivity {
         boardTotalTurns = playerCount > 0
                 ? (boardCellsRemaining / playerCount) * playerCount
                 : boardCellsRemaining;
+        // Solo campaign stage: the lone player takes a fixed budget of picks (not the
+        // whole board); reaching boardTargetScore within them passes the stage.
+        if (boardCampaignMatch && "solo".equals(boardCampaignKind)) {
+            boardTotalTurns = Math.max(1, Math.min(boardSoloPicks, boardCellsRemaining));
+        }
         beginBoardTurn();
     }
 
@@ -2040,6 +2196,10 @@ public class GameActivity extends AppCompatActivity {
 
     private void finishBoardMatch() {
         hideBoardOverlay();
+        if (boardCampaignMatch) {
+            finishCampaignBoardMatch();
+            return;
+        }
         if (boardRoomMatch) {
             finishRoomBoardMatch();
             return;
@@ -2360,6 +2520,12 @@ public class GameActivity extends AppCompatActivity {
         offlineContestants.release();
         stopCurrentSound();
         if (cdtProgress != null) cdtProgress.cancel();
+        // Campaign stages finish the activity so Flutter's CampaignResultHandler can
+        // read the pending result and show the stage result screen (stars/rewards).
+        if (boardCampaignMatch) {
+            finishCampaignAndReturnToFlutter();
+            return;
+        }
         showInterstitialAd();
     }
 
@@ -3292,8 +3458,15 @@ public class GameActivity extends AppCompatActivity {
         root.setPadding(dpx(16), dpx(8), dpx(16), dpx(8));
         gridScroll.addView(root);
 
-        String bannerText = boardPickerIsHuman ? "دورك.. اختر فئة وقيمة"
-                : ("دور " + offlineContestants.nameForSlot(boardPickerSlot));
+        String bannerText;
+        if (boardCampaignMatch && "solo".equals(boardCampaignKind)) {
+            int remaining = Math.max(0, boardTotalTurns - boardTurnIndex);
+            bannerText = "الهدف: " + boardTargetScore + "  •  نقاطك: " + offlineContestants.scoreForSlot(0)
+                    + "  •  اختيارات متبقية: " + remaining;
+        } else {
+            bannerText = boardPickerIsHuman ? "دورك.. اختر فئة وقيمة"
+                    : ("دور " + offlineContestants.nameForSlot(boardPickerSlot));
+        }
         TextView banner = makeBoardText(bannerText, 18f,
                 boardPickerIsHuman ? 0xFF61FF39 : 0xFFFFD761, Gravity.CENTER);
         LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(
@@ -5811,6 +5984,9 @@ public class GameActivity extends AppCompatActivity {
     }
 
     int getCampaignPlayerScore() {
+        if (boardCampaignMatch) {
+            return Math.max(0, offlineContestants.scoreForSlot(0));
+        }
         if (campaignBossBattle) {
             return Math.max(0, gameScoreMe);
         }
@@ -5891,6 +6067,11 @@ public class GameActivity extends AppCompatActivity {
     }
 
     int getCampaignTargetQuestionCount() {
+        if (boardCampaignMatch) {
+            // The number of cells the human personally answers (used only to clamp the
+            // reported correct count): boss = one full category (BOARD_ROWS), solo = picks.
+            return "boss".equals(boardCampaignKind) ? BOARD_ROWS : Math.max(1, boardSoloPicks);
+        }
         int requested = campaignQuestionCount > 0 ? campaignQuestionCount : 10;
         if (campaignMode && questions != null && !questions.isEmpty()) {
             return Math.min(requested, questions.size());

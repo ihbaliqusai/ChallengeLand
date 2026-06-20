@@ -39,6 +39,11 @@ final class GameCampaignResultStore {
             payload.put("usedCall", Math.max(0, activity.campaignUsedCall));
             payload.put("campaignMode", activity.campaignStageMode);
             payload.put("winCondition", activity.campaignWinCondition);
+            // رحلة المليون board stage: score-vs-target (solo) or beat-the-bots (boss).
+            payload.put("campaignBoard", activity.campaignBoard);
+            payload.put("boardKind", activity.boardCampaignKind);
+            payload.put("boardTargetScore", Math.max(0, activity.boardTargetScore));
+            payload.put("boardBotCount", Math.max(0, activity.boardBotCount));
             payload.put("failureReason", effectiveCompleted ? "" : activity.safeString(activity.campaignFailureReason));
             payload.put("lives", Math.max(0, activity.campaignLives));
             payload.put("livesRemaining", Math.max(0, activity.campaignLivesRemaining));

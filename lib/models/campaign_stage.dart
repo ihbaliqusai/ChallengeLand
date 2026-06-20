@@ -394,6 +394,13 @@ class CampaignStage {
     this.seriesWinsRequired,
     this.teamAllyName,
     this.teamEnemyName,
+    this.boardKind = 'solo',
+    this.boardTargetScore = 0,
+    this.boardSoloPicks = 6,
+    this.boardSoloCols = 4,
+    this.botCount = 0,
+    this.botIntelligence = 0,
+    this.categoryPolicy = 'playerPick',
   })  : campaignMode = campaignMode ?? type._defaultCampaignMode,
         winCondition = winCondition ??
             (campaignMode == null
@@ -433,7 +440,18 @@ class CampaignStage {
   final int? seriesWinsRequired;
   final String? teamAllyName;
   final String? teamEnemyName;
+  // ---- رحلة المليون board stage (سين جيم) ----
+  final String boardKind;        // 'solo' | 'boss'
+  final int boardTargetScore;    // solo: points needed to pass (rises each stage)
+  final int boardSoloPicks;      // solo: number of cells the player may pick
+  final int boardSoloCols;       // solo: number of category columns on the board
+  final int botCount;            // boss: number of boss bots (= world number, capped 7)
+  final int botIntelligence;     // boss: bot answer skill (0 = engine default)
+  final String categoryPolicy;   // playerPick | curated | random | worldThemed
   final StageStarRules starRules;
+
+  /// Boss stages gate each world (every 10th stage).
+  bool get isBossStage => boardKind == 'boss' || (order > 0 && order % 10 == 0);
 
   factory CampaignStage.empty() => CampaignStage(
         id: '',
@@ -504,6 +522,13 @@ class CampaignStage {
       seriesWinsRequired: _readNullableInt(map['seriesWinsRequired']),
       teamAllyName: _readNullableString(map['teamAllyName']),
       teamEnemyName: _readNullableString(map['teamEnemyName']),
+      boardKind: _readString(map['boardKind'], defaultValue: 'solo'),
+      boardTargetScore: _readInt(map['boardTargetScore']),
+      boardSoloPicks: _readInt(map['boardSoloPicks'], defaultValue: 6),
+      boardSoloCols: _readInt(map['boardSoloCols'], defaultValue: 4),
+      botCount: _readInt(map['botCount']),
+      botIntelligence: _readInt(map['botIntelligence']),
+      categoryPolicy: _readString(map['categoryPolicy'], defaultValue: 'playerPick'),
       starRules: StageStarRules.fromMap(_readMap(map['starRules'])),
     );
   }
@@ -542,6 +567,13 @@ class CampaignStage {
         'seriesWinsRequired': seriesWinsRequired,
         'teamAllyName': teamAllyName,
         'teamEnemyName': teamEnemyName,
+        'boardKind': boardKind,
+        'boardTargetScore': boardTargetScore,
+        'boardSoloPicks': boardSoloPicks,
+        'boardSoloCols': boardSoloCols,
+        'botCount': botCount,
+        'botIntelligence': botIntelligence,
+        'categoryPolicy': categoryPolicy,
         'starRules': starRules.toMap(),
       };
 
@@ -579,6 +611,13 @@ class CampaignStage {
     int? seriesWinsRequired,
     String? teamAllyName,
     String? teamEnemyName,
+    String? boardKind,
+    int? boardTargetScore,
+    int? boardSoloPicks,
+    int? boardSoloCols,
+    int? botCount,
+    int? botIntelligence,
+    String? categoryPolicy,
     StageStarRules? starRules,
   }) {
     final effectiveMode = campaignMode ?? this.campaignMode;
@@ -617,6 +656,13 @@ class CampaignStage {
       seriesWinsRequired: seriesWinsRequired ?? this.seriesWinsRequired,
       teamAllyName: teamAllyName ?? this.teamAllyName,
       teamEnemyName: teamEnemyName ?? this.teamEnemyName,
+      boardKind: boardKind ?? this.boardKind,
+      boardTargetScore: boardTargetScore ?? this.boardTargetScore,
+      boardSoloPicks: boardSoloPicks ?? this.boardSoloPicks,
+      boardSoloCols: boardSoloCols ?? this.boardSoloCols,
+      botCount: botCount ?? this.botCount,
+      botIntelligence: botIntelligence ?? this.botIntelligence,
+      categoryPolicy: categoryPolicy ?? this.categoryPolicy,
       starRules: starRules ?? this.starRules,
     );
   }

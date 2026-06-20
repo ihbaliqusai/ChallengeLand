@@ -46,10 +46,30 @@ final class GameCampaignLaunchConfig {
                 }
             }
         }
+        // ---- رحلة المليون board stage params (سين جيم board) ----
+        activity.campaignBoard = activity.campaignMode
+                && activity.getIntent().getBooleanExtra("campaignBoard", false);
+        activity.boardCampaignKind = activity.safeIntentString("boardKind", "solo");
+        activity.boardTargetScore = Math.max(0, activity.getIntent().getIntExtra("boardTargetScore", 0));
+        activity.boardSoloPicks = Math.max(1, activity.getIntent().getIntExtra("boardSoloPicks", 6));
+        activity.boardSoloCols = Math.max(2, activity.getIntent().getIntExtra("boardSoloCols", 4));
+        activity.boardBotCount = Math.max(0, Math.min(7, activity.getIntent().getIntExtra("boardBotCount", 0)));
+        activity.boardBotIntelligence = Math.max(0, Math.min(99, activity.getIntent().getIntExtra("boardBotIntelligence", 0)));
+        activity.boardCategoryPolicy = activity.safeIntentString("categoryPolicy", "playerPick");
+        ArrayList<String> worldCats = activity.getIntent().getStringArrayListExtra("worldCategories");
+        if (worldCats != null) {
+            for (String c : worldCats) {
+                if (c != null && !c.trim().isEmpty()) {
+                    activity.boardWorldCategories.add(c.trim());
+                }
+            }
+        }
+
         if (activity.campaignMode && activity.isDebuggableBuild()) {
             Log.d("CampaignStage", "launch stageId=" + activity.campaignStageId
                     + " questionIds=" + activity.campaignQuestionIds.size()
-                    + " allowedLevels=" + activity.campaignAllowedLevels);
+                    + " allowedLevels=" + activity.campaignAllowedLevels
+                    + " board=" + activity.campaignBoard + " kind=" + activity.boardCampaignKind);
         }
         activity.applyCampaignStageTypeDefaults();
         activity.modeOnline = "online".equals(modeExtra);

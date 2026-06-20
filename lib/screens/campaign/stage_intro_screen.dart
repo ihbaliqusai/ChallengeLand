@@ -5,12 +5,10 @@ import 'package:provider/provider.dart';
 import '../../models/campaign_stage.dart';
 import '../../models/stage_progress.dart';
 import '../../services/campaign_mode_engine.dart';
-import '../../services/campaign_question_selector.dart';
 import '../../services/campaign_result_handler.dart';
 import '../../services/native_bridge_service.dart';
 import 'stage_leaderboard_screen.dart';
 import 'widgets/level_complete_background.dart';
-import 'widgets/lifeline_rules_row.dart';
 import 'widgets/stage_reward_chip.dart';
 import 'widgets/star_rating_view.dart';
 
@@ -33,7 +31,6 @@ class _StageIntroScreenState extends State<StageIntroScreen>
   static const Duration _pendingResultRetryDelay = Duration(milliseconds: 350);
   static const Duration _missingResultTimeout = Duration(seconds: 8);
 
-  final CampaignQuestionSelector _questionSelector = CampaignQuestionSelector();
   final CampaignModeEngine _modeEngine = const CampaignModeEngine();
   bool _launching = false;
   bool _waitingForResult = false;
@@ -149,22 +146,19 @@ class _StageIntroScreenState extends State<StageIntroScreen>
     final stage = widget.stage;
 
     try {
-      final questionIds = await _questionSelector.selectQuestionIds(stage);
-      final levelSummary =
-          await _questionSelector.levelSummaryForQuestionIds(questionIds);
-      final effectiveAllowedLevels = <String>{
-        ...stage.allowedLevels,
-        ...levelSummary.keys,
-      }.where((level) => level.trim().isNotEmpty).toList(growable: false);
+      // رحلة المليون stages run on the سين جيم board, which loads its own question
+      // pool natively (LocalQuestions.loadBoardPool) — no per-stage id selection needed.
+      const questionIds = <int>[];
+      final effectiveAllowedLevels = stage.allowedLevels
+          .where((level) => level.trim().isNotEmpty)
+          .toList(growable: false);
       if (kDebugMode) {
         debugPrint(
-          'Launch campaign stage=${stage.id} order=${stage.order} '
-          'allowed=${stage.allowedLevels} questionIds=$questionIds '
-          'levels=$levelSummary nativeAllowed=$effectiveAllowedLevels',
+          'Launch campaign board stage=${stage.id} order=${stage.order} '
+          'kind=${stage.isBossStage ? 'boss' : 'solo'} '
+          'target=${stage.boardTargetScore} bots=${stage.botCount} '
+          'policy=${stage.categoryPolicy} cats=${stage.categories}',
         );
-      }
-      if (questionIds.length < stage.questionCount) {
-        throw StateError('Not enough campaign questions selected');
       }
       final launchConfig = _modeEngine.buildLaunchConfig(stage);
       await nativeBridge.launchCampaignStage(
@@ -197,6 +191,18 @@ class _StageIntroScreenState extends State<StageIntroScreen>
         seriesWinsRequired: launchConfig['seriesWinsRequired'] as int? ?? 0,
         teamAllyName: launchConfig['teamAllyName'] as String? ?? '',
         teamEnemyName: launchConfig['teamEnemyName'] as String? ?? '',
+        campaignBoard: launchConfig['campaignBoard'] as bool? ?? true,
+        boardKind: launchConfig['boardKind'] as String? ?? 'solo',
+        boardTargetScore: launchConfig['boardTargetScore'] as int? ?? 0,
+        boardSoloPicks: launchConfig['boardSoloPicks'] as int? ?? 6,
+        boardSoloCols: launchConfig['boardSoloCols'] as int? ?? 4,
+        boardBotCount: launchConfig['boardBotCount'] as int? ?? 0,
+        boardBotIntelligence: launchConfig['boardBotIntelligence'] as int? ?? 0,
+        categoryPolicy: launchConfig['categoryPolicy'] as String? ?? 'playerPick',
+        worldCategories:
+            (launchConfig['worldCategories'] as List<dynamic>? ?? const <dynamic>[])
+                .map((dynamic e) => e.toString())
+                .toList(growable: false),
       );
       if (mounted) setState(() => _waitingForResult = true);
     } catch (_) {
@@ -370,9 +376,7 @@ class StageIntroHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const modeEngine = CampaignModeEngine();
-    final boss = stage.campaignMode == CampaignMode.bossBattle ||
-        stage.type == CampaignStageType.boss;
+    final boss = stage.isBossStage;
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 13),
       decoration: BoxDecoration(
@@ -427,8 +431,8 @@ class StageIntroHeader extends StatelessWidget {
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     _MiniPill(
-                      icon: Icons.sports_esports_rounded,
-                      label: modeEngine.modeLabelArabic(stage.campaignMode),
+                      icon: Icons.grid_view_rounded,
+                      label: boss ? 'لوحة الزعماء' : 'لوحة سين جيم',
                       color: const Color(0xFFFFF0A7),
                     ),
                     if (boss)
@@ -543,24 +547,21 @@ class StageRequirementsPanel extends StatelessWidget {
               Expanded(
                 child: _StarRequirement(
                   stars: 1,
-                  text:
-                      '${_requiredCorrect(rules.oneStarMinCorrectAnswers, 5)} صحيحة',
+                  text: stage.isBossStage ? 'تغلّب على الزعماء' : 'ابلغ الهدف',
                 ),
               ),
               const SizedBox(width: 7),
               Expanded(
                 child: _StarRequirement(
                   stars: 2,
-                  text:
-                      '${_requiredCorrect(rules.twoStarsMinCorrectAnswers, 7)} صحيحة',
+                  text: '${rules.twoStarsMinScore} نقطة',
                 ),
               ),
               const SizedBox(width: 7),
               Expanded(
                 child: _StarRequirement(
                   stars: 3,
-                  text:
-                      '${_requiredCorrect(rules.threeStarsMinCorrectAnswers, 9)} صحيحة',
+                  text: '${rules.threeStarsMinScore} نقطة',
                 ),
               ),
             ],
@@ -576,18 +577,10 @@ class StageRequirementsPanel extends StatelessWidget {
 
   String? _specialRuleText(CampaignStage stage) {
     final rules = stage.starRules;
-    if (stage.type == CampaignStageType.noLifeline ||
-        rules.threeStarsMaxLifelinesUsed == 0) {
-      return 'لـ 3 نجوم: بدون مساعدات';
-    }
-    if (rules.threeStarsMaxTimeMs != null) {
-      return 'لـ 3 نجوم: قبل ${_formatTime(rules.threeStarsMaxTimeMs!)}';
+    if (rules.threeStarsMinScore > 0) {
+      return 'لـ 3 نجوم: اجمع ${rules.threeStarsMinScore} نقطة على اللوحة';
     }
     return null;
-  }
-
-  int _requiredCorrect(int value, int fallback) {
-    return value > 0 ? value : fallback;
   }
 }
 
@@ -718,9 +711,9 @@ class _RulesPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const modeEngine = CampaignModeEngine();
-    final objective = modeEngine.objectiveText(stage);
+    final objective = modeEngine.boardObjectiveText(stage);
     return _GlassPanel(
-      title: 'المساعدات',
+      title: 'تفاصيل المرحلة',
       icon: Icons.auto_awesome_rounded,
       color: const Color(0xFF7DD3FC),
       compact: true,
@@ -735,31 +728,27 @@ class _RulesPanel extends StatelessWidget {
                   color: const Color(0xFF54F088),
                 ),
               ),
-              if (stage.timeLimitSeconds > 0) ...[
-                const SizedBox(width: 7),
-                Expanded(
-                  child: _InfoChip(
-                    icon: Icons.timer_rounded,
-                    label: _formatSeconds(stage.timeLimitSeconds),
-                    color: const Color(0xFFFFD95A),
-                  ),
+              const SizedBox(width: 7),
+              Expanded(
+                child: _InfoChip(
+                  icon: stage.isBossStage
+                      ? Icons.shield_rounded
+                      : Icons.flag_rounded,
+                  label: stage.isBossStage
+                      ? 'تفوّق على كل الزعماء'
+                      : '${stage.boardSoloPicks} اختيارات',
+                  color: const Color(0xFFFFD95A),
                 ),
-              ],
+              ),
             ],
           ),
           const SizedBox(height: 8),
-          if (stage.type == CampaignStageType.boss) ...[
-            const _InfoChip(
-              icon: Icons.shield_rounded,
-              label: 'اهزم الزعيم لفتح الطريق التالي',
-              color: Color(0xFFFFD95A),
-            ),
-            const SizedBox(height: 8),
-          ],
-          LifelineRulesRow(
-            allow5050: stage.allow5050,
-            allowAudience: stage.allowAudience,
-            allowCall: stage.allowCall,
+          _InfoChip(
+            icon: Icons.grid_view_rounded,
+            label: stage.isBossStage
+                ? 'لوحة سين جيم — احصل على المركز الأول'
+                : 'لوحة سين جيم — إجابة كتابية، أو اكشف الخيارات مقابل النصف',
+            color: const Color(0xFF7DD3FC),
           ),
         ],
       ),
@@ -1191,17 +1180,4 @@ String stageTypeLabel(CampaignStageType type) {
   }
 }
 
-String _formatTime(int milliseconds) {
-  final totalSeconds = (milliseconds / 1000).ceil();
-  final minutes = totalSeconds ~/ 60;
-  final seconds = totalSeconds % 60;
-  return '$minutes:${seconds.toString().padLeft(2, '0')}';
-}
 
-String _formatSeconds(int seconds) {
-  if (seconds <= 0) return 'وقت مفتوح';
-  final minutes = seconds ~/ 60;
-  final rest = seconds % 60;
-  if (minutes <= 0) return '$seconds ثانية';
-  return '$minutes:${rest.toString().padLeft(2, '0')}';
-}

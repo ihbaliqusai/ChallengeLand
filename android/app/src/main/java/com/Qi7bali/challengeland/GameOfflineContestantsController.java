@@ -196,6 +196,39 @@ final class GameOfflineContestantsController {
         setupInternal(playerCount, characterIndex);
     }
 
+    /** Solo board (رحلة المليون normal stage): a single contestant — the player only,
+     *  no bots — so the player accumulates points against a target. */
+    void setupForSoloBoard(int characterIndex) {
+        count = 1;
+        characterIndex = ((characterIndex % CHARACTER_COUNT) + CHARACTER_COUNT) % CHARACTER_COUNT;
+        selectedCharacterIndex = characterIndex;
+        teamMode = false;
+        slotTeam = null;
+
+        allocateContestantArrays();
+        slotCharacter = new int[count];
+        names[0] = resolvePlayerName();
+        slotCharacter[0] = characterIndex % CHARACTER_COUNT;
+
+        buildPodiums();
+        buildScoreBoard();
+
+        active = true;
+        if (row != null) row.setVisibility(View.VISIBLE);
+        View namePlate = activity.findViewById(R.id.hostNamePlate);
+        if (namePlate != null) namePlate.setVisibility(View.VISIBLE);
+    }
+
+    /** Overrides every bot's answer skill (used by رحلة المليون boss stages, which
+     *  scale boss strength with the world). Slot 0 (the human) is left untouched. */
+    void setBoardBotIntelligence(int value) {
+        if (intelligence == null) return;
+        int v = Math.max(10, Math.min(99, value));
+        for (int i = 1; i < count; i++) {
+            intelligence[i] = v;
+        }
+    }
+
     /**
      * Online room board: each seat shows a real player/bot name with a figure whose
      * gender matches that name, plus (for team matches) a team tag/colour so the
