@@ -5,7 +5,7 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AdService extends ChangeNotifier {
-  // ── Test IDs (replace with real IDs before publishing) ──────────────────────
+  // ── Production AdMob ad unit IDs (publisher ca-app-pub-2427194500639575) ─────
   static const String _rewardedId = 'ca-app-pub-2427194500639575/4290411051';
   static const String _interstitialId =
       'ca-app-pub-2427194500639575/3315194558';

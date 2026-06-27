@@ -126,7 +126,7 @@
     <string name="currency_gems_value">الجواهر %1$d</string>
     <string name="player_guest">ضيف</string>
     <string name="player_level_status">المستوى %1$d • الخبرة %2$d/%3$d</string>
-    <string name="share_subject">من سيربح المليون</string>
+    <string name="share_subject">تحدّى أصدقاءك في ChallengeLand</string>
     <string name="share_chooser">شارك اللعبة وتحد أصدقاءك</string>
     <string name="daily_reward_title">المكافأة اليومية</string>
     <string name="daily_reward_message">حصلت اليوم على\nالقطع: %1$d\nالجواهر: %2$d\n\nسلسلة الأيام: %3$d</string>
