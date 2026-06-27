@@ -415,7 +415,7 @@ class _CreateJoinPanel extends StatelessWidget {
                   _ModeChip(
                     label: 'نظام التنافس',
                     icon: Icons.sports_kabaddi_rounded,
-                    description: 'لوح سين جيم.. كل لاعب لوحده (2-8)',
+                    description: 'لوح التحدي.. كل لاعب لوحده (2-8)',
                     selected: mode == 'battle',
                     selectedColor: const Color(0xFF3B82F6),
                     onTap: () => onModeChanged('battle'),
@@ -424,7 +424,7 @@ class _CreateJoinPanel extends StatelessWidget {
                   _ModeChip(
                     label: 'نظام الفرق',
                     icon: Icons.groups_rounded,
-                    description: 'لوح سين جيم.. فريقان (2-4 لكل فريق)',
+                    description: 'لوح التحدي.. فريقان (2-4 لكل فريق)',
                     selected: mode == 'team_battle',
                     selectedColor: const Color(0xFF8B5CF6),
                     onTap: () => onModeChanged('team_battle'),

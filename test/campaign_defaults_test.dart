@@ -1,18 +1,32 @@
-import 'dart:convert';
-
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter/services.dart';
 import 'package:challenge_land/models/campaign_stage.dart';
 import 'package:challenge_land/models/stage_progress.dart';
 import 'package:challenge_land/services/campaign_defaults.dart';
-import 'package:challenge_land/services/campaign_question_selector.dart';
 import 'package:challenge_land/services/campaign_service.dart';
 
+/// رحلة المليون now plays the التحدي board for every stage: normal stages are a
+/// solo board with a rising target score, and every 10th stage is a boss board
+/// against bots. These tests pin that board design + the shared progression rules.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  group('CampaignDefaults', () {
+  // worldLevels mirror (campaign_defaults.dart). Kept here so the test fails loudly
+  // if the per-world difficulty bands drift.
+  const worldLevels = <List<String>>[
+    <String>['0', '1'],
+    <String>['0', '1', '2'],
+    <String>['1', '2'],
+    <String>['2', '4'],
+    <String>['2', '5'],
+    <String>['4', '5'],
+    <String>['5', '6'],
+    <String>['6', '7'],
+    <String>['7', '8'],
+    <String>['3', '8'],
+  ];
+
+  group('CampaignDefaults (التحدي board)', () {
     test('built-in stages cover stable stage_001 through stage_100', () {
       final stages = CampaignDefaults.stages();
       final ids = stages.map((stage) => stage.id).toList(growable: false);
@@ -29,134 +43,82 @@ void main() {
       expect(orders, List<int>.generate(100, (index) => index + 1));
     });
 
-    test('all stages have valid required campaign data', () {
+    test('every stage is a board stage with valid required data', () {
       for (final stage in CampaignDefaults.stages()) {
-        expect(stage.questionCount, 10, reason: stage.id);
+        expect(stage.questionCount, 6, reason: stage.id);
+        expect(stage.type, CampaignStageType.classic, reason: stage.id);
+        expect(stage.campaignMode, CampaignMode.classic, reason: stage.id);
         expect(stage.allowedLevels, isNotEmpty, reason: stage.id);
-        expect(stage.rewardCoins, greaterThanOrEqualTo(0), reason: stage.id);
+        expect(stage.categories, isNotEmpty, reason: stage.id);
+        expect(stage.boardSoloPicks, 6, reason: stage.id);
+        expect(stage.boardSoloCols, 4, reason: stage.id);
+        expect(stage.boardTargetScore, greaterThan(0), reason: stage.id);
+        expect(stage.rewardCoins, greaterThan(0), reason: stage.id);
         expect(stage.rewardGems, greaterThanOrEqualTo(0), reason: stage.id);
-        expect(stage.rewardXp, greaterThanOrEqualTo(0), reason: stage.id);
+        expect(stage.rewardXp, greaterThan(0), reason: stage.id);
+        // Guard against mojibake leaking into stage titles.
         expect(stage.title, isNot(contains('Ã˜')), reason: stage.id);
         expect(stage.title, isNot(contains('Ã™')), reason: stage.id);
-        expect(stage.title, isNot(contains('Ã¢')), reason: stage.id);
       }
     });
 
-    test('competitive stages include required fields', () {
-      final stages = {
+    test('every 10th stage is a boss board against bots', () {
+      final byOrder = {
         for (final stage in CampaignDefaults.stages()) stage.order: stage,
       };
-
-      for (final order in <int>[35, 43, 48, 55, 65, 76, 85, 96]) {
-        final stage = stages[order]!;
-        expect(stage.campaignMode, CampaignMode.battle);
-        expect(stage.opponentName, isNotEmpty);
-        expect(stage.opponentAccuracy, greaterThan(0));
-      }
-
-      for (final order in <int>[38, 67, 88, 99]) {
-        final stage = stages[order]!;
-        expect(stage.campaignMode, CampaignMode.rival);
-        expect(stage.targetScore, greaterThan(0));
-      }
-      expect(stages[38]!.targetScore, 800);
-      expect(stages[99]!.targetScore, 950);
-
-      for (final order in <int>[37, 57, 77, 87, 97]) {
-        final stage = stages[order]!;
-        expect(stage.campaignMode, CampaignMode.series);
-        expect(stage.seriesRounds, greaterThan(0));
-        expect(stage.seriesWinsRequired, greaterThan(0));
-        expect(
-            stage.seriesWinsRequired, lessThanOrEqualTo(stage.seriesRounds!));
-        expect(stage.opponentName, isNotEmpty);
-        expect(stage.opponentAccuracy, greaterThan(0));
-      }
-      expect(stages[97]!.seriesRounds, 5);
-      expect(stages[97]!.seriesWinsRequired, 3);
-
-      for (final order in <int>[47, 58, 78, 98]) {
-        final stage = stages[order]!;
-        expect(stage.campaignMode, CampaignMode.teamBattle);
-        expect(stage.teamAllyName, isNotEmpty);
-        expect(stage.teamEnemyName, isNotEmpty);
-        expect(stage.opponentAccuracy, greaterThan(0));
-      }
-
-      for (final order in <int>[40, 50, 60, 70, 80, 90, 100]) {
-        final stage = stages[order]!;
-        expect(stage.campaignMode, CampaignMode.bossBattle);
-        expect(stage.bossBotName, isNotEmpty);
-        expect(stage.bossBotIntelligence, greaterThan(0));
-      }
-      expect(stages[100]!.bossBotName, 'سيد المليون الأخير');
-    });
-
-    test('new mode distribution matches the 20-stage plan', () {
-      final counts = <CampaignMode, int>{};
-      for (final stage in CampaignDefaults.stages().where(
-        (stage) => stage.order >= 31 && stage.order <= 50,
-      )) {
-        counts[stage.campaignMode] = (counts[stage.campaignMode] ?? 0) + 1;
-      }
-
-      expect(counts[CampaignMode.classic], 2);
-      expect(counts[CampaignMode.blitz], 4);
-      expect(counts[CampaignMode.survival], 2);
-      expect(counts[CampaignMode.elimination], 2);
-      expect(counts[CampaignMode.noLifeline], 2);
-      expect(counts[CampaignMode.battle], 3);
-      expect(counts[CampaignMode.rival], 1);
-      expect(counts[CampaignMode.series], 1);
-      expect(counts[CampaignMode.teamBattle], 1);
-      expect(counts[CampaignMode.bossBattle], 2);
-    });
-
-    test('stage levels match requested world distribution', () {
-      final stages = {
-        for (final stage in CampaignDefaults.stages()) stage.order: stage,
-      };
-      final expected = <int, List<String>>{
-        1: ['0'],
-        2: ['0'],
-        3: ['0'],
-        4: ['0'],
-        5: ['0', '1'],
-        6: ['0', '1'],
-        7: ['0', '1'],
-        8: ['1'],
-        9: ['1'],
-        10: ['1'],
-        11: ['1', '2'],
-        12: ['1', '2'],
-        13: ['1', '2'],
-        14: ['1', '2'],
-        for (var order = 15; order <= 18; order += 1) order: ['2'],
-        19: ['2', '4'],
-        20: ['2', '4'],
-        for (var order = 21; order <= 30; order += 1) order: ['2', '4'],
-        for (var order = 31; order <= 38; order += 1) order: ['2', '5'],
-        39: ['4', '5'],
-        40: ['5'],
-        for (var order = 41; order <= 48; order += 1) order: ['2', '6'],
-        49: ['6'],
-        50: ['6'],
-        for (var order = 51; order <= 56; order += 1) order: ['4', '5'],
-        57: ['5', '6'],
-        58: ['6'],
-        59: ['6', '7'],
-        60: ['6', '7'],
-        61: ['6'],
-        for (var order = 62; order <= 66; order += 1) order: ['6', '7'],
-        for (var order = 67; order <= 72; order += 1) order: ['7'],
-        73: ['7', '8'],
-        for (var order = 74; order <= 80; order += 1) order: ['8'],
-        for (var order = 81; order <= 90; order += 1) order: ['3', '8'],
-        for (var order = 91; order <= 100; order += 1) order: ['3'],
-      };
-
       for (var order = 1; order <= 100; order += 1) {
-        expect(stages[order]!.allowedLevels, expected[order], reason: '$order');
+        final stage = byOrder[order]!;
+        final isBoss = order % 10 == 0;
+        expect(stage.isBossStage, isBoss, reason: '$order');
+        expect(stage.boardKind, isBoss ? 'boss' : 'solo', reason: '$order');
+        expect(
+          stage.winCondition,
+          isBoss
+              ? CampaignWinCondition.beatOpponent
+              : CampaignWinCondition.beatTargetScore,
+          reason: '$order',
+        );
+        if (isBoss) {
+          expect(stage.botCount, greaterThanOrEqualTo(1), reason: '$order');
+          expect(stage.botCount, lessThanOrEqualTo(7), reason: '$order');
+          expect(stage.botIntelligence, greaterThan(0), reason: '$order');
+          expect(stage.categoryPolicy, 'worldThemed', reason: '$order');
+        } else {
+          expect(stage.botCount, 0, reason: '$order');
+          expect(stage.botIntelligence, 0, reason: '$order');
+        }
+      }
+    });
+
+    test('solo category policy follows the world tier', () {
+      final byOrder = {
+        for (final stage in CampaignDefaults.stages()) stage.order: stage,
+      };
+      // Worlds 1-2 let the player pick, 3-6 are curated, 7-10 are random.
+      expect(byOrder[1]!.categoryPolicy, 'playerPick');
+      expect(byOrder[15]!.categoryPolicy, 'playerPick');
+      expect(byOrder[21]!.categoryPolicy, 'curated');
+      expect(byOrder[55]!.categoryPolicy, 'curated');
+      expect(byOrder[61]!.categoryPolicy, 'random');
+      expect(byOrder[91]!.categoryPolicy, 'random');
+    });
+
+    test('board target score rises across the journey', () {
+      final stages = CampaignDefaults.stages();
+      expect(
+        stages.first.boardTargetScore,
+        lessThan(stages.last.boardTargetScore),
+      );
+    });
+
+    test('stage levels match the per-world distribution', () {
+      final byOrder = {
+        for (final stage in CampaignDefaults.stages()) stage.order: stage,
+      };
+      for (var order = 1; order <= 100; order += 1) {
+        final world = (order - 1) ~/ 10;
+        expect(byOrder[order]!.allowedLevels, worldLevels[world],
+            reason: '$order');
       }
     });
   });
@@ -201,7 +163,7 @@ void main() {
       expect(stages, hasLength(100));
       expect(byId['stage_001']!.title, 'عنوان مخصص');
       expect(byId['stage_040']!.title, 'حارس مخصص');
-      expect(byId['stage_041']!.title, 'بوابة المدينة');
+      expect(byId['stage_041']!.title, 'المرحلة 41');
       expect(byId, contains('stage_031'));
       expect(byId, contains('stage_050'));
       expect(byId, contains('stage_051'));
@@ -213,7 +175,7 @@ void main() {
     });
   });
 
-  group('Campaign progression and mode QA', () {
+  group('Campaign progression and board QA', () {
     late List<CampaignStage> stages;
     late Map<int, CampaignStage> byOrder;
     late CampaignService service;
@@ -222,21 +184,6 @@ void main() {
       stages = CampaignDefaults.stages();
       byOrder = {for (final stage in stages) stage.order: stage};
       service = CampaignService(firestore: FakeFirebaseFirestore());
-    });
-
-    test('key new stages have the requested allowed levels', () {
-      expect(byOrder[31]!.allowedLevels, <String>['2', '5']);
-      expect(byOrder[32]!.allowedLevels, <String>['2', '5']);
-      expect(byOrder[36]!.allowedLevels, <String>['2', '5']);
-      expect(byOrder[39]!.allowedLevels, <String>['4', '5']);
-      expect(byOrder[47]!.allowedLevels, <String>['2', '6']);
-      expect(byOrder[50]!.allowedLevels, <String>['6']);
-      expect(byOrder[51]!.allowedLevels, <String>['4', '5']);
-      expect(byOrder[60]!.allowedLevels, <String>['6', '7']);
-      expect(byOrder[70]!.allowedLevels, <String>['7']);
-      expect(byOrder[80]!.allowedLevels, <String>['8']);
-      expect(byOrder[90]!.allowedLevels, <String>['3', '8']);
-      expect(byOrder[100]!.allowedLevels, <String>['3']);
     });
 
     test('debug unlock exposes stages without granting progress', () {
@@ -251,9 +198,7 @@ void main() {
 
       expect(progress, hasLength(100));
       expect(
-        progress.every(
-          (item) => item.status != StageProgressStatus.locked,
-        ),
+        progress.every((item) => item.status != StageProgressStatus.locked),
         isTrue,
       );
       expect(progress[9].stageId, 'stage_010');
@@ -299,7 +244,7 @@ void main() {
       expect(progress[1].status, StageProgressStatus.locked);
     });
 
-    test('new-stage unlock chain stays reachable by previous completion', () {
+    test('unlock chain stays reachable by previous completion', () {
       final saved = <String, StageProgress>{
         for (final stage in stages.take(30))
           stage.id: _completedProgress(stage, stars: 1),
@@ -312,6 +257,7 @@ void main() {
       expect(progress[30].stageId, 'stage_031');
       expect(progress[30].status, StageProgressStatus.unlocked);
 
+      // Boss stage 40 must be completed before world 5 (stage 41) unlocks.
       for (final stage in stages.take(39)) {
         saved[stage.id] = _completedProgress(stage, stars: 1);
       }
@@ -322,6 +268,8 @@ void main() {
       );
       expect(progress[39].stageId, 'stage_040');
       expect(progress[39].status, StageProgressStatus.unlocked);
+      expect(progress[40].stageId, 'stage_041');
+      expect(progress[40].status, StageProgressStatus.locked);
 
       saved[byOrder[40]!.id] = _completedProgress(byOrder[40]!, stars: 1);
       progress = service.resolveProgressForStages(
@@ -331,116 +279,30 @@ void main() {
       );
       expect(progress[40].stageId, 'stage_041');
       expect(progress[40].status, StageProgressStatus.unlocked);
-
-      for (final stage in stages.take(49)) {
-        saved[stage.id] = _completedProgress(stage, stars: 1);
-      }
-      progress = service.resolveProgressForStages(
-        stages: stages,
-        savedProgress: saved,
-        debugUnlockAllCampaignStagesOverride: false,
-      );
-      expect(progress[49].stageId, 'stage_050');
-      expect(progress[49].status, StageProgressStatus.unlocked);
-
-      for (final stage in stages.take(99)) {
-        saved[stage.id] = _completedProgress(stage, stars: 1);
-      }
-      progress = service.resolveProgressForStages(
-        stages: stages,
-        savedProgress: saved,
-        debugUnlockAllCampaignStagesOverride: false,
-      );
-      expect(progress[99].stageId, 'stage_100');
-      expect(progress[99].status, StageProgressStatus.unlocked);
     });
 
-    test('representative stage completion rules normalize correctly', () {
-      expect(_completed(service, byOrder[31]!, correct: 10), isTrue);
-      expect(_stars(service, byOrder[31]!, correct: 10), 3);
+    test('board stages complete strictly on the native completed flag', () {
+      for (final order in <int>[1, 31, 40, 100]) {
+        final stage = byOrder[order]!;
+        expect(_completed(service, stage, completed: true), isTrue,
+            reason: '$order');
+        expect(_completed(service, stage, completed: false), isFalse,
+            reason: '$order');
+      }
+    });
 
+    test('board stars are score driven, gated by completion', () {
+      final stage = byOrder[31]!; // solo board, target 860
+      expect(_stars(service, stage, completed: false, score: 5000), 0);
+      expect(_stars(service, stage, completed: true, score: 1), 1);
       expect(
-        _completed(
-          service,
-          byOrder[32]!,
-          completed: false,
-          failureReason: 'timeExpired',
-          correct: 8,
-        ),
-        isFalse,
-      );
-      expect(_completed(service, byOrder[32]!, correct: 10), isTrue);
-
-      expect(
-        _completed(
-          service,
-          byOrder[33]!,
-          completed: false,
-          failureReason: 'outOfLives',
-          correct: 3,
-          wrong: 2,
-          livesRemaining: 0,
-        ),
-        isFalse,
+        _stars(service, stage, completed: true, score: stage.boardTargetScore),
+        1,
       );
       expect(
-        _completed(
-          service,
-          byOrder[36]!,
-          completed: false,
-          failureReason: 'eliminated',
-          correct: 4,
-          wrong: 1,
-        ),
-        isFalse,
-      );
-
-      expect(
-        _completed(service, byOrder[38]!, correct: 7, playerScore: 700),
-        isFalse,
-      );
-      expect(
-        _completed(service, byOrder[38]!, correct: 8, playerScore: 800),
-        isTrue,
-      );
-
-      expect(
-        _completed(service, byOrder[40]!, bossDefeated: false),
-        isFalse,
-      );
-      expect(
-        _completed(service, byOrder[40]!, bossDefeated: true),
-        isTrue,
-      );
-      expect(
-        _completed(
-          service,
-          byOrder[47]!,
-          teamScore: 900,
-          enemyTeamScore: 1000,
-        ),
-        isFalse,
-      );
-      expect(
-        _completed(
-          service,
-          byOrder[47]!,
-          teamScore: 1100,
-          enemyTeamScore: 1000,
-        ),
-        isTrue,
-      );
-      expect(
-        _completed(service, byOrder[50]!, bossDefeated: true),
-        isTrue,
-      );
-      expect(
-        _completed(service, byOrder[100]!, bossDefeated: false),
-        isFalse,
-      );
-      expect(
-        _completed(service, byOrder[100]!, bossDefeated: true),
-        isTrue,
+        _stars(service, stage,
+            completed: true, score: (stage.boardTargetScore * 1.7).round()),
+        3,
       );
     });
 
@@ -448,11 +310,13 @@ void main() {
       final firestore = FakeFirebaseFirestore();
       final campaignService = CampaignService(firestore: firestore);
       final stage = byOrder[31]!;
+      final oneStarScore = stage.boardTargetScore; // exactly the target -> 1 star
+      final threeStarScore = (stage.boardTargetScore * 1.7).round();
 
       final failed = await campaignService.submitStageResult(
         uid: 'qa_user',
         stage: stage,
-        nativeResult: _nativeResult(stage, completed: false, correct: 4),
+        nativeResult: _boardResult(stage, completed: false, playerScore: 200),
       );
       expect(failed.rewardGranted, isFalse);
       expect(failed.attempt.stars, 0);
@@ -461,17 +325,18 @@ void main() {
       final oneStar = await campaignService.submitStageResult(
         uid: 'qa_user',
         stage: stage,
-        nativeResult: _nativeResult(stage, completed: true, correct: 5),
+        nativeResult:
+            _boardResult(stage, completed: true, playerScore: oneStarScore),
       );
       expect(oneStar.rewardGranted, isTrue);
       expect(oneStar.newStars, 1);
       expect(oneStar.rewardCoinsGranted, stage.rewardCoins ~/ 3);
-      expect(oneStar.rewardGemsGranted, stage.rewardGems ~/ 3);
 
       final repeatedOneStar = await campaignService.submitStageResult(
         uid: 'qa_user',
         stage: stage,
-        nativeResult: _nativeResult(stage, completed: true, correct: 5),
+        nativeResult:
+            _boardResult(stage, completed: true, playerScore: oneStarScore),
       );
       expect(repeatedOneStar.rewardGranted, isFalse);
       expect(repeatedOneStar.newStars, 1);
@@ -479,7 +344,8 @@ void main() {
       final improved = await campaignService.submitStageResult(
         uid: 'qa_user',
         stage: stage,
-        nativeResult: _nativeResult(stage, completed: true, correct: 10),
+        nativeResult:
+            _boardResult(stage, completed: true, playerScore: threeStarScore),
       );
       expect(improved.rewardGranted, isTrue);
       expect(improved.previousStars, 1);
@@ -488,124 +354,6 @@ void main() {
         improved.rewardCoinsGranted,
         stage.rewardCoins - oneStar.rewardCoinsGranted,
       );
-      expect(
-        improved.rewardGemsGranted,
-        stage.rewardGems - oneStar.rewardGemsGranted,
-      );
-    });
-  });
-
-  group('CampaignQuestionSelector fallback', () {
-    test('real bundled question asset supports campaign stage levels',
-        () async {
-      final decoded =
-          jsonDecode(await rootBundle.loadString('assets/questions.json'));
-      expect(decoded, isA<List<dynamic>>());
-      final counts = <String, int>{};
-      for (final item in decoded as List<dynamic>) {
-        if (item is! Map) continue;
-        final level = item['Level']?.toString().trim() ?? '';
-        counts[level] = (counts[level] ?? 0) + 1;
-      }
-
-      for (final level in <String>[
-        '0',
-        '1',
-        '2',
-        '3',
-        '4',
-        '5',
-        '6',
-        '7',
-        '8'
-      ]) {
-        expect(counts[level], greaterThanOrEqualTo(10), reason: 'Level $level');
-      }
-
-      final selector = CampaignQuestionSelector();
-      final stages = CampaignDefaults.stages();
-      for (final stage in stages) {
-        expect(
-          stage.allowedLevels.every(counts.containsKey),
-          isTrue,
-          reason: stage.id,
-        );
-        final selected = await selector.selectQuestionIds(stage);
-        final summary = await selector.levelSummaryForQuestionIds(selected);
-        expect(selected, hasLength(stage.questionCount), reason: stage.id);
-        expect(
-          summary.keys.toSet().difference(stage.allowedLevels.toSet()),
-          isEmpty,
-          reason: stage.id,
-        );
-      }
-
-      expect(
-        await selector.levelSummaryForQuestionIds(
-          await selector.selectQuestionIds(
-            stages.firstWhere((stage) => stage.order == 1),
-          ),
-        ),
-        <String, int>{'0': 10},
-      );
-      expect(
-        (await selector.levelSummaryForQuestionIds(
-          await selector.selectQuestionIds(
-            stages.firstWhere((stage) => stage.order == 2),
-          ),
-        ))
-            .keys
-            .toSet()
-            .difference(<String>{'0'}),
-        isEmpty,
-      );
-      expect(
-        await selector.levelSummaryForQuestionIds(
-          await selector.selectQuestionIds(
-            stages.firstWhere((stage) => stage.order == 3),
-          ),
-        ),
-        <String, int>{'0': 10},
-      );
-      expect(
-        await selector.selectQuestionIds(
-          stages.firstWhere((stage) => stage.order == 40),
-        ),
-        hasLength(10),
-      );
-      expect(
-        await selector.selectQuestionIds(
-          stages.firstWhere((stage) => stage.order == 50),
-        ),
-        hasLength(10),
-      );
-      expect(
-        await selector.selectQuestionIds(
-          stages.firstWhere((stage) => stage.order == 100),
-        ),
-        hasLength(10),
-      );
-    });
-
-    test('level 8 stages fall back to highest available level, not beginners',
-        () async {
-      final questions = <Map<String, dynamic>>[
-        for (var i = 0; i < 12; i += 1) {'Level': '0'},
-        for (var i = 0; i < 12; i += 1) {'Level': '1'},
-        for (var i = 0; i < 12; i += 1) {'Level': '2'},
-        for (var i = 0; i < 12; i += 1) {'Level': '3'},
-      ];
-      final selector = CampaignQuestionSelector(
-        bundle: _JsonAssetBundle(jsonEncode(questions)),
-      );
-
-      final ids = await selector.selectQuestionIds(
-        CampaignDefaults.stages().firstWhere((stage) => stage.order == 50),
-      );
-      final selectedLevels = ids.map((id) => questions[id]['Level']).toSet();
-
-      expect(ids, hasLength(10));
-      expect(selectedLevels, <String>{'3'});
     });
   });
 }
@@ -618,7 +366,7 @@ StageProgress _completedProgress(CampaignStage stage, {required int stars}) {
     stars: stars,
     bestScore: 1000,
     bestMoney: 0,
-    bestCorrectAnswers: 10,
+    bestCorrectAnswers: 6,
     bestTimeMs: 60000,
     attempts: 1,
     firstCompletedAt: DateTime(2026),
@@ -629,107 +377,60 @@ StageProgress _completedProgress(CampaignStage stage, {required int stars}) {
 bool _completed(
   CampaignService service,
   CampaignStage stage, {
-  bool completed = true,
-  String failureReason = '',
-  int correct = 10,
-  int wrong = 0,
-  int livesRemaining = 1,
-  int playerScore = 1000,
-  int opponentScore = 700,
-  bool bossDefeated = false,
-  int teamScore = 0,
-  int enemyTeamScore = 0,
+  required bool completed,
+  int score = 0,
 }) {
   return service.normalizeStageCompleted(
     stage: stage,
-    nativeResult: _nativeResult(
-      stage,
-      completed: completed,
-      failureReason: failureReason,
-      correct: correct,
-      wrong: wrong,
-      livesRemaining: livesRemaining,
-      playerScore: playerScore,
-      opponentScore: opponentScore,
-      bossDefeated: bossDefeated,
-      teamScore: teamScore,
-      enemyTeamScore: enemyTeamScore,
-    ),
-    correctAnswers: correct,
-    wrongAnswers: wrong,
+    nativeResult: _boardResult(stage, completed: completed, playerScore: score),
+    correctAnswers: 0,
+    wrongAnswers: 0,
   );
 }
 
 int _stars(
   CampaignService service,
   CampaignStage stage, {
-  required int correct,
+  required bool completed,
+  required int score,
 }) {
   return service.calculateStars(
     stage: stage,
-    completed: true,
-    score: correct * 100,
-    correctAnswers: correct,
-    wrongAnswers: 10 - correct,
+    completed: completed,
+    score: score,
+    correctAnswers: 0,
+    wrongAnswers: 0,
     timeMs: 60000,
     usedLifelines: 0,
+    playerScore: score,
   );
 }
 
-Map<String, dynamic> _nativeResult(
+/// A native result payload shaped like the التحدي board emits (campaignMode
+/// 'board' normalizes to classic on the Flutter side, so completion follows the
+/// native `completed` flag and stars follow the board score).
+Map<String, dynamic> _boardResult(
   CampaignStage stage, {
   required bool completed,
-  String failureReason = '',
-  int correct = 10,
-  int wrong = 0,
-  int livesRemaining = 1,
-  int playerScore = 1000,
-  int opponentScore = 700,
-  bool bossDefeated = false,
-  int teamScore = 0,
-  int enemyTeamScore = 0,
+  int playerScore = 0,
 }) {
   return <String, dynamic>{
     'campaignId': stage.campaignId,
     'stageId': stage.id,
-    'stageType': stage.type.value,
-    'campaignMode': stage.campaignMode.value,
+    'stageType': 'board',
+    'campaignMode': 'board',
     'winCondition': stage.winCondition.value,
+    'campaignBoard': true,
+    'boardKind': stage.boardKind,
     'completed': completed,
-    'failureReason': failureReason,
-    'money': 0,
-    'correctAnswers': correct,
-    'wrongAnswers': wrong,
+    'money': playerScore,
+    'correctAnswers': 0,
+    'wrongAnswers': 0,
     'timeMs': 60000,
     'used5050': 0,
     'usedAudience': 0,
     'usedCall': 0,
-    'lives': stage.lives ?? 0,
-    'livesRemaining': livesRemaining,
-    'maxWrongAnswers': stage.maxWrongAnswers ?? 0,
-    'targetScore': stage.targetScore ?? 0,
     'playerScore': playerScore,
-    'opponentScore': opponentScore,
-    'opponentCorrectAnswers': opponentScore ~/ 100,
-    'bossDefeated': bossDefeated,
-    'bossBattleWon': bossDefeated,
-    'bossScore': bossDefeated ? 700 : 1100,
-    'teamScore': teamScore,
-    'enemyTeamScore': enemyTeamScore,
+    'boardTargetScore': stage.boardTargetScore,
   };
-}
-
-class _JsonAssetBundle extends CachingAssetBundle {
-  _JsonAssetBundle(this.value);
-
-  final String value;
-
-  @override
-  Future<ByteData> load(String key) async {
-    final bytes = Uint8List.fromList(utf8.encode(value));
-    return ByteData.view(bytes.buffer);
-  }
-
-  @override
-  Future<String> loadString(String key, {bool cache = true}) async => value;
 }

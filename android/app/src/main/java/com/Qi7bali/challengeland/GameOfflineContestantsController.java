@@ -560,7 +560,7 @@ final class GameOfflineContestantsController {
         refreshScoreBoard();
     }
 
-    // ---- Board ("سين جيم") mode helpers -------------------------------------
+    // ---- Board ("التحدي") mode helpers -------------------------------------
 
     /** Awards the value of a picked board cell to a single contestant. */
     void awardCell(int slot, int value) {

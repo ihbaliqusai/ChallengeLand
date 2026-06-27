@@ -1,6 +1,6 @@
 /*
  * One-time helper: assigns a "Category" field to every record in the offline
- * question banks so the new board ("سين جيم") mode can group questions by topic.
+ * question banks so the new board ("التحدي") mode can group questions by topic.
  *
  * Classification is a best-effort, ordered keyword heuristic over the
  * Arabic-normalised question + answers. Anything that matches no keyword list

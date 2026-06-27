@@ -10,7 +10,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Fuzzy answer matcher for the offline board ("سين جيم") typed-answer mode.
+ * Fuzzy answer matcher for the offline board ("التحدي") typed-answer mode.
  *
  * <p>"Balanced" policy: it tolerates a small spelling slip (scaled to the answer
  * length), and accepts a distinctive part of a multi-word answer (e.g. a surname

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -9,6 +10,7 @@ import '../../models/stage_progress.dart';
 import '../../models/campaign_world.dart';
 import '../../services/campaign_result_handler.dart';
 import '../../services/campaign_service.dart';
+import '../../services/native_bridge_service.dart';
 import 'stage_intro_screen.dart';
 import 'widgets/stage_node.dart';
 
@@ -23,18 +25,21 @@ class _CampaignMapScreenState extends State<CampaignMapScreen>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   final CampaignService _campaignService = CampaignService();
   late final AnimationController _pulseController;
+  late final NativeBridgeService _nativeBridgeService;
   late Future<_CampaignMapData> _future;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _nativeBridgeService = context.read<NativeBridgeService>();
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1400),
     )..repeat(reverse: true);
     _future = _load();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_playCampaignMapMusic());
       _consumePendingCampaignResult();
     });
   }
@@ -42,6 +47,7 @@ class _CampaignMapScreenState extends State<CampaignMapScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    unawaited(_stopCampaignMapMusic());
     _pulseController.dispose();
     super.dispose();
   }
@@ -49,8 +55,27 @@ class _CampaignMapScreenState extends State<CampaignMapScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      unawaited(_playCampaignMapMusic());
       _consumePendingCampaignResult();
+    } else if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      unawaited(_stopCampaignMapMusic());
     }
+  }
+
+  Future<void> _playCampaignMapMusic() async {
+    final route = ModalRoute.of(context);
+    if (route != null && !route.isCurrent) return;
+    try {
+      await _nativeBridgeService.playCampaignMapMusic();
+    } catch (_) {}
+  }
+
+  Future<void> _stopCampaignMapMusic() async {
+    try {
+      await _nativeBridgeService.stopCampaignMapMusic();
+    } catch (_) {}
   }
 
   Future<void> _consumePendingCampaignResult() async {
@@ -125,7 +150,7 @@ class _CampaignMapScreenState extends State<CampaignMapScreen>
       ..showSnackBar(
         const SnackBar(
           content: Text(
-            'أكمل المراحل السابقة أو اجمع المزيد من النجوم لفتح هذه المرحلة.',
+            'أكمل المرحلة السابقة أولًا لفتح هذه المرحلة.',
             textAlign: TextAlign.right,
             style: TextStyle(fontWeight: FontWeight.w800),
           ),
@@ -133,12 +158,20 @@ class _CampaignMapScreenState extends State<CampaignMapScreen>
       );
   }
 
-  void _openStageIntro(CampaignStage stage, StageProgress progress) {
-    Navigator.of(context).push(
+  Future<void> _openStageIntro(
+    CampaignStage stage,
+    StageProgress progress,
+  ) async {
+    await _stopCampaignMapMusic();
+    if (!mounted) return;
+    await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => StageIntroScreen(stage: stage, progress: progress),
       ),
     );
+    if (mounted) {
+      await _playCampaignMapMusic();
+    }
   }
 }
 

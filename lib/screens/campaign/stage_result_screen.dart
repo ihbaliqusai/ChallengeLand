@@ -56,7 +56,11 @@ class _StageResultScreenState extends State<StageResultScreen>
     return submissionResult.attempt.uid.isEmpty && rawNativeResult != null;
   }
 
+  // رحلة المليون board boss stages carry the neutral `classic` type/mode, so the
+  // legacy fields alone never flag them. `stage.isBossStage` catches every 10th
+  // (board) stage as well as any legacy single-boss stage.
   bool get _isBossStage =>
+      stage.isBossStage ||
       stage.campaignMode == CampaignMode.bossBattle ||
       stage.type == CampaignStageType.boss;
 
@@ -157,7 +161,9 @@ class _StageResultScreenState extends State<StageResultScreen>
     final appState = context.watch<AppState>();
     final attempt = submissionResult.attempt;
     final completed = attempt.completed;
-    final bossDefeated = _isBossStage && attempt.bossDefeated;
+    // Board boss stages encode the win in `completed` (you finished ahead of every
+    // boss on the board), not the legacy single-boss `bossDefeated` flag.
+    final bossDefeated = _isBossStage && (attempt.bossDefeated || completed);
     final usedLifelines =
         attempt.used5050 + attempt.usedAudience + attempt.usedCall;
     final hasCoins = appState.currentUser != null;
@@ -228,7 +234,9 @@ class _StageResultScreenState extends State<StageResultScreen>
                                         attempt: attempt,
                                       ),
                                     ],
-                                    if (_isBossStage) ...[
+                                    if (_isBossStage &&
+                                        (attempt.bossScore > 0 ||
+                                            attempt.bossCorrectAnswers > 0)) ...[
                                       const SizedBox(height: 10),
                                       _BossBattleResultPanel(
                                         bossName: attempt.bossName,
@@ -662,15 +670,20 @@ class _ResultMessage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final mode = _modeForAttempt(attempt, stage);
-    return Column(
-      children: [
-        Text(
-          _resultTitle(
+    // Board boss stages run as `classic` natively; theme their title explicitly.
+    final boardBoss = stage.isBossStage && mode == CampaignMode.classic;
+    final title = boardBoss
+        ? (completed ? 'تغلّبت على الزعماء' : 'لم تتغلّب على الزعماء')
+        : _resultTitle(
             mode: mode,
             completed: completed,
             failureReason: attempt.failureReason,
             bossDefeated: bossDefeated,
-          ),
+          );
+    return Column(
+      children: [
+        Text(
+          title,
           textAlign: TextAlign.center,
           style: const TextStyle(
             color: Colors.white,

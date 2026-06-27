@@ -32,9 +32,9 @@ dev_dependencies:
 flutter_launcher_icons:
   android: true
   ios: false
-  image_path: "assets/Logo.png"
-  adaptive_icon_background: "assets/Logo.png"
-  adaptive_icon_foreground: "assets/Logo.png"
+  image_path: "assets/icon/icon.png"
+  adaptive_icon_background: "assets/icon/background.png"
+  adaptive_icon_foreground: "assets/icon/foreground.png"
 
 flutter:
   uses-material-design: true
@@ -59,6 +59,7 @@ flutter:
     - assets/ui/splash_transparent.webp
     - assets/images/campaign/worlds/
     - assets/images/campaign/ui/
+    - assets/characters/
   fonts:
     - family: Baloo
       fonts:

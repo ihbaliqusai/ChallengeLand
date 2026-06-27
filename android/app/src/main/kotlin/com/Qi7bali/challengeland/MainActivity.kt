@@ -2,6 +2,7 @@ package net.androidgaming.millionaire2024
 
 import android.Manifest
 import android.content.Intent
+import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -14,7 +15,10 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
+    private val campaignMapMusicVolume = 0.5f
+
     private var pendingLaunchAction: String? = null
+    private var campaignMapMusicPlayer: MediaPlayer? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
@@ -26,6 +30,11 @@ class MainActivity : FlutterActivity() {
     override fun onResume() {
         super.onResume()
         syncDailyReminderSchedule()
+    }
+
+    override fun onPause() {
+        stopCampaignMapMusic()
+        super.onPause()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -68,6 +77,14 @@ class MainActivity : FlutterActivity() {
                         // يفتح شاشة البحث عن خصم عشوائي مباشرة
                         val intent = Intent(this, OpponentActivity::class.java)
                         startActivity(intent)
+                        result.success(true)
+                    }
+                    "playCampaignMapMusic" -> {
+                        playCampaignMapMusic()
+                        result.success(true)
+                    }
+                    "stopCampaignMapMusic" -> {
+                        stopCampaignMapMusic()
                         result.success(true)
                     }
                     "getUserCurrency" -> {
@@ -114,7 +131,7 @@ class MainActivity : FlutterActivity() {
                             "blitz"       -> BlitzGameActivity::class.java
                             "survival"    -> SurvivalGameActivity::class.java
                             "series"      -> SeriesGameActivity::class.java
-                            // The group challenge ("تحدي جماعي") now plays the سين جيم board
+                            // The group challenge ("تحدي جماعي") now plays the التحدي board
                             // in GameActivity for both variants — competition (solo) and team —
                             // instead of the classic simultaneous-question engine.
                             "team_battle" -> GameActivity::class.java
@@ -138,12 +155,14 @@ class MainActivity : FlutterActivity() {
                             putExtra("initialRoundWins", call.argument<Int>("initialRoundWins") ?: 0)
                             putExtra("initialLivesRemaining", call.argument<Int>("initialLivesRemaining") ?: 0)
                             putExtra("initiallyEliminated", call.argument<Boolean>("initiallyEliminated") ?: false)
+                            putExtra("characterIndex", AppPrefs.getEffectiveCharacter(this@MainActivity))
                         }
                         startActivity(intent)
                         result.success(true)
                     }
                     "launchCampaignStage" -> {
                         try {
+                            stopCampaignMapMusic()
                             val stageId = stringArg(call.argument<Any>("stageId"), "")
                             val campaignMode = stringArg(call.argument<Any>("campaignMode"), "classic")
                             val winCondition = stringArg(call.argument<Any>("winCondition"), "completeQuestions")
@@ -177,7 +196,7 @@ class MainActivity : FlutterActivity() {
                                 putExtra("seriesWinsRequired", intArg(call.argument<Any>("seriesWinsRequired"), 0))
                                 putExtra("teamAllyName", stringArg(call.argument<Any>("teamAllyName"), ""))
                                 putExtra("teamEnemyName", stringArg(call.argument<Any>("teamEnemyName"), ""))
-                                // رحلة المليون — سين جيم board stage params
+                                // رحلة المليون — التحدي board stage params
                                 putExtra("campaignBoard", boolArg(call.argument<Any>("campaignBoard"), false))
                                 putExtra("boardKind", stringArg(call.argument<Any>("boardKind"), "solo"))
                                 putExtra("boardTargetScore", intArg(call.argument<Any>("boardTargetScore"), 0))
@@ -187,7 +206,9 @@ class MainActivity : FlutterActivity() {
                                 putExtra("boardBotIntelligence", intArg(call.argument<Any>("boardBotIntelligence"), 0))
                                 putExtra("categoryPolicy", stringArg(call.argument<Any>("categoryPolicy"), "playerPick"))
                                 putStringArrayListExtra("worldCategories", stringArrayListArg(call.argument<Any>("worldCategories")))
-                                putExtra("characterIndex", intArg(call.argument<Any>("characterIndex"), 0))
+                                // The player's chosen character is the single source of truth (set
+                                // from the Flutter picker); ignore any stale value from the call args.
+                                putExtra("characterIndex", AppPrefs.getEffectiveCharacter(this@MainActivity))
                             }
                             startActivity(intent)
                             result.success(true)
@@ -549,9 +570,87 @@ class MainActivity : FlutterActivity() {
                             result.success(true)
                         }
                     }
+                    "getCharacterState" -> {
+                        val selected = AppPrefs.getSelectedCharacter(this)
+                        val unlocked = AppPrefs.getUnlockedCharacters(this)
+                            .mapNotNull { it.toIntOrNull() }
+                        result.success(mapOf("selected" to selected, "unlocked" to unlocked))
+                    }
+                    "setSelectedCharacter" -> {
+                        val index = call.argument<Int>("index") ?: -1
+                        if (index in 0..7) {
+                            AppPrefs.setSelectedCharacter(this, index)
+                            result.success(true)
+                        } else {
+                            result.success(false)
+                        }
+                    }
+                    "unlockCharacter" -> {
+                        val index   = call.argument<Int>("index") ?: -1
+                        val payWith = call.argument<String>("payWith") ?: "coins"
+                        val cost    = call.argument<Int>("cost") ?: 0
+                        if (index !in 0..7 || cost <= 0 || (payWith != "coins" && payWith != "gems")) {
+                            result.success(false)
+                        } else {
+                            val ok = if (payWith == "coins") {
+                                PlayerProgress.spendCoins(this, cost)
+                            } else {
+                                PlayerProgress.spendGems(this, cost)
+                            }
+                            if (ok) AppPrefs.unlockCharacter(this, index)
+                            result.success(ok)
+                        }
+                    }
                     else -> result.notImplemented()
             }
     }
+    }
+
+    private fun playCampaignMapMusic() {
+        if (!AppPrefs.isMusicEnabled(this)) {
+            stopCampaignMapMusic()
+            return
+        }
+        val current = campaignMapMusicPlayer
+        if (current != null) {
+            try {
+                if (current.isPlaying) return
+            } catch (ignored: Exception) {
+                stopCampaignMapMusic()
+            }
+        }
+        stopCampaignMapMusic()
+        campaignMapMusicPlayer = MediaPlayer.create(this, R.raw.sneaky_snitch)?.apply {
+            isLooping = true
+            setVolume(campaignMapMusicVolume, campaignMapMusicVolume)
+            setOnErrorListener { player, _, _ ->
+                try {
+                    player.release()
+                } catch (ignored: Exception) {
+                }
+                if (campaignMapMusicPlayer === player) {
+                    campaignMapMusicPlayer = null
+                }
+                true
+            }
+            start()
+        }
+    }
+
+    private fun stopCampaignMapMusic() {
+        val player = campaignMapMusicPlayer
+        campaignMapMusicPlayer = null
+        if (player == null) return
+        try {
+            if (player.isPlaying) {
+                player.stop()
+            }
+        } catch (ignored: Exception) {
+        }
+        try {
+            player.release()
+        } catch (ignored: Exception) {
+        }
     }
 
     private fun openAppNotificationSettings() {

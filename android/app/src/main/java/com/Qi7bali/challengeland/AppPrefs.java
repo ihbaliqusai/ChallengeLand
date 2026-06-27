@@ -69,6 +69,40 @@ public final class AppPrefs {
     public static int getUserLevel(Context c) { return userPrefs(c).getInt("userLevel", 1); }
     public static int getUserScore(Context c) { return userPrefs(c).getInt("userScore", 0); }
 
+    // ── Character selection ─────────────────────────────────────────────────
+    /** Default character (index 1 = Omar) used until the player picks one. */
+    public static final int DEFAULT_CHARACTER = 1;
+
+    /** The chosen character index (0..7), or -1 when the player has not picked. */
+    public static int getSelectedCharacter(Context c) {
+        return userPrefs(c).getInt("selectedCharacter", -1);
+    }
+
+    /** The character to actually render in-game (never -1). */
+    public static int getEffectiveCharacter(Context c) {
+        int index = getSelectedCharacter(c);
+        return (index >= 0 && index <= 7) ? index : DEFAULT_CHARACTER;
+    }
+
+    public static void setSelectedCharacter(Context c, int index) {
+        if (index < 0 || index > 7) return;
+        userPrefs(c).edit().putInt("selectedCharacter", index).apply();
+    }
+
+    public static Set<String> getUnlockedCharacters(Context c) {
+        return new HashSet<>(userPrefs(c).getStringSet("unlockedCharacters", new HashSet<String>()));
+    }
+
+    public static boolean isCharacterPurchased(Context c, int index) {
+        return getUnlockedCharacters(c).contains(String.valueOf(index));
+    }
+
+    public static void unlockCharacter(Context c, int index) {
+        Set<String> set = getUnlockedCharacters(c);
+        set.add(String.valueOf(index));
+        userPrefs(c).edit().putStringSet("unlockedCharacters", set).apply();
+    }
+
     public static void setSoundEnabled(Context c, boolean enabled) {
         settingsPrefs(c).edit().putBoolean("soundEnabled", enabled).apply();
     }

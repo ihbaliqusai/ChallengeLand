@@ -5,9 +5,11 @@ import android.media.MediaPlayer;
 import android.os.Handler;
 
 final class GameSoundController {
+    private static final float MUSIC_VOLUME = 0.5f;
+
     private final Context context;
-    private MediaPlayer currentPlayer;
-    private boolean currentPlayerIsMusic;
+    private MediaPlayer currentMusicPlayer;
+    private MediaPlayer currentEffectPlayer;
 
     GameSoundController(Context context) {
         this.context = context.getApplicationContext();
@@ -26,42 +28,73 @@ final class GameSoundController {
             return;
         }
 
-        if (fading) {
-            if (currentPlayer != null) {
-                fadeCurrent();
+        if (targetIsMusic) {
+            if (fading) {
+                fadeMusic();
+            } else {
+                stopMusic();
             }
+            currentMusicPlayer = createPlayer(resId, looping, true);
         } else {
-            stopCurrent();
+            if (fading) {
+                fadeEffect();
+            } else {
+                stopEffect();
+            }
+            currentEffectPlayer = createPlayer(resId, looping, false);
         }
-
-        currentPlayer = MediaPlayer.create(context, resId);
-        if (currentPlayer == null) return;
-        currentPlayerIsMusic = targetIsMusic;
-        currentPlayer.setLooping(looping);
-        currentPlayer.start();
     }
 
     void setCurrentEffectVolume(float volume) {
-        if (currentPlayer != null && !currentPlayerIsMusic) {
-            currentPlayer.setVolume(volume, volume);
+        if (currentEffectPlayer != null) {
+            currentEffectPlayer.setVolume(volume, volume);
         }
     }
 
     void stopCurrentMusicIfDisabled(boolean musicEnabled) {
-        if (currentPlayer != null && currentPlayerIsMusic && !musicEnabled) {
-            stopCurrent();
+        if (currentMusicPlayer != null && !musicEnabled) {
+            stopMusic();
         }
     }
 
     void stopCurrent() {
-        MediaPlayer player = currentPlayer;
-        currentPlayer = null;
-        currentPlayerIsMusic = false;
-        release(player);
+        stopMusic();
+        stopEffect();
     }
 
     void releaseCurrent() {
         stopCurrent();
+    }
+
+    private MediaPlayer createPlayer(int resId, boolean looping, final boolean music) {
+        final MediaPlayer player = MediaPlayer.create(context, resId);
+        if (player == null) return null;
+        player.setLooping(looping);
+        if (music) {
+            player.setVolume(MUSIC_VOLUME, MUSIC_VOLUME);
+        }
+        player.setOnCompletionListener(completed -> {
+            if (music && currentMusicPlayer == completed) {
+                currentMusicPlayer = null;
+            } else if (!music && currentEffectPlayer == completed) {
+                currentEffectPlayer = null;
+            }
+            release(completed);
+        });
+        player.start();
+        return player;
+    }
+
+    private void stopMusic() {
+        MediaPlayer player = currentMusicPlayer;
+        currentMusicPlayer = null;
+        release(player);
+    }
+
+    private void stopEffect() {
+        MediaPlayer player = currentEffectPlayer;
+        currentEffectPlayer = null;
+        release(player);
     }
 
     static void release(MediaPlayer player) {
@@ -79,13 +112,13 @@ final class GameSoundController {
     }
 
     private boolean isMusicTrack(int resId, boolean looping) {
-        return looping
-                || resId == R.raw.main_theme_0
+        return resId == R.raw.main_theme_0
                 || resId == R.raw.main_theme_1
                 || resId == R.raw.main_theme_2
                 || resId == R.raw.main_theme_3
                 || resId == R.raw.main_theme_4
                 || resId == R.raw.main_theme_5
+                || resId == R.raw.main_theme_320bit_chosic
                 || resId == R.raw.commerical_break
                 || resId == R.raw.s_32000
                 || resId == R.raw.s_64000
@@ -94,10 +127,19 @@ final class GameSoundController {
                 || resId == R.raw.s_1000000;
     }
 
-    private void fadeCurrent() {
-        final MediaPlayer player = currentPlayer;
-        currentPlayer = null;
-        currentPlayerIsMusic = false;
+    private void fadeMusic() {
+        final MediaPlayer player = currentMusicPlayer;
+        currentMusicPlayer = null;
+        fadePlayer(player);
+    }
+
+    private void fadeEffect() {
+        final MediaPlayer player = currentEffectPlayer;
+        currentEffectPlayer = null;
+        fadePlayer(player);
+    }
+
+    private void fadePlayer(final MediaPlayer player) {
         if (player == null) return;
 
         final Handler handler = new Handler();

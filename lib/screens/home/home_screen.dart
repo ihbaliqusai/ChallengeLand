@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -101,6 +102,19 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
+  Future<void> _openCampaignMap() async {
+    final nativeBridgeService = context.read<NativeBridgeService>();
+    try {
+      await nativeBridgeService.playCampaignMapMusic();
+    } catch (_) {}
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const CampaignMapScreen(),
+      ),
+    );
+  }
+
   Future<void> _consumePendingRoomMatchResult() async {
     if (_syncingPendingRoomMatchResult) return;
     final userId = context.read<AppState>().user?.uid;
@@ -135,16 +149,15 @@ class _HomeScreenState extends State<HomeScreen>
         return;
       }
 
-      // Board (سين جيم) room result — competition (solo) or team. The host writes
+      // Board (التحدي) room result — competition (solo) or team. The host writes
       // every seat's authoritative board score in one transaction (board totals
       // exceed the classic per-question clamp).
       if (boardRoom) {
         if (meOwner) {
           final seatScores = <String, int>{userId: score};
           for (final opponent in opponents) {
-            final oid = (opponent['userId'] ?? opponent['id'] ?? '')
-                .toString()
-                .trim();
+            final oid =
+                (opponent['userId'] ?? opponent['id'] ?? '').toString().trim();
             if (oid.isNotEmpty) {
               seatScores[oid] = (opponent['score'] as num?)?.toInt() ?? 0;
             }
@@ -304,6 +317,7 @@ class _HomeScreenState extends State<HomeScreen>
                 appState: appState,
                 idleCtrl: _idleCtrl,
                 glowCtrl: _glowCtrl,
+                onCampaignTap: () => unawaited(_openCampaignMap()),
               ),
             ),
 
@@ -1564,10 +1578,12 @@ class _CenterArena extends StatelessWidget {
     required this.appState,
     required this.idleCtrl,
     required this.glowCtrl,
+    required this.onCampaignTap,
   });
   final AppState appState;
   final AnimationController idleCtrl;
   final AnimationController glowCtrl;
+  final VoidCallback onCampaignTap;
 
   @override
   Widget build(BuildContext context) {
@@ -1631,11 +1647,7 @@ class _CenterArena extends StatelessWidget {
                     green: true,
                     compact: isCompactHeight,
                     enabled: appState.isOnline,
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const CampaignMapScreen(),
-                      ),
-                    ),
+                    onPressed: onCampaignTap,
                   ),
                   SizedBox(height: buttonGap),
                   _BattleButton(
@@ -1663,11 +1675,7 @@ class _CenterArena extends StatelessWidget {
                       green: true,
                       compact: isCompactHeight,
                       enabled: appState.isOnline,
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const CampaignMapScreen(),
-                        ),
-                      ),
+                      onPressed: onCampaignTap,
                     ),
                     SizedBox(height: buttonGap),
                     Row(

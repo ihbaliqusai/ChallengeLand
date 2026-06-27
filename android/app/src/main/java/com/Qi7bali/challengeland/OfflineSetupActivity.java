@@ -3,31 +3,29 @@ package net.androidgaming.millionaire2024;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.content.Intent;
-import android.graphics.Color;
-import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
-import android.widget.FrameLayout;
 import android.widget.TextView;
 
 /**
  * Pre-game setup for the offline ("mono") mode: choose the number of players
- * (2-8) and the character the human player will use, then launch the game.
+ * (2-8), then launch the game. The human player's character is no longer picked
+ * here — it comes from the app-wide character selection
+ * ({@link AppPrefs#getEffectiveCharacter(android.content.Context)}).
  */
 public class OfflineSetupActivity extends AppCompatActivity {
     static final int MIN_PLAYERS = 2;
     static final int MAX_PLAYERS = 8;
 
     private int playerCount = 4;
-    private int characterIndex = 0;
     private TextView txtPlayerCount;
-    private final int[] charSlotIds = {
-            R.id.charSlot0, R.id.charSlot1, R.id.charSlot2, R.id.charSlot3,
-            R.id.charSlot4, R.id.charSlot5, R.id.charSlot6, R.id.charSlot7
-    };
-    private final FrameLayout[] charSlots = new FrameLayout[charSlotIds.length];
+    private TextView txtPlayersHint;
+
+    private final int[] chipIds = {R.id.chip2, R.id.chip4, R.id.chip6, R.id.chip8};
+    private final int[] chipValues = {2, 4, 6, 8};
+    private final TextView[] chips = new TextView[chipIds.length];
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -40,38 +38,38 @@ public class OfflineSetupActivity extends AppCompatActivity {
         if (getSupportActionBar() != null) getSupportActionBar().hide();
 
         txtPlayerCount = findViewById(R.id.txtPlayerCount);
-        updateCountLabel();
+        txtPlayersHint = findViewById(R.id.txtPlayersHint);
+
+        findViewById(R.id.btnBack).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                finish();
+            }
+        });
 
         findViewById(R.id.btnMinus).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if (playerCount > MIN_PLAYERS) {
-                    playerCount--;
-                    updateCountLabel();
-                }
+                setPlayerCount(playerCount - 1);
             }
         });
         findViewById(R.id.btnPlus).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if (playerCount < MAX_PLAYERS) {
-                    playerCount++;
-                    updateCountLabel();
-                }
+                setPlayerCount(playerCount + 1);
             }
         });
 
-        for (int i = 0; i < charSlots.length; i++) {
-            final int idx = i;
-            charSlots[i] = findViewById(charSlotIds[i]);
-            charSlots[i].setOnClickListener(new View.OnClickListener() {
+        for (int i = 0; i < chips.length; i++) {
+            final int value = chipValues[i];
+            chips[i] = findViewById(chipIds[i]);
+            chips[i].setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    selectCharacter(idx);
+                    setPlayerCount(value);
                 }
             });
         }
-        selectCharacter(characterIndex);
 
         findViewById(R.id.btnStartOffline).setOnClickListener(new View.OnClickListener() {
             @Override
@@ -79,39 +77,35 @@ public class OfflineSetupActivity extends AppCompatActivity {
                 Intent intent = new Intent(OfflineSetupActivity.this, GameActivity.class);
                 intent.putExtra("mode", "mono");
                 intent.putExtra("playerCount", playerCount);
-                intent.putExtra("characterIndex", characterIndex);
+                intent.putExtra("characterIndex",
+                        AppPrefs.getEffectiveCharacter(OfflineSetupActivity.this));
                 startActivity(intent);
                 finish();
             }
         });
+
+        updateUi();
     }
 
-    private void updateCountLabel() {
+    private void setPlayerCount(int value) {
+        playerCount = Math.max(MIN_PLAYERS, Math.min(MAX_PLAYERS, value));
+        updateUi();
+    }
+
+    private void updateUi() {
         if (txtPlayerCount != null) {
             txtPlayerCount.setText(String.valueOf(playerCount));
         }
-    }
-
-    private void selectCharacter(int index) {
-        characterIndex = index;
-        for (int i = 0; i < charSlots.length; i++) {
-            if (charSlots[i] == null) {
-                continue;
-            }
-            charSlots[i].setBackground(i == index ? selectedBorder() : null);
+        if (txtPlayersHint != null) {
+            txtPlayersHint.setText("أنت + " + (playerCount - 1));
         }
-    }
-
-    private GradientDrawable selectedBorder() {
-        GradientDrawable drawable = new GradientDrawable();
-        drawable.setColor(0x3329B6F6);
-        drawable.setCornerRadius(dp(12));
-        drawable.setStroke(dp(3), Color.parseColor("#FFC107"));
-        return drawable;
-    }
-
-    private int dp(int value) {
-        return Math.round(getResources().getDisplayMetrics().density * value);
+        for (int i = 0; i < chips.length; i++) {
+            if (chips[i] == null) continue;
+            boolean selected = chipValues[i] == playerCount;
+            chips[i].setBackgroundResource(
+                    selected ? R.drawable.setup_chip_selected : R.drawable.setup_chip);
+            chips[i].setTextColor(selected ? 0xFF06112E : 0xFFFFFFFF);
+        }
     }
 
     @Override

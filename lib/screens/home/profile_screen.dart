@@ -6,6 +6,7 @@ import '../../core/app_state.dart';
 import '../../core/player_rank.dart';
 import '../../core/trophy_league.dart';
 import '../../services/native_bridge_service.dart';
+import '../character/character_select_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -375,29 +376,52 @@ class _IdentityPanel extends StatelessWidget {
           final children = <Widget>[
             Row(
               children: [
-                Container(
-                  width: compact ? 52 : 60,
-                  height: compact ? 52 : 60,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: const Color(0xFF111827),
-                    border: Border.all(color: rank.color, width: 2),
+                GestureDetector(
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const CharacterSelectScreen(),
+                    ),
                   ),
-                  child: ClipOval(
-                    child: user?.photoURL?.isNotEmpty == true
-                        ? Image.network(
-                            user!.photoURL!,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Container(
+                        width: compact ? 52 : 60,
+                        height: compact ? 52 : 60,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: const Color(0xFF111827),
+                          border: Border.all(color: rank.color, width: 2),
+                        ),
+                        child: ClipOval(
+                          child: Image.asset(
+                            appState.selectedCharacter.asset,
                             fit: BoxFit.cover,
                             errorBuilder: (_, __, ___) => const Icon(
                               Icons.person_rounded,
                               color: Colors.white,
+                              size: 30,
                             ),
-                          )
-                        : const Icon(
-                            Icons.person_rounded,
-                            color: Colors.white,
-                            size: 30,
                           ),
+                        ),
+                      ),
+                      Positioned(
+                        bottom: -2,
+                        right: -2,
+                        child: Container(
+                          padding: const EdgeInsets.all(3),
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Color(0xFFFACC15),
+                          ),
+                          child: const Icon(
+                            Icons.edit_rounded,
+                            color: Color(0xFF111827),
+                            size: 11,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(width: 10),

@@ -1578,7 +1578,7 @@ class RoomService {
         });
       });
 
-  /// Finalizes a **board** (سين جيم) room match — competition (solo) or team.
+  /// Finalizes a **board** (التحدي) room match — competition (solo) or team.
   /// Unlike the classic battle/team finalize paths, the host writes every seat's
   /// authoritative board score (humans + bots) in one shot — board totals reach
   /// thousands, so the per-question score clamp used by the classic path must be

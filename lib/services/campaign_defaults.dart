@@ -1,6 +1,6 @@
 import '../models/campaign_stage.dart';
 
-/// رحلة المليون stages — every stage now plays the سين جيم board.
+/// رحلة المليون stages — every stage now plays the التحدي board.
 ///
 /// * Normal stages (order not a multiple of 10): a SOLO board. The lone player
 ///   takes [CampaignStage.boardSoloPicks] picks and must reach
@@ -117,13 +117,17 @@ class CampaignDefaults {
     );
   }
 
-  /// Score thresholds. 1★ is granted on completion (any score ≥ 1); 2★/3★ by the
-  /// board score. The correct-answer thresholds are disabled (set very high) so
-  /// stars are purely score driven for the board. Max reachable with 6 picks of
-  /// 600-value cells is 3600, so 3★ is capped below that to stay attainable.
+  /// The highest score a player can reach on a stage board: [boardSoloPicks] (6)
+  /// cells at the top value (600). Star thresholds stay below it so they remain
+  /// attainable even as the pass target climbs.
+  static const int maxBoardScore = 6 * 600;
+
+  /// Score thresholds. 1★ is granted on completion (reaching the pass target);
+  /// 2★/3★ require scoring further above it. The correct-answer thresholds are
+  /// disabled (set very high) so stars are purely score driven for the board.
   static StageStarRules _boardStarRules(int target) {
-    final two = (target * 1.3).round().clamp(0, 2400);
-    final three = (target * 1.65).round().clamp(0, 3100);
+    final two = (target * 1.25).round().clamp(0, maxBoardScore - 600);
+    final three = (target * 1.55).round().clamp(0, maxBoardScore - 200);
     return StageStarRules(
       oneStarMinScore: 1,
       twoStarsMinScore: two,
@@ -135,10 +139,13 @@ class CampaignDefaults {
     );
   }
 
-  /// Steady rise toward the million; boss stages a little higher. Rounded to 20.
+  /// A steeper climb toward the million: later stages demand a near-perfect board
+  /// to clear. Boss stages ask for a little more. Rounded to 20 and held below
+  /// [maxBoardScore] so every stage stays winnable.
   static int _targetFor(int order) {
-    final base = 420 + order * 14 + (order % 10 == 0 ? 150 : 0);
-    return (base / 20).round() * 20;
+    final base = 500 + order * 22 + (order % 10 == 0 ? 180 : 0);
+    final rounded = (base / 20).round() * 20;
+    return rounded > maxBoardScore - 200 ? maxBoardScore - 200 : rounded;
   }
 
   /// Boss bot skill rises with the world; worlds 8-10 (capped at 7 bots) get a
@@ -158,8 +165,8 @@ class CampaignDefaults {
     final world = worldNames[worldNum - 1];
     if (isBoss) {
       return botCount <= 1
-          ? '$world - واجه الزعيم على لوحة سين جيم.'
-          : '$world - واجه $botCount زعماء على لوحة سين جيم.';
+          ? '$world - واجه الزعيم على لوحة التحدي.'
+          : '$world - واجه $botCount زعماء على لوحة التحدي.';
     }
     return '$world - اجمع $target نقطة على اللوحة.';
   }

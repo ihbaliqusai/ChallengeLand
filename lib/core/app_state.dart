@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
+import '../models/game_character.dart';
 import '../services/auth_service.dart';
 import '../services/native_bridge_service.dart';
 import 'player_rank.dart';
@@ -35,6 +36,114 @@ class AppState extends ChangeNotifier {
   bool _claimingStreak = false;
 
   User? get currentUser => user ?? FirebaseAuth.instance.currentUser;
+
+  // ── Character selection ─────────────────────────────────────────────────────
+  /// The chosen character index (0..7), or -1 when the player has not picked one
+  /// yet. Stored natively (single source of truth read by the game engine).
+  int selectedCharacterIndex = -1;
+
+  /// Indices of characters unlocked by a one-time purchase (level/free ones are
+  /// derived, not stored here).
+  final Set<int> purchasedCharacters = <int>{};
+
+  /// True once the native character state has been read at least once. Used to
+  /// avoid flashing the forced picker before we know the real selection.
+  bool characterStateLoaded = false;
+
+  bool get hasChosenCharacter => selectedCharacterIndex >= 0;
+
+  GameCharacter get selectedCharacter => CharacterCatalog.byIndex(
+        selectedCharacterIndex < 0
+            ? CharacterCatalog.defaultIndex
+            : selectedCharacterIndex,
+      );
+
+  /// Whether [character] is available to the player given level + purchases.
+  bool isCharacterUnlocked(GameCharacter character) {
+    switch (character.unlock.kind) {
+      case CharacterUnlockKind.free:
+        return true;
+      case CharacterUnlockKind.level:
+        return level >= character.unlock.value;
+      case CharacterUnlockKind.coins:
+      case CharacterUnlockKind.gems:
+        return purchasedCharacters.contains(character.index);
+    }
+  }
+
+  Future<void> loadCharacterState() async {
+    try {
+      final state = await _nativeBridgeService.getCharacterState();
+      selectedCharacterIndex = (state['selected'] as int?) ?? -1;
+      purchasedCharacters
+        ..clear()
+        ..addAll((state['unlocked'] as List<int>? ?? const <int>[]));
+
+      // Cross-device restore: if nothing is chosen locally but the cloud has a
+      // character on file, adopt it so a returning player keeps their identity.
+      if (selectedCharacterIndex < 0) {
+        final uid = user?.uid;
+        if (uid != null) {
+          final doc = await _firestore.collection('users').doc(uid).get();
+          final remoteIndex = (doc.data()?['characterIndex'] as num?)?.toInt();
+          if (remoteIndex != null && remoteIndex >= 0) {
+            selectedCharacterIndex = remoteIndex;
+            await _nativeBridgeService.setSelectedCharacter(remoteIndex);
+          }
+        }
+      }
+    } catch (_) {
+      // Keep defaults; the forced picker will run if nothing was chosen.
+    } finally {
+      characterStateLoaded = true;
+      notifyListeners();
+    }
+  }
+
+  /// Selects an already-unlocked character. Returns false if it is still locked.
+  Future<bool> selectCharacter(int index) async {
+    final character = CharacterCatalog.byIndex(index);
+    if (!isCharacterUnlocked(character)) return false;
+    final ok = await _nativeBridgeService.setSelectedCharacter(character.index);
+    if (!ok) return false;
+    selectedCharacterIndex = character.index;
+    notifyListeners();
+    unawaited(_saveCharacterSnapshot(character.index));
+    return true;
+  }
+
+  /// Buys a locked character with coins/gems, then selects it. Returns false on
+  /// insufficient balance or a failed transaction.
+  Future<bool> purchaseCharacter(GameCharacter character) async {
+    if (!character.unlock.isPurchasable) return false;
+    if (isCharacterUnlocked(character)) return true;
+    final payWith =
+        character.unlock.kind == CharacterUnlockKind.coins ? 'coins' : 'gems';
+    final balance = payWith == 'coins' ? coins : gems;
+    if (balance < character.unlock.value) return false;
+
+    final ok = await _nativeBridgeService.unlockCharacter(
+      index: character.index,
+      payWith: payWith,
+      cost: character.unlock.value,
+    );
+    if (!ok) return false;
+    purchasedCharacters.add(character.index);
+    await loadCurrency();
+    notifyListeners();
+    return true;
+  }
+
+  Future<void> _saveCharacterSnapshot(int index) async {
+    final uid = currentUser?.uid;
+    if (uid == null) return;
+    try {
+      await _firestore.collection('users').doc(uid).set(
+        <String, dynamic>{'characterIndex': index},
+        SetOptions(merge: true),
+      );
+    } catch (_) {}
+  }
 
   /// Connectivity flag fed from the main app shell. Defaults to true so the
   /// first frame renders the online UI; the connectivity listener will flip it
@@ -275,6 +384,7 @@ class AppState extends ChangeNotifier {
         _syncLegacyUser().then((_) => _restoreCurrencyForUser(nextUser.uid)),
       );
       unawaited(loadLevelData());
+      unawaited(loadCharacterState());
     } else {
       _resetSessionState();
       unawaited(_nativeBridgeService.resetLegacyUser());
@@ -576,5 +686,8 @@ class AppState extends ChangeNotifier {
     xpNeededForLevel = PlayerRank.xpNeededForLevel(1);
     _lastKnownGamesPlayed = -1;
     _lastKnownWins = -1;
+    selectedCharacterIndex = -1;
+    purchasedCharacters.clear();
+    characterStateLoaded = false;
   }
 }

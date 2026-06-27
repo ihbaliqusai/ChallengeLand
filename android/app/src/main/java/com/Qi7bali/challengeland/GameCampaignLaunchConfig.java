@@ -46,7 +46,7 @@ final class GameCampaignLaunchConfig {
                 }
             }
         }
-        // ---- رحلة المليون board stage params (سين جيم board) ----
+        // ---- رحلة المليون board stage params (التحدي board) ----
         activity.campaignBoard = activity.campaignMode
                 && activity.getIntent().getBooleanExtra("campaignBoard", false);
         activity.boardCampaignKind = activity.safeIntentString("boardKind", "solo");

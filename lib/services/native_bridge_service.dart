@@ -289,6 +289,14 @@ class NativeBridgeService {
     await _channel.invokeMethod('launchSpeedBattle');
   }
 
+  Future<void> playCampaignMapMusic() async {
+    await _channel.invokeMethod<void>('playCampaignMapMusic');
+  }
+
+  Future<void> stopCampaignMapMusic() async {
+    await _channel.invokeMethod<void>('stopCampaignMapMusic');
+  }
+
   /// يُعيد إحصائيات اللاعب الحقيقية من PlayerStats
   Future<Map<String, int>> getPlayerStats() async {
     final result =
@@ -510,6 +518,58 @@ class NativeBridgeService {
       'quantity': quantity,
     });
     return result ?? false;
+  }
+
+  /// يُعيد حالة الشخصيات المحفوظة:
+  /// {'selected': int (-1 إذا لم يختر بعد), 'unlocked': List<int> الشخصيات المشتراة}.
+  Future<Map<String, dynamic>> getCharacterState() async {
+    try {
+      final result =
+          await _channel.invokeMapMethod<String, dynamic>('getCharacterState');
+      final selected = (result?['selected'] as num?)?.toInt() ?? -1;
+      final rawUnlocked = result?['unlocked'];
+      final unlocked = <int>[];
+      if (rawUnlocked is List) {
+        for (final value in rawUnlocked) {
+          final asInt = (value as num?)?.toInt();
+          if (asInt != null) unlocked.add(asInt);
+        }
+      }
+      return {'selected': selected, 'unlocked': unlocked};
+    } on MissingPluginException {
+      return {'selected': -1, 'unlocked': <int>[]};
+    }
+  }
+
+  /// يحفظ الشخصية المختارة (الفهرس 0..7) كمصدر وحيد يقرأه المحرّك في كل الأطوار.
+  Future<bool> setSelectedCharacter(int index) async {
+    try {
+      final result = await _channel.invokeMethod<bool>(
+        'setSelectedCharacter',
+        <String, dynamic>{'index': index},
+      );
+      return result ?? false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
+
+  /// يفتح شخصية مقفلة بخصم الثمن من الكوين أو الجواهر. يُعيد true عند النجاح.
+  Future<bool> unlockCharacter({
+    required int index,
+    required String payWith, // 'coins' | 'gems'
+    required int cost,
+  }) async {
+    try {
+      final result = await _channel.invokeMethod<bool>('unlockCharacter', {
+        'index': index,
+        'payWith': payWith,
+        'cost': cost,
+      });
+      return result ?? false;
+    } on MissingPluginException {
+      return false;
+    }
   }
 
   Map<String, dynamic>? _decodeCampaignResult(dynamic raw) {

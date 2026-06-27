@@ -117,6 +117,7 @@ public class GameActivity extends AppCompatActivity {
             CAN_CLICK = false,
             CAN_HOME = false,
             EXITING = false,
+            ACTIVITY_PAUSED = false,
             SOUND_ON = true,
             MUSIC_ON = true,
             campaignMode = false,
@@ -190,10 +191,10 @@ public class GameActivity extends AppCompatActivity {
     int campaignLastWrongQuestion = -1;
     int campaignLastDisplayedStars = 0;
 
-    // ---- Offline board ("سين جيم") mode ----
+    // ---- Offline board ("التحدي") mode ----
     boolean boardMode = false;
     static final int[] BOARD_VALUES = {200, 400, 600};
-    // Classic سين جيم card: every category carries two questions per value — rows 0..2
+    // Classic التحدي card: every category carries two questions per value — rows 0..2
     // are the pills left of the artwork card, rows 3..5 the ones right of it.
     static final int BOARD_ROWS = 6;
     // The question pool is bucketed into 3 difficulty tiers (200=easy/400=medium/600=hard).
@@ -225,6 +226,8 @@ public class GameActivity extends AppCompatActivity {
     static final int BOARD_REVEAL_HOLD_MS = 5000;
     private CountDownTimer boardSelectTimer;
     private TextView boardSelectCountdownView;
+    private boolean categorySelectMusicPlaying = false;
+    private boolean questionMusicStarted = false;
 
     // ---- Board typed-answer mode (human turn) ----
     // The human types the answer for full value; revealing the four options first
@@ -236,7 +239,7 @@ public class GameActivity extends AppCompatActivity {
     private boolean boardOptionsRevealed = false;      // player chose to see the options (half value)
     private boolean boardAwaitingTypedInput = false;   // panel is live and not yet acted upon
 
-    // ---- Online board (two real players on one synced سين جيم board) ----
+    // ---- Online board (two real players on one synced التحدي board) ----
     // Reaches this path via OpponentActivity matchmaking (matchMode "board"). Turn
     // order is deterministic (owner picks on even turns); each turn's cell + answer
     // result is exchanged under Games/{gameID}/board. A bot fallback (no human found)
@@ -262,7 +265,7 @@ public class GameActivity extends AppCompatActivity {
     private int boardWatchSeat = 1;
 
     // ---- Online TEAM board (N players in two teams, launched from a room) ----
-    // The group ("تحدي جماعي") room match plays the same سين جيم board but with N
+    // The group ("تحدي جماعي") room match plays the same التحدي board but with N
     // contestants split into team A / team B. A deterministic global seat order
     // (interleaved A,B,A,B…) is shared by every device, so turns rotate seat-by-seat
     // and naturally alternate teams. The host (meOwner) builds/pushes the NxBOARD_ROWS
@@ -288,8 +291,8 @@ public class GameActivity extends AppCompatActivity {
     private final ArrayList<ChromaVideoView> resultVideoViews = new ArrayList<>();
     private boolean boardResultProceeded = false;
 
-    // ---- Campaign board ("رحلة المليون" stage on the سين جيم board) ----
-    // Each Million-Journey stage now plays the سين جيم board. Solo stages (order not a
+    // ---- Campaign board ("رحلة المليون" stage on the التحدي board) ----
+    // Each Million-Journey stage now plays the التحدي board. Solo stages (order not a
     // multiple of 10): count == 1, the player takes boardSoloPicks turns and must reach
     // boardTargetScore. Boss stages (every 10th): count == 1 + boardBotCount competitive
     // board, win = finish strictly first (beat every boss). Categories are chosen per
@@ -423,7 +426,8 @@ public class GameActivity extends AppCompatActivity {
         });
 
         person = new Person((RelativeLayout) (findViewById(R.id.rlyPerson)));
-        playSound(R.raw.main_theme_4, false, false);
+        categorySelectMusicPlaying = true;
+        playSound(R.raw.main_theme_320bit_chosic, false, true);
 
         if ((modeOnline && !onlineBoardMatch && !roomBoardMatch) || campaignBossBattle) {
             opponentHudController.initCompetitiveHudViews();
@@ -492,7 +496,7 @@ public class GameActivity extends AppCompatActivity {
                 setupCampaignBossBattle();
                 getQuestions("");
             } else if (!campaignMode) {
-                // Offline single-player is now the board ("سين جيم") mode.
+                // Offline single-player is now the board ("التحدي") mode.
                 int playerCount = Math.max(2, Math.min(8, getIntent().getIntExtra("playerCount", 4)));
                 int characterIndex = getIntent().getIntExtra("characterIndex", 0);
                 boardMode = true;
@@ -501,7 +505,7 @@ public class GameActivity extends AppCompatActivity {
                 buildBoardCategoryList();
                 questionsReady = true;
             } else if (campaignBoard) {
-                // رحلة المليون stage played on the سين جيم board (solo or boss).
+                // رحلة المليون stage played on the التحدي board (solo or boss).
                 setupCampaignBoardMatch(getIntent().getIntExtra("characterIndex", 0));
             } else {
                 getQuestions("");
@@ -517,7 +521,7 @@ public class GameActivity extends AppCompatActivity {
         txtQuestionCounter = findViewById(R.id.txtQuestionCounter);
         updateQuestionCounter();
         pbTime.setMax(300);
-        // The board ("سين جيم") screen has no "1/10" counter — hide it before the
+        // The board ("التحدي") screen has no "1/10" counter — hide it before the
         // intro/category-select so it never flashes at the top.
         if (boardMode) {
             setGone(R.id.questionCounterPanel);
@@ -987,6 +991,7 @@ public class GameActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        ACTIVITY_PAUSED = false;
         if (backgroundVideoController != null) backgroundVideoController.start();
         SOUND_ON = AppPrefs.isSoundEnabled(this);
         MUSIC_ON = AppPrefs.isMusicEnabled(this);
@@ -1393,7 +1398,7 @@ public class GameActivity extends AppCompatActivity {
             FAST_LIGHTS = true;
         }
         CAN_HOME = true;
-        // Board campaign stages run on the سين جيم board (handled below), not the
+        // Board campaign stages run on the التحدي board (handled below), not the
         // classic single-question campaign flow — so exclude boardMode here.
         if (campaignMode && !modeOnline && !boardMode) {
             handleCampaignStageAnswer(timeout);
@@ -1653,7 +1658,7 @@ public class GameActivity extends AppCompatActivity {
                 }
             }
         };
-        handler.postDelayed(runnable, timeout ? 200 : 1200);
+        handler.postDelayed(runnable, timeout ? 200 : getAnswerRevealDrumDelayMs());
     }
 
     private void finishOfflineCompetition() {
@@ -1698,7 +1703,7 @@ public class GameActivity extends AppCompatActivity {
         }, 4000);
     }
 
-    /** Solo board (offline سين جيم, or 1v1 speed): celebration results screen. */
+    /** Solo board (offline التحدي, or 1v1 speed): celebration results screen. */
     private void finishBoardCelebration() {
         final int count = offlineContestants.contestantCount();
         final int myScore = offlineContestants.scoreForSlot(0); // slot 0 = me
@@ -1786,7 +1791,7 @@ public class GameActivity extends AppCompatActivity {
     }
 
     // =====================================================================
-    //  Offline board ("سين جيم") mode
+    //  Offline board ("التحدي") mode
     //  Flow: category select -> board grid -> question -> board -> ... -> end.
     //  You and the AI bots take turns picking a (category, value) cell; the
     //  picker answers and earns the cell value. The board holds one category per
@@ -1898,9 +1903,27 @@ public class GameActivity extends AppCompatActivity {
 
     // ---- Category selection screen --------------------------------------
 
+    private void playCategorySelectMusic() {
+        if (categorySelectMusicPlaying) return;
+        categorySelectMusicPlaying = true;
+        playSound(R.raw.main_theme_320bit_chosic, true, true);
+    }
+
+    private void stopCategorySelectMusicIfPlaying() {
+        if (!categorySelectMusicPlaying) return;
+        categorySelectMusicPlaying = false;
+    }
+
+    private void playQuestionMusic() {
+        if (questionMusicStarted) return;
+        questionMusicStarted = true;
+        playSound(R.raw.s_1000000, true, true);
+    }
+
     private void showCategorySelect() {
         final FrameLayout overlay = (FrameLayout) findViewById(R.id.boardOverlay);
         if (overlay == null) return;
+        playCategorySelectMusic();
         overlay.removeAllViews();
         overlay.setBackgroundColor(0xF2071026);
         overlay.setVisibility(View.VISIBLE);
@@ -2026,6 +2049,7 @@ public class GameActivity extends AppCompatActivity {
     }
 
     private void onCategoriesChosen(ArrayList<String> chosen) {
+        stopCategorySelectMusicIfPlaying();
         boardSelectedCategories.clear();
         boardSelectedCategories.addAll(chosen);
         boardCellQuestion = new Question[boardCols][BOARD_ROWS];
@@ -2563,7 +2587,7 @@ public class GameActivity extends AppCompatActivity {
     }
 
     // =====================================================================
-    //  Online board ("سين جيم") — two real players, one synced board.
+    //  Online board ("التحدي") — two real players, one synced board.
     //  Slot 0 is me, slot 1 the matched opponent. Each player picks one
     //  category; the owner assembles the 2x6 board and pushes its questions to
     //  Games/{gameID}/board. Turns alternate (owner on even turns); on your turn
@@ -2807,6 +2831,7 @@ public class GameActivity extends AppCompatActivity {
     private void showOnlineBoardCategorySelect() {
         final FrameLayout overlay = (FrameLayout) findViewById(R.id.boardOverlay);
         if (overlay == null) return;
+        playCategorySelectMusic();
         overlay.removeAllViews();
         overlay.setBackgroundColor(0xF2071026);
         overlay.setVisibility(View.VISIBLE);
@@ -2893,6 +2918,7 @@ public class GameActivity extends AppCompatActivity {
 
     private void onOnlineCategoryChosen(String category) {
         if (gameID == null || gameID.trim().isEmpty()) return;
+        stopCategorySelectMusicIfPlaying();
         showBoardWaitingOverlay("اخترت: " + category
                 + (boardRoomMatch ? "\nبانتظار بقية اللاعبين..." : "\nبانتظار اختيار الخصم..."));
         boardRef().child("picks").child(boardLocalSeatId()).child("category").setValue(category);
@@ -3541,7 +3567,7 @@ public class GameActivity extends AppCompatActivity {
             root.addView(teamTotals);
         }
 
-        // Category blocks, classic سين جيم layout: value pills (200/400/600) flank a
+        // Category blocks, classic التحدي layout: value pills (200/400/600) flank a
         // centre card holding the artwork and name. Up to three blocks per row, but with
         // only two categories (the online 1v1 board) use two so they fill the width
         // instead of being squeezed into two thirds with an empty column.
@@ -3709,6 +3735,7 @@ public class GameActivity extends AppCompatActivity {
      */
     private void showBoardQuestion(final Question question, final boolean humanTurn) {
         if (EXITING || question == null) return;
+        playQuestionMusic();
         boardCurrentQuestion = question;
         txtQ.setText(question.Q);
         applyQuestionTextSize(question.Q);
@@ -4020,6 +4047,20 @@ public class GameActivity extends AppCompatActivity {
             return BOARD_VALUES[boardPickedRow % BOARD_VALUES.length];
         }
         return 0;
+    }
+
+    private int getAnswerRevealDrumDelayMs() {
+        if (!boardMode) return 1200;
+        switch (currentBoardCellValue()) {
+            case 200:
+                return 3000;
+            case 400:
+                return 6000;
+            case 600:
+                return 9000;
+            default:
+                return 1200;
+        }
     }
 
     private int boardFrameIdForIndex(int idx) {
@@ -6920,19 +6961,7 @@ public class GameActivity extends AppCompatActivity {
             if (currentQuestion < questions.size()) {
                 CAN_HOME = true;
                 final Question question = questions.get(currentQuestion);
-                if (currentQuestion < 9) {
-                    playSound(R.raw.s_32000, true, true);
-                } else if (currentQuestion == 10) {
-                    playSound(R.raw.s_32000, true, true);
-                } else if (currentQuestion == 11) {
-                    playSound(R.raw.s_64000, true, true);
-                } else if (currentQuestion == 12) {
-                    playSound(R.raw.s_250000, true, true);
-                } else if (currentQuestion == 13) {
-                    playSound(R.raw.s_5000000, true, true);
-                } else {
-                    playSound(R.raw.s_1000000, true, true);
-                }
+                playQuestionMusic();
 
                 txtQ.setText(question.Q);
                 applyQuestionTextSize(question.Q);
@@ -7061,7 +7090,10 @@ public class GameActivity extends AppCompatActivity {
 
     void playSound(int resID, boolean fading, boolean looping) {
         if (soundController != null) {
-            soundController.play(resID, fading, looping, EXITING);
+            // Block any delayed/async trigger (timers, bot turns, network callbacks,
+            // dialog sequences) from starting fresh audio after the activity has been
+            // paused/backgrounded — otherwise looping music can keep playing offscreen.
+            soundController.play(resID, fading, looping, EXITING || ACTIVITY_PAUSED);
         }
     }
 
@@ -7160,6 +7192,7 @@ public class GameActivity extends AppCompatActivity {
     }
     @Override
     protected void onPause() {
+        ACTIVITY_PAUSED = true;
         if (backgroundVideoController != null) backgroundVideoController.pause();
         if(cdtProgress != null) cdtProgress.cancel();
         if (soundController != null) soundController.releaseCurrent();

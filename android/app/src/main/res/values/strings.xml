@@ -132,4 +132,5 @@
     <string name="daily_reward_message">حصلت اليوم على\nالقطع: %1$d\nالجواهر: %2$d\n\nسلسلة الأيام: %3$d</string>
     <string name="daily_reward_positive">رائع</string>
     <string name="msg_open_game_failed">تعذر فتح اللعبة الآن</string>
+    <string name="character_locked">هذه الشخصية مقفلة بعد</string>
 </resources>

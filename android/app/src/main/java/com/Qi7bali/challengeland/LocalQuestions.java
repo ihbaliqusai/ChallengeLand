@@ -136,7 +136,7 @@ public class LocalQuestions {
 
     /**
      * Loads every question grouped by Category and then by board tier, for the
-     * offline board ("سين جيم") mode. The returned map preserves first-seen
+     * offline board ("التحدي") mode. The returned map preserves first-seen
      * category order; each value is a 3-element list indexed by tier
      * (0=easy/25, 1=medium/50, 2=hard/75).
      */

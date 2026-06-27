@@ -69,6 +69,7 @@ import java.util.Iterator;
 import java.util.Locale;
 
 public abstract class BaseGameActivity extends AppCompatActivity {
+    private static final float MUSIC_VOLUME = 0.5f;
 
     protected abstract int getLayoutResId();
 
@@ -248,7 +249,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
     RingProgressBar pbTime;
     VideoView gameBackgroundVideo;
     CountDownTimer cdtProgress;
-    MediaPlayer mpSound, mpBeep, mpBeep1;
+    MediaPlayer mpSound, mpEffect, mpBeep, mpBeep1;
     CircleImageView imgPlayer1, imgPlayer2, imgMe, imgOpponent;
     boolean FAST_LIGHTS,
             CAN_PLAY = false,
@@ -258,6 +259,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
             SOUND_ON = true,
             MUSIC_ON = true,
             currentSoundIsMusic = false,
+            questionMusicStarted = false,
             modeOnline = false,
             eliminationMode = false,
             meOwner;
@@ -408,7 +410,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         });
 
         person = new Person((RelativeLayout) (findViewById(R.id.rlyPerson)));
-        playSound(R.raw.main_theme_4, false, false);
+        playSound(R.raw.main_theme_320bit_chosic, false, true);
 
         if (modeOnline) {
             if (Data.isNetworkAvailable(BaseGameActivity.this)) {
@@ -917,12 +919,12 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                 gameHaptic(view);
                 if (SOUND_ON) {
                     //mpSound.stop();
-                    if (mpSound != null && !currentSoundIsMusic) mpSound.setVolume(0, 0);
+                    setEffectVolume(0f);
                     SOUND_ON = false;
                     AppPrefs.setSoundEnabled(BaseGameActivity.this, false);
                     imgVolume.setImageResource(R.drawable.muted);
                 } else {
-                    if (mpSound != null && !currentSoundIsMusic) mpSound.setVolume(1f, 1f);
+                    setEffectVolume(1f);
                     SOUND_ON = true;
                     AppPrefs.setSoundEnabled(BaseGameActivity.this, true);
                     imgVolume.setImageResource(R.drawable.volume);
@@ -949,12 +951,12 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         if (imgVolume == null) return;
         if (SOUND_ON) {
             imgVolume.setImageResource(R.drawable.volume);
-            if (mpSound != null && !currentSoundIsMusic) mpSound.setVolume(1f, 1f);
+            setEffectVolume(1f);
         } else {
             imgVolume.setImageResource(R.drawable.muted);
-            if (mpSound != null && !currentSoundIsMusic) mpSound.setVolume(0f, 0f);
+            setEffectVolume(0f);
         }
-        if (mpSound != null && currentSoundIsMusic && !MUSIC_ON) {
+        if (mpSound != null && !MUSIC_ON) {
             stopSound(mpSound);
             mpSound = null;
             currentSoundIsMusic = false;
@@ -3756,8 +3758,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         }
         opponentExitHandled = true;
         stopTimer(true);
-        stopSound(mpSound);
-        mpSound = null;
+        stopAllSound();
         detachOpponentStatusListener();
         showDialog("انسحب منافسك من المباراة.\nهل تريد أن تكمل مع الكمبيوتر؟", "OpponentLeftContinue", 1000, 0, R.drawable.mouth_05, false);
     }
@@ -5047,7 +5048,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
 
     private void finishGame() {
         leaveOnlineMatchIfNeeded();
-        stopSound(mpSound);
+        stopAllSound();
         stopTimer(false);
         if (!txtAmount.getText().toString().equals("$0")) {
             person.like(1000);
@@ -5066,7 +5067,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                     PlayerStats.recordGameEnd(BaseGameActivity.this, false, prize);
                     PlayerProgress.onGameFinished(BaseGameActivity.this, false, prize, PlayerStats.getBestStreak(BaseGameActivity.this), usedAllHelps(), usedAnyHelp());
                 } catch (Exception ignored) {}
-                stopSound(mpSound);
+                stopAllSound();
                 if (cdtProgress != null) cdtProgress.cancel();
                 showInterstitialAd();
             }
@@ -5474,19 +5475,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
             if (currentQuestion < questions.size()) {
                 CAN_HOME = true;
                 final Question question = questions.get(currentQuestion);
-                if (currentQuestion < 9) {
-                    playSound(R.raw.s_32000, true, true);
-                } else if (currentQuestion == 10) {
-                    playSound(R.raw.s_32000, true, true);
-                } else if (currentQuestion == 11) {
-                    playSound(R.raw.s_64000, true, true);
-                } else if (currentQuestion == 12) {
-                    playSound(R.raw.s_250000, true, true);
-                } else if (currentQuestion == 13) {
-                    playSound(R.raw.s_5000000, true, true);
-                } else {
-                    playSound(R.raw.s_1000000, true, true);
-                }
+                playQuestionMusic();
 
                 txtQ.setText(question.Q);
                 applyQuestionTextSize(question.Q);
@@ -5634,6 +5623,12 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         return -1;
     }
 
+    private void playQuestionMusic() {
+        if (questionMusicStarted) return;
+        questionMusicStarted = true;
+        playSound(R.raw.s_1000000, true, true);
+    }
+
     private void playSound(int resID, boolean fading, boolean looping) {
         if(!EXITING) {
             boolean targetIsMusic = isMusicTrack(resID, looping);
@@ -5651,31 +5646,65 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                     return;
                 }
             }
-            if (fading) {
-                if (targetIsMusic ? MUSIC_ON : SOUND_ON) {
+            if (targetIsMusic) {
+                if (fading) {
                     fadeSound(mpSound);
                 } else {
                     stopSound(mpSound);
                 }
+                mpSound = MediaPlayer.create(BaseGameActivity.this, resID);
+                currentSoundIsMusic = mpSound != null;
+                if (mpSound == null) return;
+                mpSound.setLooping(looping);
+                mpSound.setVolume(MUSIC_VOLUME, MUSIC_VOLUME);
+                mpSound.setOnCompletionListener(player -> {
+                    if (mpSound == player) {
+                        mpSound = null;
+                        currentSoundIsMusic = false;
+                    }
+                    releasePlayer(player);
+                });
+                mpSound.start();
             } else {
-                stopSound(mpSound);
+                if (fading) {
+                    fadeSound(mpEffect);
+                } else {
+                    stopSound(mpEffect);
+                }
+                mpEffect = MediaPlayer.create(BaseGameActivity.this, resID);
+                if (mpEffect == null) return;
+                mpEffect.setLooping(looping);
+                mpEffect.setVolume(SOUND_ON ? 1f : 0f, SOUND_ON ? 1f : 0f);
+                mpEffect.setOnCompletionListener(player -> {
+                    if (mpEffect == player) {
+                        mpEffect = null;
+                    }
+                    releasePlayer(player);
+                });
+                mpEffect.start();
             }
-            //stopSound(mpSound);
-            mpSound = MediaPlayer.create(BaseGameActivity.this, resID);
-            currentSoundIsMusic = targetIsMusic;
-            mpSound.setLooping(looping);
-            mpSound.start();
         }
     }
 
+    private void setEffectVolume(float volume) {
+        if (mpEffect != null) {
+            mpEffect.setVolume(volume, volume);
+        }
+    }
+
+    private void stopAllSound() {
+        stopSound(mpSound);
+        stopSound(mpEffect);
+    }
+
     private boolean isMusicTrack(int resID, boolean looping) {
-        return looping
-                || resID == R.raw.main_theme_0
+        return resID == R.raw.main_theme_0
                 || resID == R.raw.main_theme_1
                 || resID == R.raw.main_theme_2
                 || resID == R.raw.main_theme_3
                 || resID == R.raw.main_theme_4
                 || resID == R.raw.main_theme_5
+                || resID == R.raw.main_theme_320bit_chosic
                 || resID == R.raw.commerical_break
                 || resID == R.raw.s_32000
                 || resID == R.raw.s_64000
@@ -5721,7 +5750,10 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                 }
                 mp.release();
                 if (mp == mpSound) {
+                    mpSound = null;
                     currentSoundIsMusic = false;
+                } else if (mp == mpEffect) {
+                    mpEffect = null;
                 }
             } catch (Exception ignored) {
             }
@@ -6058,7 +6090,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                         phoneTalk(3000);
                         break;
                     case 40:
-                        mpSound.stop();
+                        stopSound(mpEffect);
                         txtCallAnswer.setVisibility(View.INVISIBLE);
                         break;
                     case 45:
@@ -6090,6 +6122,9 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         if(cdtProgress != null) cdtProgress.cancel();
         releasePlayer(mpSound);
         mpSound = null;
+        currentSoundIsMusic = false;
+        releasePlayer(mpEffect);
+        mpEffect = null;
         releasePlayer(mpBeep);
         mpBeep = null;
         releasePlayer(mpBeep1);
@@ -6110,6 +6145,9 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         if(cdtProgress != null) cdtProgress.cancel();
         releasePlayer(mpSound);
         mpSound = null;
+        currentSoundIsMusic = false;
+        releasePlayer(mpEffect);
+        mpEffect = null;
         releasePlayer(mpBeep);
         mpBeep = null;
         releasePlayer(mpBeep1);
