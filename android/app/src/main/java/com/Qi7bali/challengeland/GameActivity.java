@@ -236,8 +236,22 @@ public class GameActivity extends AppCompatActivity {
     private View boardTypedAnswerPanel;                // text box + submit/reveal buttons
     private EditText boardAnswerInput;
     private Button btnBoardSubmitAnswer, btnBoardRevealOptions;
-    private boolean boardOptionsRevealed = false;      // player chose to see the options (half value)
+    private boolean boardOptionsRevealed = false;      // options currently shown (multiple-choice)
     private boolean boardAwaitingTypedInput = false;   // panel is live and not yet acted upon
+    // How many times the options have been revealed for the CURRENT cell. Each reveal
+    // halves the award (full → ½ → ¼). Persists across a التحدي الرئيسي steal, so the
+    // value carries over: 600 → reveal 300 → steal reveal 150. Reset per fresh pick.
+    private int boardRevealCount = 0;
+
+    // ---- Local two-team board ("التحدي الرئيسي", hot-seat on one phone) ----
+    // Two teams take turns on the same device on a 6-category سين جيم board. Every turn
+    // is a HUMAN typed turn (no bots): slot 0 = team A, slot 1 = team B, alternating by
+    // boardTurnIndex. On a wrong answer the OTHER team gets a steal attempt at the same
+    // question (boardStealActive) before the answer is revealed. Highest team total wins.
+    boolean boardLocalTeams = false;
+    private boolean boardStealActive = false;          // a steal attempt is in progress
+    private String boardTeamAName = "الفريق الأول";
+    private String boardTeamBName = "الفريق الثاني";
 
     // ---- Online board (two real players on one synced التحدي board) ----
     // Reaches this path via OpponentActivity matchmaking (matchMode "board"). Turn
@@ -496,11 +510,23 @@ public class GameActivity extends AppCompatActivity {
                 setupCampaignBossBattle();
                 getQuestions("");
             } else if (!campaignMode) {
-                // Offline single-player is now the board ("التحدي") mode.
-                int playerCount = Math.max(2, Math.min(8, getIntent().getIntExtra("playerCount", 4)));
+                // Offline single-player is now the board ("التحدي") mode. The "التحدي
+                // الرئيسي" launch sets localTeams=true → two teams (slot 0/1) on one
+                // phone, hot-seat, on a 6-category board.
+                boardLocalTeams = getIntent().getBooleanExtra("localTeams", false);
+                int playerCount = boardLocalTeams
+                        ? 2
+                        : Math.max(2, Math.min(8, getIntent().getIntExtra("playerCount", 4)));
                 int characterIndex = getIntent().getIntExtra("characterIndex", 0);
                 boardMode = true;
                 offlineContestants.setupForBoard(playerCount, characterIndex);
+                if (boardLocalTeams) {
+                    // No animated characters in التحدي الرئيسي — hide the figure podiums,
+                    // but keep an avatar-less scoreboard showing each team's name + points.
+                    offlineContestants.enableLocalTeamsScoreboard();
+                    offlineContestants.setContestantName(0, boardTeamAName);
+                    offlineContestants.setContestantName(1, boardTeamBName);
+                }
                 boardPool = LocalQuestions.loadBoardPool(this);
                 buildBoardCategoryList();
                 questionsReady = true;
@@ -611,7 +637,9 @@ public class GameActivity extends AppCompatActivity {
                                     ? ("boss".equals(boardCampaignKind)
                                         ? "مواجهة الزعماء.. استعد!"
                                         : "رحلتك نحو المليون.. اجمع نقاط الهدف!")
-                                    : "مرحبا بكم في تحدي الفئات.. اختاروا فئاتكم";
+                                    : boardLocalTeams
+                                        ? "تحدي الفرق! أدخلوا أسماء الفريقين"
+                                        : "مرحبا بكم في تحدي الفئات.. اختاروا فئاتكم";
                             showDialog(boardGreeting, "", 800, 2200, R.drawable.mouth_01, false);
                         } else if (modeOnline) {
                             rlyScore.setVisibility(View.VISIBLE);
@@ -1600,6 +1628,16 @@ public class GameActivity extends AppCompatActivity {
                         if (boardMode) {
                             // The local human's seat: slot 0 offline/1v1, mySeat on the team board.
                             final int localSeat = boardPickerSlot;
+                            // التحدي الرئيسي: a wrong first answer hands the SAME question to
+                            // the other team (steal) before the answer is revealed. Abort the
+                            // reveal/end-turn sequence here and run the steal attempt instead.
+                            if (boardLocalTeams && !playerCorrect && !boardStealActive) {
+                                offlineContestants.showSlotResult(localSeat, false);
+                                playSound(R.raw.wrong_answer, false, false);
+                                person.sad();
+                                beginBoardSteal();
+                                return;
+                            }
                             if (playerCorrect) {
                                 offlineContestants.awardCell(localSeat, currentBoardAwardValue());
                                 if (boardRoomMatch || boardCampaignMatch) boardMyCorrectCount++;
@@ -1735,6 +1773,107 @@ public class GameActivity extends AppCompatActivity {
         showBoardResultScreen(headline, 0, 0, 0, seatWon);
     }
 
+    /** التحدي الرئيسي end: tally both teams (slot 0 = team A, slot 1 = team B) and crown
+     *  the higher total — neutral (no "me"), since both teams play on one phone. */
+    private void finishLocalTeamsBoard() {
+        final int scoreA = offlineContestants.scoreForSlot(0);
+        final int scoreB = offlineContestants.scoreForSlot(1);
+        final int winSlot = (scoreA == scoreB) ? -1 : (scoreA > scoreB ? 0 : 1);
+        final String headline = (winSlot < 0)
+                ? "🤝 تعادل!"
+                : ("🏆 فاز " + boardTeamName(winSlot) + "!");
+        // A hot-seat two-team match has no personal winner; record a game played
+        // without claiming a win so the device owner's win stats stay clean.
+        try {
+            PlayerStats.recordGameEnd(GameActivity.this, false, Math.max(scoreA, scoreB));
+            PlayerProgress.onGameFinished(GameActivity.this, false, Math.max(scoreA, scoreB),
+                    PlayerStats.getBestStreak(GameActivity.this), usedAllHelps(), usedAnyHelp());
+        } catch (Exception ignored) {
+        }
+        playSound(R.raw.new_level, false, false);
+        showLocalTeamsResultScreen(headline, scoreA, scoreB, winSlot);
+    }
+
+    /** التحدي الرئيسي result: a simple text-only screen (no character reaction videos) —
+     *  headline + the two team totals, the winner highlighted, then back to the menu. */
+    private void showLocalTeamsResultScreen(String headline, int scoreA, int scoreB, int winSlot) {
+        final FrameLayout overlay = (FrameLayout) findViewById(R.id.boardOverlay);
+        if (overlay == null) {
+            proceedAfterBoardResult();
+            return;
+        }
+        boardResultProceeded = false;
+        offlineContestants.release();
+        overlay.removeAllViews();
+        overlay.setBackgroundColor(0xF20A0F2E);
+        overlay.setVisibility(View.VISIBLE);
+        overlay.bringToFront();
+
+        ScrollView scroll = new ScrollView(this);
+        scroll.setLayoutParams(new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+        scroll.setFillViewport(true);
+        scroll.setVerticalScrollBarEnabled(false);
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setGravity(Gravity.CENTER);
+        root.setPadding(dpx(24), dpx(22), dpx(24), dpx(22));
+        scroll.addView(root);
+
+        TextView title = makeBoardText(headline, 28f, 0xFFFFD761, Gravity.CENTER);
+        LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        tlp.bottomMargin = dpx(20);
+        title.setLayoutParams(tlp);
+        root.addView(title);
+
+        root.addView(makeTeamResultRow(boardTeamAName, scoreA, winSlot == 0 || winSlot < 0));
+        root.addView(makeTeamResultRow(boardTeamBName, scoreB, winSlot == 1 || winSlot < 0));
+
+        Button back = new Button(this);
+        back.setText("العودة للقائمة");
+        back.setAllCaps(false);
+        back.setTextColor(0xFFFFFFFF);
+        back.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f);
+        if (getBoardFont() != null) back.setTypeface(getBoardFont(), Typeface.BOLD);
+        back.setBackground(pillBg(0xFF29B6F6));
+        LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(dpx(220), dpx(52));
+        blp.topMargin = dpx(22);
+        back.setLayoutParams(blp);
+        back.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                proceedAfterBoardResult();
+            }
+        });
+        root.addView(back);
+
+        overlay.addView(scroll);
+
+        // Auto-continue if the players linger.
+        new Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if (!EXITING) proceedAfterBoardResult();
+            }
+        }, 16000);
+    }
+
+    /** One team's result row: 👑 + name + score, gold for the winner, slate otherwise. */
+    private View makeTeamResultRow(String name, int score, boolean won) {
+        int color = won ? 0xFFFFD761 : 0xFF94A3B8;
+        String text = (won ? "👑  " : "") + name + "    " + score;
+        TextView row = makeBoardText(text, 22f, color, Gravity.CENTER);
+        row.setBackground(headerBg());
+        row.setPadding(dpx(20), dpx(12), dpx(20), dpx(12));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                dpx(280), LinearLayout.LayoutParams.WRAP_CONTENT);
+        lp.bottomMargin = dpx(12);
+        lp.gravity = Gravity.CENTER_HORIZONTAL;
+        row.setLayoutParams(lp);
+        return row;
+    }
+
     /** رحلة المليون stage end: solo (reach boardTargetScore) or boss (beat every bot).
      *  Bridges into the campaign pipeline so Flutter awards stars/rewards/progress. */
     private void finishCampaignBoardMatch() {
@@ -1804,11 +1943,164 @@ public class GameActivity extends AppCompatActivity {
             startCampaignBoardMode();
             return;
         }
+        // التحدي الرئيسي (two teams, hot-seat): always a 6-category board, regardless of
+        // the two-contestant count. Collect the team names first, then the categories.
+        if (boardLocalTeams) {
+            boardCols = Math.max(2, Math.min(6, boardAllCategories.size()));
+            showTeamNamesSetup();
+            return;
+        }
         // One category card per player so every contestant answers exactly 6 questions
         // (two per value). Capped to the categories actually available.
         int players = offlineContestants.contestantCount();
         boardCols = Math.max(1, Math.min(players, boardAllCategories.size()));
         showCategorySelect();
+    }
+
+    /** Returns the full (untruncated) team name for a slot in the local two-team board. */
+    private String boardTeamName(int slot) {
+        return slot == 1 ? boardTeamBName : boardTeamAName;
+    }
+
+    // ---- Team-names setup (التحدي الرئيسي) ------------------------------
+
+    /** First screen of التحدي الرئيسي: enter the two team names, then pick the 6
+     *  categories. Built as a programmatic overlay over R.id.boardOverlay, matching the
+     *  style of {@link #showCategorySelect()}. */
+    private void showTeamNamesSetup() {
+        final FrameLayout overlay = (FrameLayout) findViewById(R.id.boardOverlay);
+        if (overlay == null) {
+            showCategorySelect();
+            return;
+        }
+        playCategorySelectMusic();
+        overlay.removeAllViews();
+        overlay.setBackgroundColor(0xF2071026);
+        overlay.setVisibility(View.VISIBLE);
+        overlay.bringToFront();
+
+        ScrollView scroll = new ScrollView(this);
+        scroll.setLayoutParams(new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setGravity(Gravity.CENTER_HORIZONTAL);
+        root.setPadding(dpx(24), dpx(20), dpx(24), dpx(20));
+        scroll.addView(root);
+
+        TextView title = makeBoardText("أدخلوا أسماء الفريقين", 22f, 0xFFFFFFFF, Gravity.CENTER);
+        LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        tlp.bottomMargin = dpx(16);
+        title.setLayoutParams(tlp);
+        root.addView(title);
+
+        final EditText inputA = makeTeamNameInput(boardTeamAName, 0xFFFFD761);
+        // First field: "Next" jumps to the second team's field.
+        inputA.setImeOptions(android.view.inputmethod.EditorInfo.IME_FLAG_NO_EXTRACT_UI
+                | android.view.inputmethod.EditorInfo.IME_FLAG_NO_FULLSCREEN
+                | android.view.inputmethod.EditorInfo.IME_ACTION_NEXT);
+        root.addView(makeTeamNameRow("الفريق الأول", inputA, 0xFFFFD761));
+        final EditText inputB = makeTeamNameInput(boardTeamBName, 0xFF7DD3FC);
+        root.addView(makeTeamNameRow("الفريق الثاني", inputB, 0xFF7DD3FC));
+
+        final Runnable proceed = new Runnable() {
+            @Override
+            public void run() {
+                String a = inputA.getText().toString().trim();
+                String b = inputB.getText().toString().trim();
+                if (a.isEmpty()) a = "الفريق الأول";
+                if (b.isEmpty()) b = "الفريق الثاني";
+                boardTeamAName = a;
+                boardTeamBName = b;
+                offlineContestants.setContestantName(0, a);
+                offlineContestants.setContestantName(1, b);
+                hideKeyboard();
+                showCategorySelect();
+            }
+        };
+
+        inputA.setOnEditorActionListener(new TextView.OnEditorActionListener() {
+            @Override
+            public boolean onEditorAction(TextView v, int actionId, android.view.KeyEvent event) {
+                if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_NEXT) {
+                    inputB.requestFocus();
+                    return true;
+                }
+                return false;
+            }
+        });
+        inputB.setOnEditorActionListener(new TextView.OnEditorActionListener() {
+            @Override
+            public boolean onEditorAction(TextView v, int actionId, android.view.KeyEvent event) {
+                if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE) {
+                    proceed.run();
+                    return true;
+                }
+                return false;
+            }
+        });
+
+        Button confirm = new Button(this);
+        confirm.setText("التالي");
+        confirm.setAllCaps(false);
+        confirm.setTextColor(0xFFFFFFFF);
+        if (getBoardFont() != null) confirm.setTypeface(getBoardFont(), Typeface.BOLD);
+        confirm.setBackground(pillBg(0xFF29B6F6));
+        LinearLayout.LayoutParams cflp = new LinearLayout.LayoutParams(dpx(200), dpx(50));
+        cflp.topMargin = dpx(20);
+        confirm.setLayoutParams(cflp);
+        confirm.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                proceed.run();
+            }
+        });
+        root.addView(confirm);
+
+        overlay.addView(scroll);
+    }
+
+    /** A labelled team-name field (label above a styled EditText). */
+    private LinearLayout makeTeamNameRow(String label, EditText input, int accent) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams rlp = new LinearLayout.LayoutParams(
+                dpx(260), LinearLayout.LayoutParams.WRAP_CONTENT);
+        rlp.bottomMargin = dpx(12);
+        row.setLayoutParams(rlp);
+        TextView lbl = makeBoardText(label, 14f, accent, Gravity.CENTER);
+        LinearLayout.LayoutParams llp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        llp.bottomMargin = dpx(4);
+        lbl.setLayoutParams(llp);
+        row.addView(lbl);
+        row.addView(input);
+        return row;
+    }
+
+    private EditText makeTeamNameInput(String initial, int accent) {
+        EditText input = new EditText(this);
+        input.setText(initial);
+        input.setSingleLine(true);
+        input.setInputType(android.text.InputType.TYPE_CLASS_TEXT
+                | android.text.InputType.TYPE_TEXT_FLAG_CAP_WORDS);
+        // Keep the keyboard docked at the bottom — in landscape the IME otherwise opens a
+        // full-screen "extract" editor that covers the whole setup screen.
+        input.setImeOptions(android.view.inputmethod.EditorInfo.IME_FLAG_NO_EXTRACT_UI
+                | android.view.inputmethod.EditorInfo.IME_FLAG_NO_FULLSCREEN
+                | android.view.inputmethod.EditorInfo.IME_ACTION_DONE);
+        input.setGravity(Gravity.CENTER);
+        input.setTextColor(0xFFFFFFFF);
+        input.setHintTextColor(0x66FFFFFF);
+        input.setTextSize(16f);
+        if (getBoardFont() != null) input.setTypeface(getBoardFont());
+        input.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(14)});
+        input.setBackground(pillBg(0x33FFFFFF));
+        input.setPadding(dpx(14), dpx(10), dpx(14), dpx(10));
+        input.setLayoutParams(new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        return input;
     }
 
     /** Sets up the offline board contestants for a رحلة المليون stage (solo or boss). */
@@ -2138,13 +2430,16 @@ public class GameActivity extends AppCompatActivity {
     // ---- Turn loop -------------------------------------------------------
 
     private void beginBoardTurn() {
+        boardStealActive = false;
         if (boardCellsRemaining <= 0 || boardTurnIndex >= boardTotalTurns) {
             finishBoardMatch();
             return;
         }
         int count = offlineContestants.contestantCount();
         boardPickerSlot = count > 0 ? boardTurnIndex % count : 0;
-        boardPickerIsHuman = (boardPickerSlot == 0);
+        // In التحدي الرئيسي both seats are human teams playing on one phone, so every
+        // turn is a human typed turn (no bots).
+        boardPickerIsHuman = boardLocalTeams || (boardPickerSlot == 0);
         showBoardGrid();
         if (!boardPickerIsHuman) {
             new Handler().postDelayed(new Runnable() {
@@ -2193,6 +2488,9 @@ public class GameActivity extends AppCompatActivity {
     private void enterBoardQuestion(boolean humanTurn) {
         hideBoardOverlay();
         initQuestion();
+        // Fresh cell: the value starts at full (the steal reuses the same cell without
+        // re-entering here, so its carried-over reveal count is preserved).
+        boardRevealCount = 0;
         boardPickerIsHuman = humanTurn;
         CAN_PLAY = false;
         showBoardQuestion(boardCurrentQuestion, humanTurn);
@@ -2222,6 +2520,10 @@ public class GameActivity extends AppCompatActivity {
         hideBoardOverlay();
         if (boardCampaignMatch) {
             finishCampaignBoardMatch();
+            return;
+        }
+        if (boardLocalTeams) {
+            finishLocalTeamsBoard();
             return;
         }
         if (boardRoomMatch) {
@@ -3489,6 +3791,9 @@ public class GameActivity extends AppCompatActivity {
             int remaining = Math.max(0, boardTotalTurns - boardTurnIndex);
             bannerText = "الهدف: " + boardTargetScore + "  •  نقاطك: " + offlineContestants.scoreForSlot(0)
                     + "  •  اختيارات متبقية: " + remaining;
+        } else if (boardLocalTeams) {
+            // Hot-seat: name the team whose turn it is so the device is passed correctly.
+            bannerText = "دور " + boardTeamName(boardPickerSlot) + " — اختر فئة وقيمة";
         } else {
             bannerText = boardPickerIsHuman ? "دورك.. اختر فئة وقيمة"
                     : ("دور " + offlineContestants.nameForSlot(boardPickerSlot));
@@ -3954,15 +4259,18 @@ public class GameActivity extends AppCompatActivity {
         }
     }
 
-    /** Player chose to reveal the four options: switch to multiple-choice, half value. */
+    /** Player chose to reveal the four options: switch to multiple-choice. Each reveal
+     *  halves the cell's award (carried across a التحدي الرئيسي steal). */
     private void onBoardRevealOptions() {
         if (!boardMode || !boardAwaitingTypedInput) return;
         boardAwaitingTypedInput = false;
         boardOptionsRevealed = true;
+        boardRevealCount++;
         showBoardTypedPanel(false);
         setBoardAnswerOptionsVisible(true);
         CAN_PLAY = true; // the player now taps one of the four options
-        showDialog("اختر الإجابة الصحيحة (نصف القيمة)", "", 600, 1200, R.drawable.mouth_01, true);
+        showDialog("اختر الإجابة الصحيحة (القيمة الآن " + currentBoardAwardValue() + ")",
+                "", 600, 1400, R.drawable.mouth_01, true);
     }
 
     /** Player submitted a typed answer: grade it (full value) and resolve the turn. */
@@ -3985,10 +4293,33 @@ public class GameActivity extends AppCompatActivity {
         checkAnswer(false);
     }
 
-    /** Award for the human's board cell: full value, or half if the options were revealed. */
+    /** Award for the human's board cell: the cell value halved once per options reveal
+     *  (full → ½ → ¼). The reveal count carries across a التحدي الرئيسي steal. */
     private int currentBoardAwardValue() {
-        int value = currentBoardCellValue();
-        return boardOptionsRevealed ? value / 2 : value;
+        return currentBoardCellValue() / (1 << boardRevealCount);
+    }
+
+    /** التحدي الرئيسي only: the picking team answered wrong — hand the SAME question to
+     *  the other team (steal). Swaps the picker, re-arms the typed-answer panel and
+     *  restarts the timer; the steal team's answer resolves the cell normally. */
+    private void beginBoardSteal() {
+        boardStealActive = true;
+        final int stealSlot = (boardPickerSlot == 1) ? 0 : 1;
+        boardPickerSlot = stealSlot;
+        boardPickerIsHuman = true;
+        new Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if (EXITING || !boardMode || !boardStealActive) return;
+                if (boardAnswerInput != null) boardAnswerInput.setText("");
+                if (btnBoardSubmitAnswer != null) btnBoardSubmitAnswer.setEnabled(true);
+                if (btnBoardRevealOptions != null) btnBoardRevealOptions.setEnabled(true);
+                setBoardAnswerOptionsVisible(false);
+                showDialog("الفرصة الآن لفريق " + boardTeamName(stealSlot) + "!",
+                        "", 800, 1800, R.drawable.mouth_01, false);
+                startBoardTypedTurn();
+            }
+        }, 1600);
     }
 
     private void scheduleBotBoardAnswer() {

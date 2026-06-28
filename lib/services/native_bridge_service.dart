@@ -269,6 +269,10 @@ class NativeBridgeService {
     await _channel.invokeMethod('launchOfflineGame');
   }
 
+  Future<void> launchMainChallenge() async {
+    await _channel.invokeMethod('launchMainChallenge');
+  }
+
   Future<void> launchStats() async {
     await _channel.invokeMethod('launchStats');
   }

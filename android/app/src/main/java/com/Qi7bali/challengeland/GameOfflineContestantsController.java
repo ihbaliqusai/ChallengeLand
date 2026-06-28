@@ -162,6 +162,9 @@ final class GameOfflineContestantsController {
     private int[] slotCharacter;
     private String[] slotTeam;
     private boolean teamMode = false;
+    // التحدي الرئيسي (two teams on one phone): no animated figures, and the scoreboard
+    // shows each team's name + live point total instead of avatars + rank ordinals.
+    private boolean localTeamsBoard = false;
 
     // Character figure genders: indices 0-4 are male, 5-7 female (see CONTESTANT_DRAWABLES).
     private static final int[] MALE_FIGURES = {0, 1, 2, 3, 4};
@@ -596,7 +599,9 @@ final class GameOfflineContestantsController {
             return;
         }
         String trimmed = name.trim();
-        if (trimmed.length() > 9) {
+        // The 9-char cap fits the small podium plates; التحدي الرئيسي hides those and
+        // shows full team names on the scoreboard + board grid, so don't truncate there.
+        if (!localTeamsBoard && trimmed.length() > 9) {
             trimmed = trimmed.substring(0, 9);
         }
         names[slot] = trimmed;
@@ -681,6 +686,16 @@ final class GameOfflineContestantsController {
         if (scoreBoard != null) {
             scoreBoard.setVisibility(View.INVISIBLE);
         }
+    }
+
+    /** التحدي الرئيسي (two teams on one phone): hide the animated contestant figures
+     *  (podium row) but KEEP the scoreboard panel — rendered avatar-less, showing each
+     *  team's name + live point total instead of an avatar + rank ordinal. */
+    void enableLocalTeamsScoreboard() {
+        localTeamsBoard = true;
+        releaseVideos();
+        if (row != null) row.setVisibility(View.GONE);
+        refreshScoreBoard();
     }
 
     private void releaseVideos() {
@@ -796,7 +811,8 @@ final class GameOfflineContestantsController {
         // Wide enough for multi-thousand board scores (200/400/600 cells add up); the
         // old 0.17 width clipped anything past two digits.
         final float scoreWidthDp = boardWidthDp * 0.30f;
-        final float nameStartDp = avatarSizeDp + boardWidthDp * 0.035f;
+        // التحدي الرئيسي hides the avatar, so give that space back to the (longer) name.
+        final float nameStartDp = (localTeamsBoard ? 0f : avatarSizeDp) + boardWidthDp * 0.035f;
         final float nameEndDp = scoreWidthDp + boardWidthDp * 0.035f;
         final float nameTextSp = clamp(rowHeightDp * 0.42f, 8f, 12f);
         final float scoreTextSp = clamp(rowHeightDp * 0.55f, 10f, 15f);
@@ -880,6 +896,26 @@ final class GameOfflineContestantsController {
     private void refreshScoreBoard() {
         if (boardNameViews == null || boardScoreViews == null || boardAvatarViews == null
                 || names == null || scores == null) {
+            return;
+        }
+        // التحدي الرئيسي: two fixed rows (team A gold, team B blue) showing the team
+        // name + live point total, no avatar.
+        if (localTeamsBoard) {
+            int rows = Math.min(getVisibleBoardRowCount(), boardNameViews.length);
+            for (int rowIndex = 0; rowIndex < rows && rowIndex < count; rowIndex++) {
+                int color = rowIndex == 1 ? 0xFF7DD3FC : 0xFFFFD761;
+                if (boardNameViews[rowIndex] != null) {
+                    boardNameViews[rowIndex].setText(names[rowIndex]);
+                    boardNameViews[rowIndex].setTextColor(color);
+                }
+                if (boardScoreViews[rowIndex] != null) {
+                    boardScoreViews[rowIndex].setText(String.valueOf(scores[rowIndex]));
+                    boardScoreViews[rowIndex].setTextColor(color);
+                }
+                if (boardAvatarViews[rowIndex] != null) {
+                    boardAvatarViews[rowIndex].setVisibility(View.INVISIBLE);
+                }
+            }
             return;
         }
         // Team match: the results list shows the two team totals (with team colours)

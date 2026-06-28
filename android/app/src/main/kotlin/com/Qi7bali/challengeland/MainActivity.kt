@@ -57,6 +57,18 @@ class MainActivity : FlutterActivity() {
                         startActivity(Intent(this, OfflineSetupActivity::class.java))
                         result.success(true)
                     }
+                    "launchMainChallenge" -> {
+                        // التحدي الرئيسي: لوحة سين جيم بين فريقين على جهاز واحد.
+                        val intent = Intent(this, GameActivity::class.java)
+                        intent.putExtra("mode", "mono")
+                        intent.putExtra("localTeams", true)
+                        intent.putExtra(
+                            "characterIndex",
+                            AppPrefs.getEffectiveCharacter(this@MainActivity)
+                        )
+                        startActivity(intent)
+                        result.success(true)
+                    }
                     "launchStats" -> {
                         startActivity(Intent(this, StatsActivity::class.java))
                         result.success(true)

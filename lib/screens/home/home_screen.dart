@@ -420,7 +420,7 @@ class _GameModesSheet extends StatelessWidget {
           child: ConstrainedBox(
             constraints: BoxConstraints(
               maxWidth: 700,
-              maxHeight: math.min(media.size.height * 0.78, 320.0),
+              maxHeight: math.min(media.size.height * 0.86, 440.0),
             ),
             child: Container(
               margin: const EdgeInsets.fromLTRB(14, 0, 14, 12),
@@ -439,7 +439,8 @@ class _GameModesSheet extends StatelessWidget {
                   ),
                 ],
               ),
-              child: Column(
+              child: SingleChildScrollView(
+                child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -476,6 +477,24 @@ class _GameModesSheet extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _GameModeTile(
+                          icon: Icons.emoji_events_rounded,
+                          color: const Color(0xFFFFD761),
+                          title: 'التحدي الرئيسي',
+                          subtitle: 'فريقان على جهاز واحد',
+                          onTap: () => _runMode(
+                            context,
+                            () =>
+                                rootContext.read<AppState>().openMainChallenge(),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
                   Row(
                     children: [
                       Expanded(
@@ -524,6 +543,7 @@ class _GameModesSheet extends StatelessWidget {
                     ],
                   ),
                 ],
+                ),
               ),
             ),
           ),

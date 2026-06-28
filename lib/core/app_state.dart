@@ -451,6 +451,11 @@ class AppState extends ChangeNotifier {
     await _nativeBridgeService.launchOfflineGame();
   }
 
+  Future<void> openMainChallenge() async {
+    await _syncLegacyUser();
+    await _nativeBridgeService.launchMainChallenge();
+  }
+
   Future<void> openStats() async {
     await _syncLegacyUser();
     await _nativeBridgeService.launchStats();
