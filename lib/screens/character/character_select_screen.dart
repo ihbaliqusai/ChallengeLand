@@ -211,29 +211,52 @@ class _CharacterSelectScreenState extends State<CharacterSelectScreen> {
               child: Column(
                 children: [
                   _TopBar(forced: widget.forced, appState: appState),
-                  const _ScreenTitle(),
+                  // The middle (title + showcase + roster) scrolls so it never
+                  // overflows on short landscape screens, while the top bar and
+                  // the primary action stay pinned. On tall screens the content
+                  // is centred in the available space.
                   Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-                      child: Center(
+                    child: LayoutBuilder(
+                      builder: (context, constraints) => SingleChildScrollView(
+                        physics: const BouncingScrollPhysics(),
                         child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 540),
-                          child: _HeroPreview(
-                            character: character,
-                            unlocked: unlocked,
-                            isSelected:
-                                appState.selectedCharacterIndex == _focused,
-                            playerLevel: appState.level,
+                          constraints:
+                              BoxConstraints(minHeight: constraints.maxHeight),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const _ScreenTitle(),
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                                child: Center(
+                                  child: ConstrainedBox(
+                                    constraints:
+                                        const BoxConstraints(maxWidth: 540),
+                                    child: SizedBox(
+                                      height: 260,
+                                      child: _HeroPreview(
+                                        character: character,
+                                        unlocked: unlocked,
+                                        isSelected:
+                                            appState.selectedCharacterIndex ==
+                                                _focused,
+                                        playerLevel: appState.level,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              _CharacterRail(
+                                appState: appState,
+                                focused: _focused,
+                                onTap: (i) => setState(() => _focused = i),
+                              ),
+                            ],
                           ),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  _CharacterRail(
-                    appState: appState,
-                    focused: _focused,
-                    onTap: (i) => setState(() => _focused = i),
                   ),
                   _ActionBar(
                     forced: widget.forced,
@@ -1037,11 +1060,17 @@ class _CharacterImage extends StatelessWidget {
       ),
     );
     if (!dimmed) return image;
+    // Locked characters are shown desaturated + dimmed. Use a luminance
+    // grayscale matrix rather than a `saturation` blend mode: the advanced
+    // (non-separable) blend modes render incorrectly on Impeller — the default
+    // Android renderer — which made the locked faces look colour-inverted.
     return ColorFiltered(
-      colorFilter: const ColorFilter.mode(
-        Color(0xAA0B1220),
-        BlendMode.saturation,
-      ),
+      colorFilter: const ColorFilter.matrix(<double>[
+        0.2126, 0.7152, 0.0722, 0, 0,
+        0.2126, 0.7152, 0.0722, 0, 0,
+        0.2126, 0.7152, 0.0722, 0, 0,
+        0, 0, 0, 1, 0,
+      ]),
       child: Opacity(opacity: 0.55, child: image),
     );
   }

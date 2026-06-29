@@ -514,6 +514,7 @@
         android:visibility="invisible">
 
         <ImageView
+            android:id="@+id/offlineScoreBoardBg"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:contentDescription="@string/todo11"
@@ -1084,8 +1085,8 @@
         android:layout_height="76dp"
         android:layout_alignParentStart="true"
         android:layout_alignParentTop="true"
-        android:layout_marginStart="110dp"
-        android:layout_marginTop="30dp"
+        android:layout_marginStart="126dp"
+        android:layout_marginTop="16dp"
         android:visibility="invisible">
 
         <ImageView

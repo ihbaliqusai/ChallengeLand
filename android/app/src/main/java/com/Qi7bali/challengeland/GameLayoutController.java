@@ -88,8 +88,8 @@ final class GameLayoutController {
 
         // Compress the question/answer block vertically on short landscape
         // screens so the contestant podiums below it have room (no overlap).
-        // Only in the offline competition (online/campaign keep their layout).
-        if (!activity.isOfflineContestantMode()) {
+        // Online match screens reuse the same tuned geometry as offline play.
+        if (!activity.isOfflineContestantMode() && !activity.modeOnline) {
             return;
         }
         final int qaTopMarginDp = qaTopMarginDp(screenHeightDp);

@@ -1405,6 +1405,106 @@ public abstract class BaseGameActivity extends AppCompatActivity {
             txtProgress.setTextSize(TypedValue.COMPLEX_UNIT_SP, shortScreen ? 17 : 20);
             txtProgress.setIncludeFontPadding(false);
         }
+
+        if (modeOnline) {
+            configureQuestionAnswerLayoutLikeOffline(screenHeightDp, shortScreen);
+        }
+    }
+
+    private void configureQuestionAnswerLayoutLikeOffline(float screenHeightDp, boolean shortScreen) {
+        final int qaTopMarginDp = GameLayoutController.qaTopMarginDp(screenHeightDp);
+        final int questionHeightDp = GameLayoutController.questionPanelHeightDp(screenHeightDp);
+        final int questionGapDp = GameLayoutController.questionGapDp(screenHeightDp);
+        final int rowHeightDp = GameLayoutController.answerRowHeightDp(screenHeightDp);
+        final int rowGapDp = GameLayoutController.answerRowGapDp(screenHeightDp);
+
+        setTopMargin(llyQA, qaTopMarginDp);
+        setViewHeight(findViewById(R.id.frameQ), questionHeightDp);
+        setBottomMargin(findViewById(R.id.frameQ), questionGapDp);
+        setViewHeight(findViewById(R.id.llyA1), rowHeightDp);
+        setViewHeight(findViewById(R.id.llyA2), rowHeightDp);
+        setViewHeight(findViewById(R.id.frameA1), rowHeightDp);
+        setViewHeight(findViewById(R.id.frameA2), rowHeightDp);
+        setViewHeight(findViewById(R.id.frameA3), rowHeightDp);
+        setViewHeight(findViewById(R.id.frameA4), rowHeightDp);
+        setViewHeight(findViewById(R.id.imgA1), rowHeightDp);
+        setViewHeight(findViewById(R.id.imgA2), rowHeightDp);
+        setViewHeight(findViewById(R.id.imgA3), rowHeightDp);
+        setViewHeight(findViewById(R.id.imgA4), rowHeightDp);
+        setTopMargin(findViewById(R.id.llyA2), rowGapDp);
+        configureAnswerInnerControls(rowHeightDp, shortScreen);
+    }
+
+    private void setViewHeight(View view, int heightDp) {
+        if (view == null) {
+            return;
+        }
+        ViewGroup.LayoutParams params = view.getLayoutParams();
+        if (params == null) {
+            return;
+        }
+        params.height = dp(heightDp);
+        view.setLayoutParams(params);
+    }
+
+    private void setTopMargin(View view, int marginDp) {
+        if (view == null || !(view.getLayoutParams() instanceof ViewGroup.MarginLayoutParams)) {
+            return;
+        }
+        ((ViewGroup.MarginLayoutParams) view.getLayoutParams()).topMargin = dp(marginDp);
+        view.requestLayout();
+    }
+
+    private void setBottomMargin(View view, int marginDp) {
+        if (view == null || !(view.getLayoutParams() instanceof ViewGroup.MarginLayoutParams)) {
+            return;
+        }
+        ((ViewGroup.MarginLayoutParams) view.getLayoutParams()).bottomMargin = dp(marginDp);
+        view.requestLayout();
+    }
+
+    private void setHorizontalMargins(View view, int startDp, int endDp) {
+        if (view == null || !(view.getLayoutParams() instanceof ViewGroup.MarginLayoutParams)) {
+            return;
+        }
+        ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) view.getLayoutParams();
+        params.setMarginStart(dp(startDp));
+        params.setMarginEnd(dp(endDp));
+        view.requestLayout();
+    }
+
+    private void configureAnswerInnerControls(int rowHeightDp, boolean shortScreen) {
+        final int letterSizeDp = Math.max(24, Math.min(32, rowHeightDp - 4));
+        final int playerThumbSizeDp = Math.max(18, Math.min(22, rowHeightDp - 10));
+        final int answerStartMarginDp = shortScreen ? 28 : 38;
+        final int answerEndMarginDp = shortScreen ? 46 : 58;
+        final int letterEndMarginDp = shortScreen ? 13 : 17;
+
+        for (int id : new int[]{
+                R.id.txtA1Letter,
+                R.id.txtA2Letter,
+                R.id.txtA3Letter,
+                R.id.txtA4Letter
+        }) {
+            View letter = findViewById(id);
+            resizeSquareView(letter, letterSizeDp);
+            setHorizontalMargins(letter, 0, letterEndMarginDp);
+        }
+
+        for (int id : new int[]{
+                R.id.imgAnswer1Player1,
+                R.id.imgAnswer2Player1,
+                R.id.imgAnswer3Player1,
+                R.id.imgAnswer4Player1
+        }) {
+            resizeSquareView(findViewById(id), playerThumbSizeDp);
+        }
+
+        for (TextView answerView : new TextView[]{txtA1, txtA2, txtA3, txtA4}) {
+            setHorizontalMargins(answerView, answerStartMarginDp, answerEndMarginDp);
+        }
+
+        setHorizontalMargins(txtQ, shortScreen ? 34 : 46, shortScreen ? 34 : 46);
     }
 
     private void resizeSquareView(View view, int sizeDp) {

@@ -695,6 +695,11 @@ final class GameOfflineContestantsController {
         localTeamsBoard = true;
         releaseVideos();
         if (row != null) row.setVisibility(View.GONE);
+        // Use the dedicated two-team "قائمة النتائج" board artwork for this mode.
+        View bg = activity.findViewById(R.id.offlineScoreBoardBg);
+        if (bg instanceof ImageView) {
+            ((ImageView) bg).setImageResource(R.drawable.board1);
+        }
         refreshScoreBoard();
     }
 
