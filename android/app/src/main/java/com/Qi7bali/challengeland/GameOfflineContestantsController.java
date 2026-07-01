@@ -616,6 +616,15 @@ final class GameOfflineContestantsController {
         return scores[slot];
     }
 
+    void setScoreForSlot(int slot, int value) {
+        if (scores == null || slot < 0 || slot >= scores.length) return;
+        scores[slot] = Math.max(0, value);
+        if (scoreViews != null && slot < scoreViews.length && scoreViews[slot] != null) {
+            scoreViews[slot].setText(String.valueOf(scores[slot]));
+        }
+        refreshScoreBoard();
+    }
+
     /** The character figure index drawn for a slot (used by the results screen). */
     int characterForSlot(int slot) {
         if (slotCharacter != null && slot >= 0 && slot < slotCharacter.length) {

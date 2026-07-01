@@ -78,6 +78,7 @@ import static net.androidgaming.millionaire2024.GameRules.QUESTION_TIMEOUT_MS;
 
 public class GameActivity extends AppCompatActivity {
     private static final int DIALOG_CHARACTER_DELAY_MS = 18;
+    private static final int DIALOG_EXTRA_VISIBLE_MS = 1000;
     private static final int CAMPAIGN_FEEDBACK_TALK_MS = 900;
     private static final int CAMPAIGN_FEEDBACK_MIN_READ_MS = 2200;
     private static final int CAMPAIGN_FEEDBACK_TRANSITION_GAP_MS = 450;
@@ -252,6 +253,10 @@ public class GameActivity extends AppCompatActivity {
     private boolean boardStealActive = false;          // a steal attempt is in progress
     private String boardTeamAName = "الفريق الأول";
     private String boardTeamBName = "الفريق الثاني";
+    private String localTeamsSaveId = "";
+    private JSONObject pendingLocalTeamsRestore;
+    private boolean localTeamsRestoreConsumed = false;
+    private boolean localTeamsFinished = false;
 
     // ---- Online board (two real players on one synced التحدي board) ----
     // Reaches this path via OpponentActivity matchmaking (matchMode "board"). Turn
@@ -514,6 +519,19 @@ public class GameActivity extends AppCompatActivity {
                 // الرئيسي" launch sets localTeams=true → two teams (slot 0/1) on one
                 // phone, hot-seat, on a 6-category board.
                 boardLocalTeams = getIntent().getBooleanExtra("localTeams", false);
+                if (boardLocalTeams) {
+                    localTeamsSaveId = safeString(getIntent().getStringExtra("localTeamsSaveId")).trim();
+                    if (localTeamsSaveId.isEmpty()) {
+                        localTeamsSaveId = LocalTeamsGameStore.newGameId();
+                    }
+                    if (getIntent().getBooleanExtra("resumeLocalTeams", false)) {
+                        pendingLocalTeamsRestore = LocalTeamsGameStore.get(this, localTeamsSaveId);
+                        if (pendingLocalTeamsRestore != null) {
+                            boardTeamAName = pendingLocalTeamsRestore.optString("teamAName", boardTeamAName);
+                            boardTeamBName = pendingLocalTeamsRestore.optString("teamBName", boardTeamBName);
+                        }
+                    }
+                }
                 int playerCount = boardLocalTeams
                         ? 2
                         : Math.max(2, Math.min(8, getIntent().getIntExtra("playerCount", 4)));
@@ -638,7 +656,7 @@ public class GameActivity extends AppCompatActivity {
                                         ? "مواجهة الزعماء.. استعد!"
                                         : "رحلتك نحو المليون.. اجمع نقاط الهدف!")
                                     : boardLocalTeams
-                                        ? "تحدي الفرق! أدخلوا أسماء الفريقين"
+                                        ? localTeamsOpeningGreeting()
                                         : "مرحبا بكم في تحدي الفئات.. اختاروا فئاتكم";
                             showDialog(boardGreeting, "", 800, 2200, R.drawable.mouth_01, false);
                         } else if (modeOnline) {
@@ -1782,6 +1800,7 @@ public class GameActivity extends AppCompatActivity {
         final String headline = (winSlot < 0)
                 ? "🤝 تعادل!"
                 : ("🏆 فاز " + boardTeamName(winSlot) + "!");
+        saveLocalTeamsFinished(scoreA, scoreB, winSlot);
         // A hot-seat two-team match has no personal winner; record a game played
         // without claiming a win so the device owner's win stats stay clean.
         try {
@@ -1947,6 +1966,20 @@ public class GameActivity extends AppCompatActivity {
         // the two-contestant count. Collect the team names first, then the categories.
         if (boardLocalTeams) {
             boardCols = Math.max(2, Math.min(6, boardAllCategories.size()));
+            if (restoreLocalTeamsBoardState(pendingLocalTeamsRestore)) {
+                return;
+            }
+            if (pendingLocalTeamsRestore != null
+                    && LocalTeamsGameStore.PHASE_CATEGORY_SELECT.equals(pendingLocalTeamsRestore.optString("phase"))) {
+                localTeamsRestoreConsumed = true;
+                boardTeamAName = pendingLocalTeamsRestore.optString("teamAName", boardTeamAName);
+                boardTeamBName = pendingLocalTeamsRestore.optString("teamBName", boardTeamBName);
+                offlineContestants.setContestantName(0, boardTeamAName);
+                offlineContestants.setContestantName(1, boardTeamBName);
+                saveLocalTeamsProgress(LocalTeamsGameStore.PHASE_CATEGORY_SELECT);
+                showCategorySelect();
+                return;
+            }
             showTeamNamesSetup();
             return;
         }
@@ -1962,6 +1995,254 @@ public class GameActivity extends AppCompatActivity {
         return slot == 1 ? boardTeamBName : boardTeamAName;
     }
 
+    private String localTeamsOpeningGreeting() {
+        if (pendingLocalTeamsRestore == null) {
+            return "تحدي الفرق! أدخلوا أسماء الفريقين";
+        }
+        JSONObject state = pendingLocalTeamsRestore.optJSONObject("state");
+        int slot = 0;
+        if (state != null) {
+            slot = state.optInt("pickerSlot", state.optInt("turnIndex", 0) % 2);
+        } else {
+            slot = pendingLocalTeamsRestore.optInt("turnIndex", 0) % 2;
+        }
+        slot = slot == 1 ? 1 : 0;
+        String teamName = slot == 1
+                ? pendingLocalTeamsRestore.optString("teamBName", boardTeamBName)
+                : pendingLocalTeamsRestore.optString("teamAName", boardTeamAName);
+        if (teamName == null || teamName.trim().isEmpty()) {
+            teamName = boardTeamName(slot);
+        }
+        return "أهلا وسهلا بكم من جديد\nللتذكير: الدور الآن لـ " + teamName;
+    }
+
+    private void saveLocalTeamsProgress(String phase) {
+        if (!boardLocalTeams || localTeamsFinished || localTeamsSaveId == null || localTeamsSaveId.trim().isEmpty()) {
+            return;
+        }
+        try {
+            JSONObject record = LocalTeamsGameStore.get(this, localTeamsSaveId);
+            if (record == null) {
+                record = LocalTeamsGameStore.baseRecord(localTeamsSaveId);
+            }
+            long now = System.currentTimeMillis();
+            if (!record.has("createdAt")) {
+                record.put("createdAt", now);
+            }
+            String safePhase = (phase == null || phase.trim().isEmpty())
+                    ? currentLocalTeamsPhase() : phase.trim();
+            int scoreA = offlineContestants == null ? 0 : offlineContestants.scoreForSlot(0);
+            int scoreB = offlineContestants == null ? 0 : offlineContestants.scoreForSlot(1);
+            record.put("updatedAt", now);
+            record.put("status", LocalTeamsGameStore.STATUS_IN_PROGRESS);
+            record.put("phase", safePhase);
+            record.put("teamAName", boardTeamAName);
+            record.put("teamBName", boardTeamBName);
+            record.put("scoreA", scoreA);
+            record.put("scoreB", scoreB);
+            record.put("turnIndex", Math.max(0, boardTurnIndex));
+            record.put("totalTurns", Math.max(0, boardTotalTurns));
+            record.put("winnerSlot", -2);
+            record.put("winnerName", "");
+
+            JSONObject state = new JSONObject();
+            state.put("phase", safePhase);
+            state.put("boardCols", boardCols);
+            state.put("cellsRemaining", boardCellsRemaining);
+            state.put("turnIndex", boardTurnIndex);
+            state.put("totalTurns", boardTotalTurns);
+            state.put("pickerSlot", boardPickerSlot);
+            state.put("pickedCol", boardPickedCol);
+            state.put("pickedRow", boardPickedRow);
+            state.put("revealCount", boardRevealCount);
+            state.put("stealActive", boardStealActive);
+            state.put("optionsRevealed", boardOptionsRevealed);
+
+            JSONArray scores = new JSONArray();
+            scores.put(scoreA);
+            scores.put(scoreB);
+            state.put("scores", scores);
+
+            JSONArray categories = new JSONArray();
+            for (String category : boardSelectedCategories) {
+                categories.put(category == null ? "" : category);
+            }
+            state.put("selectedCategories", categories);
+
+            JSONArray cells = new JSONArray();
+            if (boardCellQuestion != null) {
+                for (int col = 0; col < boardCols; col++) {
+                    JSONArray colArray = new JSONArray();
+                    for (int row = 0; row < BOARD_ROWS; row++) {
+                        JSONObject cell = new JSONObject();
+                        cell.put("consumed", boardCellConsumed != null
+                                && col < boardCellConsumed.length
+                                && boardCellConsumed[col] != null
+                                && row < boardCellConsumed[col].length
+                                && boardCellConsumed[col][row]);
+                        Question q = (col < boardCellQuestion.length && boardCellQuestion[col] != null
+                                && row < boardCellQuestion[col].length)
+                                ? boardCellQuestion[col][row] : null;
+                        cell.put("question", questionToJson(q));
+                        colArray.put(cell);
+                    }
+                    cells.put(colArray);
+                }
+            }
+            state.put("cells", cells);
+            record.put("state", state);
+            LocalTeamsGameStore.upsert(this, record);
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void saveLocalTeamsFinished(int scoreA, int scoreB, int winSlot) {
+        if (!boardLocalTeams || localTeamsSaveId == null || localTeamsSaveId.trim().isEmpty()) {
+            return;
+        }
+        localTeamsFinished = true;
+        try {
+            JSONObject record = LocalTeamsGameStore.get(this, localTeamsSaveId);
+            if (record == null) {
+                record = LocalTeamsGameStore.baseRecord(localTeamsSaveId);
+            }
+            long now = System.currentTimeMillis();
+            record.put("updatedAt", now);
+            record.put("completedAt", now);
+            record.put("status", LocalTeamsGameStore.STATUS_FINISHED);
+            record.put("phase", LocalTeamsGameStore.PHASE_FINISHED);
+            record.put("teamAName", boardTeamAName);
+            record.put("teamBName", boardTeamBName);
+            record.put("scoreA", scoreA);
+            record.put("scoreB", scoreB);
+            record.put("turnIndex", Math.max(0, boardTurnIndex));
+            record.put("totalTurns", Math.max(0, boardTotalTurns));
+            record.put("winnerSlot", winSlot);
+            record.put("winnerName", winSlot < 0 ? "" : boardTeamName(winSlot));
+            LocalTeamsGameStore.upsert(this, record);
+        } catch (Exception ignored) {
+        }
+    }
+
+    private String currentLocalTeamsPhase() {
+        if (boardCurrentQuestion != null) return LocalTeamsGameStore.PHASE_QUESTION;
+        if (boardSelectedCategories.isEmpty()) return LocalTeamsGameStore.PHASE_CATEGORY_SELECT;
+        return LocalTeamsGameStore.PHASE_BOARD;
+    }
+
+    private boolean restoreLocalTeamsBoardState(JSONObject record) {
+        if (record == null || localTeamsRestoreConsumed) return false;
+        JSONObject state = record.optJSONObject("state");
+        if (state == null) return false;
+        JSONArray categories = state.optJSONArray("selectedCategories");
+        if (categories == null || categories.length() == 0) return false;
+
+        localTeamsRestoreConsumed = true;
+        stopCategorySelectMusicIfPlaying();
+        boardTeamAName = record.optString("teamAName", boardTeamAName);
+        boardTeamBName = record.optString("teamBName", boardTeamBName);
+        offlineContestants.setContestantName(0, boardTeamAName);
+        offlineContestants.setContestantName(1, boardTeamBName);
+        offlineContestants.setScoreForSlot(0, record.optInt("scoreA", 0));
+        offlineContestants.setScoreForSlot(1, record.optInt("scoreB", 0));
+
+        boardSelectedCategories.clear();
+        for (int i = 0; i < categories.length(); i++) {
+            String category = categories.optString(i, "");
+            if (!category.trim().isEmpty()) boardSelectedCategories.add(category);
+        }
+        boardCols = Math.max(1, Math.min(boardSelectedCategories.size(), state.optInt("boardCols", boardSelectedCategories.size())));
+        boardCellQuestion = new Question[boardCols][BOARD_ROWS];
+        boardCellConsumed = new boolean[boardCols][BOARD_ROWS];
+
+        JSONArray cells = state.optJSONArray("cells");
+        Set<Question> used = new HashSet<>();
+        for (int col = 0; col < boardCols; col++) {
+            for (int row = 0; row < BOARD_ROWS; row++) {
+                JSONObject cell = null;
+                if (cells != null) {
+                    JSONArray colArray = cells.optJSONArray(col);
+                    if (colArray != null) cell = colArray.optJSONObject(row);
+                }
+                if (cell != null) {
+                    boardCellConsumed[col][row] = cell.optBoolean("consumed", false);
+                    boardCellQuestion[col][row] = questionFromJson(cell.optJSONObject("question"));
+                }
+                if (boardCellQuestion[col][row] == null) {
+                    String category = boardSelectedCategories.get(Math.min(col, boardSelectedCategories.size() - 1));
+                    boardCellQuestion[col][row] = drawBoardQuestion(category, boardTierForRow(row), used);
+                }
+            }
+        }
+
+        boardCellsRemaining = state.optInt("cellsRemaining", countRemainingBoardCells());
+        boardTurnIndex = state.optInt("turnIndex", 0);
+        boardTotalTurns = state.optInt("totalTurns", Math.max(0, boardCols * BOARD_ROWS));
+        boardPickerSlot = state.optInt("pickerSlot", 0);
+        boardPickedCol = state.optInt("pickedCol", -1);
+        boardPickedRow = state.optInt("pickedRow", -1);
+        boardRevealCount = Math.max(0, state.optInt("revealCount", 0));
+        boardStealActive = state.optBoolean("stealActive", false);
+        boardOptionsRevealed = state.optBoolean("optionsRevealed", false);
+        boardPickerIsHuman = true;
+
+        String phase = state.optString("phase", record.optString("phase", LocalTeamsGameStore.PHASE_BOARD));
+        if (LocalTeamsGameStore.PHASE_QUESTION.equals(phase)
+                && boardPickedCol >= 0 && boardPickedCol < boardCols
+                && boardPickedRow >= 0 && boardPickedRow < BOARD_ROWS
+                && !boardCellConsumed[boardPickedCol][boardPickedRow]) {
+            boardCurrentQuestion = boardCellQuestion[boardPickedCol][boardPickedRow];
+            hideBoardOverlay();
+            initQuestion();
+            CAN_PLAY = false;
+            showBoardQuestion(boardCurrentQuestion, true);
+        } else {
+            beginBoardTurn();
+        }
+        return true;
+    }
+
+    private int countRemainingBoardCells() {
+        if (boardCellConsumed == null) return Math.max(0, boardCols * BOARD_ROWS);
+        int remaining = 0;
+        for (int col = 0; col < boardCellConsumed.length; col++) {
+            if (boardCellConsumed[col] == null) continue;
+            for (int row = 0; row < boardCellConsumed[col].length; row++) {
+                if (!boardCellConsumed[col][row]) remaining++;
+            }
+        }
+        return remaining;
+    }
+
+    private JSONObject questionToJson(Question q) {
+        JSONObject json = new JSONObject();
+        if (q == null) return json;
+        try {
+            json.put("Level", safeString(q.getLevel()));
+            json.put("Q", safeString(q.getQ()));
+            json.put("R", safeString(q.getR()));
+            json.put("W1", safeString(q.getW1()));
+            json.put("W2", safeString(q.getW2()));
+            json.put("W3", safeString(q.getW3()));
+            json.put("Category", safeString(q.getCategory()));
+        } catch (Exception ignored) {
+        }
+        return json;
+    }
+
+    private Question questionFromJson(JSONObject json) {
+        if (json == null || json.length() == 0) return null;
+        Question q = new Question();
+        q.setLevel(json.optString("Level", "0"));
+        q.setQ(json.optString("Q", ""));
+        q.setR(json.optString("R", ""));
+        q.setW1(json.optString("W1", ""));
+        q.setW2(json.optString("W2", ""));
+        q.setW3(json.optString("W3", ""));
+        q.setCategory(json.optString("Category", ""));
+        return q.getQ() == null || q.getQ().trim().isEmpty() ? null : q;
+    }
+
     // ---- Team-names setup (التحدي الرئيسي) ------------------------------
 
     /** First screen of التحدي الرئيسي: enter the two team names, then pick the 6
@@ -1974,6 +2255,7 @@ public class GameActivity extends AppCompatActivity {
             return;
         }
         playCategorySelectMusic();
+        saveLocalTeamsProgress(LocalTeamsGameStore.PHASE_SETUP);
         overlay.removeAllViews();
         overlay.setBackgroundColor(0xF2071026);
         overlay.setVisibility(View.VISIBLE);
@@ -2016,6 +2298,7 @@ public class GameActivity extends AppCompatActivity {
                 offlineContestants.setContestantName(0, a);
                 offlineContestants.setContestantName(1, b);
                 hideKeyboard();
+                saveLocalTeamsProgress(LocalTeamsGameStore.PHASE_CATEGORY_SELECT);
                 showCategorySelect();
             }
         };
@@ -2366,6 +2649,9 @@ public class GameActivity extends AppCompatActivity {
         if (boardCampaignMatch && "solo".equals(boardCampaignKind)) {
             boardTotalTurns = Math.max(1, Math.min(boardSoloPicks, boardCellsRemaining));
         }
+        if (boardLocalTeams) {
+            saveLocalTeamsProgress(LocalTeamsGameStore.PHASE_BOARD);
+        }
         beginBoardTurn();
     }
 
@@ -2440,6 +2726,9 @@ public class GameActivity extends AppCompatActivity {
         // In التحدي الرئيسي both seats are human teams playing on one phone, so every
         // turn is a human typed turn (no bots).
         boardPickerIsHuman = boardLocalTeams || (boardPickerSlot == 0);
+        if (boardLocalTeams) {
+            saveLocalTeamsProgress(LocalTeamsGameStore.PHASE_BOARD);
+        }
         showBoardGrid();
         if (!boardPickerIsHuman) {
             new Handler().postDelayed(new Runnable() {
@@ -2478,6 +2767,9 @@ public class GameActivity extends AppCompatActivity {
         boardPickedCol = col;
         boardPickedRow = row;
         boardCurrentQuestion = boardCellQuestion[col][row];
+        if (boardLocalTeams) {
+            saveLocalTeamsProgress(LocalTeamsGameStore.PHASE_QUESTION);
+        }
         if (boardOnline) {
             cancelBoardSelectTimer();
             writeOnlineTurnPick(boardOnlineTurn, col, row);
@@ -2494,6 +2786,9 @@ public class GameActivity extends AppCompatActivity {
         boardPickerIsHuman = humanTurn;
         CAN_PLAY = false;
         showBoardQuestion(boardCurrentQuestion, humanTurn);
+        if (boardLocalTeams) {
+            saveLocalTeamsProgress(LocalTeamsGameStore.PHASE_QUESTION);
+        }
     }
 
     private void endBoardTurn() {
@@ -2512,6 +2807,9 @@ public class GameActivity extends AppCompatActivity {
         if (boardCellsRemaining <= 0 || boardTurnIndex >= boardTotalTurns) {
             finishBoardMatch();
             return;
+        }
+        if (boardLocalTeams) {
+            saveLocalTeamsProgress(LocalTeamsGameStore.PHASE_BOARD);
         }
         beginBoardTurn();
     }
@@ -3807,7 +4105,7 @@ public class GameActivity extends AppCompatActivity {
         root.addView(banner);
 
         // 30-second pick timer (human turn only); auto-picks a cell on timeout.
-        if (boardPickerIsHuman) {
+        if (shouldUseBoardSelectTimer()) {
             boardSelectCountdownView = makeBoardText("⏱ " + BOARD_SELECT_SECONDS, 16f, 0xFF61FF39, Gravity.CENTER);
             boardSelectCountdownView.setBackground(headerBg());
             boardSelectCountdownView.setPadding(dpx(14), dpx(3), dpx(14), dpx(3));
@@ -3902,13 +4200,21 @@ public class GameActivity extends AppCompatActivity {
         }
         overlay.addView(gridScroll);
 
-        if (boardPickerIsHuman) {
+        if (shouldUseBoardSelectTimer()) {
             startBoardSelectTimer();
         }
     }
 
+    private boolean shouldUseBoardSelectTimer() {
+        return boardPickerIsHuman && !boardLocalTeams;
+    }
+
     private void startBoardSelectTimer() {
         cancelBoardSelectTimer();
+        if (!shouldUseBoardSelectTimer()) {
+            boardSelectCountdownView = null;
+            return;
+        }
         boardSelectTimer = new CountDownTimer(BOARD_SELECT_SECONDS * 1000L, 1000L) {
             @Override
             public void onTick(long ms) {
@@ -4120,6 +4426,9 @@ public class GameActivity extends AppCompatActivity {
         txtSelected = null;
         setBoardAnswerOptionsVisible(false);
         showBoardTypedPanel(true);
+        if (boardLocalTeams) {
+            saveLocalTeamsProgress(LocalTeamsGameStore.PHASE_QUESTION);
+        }
         final Handler handler = new Handler();
         handler.postDelayed(new Runnable() {
             @Override
@@ -4269,6 +4578,9 @@ public class GameActivity extends AppCompatActivity {
         showBoardTypedPanel(false);
         setBoardAnswerOptionsVisible(true);
         CAN_PLAY = true; // the player now taps one of the four options
+        if (boardLocalTeams) {
+            saveLocalTeamsProgress(LocalTeamsGameStore.PHASE_QUESTION);
+        }
         showDialog("اختر الإجابة الصحيحة (القيمة الآن " + currentBoardAwardValue() + ")",
                 "", 600, 1400, R.drawable.mouth_01, true);
     }
@@ -4307,6 +4619,7 @@ public class GameActivity extends AppCompatActivity {
         final int stealSlot = (boardPickerSlot == 1) ? 0 : 1;
         boardPickerSlot = stealSlot;
         boardPickerIsHuman = true;
+        saveLocalTeamsProgress(LocalTeamsGameStore.PHASE_QUESTION);
         new Handler().postDelayed(new Runnable() {
             @Override
             public void run() {
@@ -6882,6 +7195,14 @@ public class GameActivity extends AppCompatActivity {
         leaveOnlineMatchIfNeeded();
         stopCurrentSound();
         stopTimer(false);
+        if (boardLocalTeams && boardMode && !localTeamsFinished) {
+            saveLocalTeamsProgress(currentLocalTeamsPhase());
+            Toast.makeText(this, "تم حفظ المباراة ويمكنك متابعتها لاحقًا", Toast.LENGTH_SHORT).show();
+            if (offlineContestants != null) offlineContestants.release();
+            if (cdtProgress != null) cdtProgress.cancel();
+            finish();
+            return;
+        }
         if (isOfflineContestantMode()) {
             final int score = offlineContestants.playerScore();
             person.moveShowHand(1000);
@@ -7490,7 +7811,7 @@ public class GameActivity extends AppCompatActivity {
                             btnDialogYes.setVisibility(View.INVISIBLE);
                             btnDialogNo.setVisibility(View.INVISIBLE);
                             txtDialog.setPadding(30, 10, 20, 30);
-                            handler.postDelayed(this, timeDialog);
+                            handler.postDelayed(this, timeDialog + DIALOG_EXTRA_VISIBLE_MS);
                         } else {
                             CAN_CLICK = true;
                             btnDialogYes.setVisibility(View.VISIBLE);
@@ -7524,6 +7845,12 @@ public class GameActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         ACTIVITY_PAUSED = true;
+        if (boardLocalTeams && boardMode && !localTeamsFinished) {
+            boolean safeToSave = boardCurrentQuestion == null || boardAwaitingTypedInput || CAN_PLAY;
+            if (safeToSave) {
+                saveLocalTeamsProgress(currentLocalTeamsPhase());
+            }
+        }
         if (backgroundVideoController != null) backgroundVideoController.pause();
         if(cdtProgress != null) cdtProgress.cancel();
         if (soundController != null) soundController.releaseCurrent();

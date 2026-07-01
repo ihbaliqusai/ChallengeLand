@@ -59,7 +59,7 @@ class MainActivity : FlutterActivity() {
                     }
                     "launchMainChallenge" -> {
                         // التحدي الرئيسي: لوحة سين جيم بين فريقين على جهاز واحد.
-                        val intent = Intent(this, GameActivity::class.java)
+                        val intent = Intent(this, LocalTeamsGamesActivity::class.java)
                         intent.putExtra("mode", "mono")
                         intent.putExtra("localTeams", true)
                         intent.putExtra(

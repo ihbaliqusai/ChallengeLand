@@ -70,6 +70,7 @@ import java.util.Locale;
 
 public abstract class BaseGameActivity extends AppCompatActivity {
     private static final float MUSIC_VOLUME = 0.5f;
+    private static final int DIALOG_EXTRA_VISIBLE_MS = 1000;
 
     protected abstract int getLayoutResId();
 
@@ -5916,7 +5917,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                             btnDialogYes.setVisibility(View.INVISIBLE);
                             btnDialogNo.setVisibility(View.INVISIBLE);
                             txtDialog.setPadding(30, 10, 20, 30);
-                            handler.postDelayed(this, timeDialog);
+                            handler.postDelayed(this, timeDialog + DIALOG_EXTRA_VISIBLE_MS);
                         } else {
                             CAN_CLICK = true;
                             btnDialogYes.setVisibility(View.VISIBLE);
