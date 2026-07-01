@@ -2792,6 +2792,9 @@ public class GameActivity extends AppCompatActivity {
     }
 
     private void endBoardTurn() {
+        if (boardLocalTeams && offlineContestants != null) {
+            offlineContestants.setLocalTeamsActiveQuestionSlot(-1);
+        }
         if (boardPickedCol >= 0 && boardPickedRow >= 0
                 && boardPickedCol < boardCols && boardPickedRow < BOARD_ROWS) {
             boardCellConsumed[boardPickedCol][boardPickedRow] = true;
@@ -2815,6 +2818,9 @@ public class GameActivity extends AppCompatActivity {
     }
 
     private void finishBoardMatch() {
+        if (boardLocalTeams && offlineContestants != null) {
+            offlineContestants.setLocalTeamsActiveQuestionSlot(-1);
+        }
         hideBoardOverlay();
         if (boardCampaignMatch) {
             finishCampaignBoardMatch();
@@ -4064,6 +4070,9 @@ public class GameActivity extends AppCompatActivity {
         cancelBoardSelectTimer();
         boardAwaitingTypedInput = false;
         showBoardTypedPanel(false);
+        if (boardLocalTeams && offlineContestants != null) {
+            offlineContestants.setLocalTeamsActiveQuestionSlot(-1);
+        }
         final FrameLayout overlay = (FrameLayout) findViewById(R.id.boardOverlay);
         if (overlay == null) return;
         overlay.removeAllViews();
@@ -4346,6 +4355,9 @@ public class GameActivity extends AppCompatActivity {
      */
     private void showBoardQuestion(final Question question, final boolean humanTurn) {
         if (EXITING || question == null) return;
+        if (boardLocalTeams && offlineContestants != null) {
+            offlineContestants.setLocalTeamsActiveQuestionSlot(boardPickerSlot);
+        }
         playQuestionMusic();
         boardCurrentQuestion = question;
         txtQ.setText(question.Q);
@@ -4619,6 +4631,9 @@ public class GameActivity extends AppCompatActivity {
         final int stealSlot = (boardPickerSlot == 1) ? 0 : 1;
         boardPickerSlot = stealSlot;
         boardPickerIsHuman = true;
+        if (offlineContestants != null) {
+            offlineContestants.setLocalTeamsActiveQuestionSlot(stealSlot);
+        }
         saveLocalTeamsProgress(LocalTeamsGameStore.PHASE_QUESTION);
         new Handler().postDelayed(new Runnable() {
             @Override

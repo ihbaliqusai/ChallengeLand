@@ -2,6 +2,7 @@ package net.androidgaming.millionaire2024;
 
 import android.graphics.Color;
 import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
 import android.text.TextUtils;
 import android.util.DisplayMetrics;
 import android.util.TypedValue;
@@ -149,6 +150,8 @@ final class GameOfflineContestantsController {
     private TextView[] boardNameViews;
     private TextView[] boardScoreViews;
     private ImageView[] boardAvatarViews;
+    private FrameLayout[] boardRowFrames;
+    private View[] boardTurnIndicators;
     private FrameLayout scoreBoard;
     private FrameLayout scoreBoardContent;
     private LinearLayout row;
@@ -165,6 +168,7 @@ final class GameOfflineContestantsController {
     // التحدي الرئيسي (two teams on one phone): no animated figures, and the scoreboard
     // shows each team's name + live point total instead of avatars + rank ordinals.
     private boolean localTeamsBoard = false;
+    private int localTeamsActiveQuestionSlot = -1;
 
     // Character figure genders: indices 0-4 are male, 5-7 female (see CONTESTANT_DRAWABLES).
     private static final int[] MALE_FIGURES = {0, 1, 2, 3, 4};
@@ -207,6 +211,8 @@ final class GameOfflineContestantsController {
         selectedCharacterIndex = characterIndex;
         teamMode = false;
         slotTeam = null;
+        localTeamsBoard = false;
+        localTeamsActiveQuestionSlot = -1;
 
         allocateContestantArrays();
         slotCharacter = new int[count];
@@ -249,6 +255,8 @@ final class GameOfflineContestantsController {
         selectedCharacterIndex = characterIndex;
         teamMode = false;
         slotTeam = null;
+        localTeamsBoard = false;
+        localTeamsActiveQuestionSlot = -1;
 
         allocateContestantArrays();
         slotCharacter = new int[count];
@@ -277,6 +285,8 @@ final class GameOfflineContestantsController {
         characterIndex = ((characterIndex % CHARACTER_COUNT) + CHARACTER_COUNT) % CHARACTER_COUNT;
         selectedCharacterIndex = characterIndex;
         teamMode = isTeam;
+        localTeamsBoard = false;
+        localTeamsActiveQuestionSlot = -1;
 
         allocateContestantArrays();
         slotCharacter = new int[count];
@@ -625,6 +635,12 @@ final class GameOfflineContestantsController {
         refreshScoreBoard();
     }
 
+    void setLocalTeamsActiveQuestionSlot(int slot) {
+        if (!localTeamsBoard) return;
+        localTeamsActiveQuestionSlot = (slot >= 0 && slot < count) ? slot : -1;
+        refreshScoreBoard();
+    }
+
     /** The character figure index drawn for a slot (used by the results screen). */
     int characterForSlot(int slot) {
         if (slotCharacter != null && slot >= 0 && slot < slotCharacter.length) {
@@ -691,6 +707,7 @@ final class GameOfflineContestantsController {
 
     void release() {
         active = false;
+        localTeamsActiveQuestionSlot = -1;
         releaseVideos();
         if (scoreBoard != null) {
             scoreBoard.setVisibility(View.INVISIBLE);
@@ -702,12 +719,16 @@ final class GameOfflineContestantsController {
      *  team's name + live point total instead of an avatar + rank ordinal. */
     void enableLocalTeamsScoreboard() {
         localTeamsBoard = true;
+        localTeamsActiveQuestionSlot = -1;
         releaseVideos();
         if (row != null) row.setVisibility(View.GONE);
         // Use the dedicated two-team "قائمة النتائج" board artwork for this mode.
         View bg = activity.findViewById(R.id.offlineScoreBoardBg);
         if (bg instanceof ImageView) {
             ((ImageView) bg).setImageResource(R.drawable.board1);
+        }
+        if (scoreBoardContent != null && scoreBoardContent.getChildCount() > 0) {
+            populateScoreBoardRows();
         }
         refreshScoreBoard();
     }
@@ -791,6 +812,8 @@ final class GameOfflineContestantsController {
         boardNameViews = new TextView[visibleRows];
         boardScoreViews = new TextView[visibleRows];
         boardAvatarViews = new ImageView[visibleRows];
+        boardRowFrames = new FrameLayout[visibleRows];
+        boardTurnIndicators = new View[visibleRows];
 
         scoreBoardContent.post(new Runnable() {
             @Override
@@ -835,6 +858,8 @@ final class GameOfflineContestantsController {
         boardNameViews = new TextView[visibleRows];
         boardScoreViews = new TextView[visibleRows];
         boardAvatarViews = new ImageView[visibleRows];
+        boardRowFrames = new FrameLayout[visibleRows];
+        boardTurnIndicators = new View[visibleRows];
 
         for (int i = 0; i < visibleRows; i++) {
             FrameLayout rowFrame = new FrameLayout(activity);
@@ -848,6 +873,21 @@ final class GameOfflineContestantsController {
                     density
             );
             rowFrame.setLayoutParams(rowParams);
+            rowFrame.setClipChildren(false);
+            rowFrame.setClipToPadding(false);
+
+            View turnIndicator = new View(activity);
+            float indicatorSizeDp = clamp(rowHeightDp * 0.42f, 8f, 13f);
+            FrameLayout.LayoutParams indicatorParams = new FrameLayout.LayoutParams(
+                    px(indicatorSizeDp, density),
+                    px(indicatorSizeDp, density)
+            );
+            indicatorParams.gravity = Gravity.TOP | Gravity.CENTER_HORIZONTAL;
+            turnIndicator.setLayoutParams(indicatorParams);
+            turnIndicator.setTranslationY(-px(3f, density));
+            turnIndicator.setVisibility(View.INVISIBLE);
+            turnIndicator.setAlpha(0f);
+            rowFrame.addView(turnIndicator);
 
             ImageView avatar = new ImageView(activity);
             FrameLayout.LayoutParams avatarParams = new FrameLayout.LayoutParams(
@@ -887,6 +927,8 @@ final class GameOfflineContestantsController {
             rowFrame.addView(name);
 
             scoreBoardContent.addView(rowFrame);
+            boardRowFrames[i] = rowFrame;
+            boardTurnIndicators[i] = turnIndicator;
             boardAvatarViews[i] = avatar;
             boardNameViews[i] = name;
             boardScoreViews[i] = score;
@@ -929,6 +971,7 @@ final class GameOfflineContestantsController {
                 if (boardAvatarViews[rowIndex] != null) {
                     boardAvatarViews[rowIndex].setVisibility(View.INVISIBLE);
                 }
+                setLocalTeamQuestionIndicator(rowIndex, rowIndex == localTeamsActiveQuestionSlot, color);
             }
             return;
         }
@@ -977,6 +1020,49 @@ final class GameOfflineContestantsController {
                 && boardAvatarViews[rowIndex] != null) {
             boardAvatarViews[rowIndex].setVisibility(View.INVISIBLE);
         }
+    }
+
+    private void setLocalTeamQuestionIndicator(int rowIndex, boolean active, int color) {
+        if (boardRowFrames != null && rowIndex >= 0 && rowIndex < boardRowFrames.length
+                && boardRowFrames[rowIndex] != null) {
+            boardRowFrames[rowIndex].setBackground(active ? localTeamActiveRowBg(color) : null);
+        }
+        if (boardTurnIndicators != null && rowIndex >= 0 && rowIndex < boardTurnIndicators.length
+                && boardTurnIndicators[rowIndex] != null) {
+            View indicator = boardTurnIndicators[rowIndex];
+            if (active) {
+                indicator.setBackground(localTeamTurnIndicatorBg(color));
+                indicator.setVisibility(View.VISIBLE);
+                indicator.setAlpha(1f);
+                indicator.setElevation(px(3f, activity.getResources().getDisplayMetrics().density));
+            } else {
+                indicator.setVisibility(View.INVISIBLE);
+                indicator.setAlpha(0f);
+                indicator.setElevation(0f);
+            }
+        }
+    }
+
+    private GradientDrawable localTeamActiveRowBg(int color) {
+        float density = activity.getResources().getDisplayMetrics().density;
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setColor(withAlpha(color, 0x24));
+        drawable.setCornerRadius(px(6f, density));
+        drawable.setStroke(px(1.5f, density), withAlpha(color, 0xEE));
+        return drawable;
+    }
+
+    private GradientDrawable localTeamTurnIndicatorBg(int color) {
+        float density = activity.getResources().getDisplayMetrics().density;
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setShape(GradientDrawable.OVAL);
+        drawable.setColor(withAlpha(color, 0xF2));
+        drawable.setStroke(px(1f, density), 0xFFFFFFFF);
+        return drawable;
+    }
+
+    private int withAlpha(int color, int alpha) {
+        return (color & 0x00FFFFFF) | ((alpha & 0xFF) << 24);
     }
 
     /** English ordinal for a rank: 1->"1st", 2->"2nd", 3->"3rd", 4->"4th", 11->"11th"... */
