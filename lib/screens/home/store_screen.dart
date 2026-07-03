@@ -4,9 +4,11 @@ import 'package:provider/provider.dart';
 
 import '../../core/app_settings.dart';
 import '../../core/app_state.dart';
+import '../../models/game_character.dart';
 import '../../services/ad_service.dart';
 import '../../services/native_bridge_service.dart';
 import '../../widgets/currency_reward_overlay.dart';
+import '../character/character_select_screen.dart';
 
 class _CoinItem {
   const _CoinItem({
@@ -22,79 +24,12 @@ class _CoinItem {
   final String tag;
 }
 
-class _Tier {
-  const _Tier(this.qty, this.cost);
-
-  final int qty;
-  final int cost;
-}
-
-class _PowerupDef {
-  const _PowerupDef({
-    required this.type,
-    required this.name,
-    required this.shortName,
-    required this.desc,
-    required this.icon,
-    required this.color,
-    required this.coinTiers,
-    required this.gemTiers,
-  });
-
-  final String type;
-  final String name;
-  final String shortName;
-  final String desc;
-  final IconData icon;
-  final Color color;
-  final List<_Tier> coinTiers;
-  final List<_Tier> gemTiers;
-}
-
 const List<_CoinItem> _kCoinItems = <_CoinItem>[
-  _CoinItem(label: '5,000', coinAmount: 5000, gemCost: 50, tag: 'بداية'),
-  _CoinItem(label: '22,000', coinAmount: 22000, gemCost: 200, tag: 'شائع'),
-  _CoinItem(label: '96,000', coinAmount: 96000, gemCost: 800, tag: 'قيمة'),
-  _CoinItem(label: '345,000', coinAmount: 345000, gemCost: 3000, tag: 'كبير'),
-  _CoinItem(
-    label: '1,200,000',
-    coinAmount: 1200000,
-    gemCost: 10000,
-    tag: 'الأفضل',
-  ),
-];
-
-const List<_PowerupDef> _kPowerups = <_PowerupDef>[
-  _PowerupDef(
-    type: '5050',
-    name: '50:50',
-    shortName: '50:50',
-    desc: 'يحذف إجابتين خاطئتين ويترك خيارين فقط.',
-    icon: Icons.filter_2_rounded,
-    color: Color(0xFF60A5FA),
-    coinTiers: <_Tier>[_Tier(1, 2000), _Tier(3, 5000), _Tier(5, 7500)],
-    gemTiers: <_Tier>[_Tier(1, 20), _Tier(3, 50), _Tier(5, 75)],
-  ),
-  _PowerupDef(
-    type: 'audience',
-    name: 'استشارة الجمهور',
-    shortName: 'الجمهور',
-    desc: 'يعرض ترجيحات الجمهور لمساعدتك في القرار.',
-    icon: Icons.groups_rounded,
-    color: Color(0xFFC084FC),
-    coinTiers: <_Tier>[_Tier(1, 3000), _Tier(3, 7500), _Tier(5, 11000)],
-    gemTiers: <_Tier>[_Tier(1, 30), _Tier(3, 75), _Tier(5, 110)],
-  ),
-  _PowerupDef(
-    type: 'call',
-    name: 'اتصال بصديق',
-    shortName: 'صديق',
-    desc: 'اتصل بالخبير للحصول على تلميح قبل الإجابة.',
-    icon: Icons.phone_rounded,
-    color: Color(0xFF34D399),
-    coinTiers: <_Tier>[_Tier(1, 3000), _Tier(3, 7500), _Tier(5, 11000)],
-    gemTiers: <_Tier>[_Tier(1, 30), _Tier(3, 75), _Tier(5, 110)],
-  ),
+  _CoinItem(label: '1,500', coinAmount: 1500, gemCost: 15, tag: 'سريع'),
+  _CoinItem(label: '6,000', coinAmount: 6000, gemCost: 55, tag: 'شائع'),
+  _CoinItem(label: '14,000', coinAmount: 14000, gemCost: 120, tag: 'شخصية'),
+  _CoinItem(label: '35,000', coinAmount: 35000, gemCost: 290, tag: 'قيمة'),
+  _CoinItem(label: '90,000', coinAmount: 90000, gemCost: 700, tag: 'كبير'),
 ];
 
 class StoreScreen extends StatefulWidget {
@@ -105,46 +40,30 @@ class StoreScreen extends StatefulWidget {
 }
 
 class _StoreScreenState extends State<StoreScreen> {
-  Map<String, int> _inventory = <String, int>{};
-  bool _loadingInventory = true;
   bool _busy = false;
 
   @override
   void initState() {
     super.initState();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-    _loadInventory();
   }
 
   Future<void> _haptic() async {
     await context.read<AppSettings>().playHaptic();
   }
 
-  Future<void> _loadInventory() async {
-    try {
-      final inventory =
-          await context.read<NativeBridgeService>().getInventory();
-      if (!mounted) return;
-      setState(() {
-        _inventory = inventory;
-        _loadingInventory = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _loadingInventory = false);
-    }
+  Future<void> _openCharacters() async {
+    final appState = context.read<AppState>();
+    final navigator = Navigator.of(context);
+    await _haptic();
+    if (!mounted) return;
+    await navigator.push(
+      MaterialPageRoute<void>(builder: (_) => const CharacterSelectScreen()),
+    );
+    if (!mounted) return;
+    await appState.loadCharacterState();
+    await appState.loadCurrency();
   }
-
-  int _count(String type) {
-    if (type == '5050') return _inventory['inv5050'] ?? 0;
-    if (type == 'audience') return _inventory['invAudience'] ?? 0;
-    return _inventory['invCall'] ?? 0;
-  }
-
-  int get _inventoryTotal =>
-      (_inventory['inv5050'] ?? 0) +
-      (_inventory['invAudience'] ?? 0) +
-      (_inventory['invCall'] ?? 0);
 
   Future<void> _watchRewardedAd() async {
     if (_busy) return;
@@ -194,41 +113,6 @@ class _StoreScreenState extends State<StoreScreen> {
     );
   }
 
-  Future<void> _claimDailyReward() async {
-    if (_busy) return;
-    final adService = context.read<AdService>();
-    final native = context.read<NativeBridgeService>();
-    await _haptic();
-
-    if (!adService.canClaimDailyPowerUp) {
-      _showSnack('أكمل 5 إعلانات خلال اليوم أولاً.', isError: true);
-      return;
-    }
-
-    final selected = await _showRewardPicker();
-    if (selected == null || !mounted) return;
-
-    setState(() => _busy = true);
-    final claimed = await adService.claimDailyPowerUp();
-    if (!mounted) return;
-    if (!claimed) {
-      setState(() => _busy = false);
-      _showSnack('تم صرف مكافأة اليوم مسبقاً.', isError: true);
-      return;
-    }
-
-    final granted = await native.grantPowerUp(type: selected, quantity: 1);
-    if (!mounted) return;
-    setState(() => _busy = false);
-
-    if (!granted) {
-      _showSnack('تعذر منح الوسيلة المجانية الآن.', isError: true);
-      return;
-    }
-    await _loadInventory();
-    _showSnack('تمت إضافة الوسيلة المجانية إلى مخزونك.');
-  }
-
   Future<void> _buyCoins(_CoinItem item) async {
     if (_busy) return;
     final appState = context.read<AppState>();
@@ -263,51 +147,6 @@ class _StoreScreenState extends State<StoreScreen> {
       return;
     }
     _showSnack('تمت إضافة ${item.label} كوين.');
-  }
-
-  Future<void> _buyPowerUp(
-    _PowerupDef def,
-    _Tier tier,
-    String payWith,
-  ) async {
-    if (_busy) return;
-    final appState = context.read<AppState>();
-    final native = context.read<NativeBridgeService>();
-    await _haptic();
-
-    final balance = payWith == 'coins' ? appState.coins : appState.gems;
-    final label = payWith == 'coins' ? 'كوين' : 'جوهرة';
-    if (balance < tier.cost) {
-      _showSnack('رصيد $label غير كاف.', isError: true);
-      return;
-    }
-
-    final ok = await _confirm(
-      'تأكيد الشراء',
-      'شراء ${def.name} ×${tier.qty} مقابل ${_compactNumber(tier.cost)} $label؟',
-    );
-    if (!ok || !mounted) return;
-
-    setState(() => _busy = true);
-    final success = await native.buyPowerUp(
-      type: def.type,
-      quantity: tier.qty,
-      payWith: payWith,
-      cost: tier.cost,
-    );
-    if (!mounted) return;
-    if (success) {
-      await appState.loadCurrency();
-      await _loadInventory();
-    }
-    if (!mounted) return;
-    setState(() => _busy = false);
-
-    if (!success) {
-      _showSnack('فشلت عملية الشراء.', isError: true);
-      return;
-    }
-    _showSnack('تم شراء ${def.name} بنجاح.');
   }
 
   Future<bool> _confirm(String title, String message) async {
@@ -365,33 +204,6 @@ class _StoreScreenState extends State<StoreScreen> {
         false;
   }
 
-  Future<String?> _showRewardPicker() async {
-    return showDialog<String>(
-      context: context,
-      builder: (BuildContext ctx) => Directionality(
-        textDirection: TextDirection.rtl,
-        child: AlertDialog(
-          backgroundColor: const Color(0xFF081328),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          title: const Text(
-            'اختر الوسيلة المجانية',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: _kPowerups.map((_PowerupDef def) {
-              return _RewardPickerTile(
-                def: def,
-                onTap: () => Navigator.of(ctx).pop(def.type),
-              );
-            }).toList(growable: false),
-          ),
-        ),
-      ),
-    );
-  }
-
   void _showSnack(String message, {bool isError = false}) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -442,14 +254,14 @@ class _StoreScreenState extends State<StoreScreen> {
                       coins: appState.coins,
                       gems: appState.gems,
                       adService: adService,
-                      loadingInventory: _loadingInventory,
-                      inventoryTotal: _inventoryTotal,
-                      inventoryCount: _count,
+                      selectedCharacter: appState.selectedCharacter,
+                      unlockedCharacters: CharacterCatalog.all
+                          .where(appState.isCharacterUnlocked)
+                          .length,
                       busy: _busy,
+                      onOpenCharacters: _openCharacters,
                       onWatchAd: _watchRewardedAd,
-                      onClaimDaily: _claimDailyReward,
                       onBuyCoins: _buyCoins,
-                      onBuyPowerUp: _buyPowerUp,
                     ),
                   ),
                 ],
@@ -485,27 +297,23 @@ class _StoreDashboard extends StatelessWidget {
     required this.coins,
     required this.gems,
     required this.adService,
-    required this.loadingInventory,
-    required this.inventoryTotal,
-    required this.inventoryCount,
+    required this.selectedCharacter,
+    required this.unlockedCharacters,
     required this.busy,
+    required this.onOpenCharacters,
     required this.onWatchAd,
-    required this.onClaimDaily,
     required this.onBuyCoins,
-    required this.onBuyPowerUp,
   });
 
   final int coins;
   final int gems;
   final AdService adService;
-  final bool loadingInventory;
-  final int inventoryTotal;
-  final int Function(String type) inventoryCount;
+  final GameCharacter selectedCharacter;
+  final int unlockedCharacters;
   final bool busy;
+  final VoidCallback onOpenCharacters;
   final VoidCallback onWatchAd;
-  final VoidCallback onClaimDaily;
   final void Function(_CoinItem item) onBuyCoins;
-  final void Function(_PowerupDef def, _Tier tier, String payWith) onBuyPowerUp;
 
   @override
   Widget build(BuildContext context) {
@@ -520,11 +328,6 @@ class _StoreDashboard extends StatelessWidget {
                 : constraints.maxWidth >= 560
                     ? 2
                     : 1;
-        final powerupColumns = constraints.maxWidth >= 1060
-            ? 3
-            : constraints.maxWidth >= 700
-                ? 2
-                : 1;
 
         return CustomScrollView(
           physics: const BouncingScrollPhysics(),
@@ -541,12 +344,11 @@ class _StoreDashboard extends StatelessWidget {
                   coins: coins,
                   gems: gems,
                   adService: adService,
-                  loadingInventory: loadingInventory,
-                  inventoryTotal: inventoryTotal,
-                  inventoryCount: inventoryCount,
+                  selectedCharacter: selectedCharacter,
+                  unlockedCharacters: unlockedCharacters,
                   busy: busy,
+                  onOpenCharacters: onOpenCharacters,
                   onWatchAd: onWatchAd,
-                  onClaimDaily: onClaimDaily,
                 ),
               ),
             ),
@@ -561,8 +363,7 @@ class _StoreDashboard extends StatelessWidget {
                 child: _SectionHeader(
                   icon: Icons.currency_exchange_rounded,
                   title: 'تحويل الجواهر',
-                  subtitle:
-                      'حوّل الجواهر إلى كوين لاستخدامها في وسائل المساعدة',
+                  subtitle: 'حوّل الجواهر إلى كوين لفتح الشخصيات',
                   color: Color(0xFF38BDF8),
                 ),
               ),
@@ -572,7 +373,7 @@ class _StoreDashboard extends StatelessWidget {
                 horizontalPadding,
                 0,
                 horizontalPadding,
-                18,
+                22,
               ),
               sliver: SliverGrid(
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -592,52 +393,6 @@ class _StoreDashboard extends StatelessWidget {
                     );
                   },
                   childCount: _kCoinItems.length,
-                ),
-              ),
-            ),
-            SliverPadding(
-              padding: EdgeInsets.fromLTRB(
-                horizontalPadding,
-                0,
-                horizontalPadding,
-                10,
-              ),
-              sliver: const SliverToBoxAdapter(
-                child: _SectionHeader(
-                  icon: Icons.handyman_rounded,
-                  title: 'وسائل المساعدة',
-                  subtitle: 'اشترِ مخزونك قبل الجولات الصعبة',
-                  color: Color(0xFFFACC15),
-                ),
-              ),
-            ),
-            SliverPadding(
-              padding: EdgeInsets.fromLTRB(
-                horizontalPadding,
-                0,
-                horizontalPadding,
-                22,
-              ),
-              sliver: SliverGrid(
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: powerupColumns,
-                  crossAxisSpacing: gap,
-                  mainAxisSpacing: gap,
-                  mainAxisExtent: 288,
-                ),
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final def = _kPowerups[index];
-                    return _PowerupCard(
-                      def: def,
-                      count: loadingInventory ? null : inventoryCount(def.type),
-                      coins: coins,
-                      gems: gems,
-                      busy: busy,
-                      onBuy: onBuyPowerUp,
-                    );
-                  },
-                  childCount: _kPowerups.length,
                 ),
               ),
             ),
@@ -675,7 +430,7 @@ class _Header extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
                 Text(
-                  'المكافآت، تحويل الجواهر، ووسائل المساعدة',
+                  'الشخصيات، الرصيد، وتحويل الجواهر',
                   style: TextStyle(
                     color: Colors.white60,
                     fontSize: 11,
@@ -713,49 +468,47 @@ class _StoreOverview extends StatelessWidget {
     required this.coins,
     required this.gems,
     required this.adService,
-    required this.loadingInventory,
-    required this.inventoryTotal,
-    required this.inventoryCount,
+    required this.selectedCharacter,
+    required this.unlockedCharacters,
     required this.busy,
+    required this.onOpenCharacters,
     required this.onWatchAd,
-    required this.onClaimDaily,
   });
 
   final int coins;
   final int gems;
   final AdService adService;
-  final bool loadingInventory;
-  final int inventoryTotal;
-  final int Function(String type) inventoryCount;
+  final GameCharacter selectedCharacter;
+  final int unlockedCharacters;
   final bool busy;
+  final VoidCallback onOpenCharacters;
   final VoidCallback onWatchAd;
-  final VoidCallback onClaimDaily;
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final wide = constraints.maxWidth >= 900;
-        final hero = _WalletPanel(
-          coins: coins,
-          gems: gems,
-          loadingInventory: loadingInventory,
-          inventoryTotal: inventoryTotal,
-          inventoryCount: inventoryCount,
+        final wallet = _WalletPanel(coins: coins, gems: gems);
+        final characters = _CharacterStorePanel(
+          character: selectedCharacter,
+          unlockedCharacters: unlockedCharacters,
+          onOpen: onOpenCharacters,
         );
-        final mission = _AdMissionPanel(
+        final ads = _AdRewardPanel(
           adService: adService,
           busy: busy,
           onWatchAd: onWatchAd,
-          onClaimDaily: onClaimDaily,
         );
 
         if (!wide) {
           return Column(
             children: <Widget>[
-              hero,
+              wallet,
               const SizedBox(height: 10),
-              mission,
+              characters,
+              const SizedBox(height: 10),
+              ads,
             ],
           );
         }
@@ -764,9 +517,11 @@ class _StoreOverview extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              Expanded(flex: 7, child: hero),
+              Expanded(flex: 5, child: wallet),
               const SizedBox(width: 12),
-              Expanded(flex: 5, child: mission),
+              Expanded(flex: 5, child: characters),
+              const SizedBox(width: 12),
+              Expanded(flex: 5, child: ads),
             ],
           ),
         );
@@ -779,16 +534,10 @@ class _WalletPanel extends StatelessWidget {
   const _WalletPanel({
     required this.coins,
     required this.gems,
-    required this.loadingInventory,
-    required this.inventoryTotal,
-    required this.inventoryCount,
   });
 
   final int coins;
   final int gems;
-  final bool loadingInventory;
-  final int inventoryTotal;
-  final int Function(String type) inventoryCount;
 
   @override
   Widget build(BuildContext context) {
@@ -811,7 +560,7 @@ class _WalletPanel extends StatelessWidget {
                   ),
                 ),
                 child: const Icon(
-                  Icons.storefront_rounded,
+                  Icons.account_balance_wallet_rounded,
                   color: Color(0xFFFACC15),
                   size: 29,
                 ),
@@ -822,20 +571,24 @@ class _WalletPanel extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     const Text(
-                      'رصيدك ومخزونك',
+                      'رصيدك',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 19,
                         fontWeight: FontWeight.w900,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     Text(
-                      'كل عملية شراء تحدّث الرصيد والمخزون مباشرة',
+                      'الرصيد المستخدم لفتح الشخصيات',
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.58),
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
@@ -862,28 +615,7 @@ class _WalletPanel extends StatelessWidget {
                   label: 'جوهرة',
                 ),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _BalanceCard(
-                  icon: Icons.inventory_2_rounded,
-                  color: const Color(0xFF34D399),
-                  value:
-                      loadingInventory ? '...' : _compactNumber(inventoryTotal),
-                  label: 'وسيلة',
-                ),
-              ),
             ],
-          ),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: _kPowerups.map((_PowerupDef def) {
-              return _InventoryChip(
-                def: def,
-                count: loadingInventory ? null : inventoryCount(def.type),
-              );
-            }).toList(growable: false),
           ),
         ],
       ),
@@ -891,33 +623,128 @@ class _WalletPanel extends StatelessWidget {
   }
 }
 
-class _AdMissionPanel extends StatelessWidget {
-  const _AdMissionPanel({
+class _CharacterStorePanel extends StatelessWidget {
+  const _CharacterStorePanel({
+    required this.character,
+    required this.unlockedCharacters,
+    required this.onOpen,
+  });
+
+  final GameCharacter character;
+  final int unlockedCharacters;
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: _panelDecoration(accent: character.color),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Container(
+                width: 58,
+                height: 58,
+                decoration: BoxDecoration(
+                  color: character.color.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: character.color.withValues(alpha: 0.38),
+                  ),
+                ),
+                padding: const EdgeInsets.all(6),
+                child: Image.asset(
+                  character.asset,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => Icon(
+                    Icons.person_rounded,
+                    color: character.color,
+                    size: 30,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    const Text(
+                      'الشخصيات',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      'المختار: ${character.nameAr}',
+                      style: TextStyle(
+                        color: character.color,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              _TagPill(
+                text: '$unlockedCharacters/${CharacterCatalog.all.length}',
+                color: character.color,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            character.tagAr,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.64),
+              fontSize: 12,
+              height: 1.35,
+              fontWeight: FontWeight.w700,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 12),
+          _ActionButton(
+            icon: Icons.groups_rounded,
+            label: 'فتح وتغيير الشخصيات',
+            color: const Color(0xFF4338CA),
+            onTap: onOpen,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AdRewardPanel extends StatelessWidget {
+  const _AdRewardPanel({
     required this.adService,
     required this.busy,
     required this.onWatchAd,
-    required this.onClaimDaily,
   });
 
   final AdService adService;
   final bool busy;
   final VoidCallback onWatchAd;
-  final VoidCallback onClaimDaily;
 
   @override
   Widget build(BuildContext context) {
     final progress =
-        (adService.watchesToday / AdService.dailyPowerUpGoal).clamp(0.0, 1.0);
+        (adService.watchesToday / AdService.maxDailyWatches).clamp(0.0, 1.0);
     final canWatch = adService.canWatchAd && !busy;
-    final canClaim = adService.canClaimDailyPowerUp && !busy;
-    final status = canClaim
-        ? 'المكافأة اليومية جاهزة'
-        : adService.hasClaimedDailyPowerUp
-            ? 'تم استلام مكافأة اليوم'
-            : adService.cooldownRemaining > Duration.zero &&
-                    adService.watchesLeft > 0
-                ? 'الإعلان التالي بعد ${_formatDuration(adService.cooldownRemaining)}'
-                : '${adService.watchesToday}/${AdService.dailyPowerUpGoal} إعلانات اليوم';
+    final status = adService.watchesLeft == 0
+        ? 'اكتمل حد الإعلانات اليومي'
+        : adService.cooldownRemaining > Duration.zero
+            ? 'الإعلان التالي بعد ${_formatDuration(adService.cooldownRemaining)}'
+            : '${adService.watchesLeft} إعلانات متاحة اليوم';
 
     return Container(
       decoration: _panelDecoration(accent: const Color(0xFF34D399)),
@@ -949,22 +776,24 @@ class _AdMissionPanel extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     const Text(
-                      'مهمة الإعلان اليومية',
+                      'مكافأة الإعلان',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 18,
                         fontWeight: FontWeight.w900,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     Text(
                       status,
                       style: TextStyle(
-                        color: canClaim
-                            ? const Color(0xFF34D399)
-                            : Colors.white.withValues(alpha: 0.58),
+                        color: Colors.white.withValues(alpha: 0.58),
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
@@ -984,28 +813,11 @@ class _AdMissionPanel extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: _ActionButton(
-                  icon: Icons.play_circle_fill_rounded,
-                  label: 'شاهد إعلاناً',
-                  color: const Color(0xFF166534),
-                  onTap: canWatch ? onWatchAd : null,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _ActionButton(
-                  icon: Icons.card_giftcard_rounded,
-                  label: canClaim ? 'اختر المكافأة' : 'غير جاهزة',
-                  color: canClaim
-                      ? const Color(0xFF7C3AED)
-                      : const Color(0xFF374151),
-                  onTap: canClaim ? onClaimDaily : null,
-                ),
-              ),
-            ],
+          _ActionButton(
+            icon: Icons.play_circle_fill_rounded,
+            label: 'شاهد إعلاناً',
+            color: const Color(0xFF166534),
+            onTap: canWatch ? onWatchAd : null,
           ),
         ],
       ),
@@ -1168,171 +980,6 @@ class _CoinPackCard extends StatelessWidget {
   }
 }
 
-class _PowerupCard extends StatelessWidget {
-  const _PowerupCard({
-    required this.def,
-    required this.count,
-    required this.coins,
-    required this.gems,
-    required this.busy,
-    required this.onBuy,
-  });
-
-  final _PowerupDef def;
-  final int? count;
-  final int coins;
-  final int gems;
-  final bool busy;
-  final void Function(_PowerupDef def, _Tier tier, String payWith) onBuy;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: _panelDecoration(accent: def.color),
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
-            children: <Widget>[
-              Container(
-                width: 58,
-                height: 58,
-                decoration: BoxDecoration(
-                  color: def.color.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: def.color.withValues(alpha: 0.34)),
-                ),
-                child: Icon(def.icon, color: def.color, size: 30),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      def.name,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Text(
-                      'في المخزون: ${count == null ? '...' : count.toString()}',
-                      style: TextStyle(
-                        color: def.color,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            def.desc,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.62),
-              fontSize: 12,
-              height: 1.35,
-              fontWeight: FontWeight.w700,
-            ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const Spacer(),
-          _TierRow(
-            title: 'بالكوين',
-            icon: Icons.monetization_on_rounded,
-            color: const Color(0xFFFACC15),
-            tiers: def.coinTiers,
-            balance: coins,
-            busy: busy,
-            onBuy: (tier) => onBuy(def, tier, 'coins'),
-          ),
-          const SizedBox(height: 9),
-          _TierRow(
-            title: 'بالجواهر',
-            icon: Icons.diamond_rounded,
-            color: const Color(0xFF38BDF8),
-            tiers: def.gemTiers,
-            balance: gems,
-            busy: busy,
-            onBuy: (tier) => onBuy(def, tier, 'gems'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TierRow extends StatelessWidget {
-  const _TierRow({
-    required this.title,
-    required this.icon,
-    required this.color,
-    required this.tiers,
-    required this.balance,
-    required this.busy,
-    required this.onBuy,
-  });
-
-  final String title;
-  final IconData icon;
-  final Color color;
-  final List<_Tier> tiers;
-  final int balance;
-  final bool busy;
-  final void Function(_Tier tier) onBuy;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Row(
-          children: <Widget>[
-            Icon(icon, color: color, size: 15),
-            const SizedBox(width: 5),
-            Text(
-              title,
-              style: TextStyle(
-                color: color,
-                fontSize: 11,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        Row(
-          children: tiers.map((_Tier tier) {
-            final enabled = !busy && balance >= tier.cost;
-            return Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 2),
-                child: _MiniBuyButton(
-                  quantity: tier.qty,
-                  price: _compactNumber(tier.cost),
-                  icon: icon,
-                  color: color,
-                  enabled: enabled,
-                  onTap: () => onBuy(tier),
-                ),
-              ),
-            );
-          }).toList(growable: false),
-        ),
-      ],
-    );
-  }
-}
-
 class _BalanceCard extends StatelessWidget {
   const _BalanceCard({
     required this.icon,
@@ -1392,52 +1039,6 @@ class _BalanceCard extends StatelessWidget {
   }
 }
 
-class _InventoryChip extends StatelessWidget {
-  const _InventoryChip({
-    required this.def,
-    required this.count,
-  });
-
-  final _PowerupDef def;
-  final int? count;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: def.color.withValues(alpha: 0.11),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: def.color.withValues(alpha: 0.26)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Icon(def.icon, color: def.color, size: 16),
-          const SizedBox(width: 6),
-          Text(
-            def.shortName,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.66),
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            count == null ? '...' : 'x$count',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _TagPill extends StatelessWidget {
   const _TagPill({
     required this.text,
@@ -1462,68 +1063,6 @@ class _TagPill extends StatelessWidget {
           color: color,
           fontSize: 10.5,
           fontWeight: FontWeight.w900,
-        ),
-      ),
-    );
-  }
-}
-
-class _MiniBuyButton extends StatelessWidget {
-  const _MiniBuyButton({
-    required this.quantity,
-    required this.price,
-    required this.icon,
-    required this.color,
-    required this.enabled,
-    required this.onTap,
-  });
-
-  final int quantity;
-  final String price;
-  final IconData icon;
-  final Color color;
-  final bool enabled;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Opacity(
-      opacity: enabled ? 1 : 0.46,
-      child: GestureDetector(
-        onTap: enabled ? onTap : null,
-        child: Container(
-          height: 38,
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: color.withValues(alpha: 0.32)),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 6),
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                Text(
-                  'x$quantity',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(width: 5),
-                Icon(icon, color: color, size: 15),
-                const SizedBox(width: 3),
-                Text(
-                  price,
-                  style: TextStyle(
-                    color: color,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ],
-            ),
-          ),
         ),
       ),
     );
@@ -1571,62 +1110,6 @@ class _ActionButton extends StatelessWidget {
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _RewardPickerTile extends StatelessWidget {
-  const _RewardPickerTile({
-    required this.def,
-    required this.onTap,
-  });
-
-  final _PowerupDef def;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: def.color.withValues(alpha: 0.10),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: def.color.withValues(alpha: 0.26)),
-          ),
-          child: Row(
-            children: <Widget>[
-              Icon(def.icon, color: def.color, size: 24),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      def.name,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    Text(
-                      def.desc,
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
                 ),
               ),
             ],

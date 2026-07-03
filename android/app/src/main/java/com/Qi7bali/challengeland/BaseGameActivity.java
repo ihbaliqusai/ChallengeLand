@@ -5066,7 +5066,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         if (!txtAmount.getText().toString().equals("$0")) {
             showConfirmationDialog("هل تريد الخروج والاكتفاء بالمبلغ الحالي ؟", "ConfirmHome", 2000, 0, R.drawable.mouth_05, false);
         } else {
-            showConfirmationDialog("هل تريد الانسحاب من المباراة ؟", "ConfirmExit", 2000, 0, R.drawable.mouth_05, false);
+            showConfirmationDialog("هل تريد الخروج من المباراة ؟", "ConfirmExit", 2000, 0, R.drawable.mouth_05, false);
         }
     }
 

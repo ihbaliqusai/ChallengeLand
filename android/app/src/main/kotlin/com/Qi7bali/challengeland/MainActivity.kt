@@ -54,11 +54,11 @@ class MainActivity : FlutterActivity() {
                         finish()
                     }
                     "launchOfflineGame" -> {
-                        startActivity(Intent(this, OfflineSetupActivity::class.java))
+                        startActivity(Intent(this, OfflineGamesActivity::class.java))
                         result.success(true)
                     }
                     "launchMainChallenge" -> {
-                        // التحدي الرئيسي: لوحة سين جيم بين فريقين على جهاز واحد.
+                        // التحدي الرئيسي: لوحة  بين فريقين على جهاز واحد.
                         val intent = Intent(this, LocalTeamsGamesActivity::class.java)
                         intent.putExtra("mode", "mono")
                         intent.putExtra("localTeams", true)
@@ -414,20 +414,14 @@ class MainActivity : FlutterActivity() {
                             "pack_starter" -> {
                                 PlayerProgress.addGems(this, 120)
                                 PlayerProgress.addCoins(this, 500)
-                                PlayerProgress.addInventory(this, "5050", 2)
                             }
                             "pack_value" -> {
                                 PlayerProgress.addGems(this, 600)
                                 PlayerProgress.addCoins(this, 2000)
-                                PlayerProgress.addInventory(this, "5050", 3)
-                                PlayerProgress.addInventory(this, "audience", 2)
                             }
                             "pack_champion" -> {
                                 PlayerProgress.addGems(this, 1800)
                                 PlayerProgress.addCoins(this, 10000)
-                                PlayerProgress.addInventory(this, "5050", 5)
-                                PlayerProgress.addInventory(this, "audience", 3)
-                                PlayerProgress.addInventory(this, "call", 2)
                             }
                             else -> delivered = false
                         }
@@ -546,42 +540,6 @@ class MainActivity : FlutterActivity() {
                             "unclaimedAchievements" to PlayerProgress.getUnclaimedAchievementCount(this)
                         ))
                     }
-                    "getInventory" -> {
-                        result.success(mapOf(
-                            "inv5050"      to PlayerProgress.getInventory5050(this),
-                            "invAudience"  to PlayerProgress.getInventoryAudience(this),
-                            "invCall"      to PlayerProgress.getInventoryCall(this)
-                        ))
-                    }
-                    "buyPowerUp" -> {
-                        val type     = call.argument<String>("type")     ?: ""
-                        val quantity = call.argument<Int>("quantity")    ?: 1
-                        val payWith  = call.argument<String>("payWith")  ?: "coins"
-                        val cost     = call.argument<Int>("cost")        ?: 0
-                        if (!isValidPowerUp(type) || quantity <= 0 || cost <= 0 || (payWith != "coins" && payWith != "gems")) {
-                            result.success(false)
-                            return@setMethodCallHandler
-                        }
-                        val success  = if (payWith == "coins") {
-                            PlayerProgress.spendCoins(this, cost)
-                        } else {
-                            PlayerProgress.spendGems(this, cost)
-                        }
-                        if (success) {
-                            PlayerProgress.addInventory(this, type, quantity)
-                        }
-                        result.success(success)
-                    }
-                    "grantPowerUp" -> {
-                        val type     = call.argument<String>("type") ?: ""
-                        val quantity = call.argument<Int>("quantity") ?: 1
-                        if (!isValidPowerUp(type) || quantity <= 0) {
-                            result.success(false)
-                        } else {
-                            PlayerProgress.grantInventory(this, type, quantity)
-                            result.success(true)
-                        }
-                    }
                     "getCharacterState" -> {
                         val selected = AppPrefs.getSelectedCharacter(this)
                         val unlocked = AppPrefs.getUnlockedCharacters(this)
@@ -685,10 +643,6 @@ class MainActivity : FlutterActivity() {
         } else {
             NotificationScheduler.cancelDailyReminder(this)
         }
-    }
-
-    private fun isValidPowerUp(type: String): Boolean {
-        return type == "5050" || type == "audience" || type == "call"
     }
 
     private fun stringArg(value: Any?, defaultValue: String): String {

@@ -245,7 +245,7 @@ public class GameActivity extends AppCompatActivity {
     private int boardRevealCount = 0;
 
     // ---- Local two-team board ("التحدي الرئيسي", hot-seat on one phone) ----
-    // Two teams take turns on the same device on a 6-category سين جيم board. Every turn
+    // Two teams take turns on the same device on a 6-category  board. Every turn
     // is a HUMAN typed turn (no bots): slot 0 = team A, slot 1 = team B, alternating by
     // boardTurnIndex. On a wrong answer the OTHER team gets a steal attempt at the same
     // question (boardStealActive) before the answer is revealed. Highest team total wins.
@@ -257,6 +257,11 @@ public class GameActivity extends AppCompatActivity {
     private JSONObject pendingLocalTeamsRestore;
     private boolean localTeamsRestoreConsumed = false;
     private boolean localTeamsFinished = false;
+    private String offlineBoardSaveId = "";
+    private JSONObject pendingOfflineBoardRestore;
+    private boolean offlineBoardRestoreConsumed = false;
+    private boolean offlineBoardFinished = false;
+    private int boardCharacterIndex = 0;
 
     // ---- Online board (two real players on one synced التحدي board) ----
     // Reaches this path via OpponentActivity matchmaking (matchMode "board"). Turn
@@ -520,22 +525,42 @@ public class GameActivity extends AppCompatActivity {
                 // phone, hot-seat, on a 6-category board.
                 boardLocalTeams = getIntent().getBooleanExtra("localTeams", false);
                 if (boardLocalTeams) {
-                    localTeamsSaveId = safeString(getIntent().getStringExtra("localTeamsSaveId")).trim();
+                    localTeamsSaveId = savedInstanceState != null
+                            ? safeString(savedInstanceState.getString("localTeamsSaveId")).trim()
+                            : safeString(getIntent().getStringExtra("localTeamsSaveId")).trim();
                     if (localTeamsSaveId.isEmpty()) {
                         localTeamsSaveId = LocalTeamsGameStore.newGameId();
                     }
-                    if (getIntent().getBooleanExtra("resumeLocalTeams", false)) {
+                    getIntent().putExtra("localTeamsSaveId", localTeamsSaveId);
+                    if (getIntent().getBooleanExtra("resumeLocalTeams", false) || savedInstanceState != null) {
                         pendingLocalTeamsRestore = LocalTeamsGameStore.get(this, localTeamsSaveId);
                         if (pendingLocalTeamsRestore != null) {
                             boardTeamAName = pendingLocalTeamsRestore.optString("teamAName", boardTeamAName);
                             boardTeamBName = pendingLocalTeamsRestore.optString("teamBName", boardTeamBName);
                         }
                     }
+                } else {
+                    offlineBoardSaveId = savedInstanceState != null
+                            ? safeString(savedInstanceState.getString("offlineBoardSaveId")).trim()
+                            : safeString(getIntent().getStringExtra("offlineBoardSaveId")).trim();
+                    if (offlineBoardSaveId.isEmpty()) {
+                        offlineBoardSaveId = OfflineBoardGameStore.newGameId();
+                    }
+                    getIntent().putExtra("offlineBoardSaveId", offlineBoardSaveId);
+                    if (getIntent().getBooleanExtra("resumeOfflineBoard", false) || savedInstanceState != null) {
+                        pendingOfflineBoardRestore = OfflineBoardGameStore.get(this, offlineBoardSaveId);
+                    }
                 }
                 int playerCount = boardLocalTeams
                         ? 2
-                        : Math.max(2, Math.min(8, getIntent().getIntExtra("playerCount", 4)));
-                int characterIndex = getIntent().getIntExtra("characterIndex", 0);
+                        : Math.max(2, Math.min(8,
+                                pendingOfflineBoardRestore != null
+                                        ? pendingOfflineBoardRestore.optInt("playerCount", getIntent().getIntExtra("playerCount", 4))
+                                        : getIntent().getIntExtra("playerCount", 4)));
+                int characterIndex = pendingOfflineBoardRestore != null
+                        ? pendingOfflineBoardRestore.optInt("characterIndex", getIntent().getIntExtra("characterIndex", 0))
+                        : getIntent().getIntExtra("characterIndex", 0);
+                boardCharacterIndex = characterIndex;
                 boardMode = true;
                 offlineContestants.setupForBoard(playerCount, characterIndex);
                 if (boardLocalTeams) {
@@ -1013,6 +1038,17 @@ public class GameActivity extends AppCompatActivity {
 
         imgHome.setOnClickListener(getMoneyAndHome);
         btnGetMoney.setOnClickListener(getMoneyAndHome);
+    }
+
+    @Override
+    protected void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        if (localTeamsSaveId != null && !localTeamsSaveId.trim().isEmpty()) {
+            outState.putString("localTeamsSaveId", localTeamsSaveId);
+        }
+        if (offlineBoardSaveId != null && !offlineBoardSaveId.trim().isEmpty()) {
+            outState.putString("offlineBoardSaveId", offlineBoardSaveId);
+        }
     }
 
     private void applyVolumeUi() {
@@ -1985,8 +2021,19 @@ public class GameActivity extends AppCompatActivity {
         }
         // One category card per player so every contestant answers exactly 6 questions
         // (two per value). Capped to the categories actually available.
+        if (restoreOfflineBoardState(pendingOfflineBoardRestore)) {
+            return;
+        }
+        if (pendingOfflineBoardRestore != null
+                && OfflineBoardGameStore.PHASE_CATEGORY_SELECT.equals(pendingOfflineBoardRestore.optString("phase"))) {
+            offlineBoardRestoreConsumed = true;
+            saveOfflineBoardProgress(OfflineBoardGameStore.PHASE_CATEGORY_SELECT);
+            showCategorySelect();
+            return;
+        }
         int players = offlineContestants.contestantCount();
         boardCols = Math.max(1, Math.min(players, boardAllCategories.size()));
+        saveOfflineBoardProgress(OfflineBoardGameStore.PHASE_CATEGORY_SELECT);
         showCategorySelect();
     }
 
@@ -2241,6 +2288,249 @@ public class GameActivity extends AppCompatActivity {
         q.setW3(json.optString("W3", ""));
         q.setCategory(json.optString("Category", ""));
         return q.getQ() == null || q.getQ().trim().isEmpty() ? null : q;
+    }
+
+    private boolean shouldSaveOfflineBoard() {
+        return boardMode
+                && !boardLocalTeams
+                && !boardOnline
+                && !boardRoomMatch
+                && !boardCampaignMatch
+                && !campaignMode
+                && !campaignBossBattle
+                && offlineBoardSaveId != null
+                && !offlineBoardSaveId.trim().isEmpty();
+    }
+
+    private void saveOfflineBoardProgress(String phase) {
+        if (!shouldSaveOfflineBoard() || offlineBoardFinished) return;
+        try {
+            JSONObject record = OfflineBoardGameStore.get(this, offlineBoardSaveId);
+            if (record == null) {
+                record = OfflineBoardGameStore.baseRecord(offlineBoardSaveId);
+            }
+            long now = System.currentTimeMillis();
+            if (!record.has("createdAt")) {
+                record.put("createdAt", now);
+            }
+            String safePhase = (phase == null || phase.trim().isEmpty())
+                    ? currentOfflineBoardPhase() : phase.trim();
+            int playerCount = offlineContestants == null ? 0 : offlineContestants.contestantCount();
+            record.put("updatedAt", now);
+            record.put("status", OfflineBoardGameStore.STATUS_IN_PROGRESS);
+            record.put("phase", safePhase);
+            record.put("playerCount", Math.max(2, playerCount));
+            record.put("characterIndex", boardCharacterIndex);
+            record.put("turnIndex", Math.max(0, boardTurnIndex));
+            record.put("totalTurns", Math.max(0, boardTotalTurns));
+            record.put("winnerSlot", -2);
+            record.put("winnerName", "");
+            putOfflineBoardScoreSummary(record);
+
+            JSONObject state = new JSONObject();
+            state.put("phase", safePhase);
+            state.put("boardCols", boardCols);
+            state.put("cellsRemaining", boardCellsRemaining);
+            state.put("turnIndex", boardTurnIndex);
+            state.put("totalTurns", boardTotalTurns);
+            state.put("pickerSlot", boardPickerSlot);
+            state.put("pickerIsHuman", boardPickerIsHuman);
+            state.put("pickedCol", boardPickedCol);
+            state.put("pickedRow", boardPickedRow);
+            state.put("revealCount", boardRevealCount);
+            state.put("optionsRevealed", boardOptionsRevealed);
+
+            JSONArray names = new JSONArray();
+            JSONArray scores = new JSONArray();
+            JSONArray intelligence = new JSONArray();
+            for (int i = 0; i < playerCount; i++) {
+                names.put(offlineContestants.nameForSlot(i));
+                scores.put(offlineContestants.scoreForSlot(i));
+                intelligence.put(offlineContestants.intelligenceForSlot(i));
+            }
+            state.put("names", names);
+            state.put("scores", scores);
+            state.put("intelligence", intelligence);
+            record.put("names", names);
+            record.put("scores", scores);
+
+            JSONArray categories = new JSONArray();
+            for (String category : boardSelectedCategories) {
+                categories.put(category == null ? "" : category);
+            }
+            state.put("selectedCategories", categories);
+
+            JSONArray cells = new JSONArray();
+            if (boardCellQuestion != null) {
+                for (int col = 0; col < boardCols; col++) {
+                    JSONArray colArray = new JSONArray();
+                    for (int row = 0; row < BOARD_ROWS; row++) {
+                        JSONObject cell = new JSONObject();
+                        cell.put("consumed", boardCellConsumed != null
+                                && col < boardCellConsumed.length
+                                && boardCellConsumed[col] != null
+                                && row < boardCellConsumed[col].length
+                                && boardCellConsumed[col][row]);
+                        Question q = (col < boardCellQuestion.length && boardCellQuestion[col] != null
+                                && row < boardCellQuestion[col].length)
+                                ? boardCellQuestion[col][row] : null;
+                        cell.put("question", questionToJson(q));
+                        colArray.put(cell);
+                    }
+                    cells.put(colArray);
+                }
+            }
+            state.put("cells", cells);
+            record.put("state", state);
+            OfflineBoardGameStore.upsert(this, record);
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void saveOfflineBoardFinished() {
+        if (!shouldSaveOfflineBoard()) return;
+        offlineBoardFinished = true;
+        try {
+            JSONObject record = OfflineBoardGameStore.get(this, offlineBoardSaveId);
+            if (record == null) {
+                record = OfflineBoardGameStore.baseRecord(offlineBoardSaveId);
+            }
+            long now = System.currentTimeMillis();
+            record.put("updatedAt", now);
+            record.put("completedAt", now);
+            record.put("status", OfflineBoardGameStore.STATUS_FINISHED);
+            record.put("phase", OfflineBoardGameStore.PHASE_FINISHED);
+            record.put("playerCount", offlineContestants == null ? 0 : offlineContestants.contestantCount());
+            record.put("characterIndex", boardCharacterIndex);
+            record.put("turnIndex", Math.max(0, boardTurnIndex));
+            record.put("totalTurns", Math.max(0, boardTotalTurns));
+
+            int count = offlineContestants == null ? 0 : offlineContestants.contestantCount();
+            int bestScore = -1;
+            int bestSlot = -1;
+            int bestCount = 0;
+            JSONArray names = new JSONArray();
+            JSONArray scores = new JSONArray();
+            for (int i = 0; i < count; i++) {
+                int score = offlineContestants.scoreForSlot(i);
+                names.put(offlineContestants.nameForSlot(i));
+                scores.put(score);
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestSlot = i;
+                    bestCount = 1;
+                } else if (score == bestScore) {
+                    bestCount++;
+                }
+            }
+            int winnerSlot = bestCount == 1 ? bestSlot : -1;
+            record.put("names", names);
+            record.put("scores", scores);
+            record.put("playerScore", count > 0 ? offlineContestants.scoreForSlot(0) : 0);
+            record.put("leaderScore", Math.max(0, bestScore));
+            record.put("leaderName", bestSlot >= 0 ? offlineContestants.nameForSlot(bestSlot) : "");
+            record.put("winnerSlot", winnerSlot);
+            record.put("winnerName", winnerSlot >= 0 ? offlineContestants.nameForSlot(winnerSlot) : "");
+            OfflineBoardGameStore.upsert(this, record);
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void putOfflineBoardScoreSummary(JSONObject record) throws Exception {
+        int count = offlineContestants == null ? 0 : offlineContestants.contestantCount();
+        int bestScore = -1;
+        int bestSlot = -1;
+        for (int i = 0; i < count; i++) {
+            int score = offlineContestants.scoreForSlot(i);
+            if (score > bestScore) {
+                bestScore = score;
+                bestSlot = i;
+            }
+        }
+        record.put("playerScore", count > 0 ? offlineContestants.scoreForSlot(0) : 0);
+        record.put("leaderScore", Math.max(0, bestScore));
+        record.put("leaderName", bestSlot >= 0 ? offlineContestants.nameForSlot(bestSlot) : "");
+    }
+
+    private String currentOfflineBoardPhase() {
+        if (boardCurrentQuestion != null) return OfflineBoardGameStore.PHASE_QUESTION;
+        if (boardSelectedCategories.isEmpty()) return OfflineBoardGameStore.PHASE_CATEGORY_SELECT;
+        return OfflineBoardGameStore.PHASE_BOARD;
+    }
+
+    private boolean restoreOfflineBoardState(JSONObject record) {
+        if (record == null || offlineBoardRestoreConsumed) return false;
+        JSONObject state = record.optJSONObject("state");
+        if (state == null) return false;
+        JSONArray categories = state.optJSONArray("selectedCategories");
+        if (categories == null || categories.length() == 0) return false;
+
+        offlineBoardRestoreConsumed = true;
+        stopCategorySelectMusicIfPlaying();
+        JSONArray names = state.optJSONArray("names");
+        JSONArray scores = state.optJSONArray("scores");
+        JSONArray intelligence = state.optJSONArray("intelligence");
+        int count = offlineContestants.contestantCount();
+        for (int i = 0; i < count; i++) {
+            if (names != null) offlineContestants.setContestantName(i, names.optString(i, offlineContestants.nameForSlot(i)));
+            if (scores != null) offlineContestants.setScoreForSlot(i, scores.optInt(i, 0));
+            if (intelligence != null) offlineContestants.setIntelligenceForSlot(i, intelligence.optInt(i, offlineContestants.intelligenceForSlot(i)));
+        }
+
+        boardSelectedCategories.clear();
+        for (int i = 0; i < categories.length(); i++) {
+            String category = categories.optString(i, "");
+            if (!category.trim().isEmpty()) boardSelectedCategories.add(category);
+        }
+        boardCols = Math.max(1, Math.min(boardSelectedCategories.size(),
+                state.optInt("boardCols", boardSelectedCategories.size())));
+        boardCellQuestion = new Question[boardCols][BOARD_ROWS];
+        boardCellConsumed = new boolean[boardCols][BOARD_ROWS];
+
+        JSONArray cells = state.optJSONArray("cells");
+        Set<Question> used = new HashSet<>();
+        for (int col = 0; col < boardCols; col++) {
+            for (int row = 0; row < BOARD_ROWS; row++) {
+                JSONObject cell = null;
+                if (cells != null) {
+                    JSONArray colArray = cells.optJSONArray(col);
+                    if (colArray != null) cell = colArray.optJSONObject(row);
+                }
+                if (cell != null) {
+                    boardCellConsumed[col][row] = cell.optBoolean("consumed", false);
+                    boardCellQuestion[col][row] = questionFromJson(cell.optJSONObject("question"));
+                }
+                if (boardCellQuestion[col][row] == null) {
+                    String category = boardSelectedCategories.get(Math.min(col, boardSelectedCategories.size() - 1));
+                    boardCellQuestion[col][row] = drawBoardQuestion(category, boardTierForRow(row), used);
+                }
+            }
+        }
+
+        boardCellsRemaining = state.optInt("cellsRemaining", countRemainingBoardCells());
+        boardTurnIndex = state.optInt("turnIndex", 0);
+        boardTotalTurns = state.optInt("totalTurns", Math.max(0, boardCols * BOARD_ROWS));
+        boardPickerSlot = state.optInt("pickerSlot", 0);
+        boardPickerIsHuman = state.optBoolean("pickerIsHuman", boardPickerSlot == 0);
+        boardPickedCol = state.optInt("pickedCol", -1);
+        boardPickedRow = state.optInt("pickedRow", -1);
+        boardRevealCount = Math.max(0, state.optInt("revealCount", 0));
+        boardOptionsRevealed = state.optBoolean("optionsRevealed", false);
+
+        String phase = state.optString("phase", record.optString("phase", OfflineBoardGameStore.PHASE_BOARD));
+        if (OfflineBoardGameStore.PHASE_QUESTION.equals(phase)
+                && boardPickedCol >= 0 && boardPickedCol < boardCols
+                && boardPickedRow >= 0 && boardPickedRow < BOARD_ROWS
+                && !boardCellConsumed[boardPickedCol][boardPickedRow]) {
+            boardCurrentQuestion = boardCellQuestion[boardPickedCol][boardPickedRow];
+            hideBoardOverlay();
+            initQuestion();
+            CAN_PLAY = false;
+            showBoardQuestion(boardCurrentQuestion, boardPickerIsHuman);
+        } else {
+            beginBoardTurn();
+        }
+        return true;
     }
 
     // ---- Team-names setup (التحدي الرئيسي) ------------------------------
@@ -2652,6 +2942,9 @@ public class GameActivity extends AppCompatActivity {
         if (boardLocalTeams) {
             saveLocalTeamsProgress(LocalTeamsGameStore.PHASE_BOARD);
         }
+        if (shouldSaveOfflineBoard()) {
+            saveOfflineBoardProgress(OfflineBoardGameStore.PHASE_BOARD);
+        }
         beginBoardTurn();
     }
 
@@ -2729,6 +3022,9 @@ public class GameActivity extends AppCompatActivity {
         if (boardLocalTeams) {
             saveLocalTeamsProgress(LocalTeamsGameStore.PHASE_BOARD);
         }
+        if (shouldSaveOfflineBoard()) {
+            saveOfflineBoardProgress(OfflineBoardGameStore.PHASE_BOARD);
+        }
         showBoardGrid();
         if (!boardPickerIsHuman) {
             new Handler().postDelayed(new Runnable() {
@@ -2749,6 +3045,9 @@ public class GameActivity extends AppCompatActivity {
         boardPickedCol = cell[0];
         boardPickedRow = cell[1];
         boardCurrentQuestion = boardCellQuestion[boardPickedCol][boardPickedRow];
+        if (shouldSaveOfflineBoard()) {
+            saveOfflineBoardProgress(OfflineBoardGameStore.PHASE_QUESTION);
+        }
         enterBoardQuestion(false);
     }
 
@@ -2770,6 +3069,9 @@ public class GameActivity extends AppCompatActivity {
         if (boardLocalTeams) {
             saveLocalTeamsProgress(LocalTeamsGameStore.PHASE_QUESTION);
         }
+        if (shouldSaveOfflineBoard()) {
+            saveOfflineBoardProgress(OfflineBoardGameStore.PHASE_QUESTION);
+        }
         if (boardOnline) {
             cancelBoardSelectTimer();
             writeOnlineTurnPick(boardOnlineTurn, col, row);
@@ -2788,6 +3090,9 @@ public class GameActivity extends AppCompatActivity {
         showBoardQuestion(boardCurrentQuestion, humanTurn);
         if (boardLocalTeams) {
             saveLocalTeamsProgress(LocalTeamsGameStore.PHASE_QUESTION);
+        }
+        if (shouldSaveOfflineBoard()) {
+            saveOfflineBoardProgress(OfflineBoardGameStore.PHASE_QUESTION);
         }
     }
 
@@ -2814,6 +3119,9 @@ public class GameActivity extends AppCompatActivity {
         if (boardLocalTeams) {
             saveLocalTeamsProgress(LocalTeamsGameStore.PHASE_BOARD);
         }
+        if (shouldSaveOfflineBoard()) {
+            saveOfflineBoardProgress(OfflineBoardGameStore.PHASE_BOARD);
+        }
         beginBoardTurn();
     }
 
@@ -2838,6 +3146,9 @@ public class GameActivity extends AppCompatActivity {
             markMyGameState("finished");
             detachBoardListeners();
             detachOpponentStatusListener();
+        }
+        if (shouldSaveOfflineBoard()) {
+            saveOfflineBoardFinished();
         }
         finishOfflineCompetition();
     }
@@ -4592,6 +4903,9 @@ public class GameActivity extends AppCompatActivity {
         CAN_PLAY = true; // the player now taps one of the four options
         if (boardLocalTeams) {
             saveLocalTeamsProgress(LocalTeamsGameStore.PHASE_QUESTION);
+        }
+        if (shouldSaveOfflineBoard()) {
+            saveOfflineBoardProgress(OfflineBoardGameStore.PHASE_QUESTION);
         }
         showDialog("اختر الإجابة الصحيحة (القيمة الآن " + currentBoardAwardValue() + ")",
                 "", 600, 1400, R.drawable.mouth_01, true);
@@ -7118,13 +7432,13 @@ public class GameActivity extends AppCompatActivity {
 
     private void confirmExit() {
         if (isOfflineContestantMode()) {
-            showConfirmationDialog("هل تريد الانسحاب من المسابقة ؟", "ConfirmExit", 2000, 0, R.drawable.mouth_05, false);
+            showConfirmationDialog("هل تريد الخروج من المباراة ؟", "ConfirmExit", 2000, 0, R.drawable.mouth_05, false);
             return;
         }
         if (!txtAmount.getText().toString().equals("$0")) {
             showConfirmationDialog("هل تريد الخروج والاكتفاء بالمبلغ الحالي ؟", "ConfirmHome", 2000, 0, R.drawable.mouth_05, false);
         } else {
-            showConfirmationDialog("هل تريد الانسحاب من المباراة ؟", "ConfirmExit", 2000, 0, R.drawable.mouth_05, false);
+            showConfirmationDialog("هل تريد الخروج من المباراة ؟", "ConfirmExit", 2000, 0, R.drawable.mouth_05, false);
         }
     }
 
@@ -7212,6 +7526,14 @@ public class GameActivity extends AppCompatActivity {
         stopTimer(false);
         if (boardLocalTeams && boardMode && !localTeamsFinished) {
             saveLocalTeamsProgress(currentLocalTeamsPhase());
+            Toast.makeText(this, "تم حفظ المباراة ويمكنك متابعتها لاحقًا", Toast.LENGTH_SHORT).show();
+            if (offlineContestants != null) offlineContestants.release();
+            if (cdtProgress != null) cdtProgress.cancel();
+            finish();
+            return;
+        }
+        if (shouldSaveOfflineBoard() && !offlineBoardFinished) {
+            saveOfflineBoardProgress(currentOfflineBoardPhase());
             Toast.makeText(this, "تم حفظ المباراة ويمكنك متابعتها لاحقًا", Toast.LENGTH_SHORT).show();
             if (offlineContestants != null) offlineContestants.release();
             if (cdtProgress != null) cdtProgress.cancel();
@@ -7864,6 +8186,12 @@ public class GameActivity extends AppCompatActivity {
             boolean safeToSave = boardCurrentQuestion == null || boardAwaitingTypedInput || CAN_PLAY;
             if (safeToSave) {
                 saveLocalTeamsProgress(currentLocalTeamsPhase());
+            }
+        }
+        if (shouldSaveOfflineBoard() && !offlineBoardFinished) {
+            boolean safeToSave = boardCurrentQuestion == null || boardAwaitingTypedInput || CAN_PLAY;
+            if (safeToSave) {
+                saveOfflineBoardProgress(currentOfflineBoardPhase());
             }
         }
         if (backgroundVideoController != null) backgroundVideoController.pause();

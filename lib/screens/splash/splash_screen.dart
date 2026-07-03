@@ -42,7 +42,7 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     final shortest = MediaQuery.of(context).size.shortestSide;
-    final logoSize = shortest * 0.7;
+    final logoSize = shortest * 0.5;
     return Scaffold(
       backgroundColor: Colors.black,
       body: Center(

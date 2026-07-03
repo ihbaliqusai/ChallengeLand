@@ -635,6 +635,16 @@ final class GameOfflineContestantsController {
         refreshScoreBoard();
     }
 
+    int intelligenceForSlot(int slot) {
+        if (intelligence == null || slot < 0 || slot >= intelligence.length) return 0;
+        return intelligence[slot];
+    }
+
+    void setIntelligenceForSlot(int slot, int value) {
+        if (intelligence == null || slot < 0 || slot >= intelligence.length) return;
+        intelligence[slot] = Math.max(10, Math.min(99, value));
+    }
+
     void setLocalTeamsActiveQuestionSlot(int slot) {
         if (!localTeamsBoard) return;
         localTeamsActiveQuestionSlot = (slot >= 0 && slot < count) ? slot : -1;

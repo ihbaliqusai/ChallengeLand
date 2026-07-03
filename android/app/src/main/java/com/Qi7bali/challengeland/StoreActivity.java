@@ -24,9 +24,6 @@ public class StoreActivity extends AppCompatActivity {
         if (getSupportActionBar() != null) getSupportActionBar().hide();
 
         findViewById(R.id.btnStoreBack).setOnClickListener(v -> finish());
-        findViewById(R.id.btnBuy5050).setOnClickListener(v -> purchaseCoins("شراء 50:50 إضافية", 600, () -> PlayerProgress.addInventory(this, "5050", 1)));
-        findViewById(R.id.btnBuyAudience).setOnClickListener(v -> purchaseCoins("شراء مساعدة الجمهور", 700, () -> PlayerProgress.addInventory(this, "audience", 1)));
-        findViewById(R.id.btnBuyCall).setOnClickListener(v -> purchaseCoins("شراء الاتصال بصديق", 700, () -> PlayerProgress.addInventory(this, "call", 1)));
         findViewById(R.id.btnBuyGemPack).setOnClickListener(v -> purchaseCoins("شراء 5 جواهر", 1500, () -> PlayerProgress.addGems(this, 5)));
         findViewById(R.id.btnExchangeGems).setOnClickListener(v -> purchaseGems("تحويل 3 جواهر إلى 900 قطعة", 3, () -> PlayerProgress.addCoins(this, 900)));
         bind();
@@ -71,9 +68,6 @@ public class StoreActivity extends AppCompatActivity {
     private void bind() {
         setText(R.id.txtStoreCoins, String.valueOf(PlayerProgress.getCoins(this)));
         setText(R.id.txtStoreGems, String.valueOf(PlayerProgress.getGems(this)));
-        setText(R.id.txtInv5050, String.valueOf(PlayerProgress.getInventory5050(this)));
-        setText(R.id.txtInvAudience, String.valueOf(PlayerProgress.getInventoryAudience(this)));
-        setText(R.id.txtInvCall, String.valueOf(PlayerProgress.getInventoryCall(this)));
     }
 
     private void setText(int id, String value) {
