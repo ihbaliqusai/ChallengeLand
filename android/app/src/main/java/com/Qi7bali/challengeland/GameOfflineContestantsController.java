@@ -884,7 +884,7 @@ final class GameOfflineContestantsController {
             );
             indicatorParams.gravity = Gravity.TOP | Gravity.CENTER_HORIZONTAL;
             turnIndicator.setLayoutParams(indicatorParams);
-            turnIndicator.setTranslationY(-px(3f, density));
+            turnIndicator.setTranslationY(-px(6f, density));
             turnIndicator.setVisibility(View.INVISIBLE);
             turnIndicator.setAlpha(0f);
             rowFrame.addView(turnIndicator);
