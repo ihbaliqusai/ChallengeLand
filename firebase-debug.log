@@ -1,0 +1,124 @@
+[debug] [2026-07-03T14:24:30.509Z] ----------------------------------------------------------------------
+[debug] [2026-07-03T14:24:30.511Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\Qusai\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy --only hosting
+[debug] [2026-07-03T14:24:30.511Z] CLI Version:   15.15.0
+[debug] [2026-07-03T14:24:30.511Z] Platform:      win32
+[debug] [2026-07-03T14:24:30.511Z] Node Version:  v24.15.0
+[debug] [2026-07-03T14:24:30.511Z] Time:          Fri Jul 03 2026 17:24:30 GMT+0300 (Türkiye Standard Time)
+[debug] [2026-07-03T14:24:30.511Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-07-03T14:24:30.513Z] >>> [apiv2][query] GET https://firebase-public.firebaseio.com/cli.json [none]
+[debug] [2026-07-03T14:24:41.337Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-07-03T14:24:41.337Z] > authorizing via signed-in user (ihbaliqusai@gmail.com)
+[debug] [2026-07-03T14:24:41.337Z] [iam] checking project challengeland for permissions ["firebase.projects.get","firebasehosting.sites.update"]
+[debug] [2026-07-03T14:24:41.338Z] Checked if tokens are valid: false, expires at: 1781470832708
+[debug] [2026-07-03T14:24:41.338Z] Checked if tokens are valid: false, expires at: 1781470832708
+[debug] [2026-07-03T14:24:41.338Z] > refreshing access token with scopes: []
+[debug] [2026-07-03T14:24:41.339Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2026-07-03T14:24:41.339Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-07-03T14:24:41.583Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 200
+[debug] [2026-07-03T14:24:41.583Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-07-03T14:24:41.589Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/challengeland:testIamPermissions [none]
+[debug] [2026-07-03T14:24:41.589Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/challengeland:testIamPermissions  x-goog-user-project=challengeland
+[debug] [2026-07-03T14:24:41.589Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/challengeland:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2026-07-03T14:24:41.767Z] <<< [apiv2][status] GET https://firebase-public.firebaseio.com/cli.json 200
+[debug] [2026-07-03T14:24:41.767Z] <<< [apiv2][body] GET https://firebase-public.firebaseio.com/cli.json {"cloudBuildErrorAfter":1594252800000,"cloudBuildWarnAfter":1590019200000,"defaultNode10After":1594252800000,"minVersion":"3.0.5","node8DeploysDisabledAfter":1613390400000,"node8RuntimeDisabledAfter":1615809600000,"node8WarnAfter":1600128000000}
+[debug] [2026-07-03T14:24:42.484Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/challengeland:testIamPermissions 200
+[debug] [2026-07-03T14:24:42.484Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/challengeland:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2026-07-03T14:24:42.484Z] Checked if tokens are valid: true, expires at: 1783092280583
+[debug] [2026-07-03T14:24:42.484Z] Checked if tokens are valid: true, expires at: 1783092280583
+[debug] [2026-07-03T14:24:42.485Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/challengeland [none]
+[debug] [2026-07-03T14:24:42.911Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/challengeland 200
+[debug] [2026-07-03T14:24:42.912Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/challengeland {"projectId":"challengeland","projectNumber":"699855440455","displayName":"ChallengeLand","name":"projects/challengeland","resources":{"hostingSite":"challengeland","realtimeDatabaseInstance":"challengeland-default-rtdb"},"state":"ACTIVE","labels":{"firebase":"enabled"},"etag":"1_696e2b1d-e6d0-4ef5-a14b-eba30a4cfba8"}
+[info] 
+[info] === Deploying to 'challengeland'...
+[info] 
+[info] i  deploying hosting 
+[debug] [2026-07-03T14:24:42.920Z] Checked if tokens are valid: true, expires at: 1783092280583
+[debug] [2026-07-03T14:24:42.920Z] Checked if tokens are valid: true, expires at: 1783092280583
+[debug] [2026-07-03T14:24:42.920Z] >>> [apiv2][query] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/challengeland/versions [none]
+[debug] [2026-07-03T14:24:42.920Z] >>> [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/challengeland/versions {"status":"CREATED","labels":{"deployment-tool":"cli-firebase"}}
+[debug] [2026-07-03T14:24:46.106Z] <<< [apiv2][status] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/challengeland/versions 200
+[debug] [2026-07-03T14:24:46.107Z] <<< [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/challengeland/versions {"name":"projects/699855440455/sites/challengeland/versions/e7650ff47134cf72","status":"CREATED","config":{},"labels":{"deployment-tool":"cli-firebase"}}
+[info] i  hosting[challengeland]: beginning deploy... 
+[info] i  hosting[challengeland]: found 6 files in public 
+[debug] [2026-07-03T14:24:46.119Z] [hosting] uploading with 200 concurrency
+[debug] [2026-07-03T14:24:46.125Z] Checked if tokens are valid: true, expires at: 1783092280583
+[debug] [2026-07-03T14:24:46.126Z] Checked if tokens are valid: true, expires at: 1783092280583
+[debug] [2026-07-03T14:24:46.126Z] [hosting] hash cache [cHVibGlj] stored for 6 files
+[debug] [2026-07-03T14:24:46.127Z] [hosting][hash queue][FINAL] {"max":5,"min":3,"avg":3.8333333333333335,"active":0,"complete":6,"success":6,"errored":0,"retried":0,"total":6,"elapsed":7}
+[debug] [2026-07-03T14:24:46.127Z] >>> [apiv2][query] POST https://firebasehosting.googleapis.com/v1beta1/projects/699855440455/sites/challengeland/versions/e7650ff47134cf72:populateFiles [none]
+[debug] [2026-07-03T14:24:46.127Z] >>> [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/699855440455/sites/challengeland/versions/e7650ff47134cf72:populateFiles {"files":{"/googled704c6905a6957e8.html":"4772f20b2eec0ceaa45afcbb52722a90eb1fe2cc5621cf8f223ee861f7d86ee8","/app-ads.txt":"8aa02219dcc78ea9d89ef19240cd1516960c9213370e14100002d92bcd37ac05","/index.html":"2377ab65aadfe781e08063191189ddbbed21620285370151face590a34bd8943","/privacy.html":"879c26ffb89bc87442bf7b4b88b1e950ddd956f510d610b82abe869c3cd9031f","/404.html":"41d1e074106979fb6591ec6953bfe5ace2788be22f0ed4189bd54905ebb5b44d","/delete-account.html":"72d05f33fd0abb2dcf237acde71cc5c1b46240f6781e94567d507cb77a2a87dd"}}
+[debug] [2026-07-03T14:24:47.538Z] <<< [apiv2][status] POST https://firebasehosting.googleapis.com/v1beta1/projects/699855440455/sites/challengeland/versions/e7650ff47134cf72:populateFiles 200
+[debug] [2026-07-03T14:24:47.538Z] <<< [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/699855440455/sites/challengeland/versions/e7650ff47134cf72:populateFiles {"uploadRequiredHashes":["41d1e074106979fb6591ec6953bfe5ace2788be22f0ed4189bd54905ebb5b44d","72d05f33fd0abb2dcf237acde71cc5c1b46240f6781e94567d507cb77a2a87dd","4772f20b2eec0ceaa45afcbb52722a90eb1fe2cc5621cf8f223ee861f7d86ee8","8aa02219dcc78ea9d89ef19240cd1516960c9213370e14100002d92bcd37ac05","2377ab65aadfe781e08063191189ddbbed21620285370151face590a34bd8943","879c26ffb89bc87442bf7b4b88b1e950ddd956f510d610b82abe869c3cd9031f"],"uploadUrl":"https://upload-firebasehosting.googleapis.com/upload/sites/challengeland/versions/e7650ff47134cf72/files"}
+[debug] [2026-07-03T14:24:47.538Z] Checked if tokens are valid: true, expires at: 1783092280583
+[debug] [2026-07-03T14:24:47.538Z] Checked if tokens are valid: true, expires at: 1783092280583
+[debug] [2026-07-03T14:24:47.538Z] Checked if tokens are valid: true, expires at: 1783092280583
+[debug] [2026-07-03T14:24:47.538Z] Checked if tokens are valid: true, expires at: 1783092280583
+[debug] [2026-07-03T14:24:47.539Z] Checked if tokens are valid: true, expires at: 1783092280583
+[debug] [2026-07-03T14:24:47.539Z] Checked if tokens are valid: true, expires at: 1783092280583
+[debug] [2026-07-03T14:24:47.539Z] Checked if tokens are valid: true, expires at: 1783092280583
+[debug] [2026-07-03T14:24:47.539Z] Checked if tokens are valid: true, expires at: 1783092280583
+[debug] [2026-07-03T14:24:47.539Z] Checked if tokens are valid: true, expires at: 1783092280583
+[debug] [2026-07-03T14:24:47.539Z] Checked if tokens are valid: true, expires at: 1783092280583
+[debug] [2026-07-03T14:24:47.539Z] Checked if tokens are valid: true, expires at: 1783092280583
+[debug] [2026-07-03T14:24:47.539Z] Checked if tokens are valid: true, expires at: 1783092280583
+[debug] [2026-07-03T14:24:47.539Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/challengeland/versions/e7650ff47134cf72/files/41d1e074106979fb6591ec6953bfe5ace2788be22f0ed4189bd54905ebb5b44d [none]
+[debug] [2026-07-03T14:24:47.540Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/challengeland/versions/e7650ff47134cf72/files/41d1e074106979fb6591ec6953bfe5ace2788be22f0ed4189bd54905ebb5b44d [stream]
+[debug] [2026-07-03T14:24:47.540Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/challengeland/versions/e7650ff47134cf72/files/72d05f33fd0abb2dcf237acde71cc5c1b46240f6781e94567d507cb77a2a87dd [none]
+[debug] [2026-07-03T14:24:47.540Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/challengeland/versions/e7650ff47134cf72/files/72d05f33fd0abb2dcf237acde71cc5c1b46240f6781e94567d507cb77a2a87dd [stream]
+[debug] [2026-07-03T14:24:47.541Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/challengeland/versions/e7650ff47134cf72/files/4772f20b2eec0ceaa45afcbb52722a90eb1fe2cc5621cf8f223ee861f7d86ee8 [none]
+[debug] [2026-07-03T14:24:47.541Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/challengeland/versions/e7650ff47134cf72/files/4772f20b2eec0ceaa45afcbb52722a90eb1fe2cc5621cf8f223ee861f7d86ee8 [stream]
+[debug] [2026-07-03T14:24:47.542Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/challengeland/versions/e7650ff47134cf72/files/8aa02219dcc78ea9d89ef19240cd1516960c9213370e14100002d92bcd37ac05 [none]
+[debug] [2026-07-03T14:24:47.542Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/challengeland/versions/e7650ff47134cf72/files/8aa02219dcc78ea9d89ef19240cd1516960c9213370e14100002d92bcd37ac05 [stream]
+[debug] [2026-07-03T14:24:47.543Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/challengeland/versions/e7650ff47134cf72/files/2377ab65aadfe781e08063191189ddbbed21620285370151face590a34bd8943 [none]
+[debug] [2026-07-03T14:24:47.543Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/challengeland/versions/e7650ff47134cf72/files/2377ab65aadfe781e08063191189ddbbed21620285370151face590a34bd8943 [stream]
+[debug] [2026-07-03T14:24:47.543Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/challengeland/versions/e7650ff47134cf72/files/879c26ffb89bc87442bf7b4b88b1e950ddd956f510d610b82abe869c3cd9031f [none]
+[debug] [2026-07-03T14:24:47.544Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/challengeland/versions/e7650ff47134cf72/files/879c26ffb89bc87442bf7b4b88b1e950ddd956f510d610b82abe869c3cd9031f [stream]
+[debug] [2026-07-03T14:24:47.544Z] [hosting][populate queue][FINAL] {"max":1414,"min":1414,"avg":1414,"active":0,"complete":1,"success":1,"errored":0,"retried":0,"total":1,"elapsed":1419}
+[debug] [2026-07-03T14:24:47.544Z] [hosting] uploads queued: 6
+[info] i  hosting: uploading new files [0/6] (0%) 
+[debug] [2026-07-03T14:24:48.483Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/challengeland/versions/e7650ff47134cf72/files/8aa02219dcc78ea9d89ef19240cd1516960c9213370e14100002d92bcd37ac05 200
+[debug] [2026-07-03T14:24:48.483Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/challengeland/versions/e7650ff47134cf72/files/8aa02219dcc78ea9d89ef19240cd1516960c9213370e14100002d92bcd37ac05 [stream]
+[debug] [2026-07-03T14:24:48.571Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/challengeland/versions/e7650ff47134cf72/files/41d1e074106979fb6591ec6953bfe5ace2788be22f0ed4189bd54905ebb5b44d 200
+[debug] [2026-07-03T14:24:48.571Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/challengeland/versions/e7650ff47134cf72/files/41d1e074106979fb6591ec6953bfe5ace2788be22f0ed4189bd54905ebb5b44d [stream]
+[debug] [2026-07-03T14:24:48.601Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/challengeland/versions/e7650ff47134cf72/files/4772f20b2eec0ceaa45afcbb52722a90eb1fe2cc5621cf8f223ee861f7d86ee8 200
+[debug] [2026-07-03T14:24:48.601Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/challengeland/versions/e7650ff47134cf72/files/4772f20b2eec0ceaa45afcbb52722a90eb1fe2cc5621cf8f223ee861f7d86ee8 [stream]
+[debug] [2026-07-03T14:24:48.601Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/challengeland/versions/e7650ff47134cf72/files/72d05f33fd0abb2dcf237acde71cc5c1b46240f6781e94567d507cb77a2a87dd 200
+[debug] [2026-07-03T14:24:48.602Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/challengeland/versions/e7650ff47134cf72/files/72d05f33fd0abb2dcf237acde71cc5c1b46240f6781e94567d507cb77a2a87dd [stream]
+[debug] [2026-07-03T14:24:48.606Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/challengeland/versions/e7650ff47134cf72/files/879c26ffb89bc87442bf7b4b88b1e950ddd956f510d610b82abe869c3cd9031f 200
+[debug] [2026-07-03T14:24:48.606Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/challengeland/versions/e7650ff47134cf72/files/879c26ffb89bc87442bf7b4b88b1e950ddd956f510d610b82abe869c3cd9031f [stream]
+[debug] [2026-07-03T14:24:48.644Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/challengeland/versions/e7650ff47134cf72/files/2377ab65aadfe781e08063191189ddbbed21620285370151face590a34bd8943 200
+[debug] [2026-07-03T14:24:48.644Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/challengeland/versions/e7650ff47134cf72/files/2377ab65aadfe781e08063191189ddbbed21620285370151face590a34bd8943 [stream]
+[debug] [2026-07-03T14:24:48.645Z] [hosting][upload queue][FINAL] {"max":1106,"min":944,"avg":1046,"active":0,"complete":6,"success":6,"errored":0,"retried":0,"total":6,"elapsed":1107}
+[info] i  hosting: upload complete 
+[info] +  hosting[challengeland]: file upload complete 
+[debug] [2026-07-03T14:24:48.645Z] [hosting] deploy completed after 2536ms
+[debug] [2026-07-03T14:24:48.645Z] [
+  {
+    "config": {
+      "public": "public",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "site": "challengeland"
+    },
+    "version": "projects/699855440455/sites/challengeland/versions/e7650ff47134cf72"
+  }
+]
+[info] i  hosting[challengeland]: finalizing version... 
+[debug] [2026-07-03T14:24:48.647Z] Checked if tokens are valid: true, expires at: 1783092280583
+[debug] [2026-07-03T14:24:48.647Z] Checked if tokens are valid: true, expires at: 1783092280583
+[debug] [2026-07-03T14:24:48.647Z] >>> [apiv2][query] PATCH https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/challengeland/versions/e7650ff47134cf72 updateMask=status%2Cconfig
+[debug] [2026-07-03T14:24:48.647Z] >>> [apiv2][body] PATCH https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/challengeland/versions/e7650ff47134cf72 {"status":"FINALIZED","config":{}}
+[debug] [2026-07-03T14:24:50.140Z] <<< [apiv2][status] PATCH https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/challengeland/versions/e7650ff47134cf72 200
+[debug] [2026-07-03T14:24:50.140Z] <<< [apiv2][body] PATCH https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/challengeland/versions/e7650ff47134cf72 {"name":"projects/699855440455/sites/challengeland/versions/e7650ff47134cf72","status":"FINALIZED","config":{},"labels":{"deployment-tool":"cli-firebase"},"createTime":"2026-07-03T14:24:47.725149Z","createUser":{"email":"ihbaliqusai@gmail.com"},"finalizeTime":"2026-07-03T14:24:53.599534Z","finalizeUser":{"email":"ihbaliqusai@gmail.com"}}
+[debug] [2026-07-03T14:24:50.141Z] [hosting] finalized version for challengeland:[object Object]
+[info] +  hosting[challengeland]: version finalized 
+[info] i  hosting[challengeland]: releasing new version... 
+[debug] [2026-07-03T14:24:50.141Z] Checked if tokens are valid: true, expires at: 1783092280583
+[debug] [2026-07-03T14:24:50.141Z] Checked if tokens are valid: true, expires at: 1783092280583
+[debug] [2026-07-03T14:24:50.141Z] >>> [apiv2][query] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/challengeland/channels/live/releases versionName=projects%2F699855440455%2Fsites%2Fchallengeland%2Fversions%2Fe7650ff47134cf72
+[debug] [2026-07-03T14:24:50.142Z] >>> [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/challengeland/channels/live/releases {}
+[debug] [2026-07-03T14:24:51.322Z] <<< [apiv2][status] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/challengeland/channels/live/releases 200

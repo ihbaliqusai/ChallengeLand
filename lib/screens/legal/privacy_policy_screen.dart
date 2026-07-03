@@ -91,7 +91,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
       title: 'التحديثات والتواصل',
       points: <String>[
         'قد نقوم بتحديث هذه السياسة من وقت إلى آخر عند إضافة ميزات جديدة أو تعديل طريقة المعالجة أو الامتثال لمتطلبات جديدة.',
-        'استمرارك في استخدام تطبيق ChallengeLand بعد نشر أي تحديث يعني قبولك للصيغة الأحدث من هذه السياسة.',
+        'استمرارك في استخدام تطبيق ارض التحدي بعد نشر أي تحديث يعني قبولك للصيغة الأحدث من هذه السياسة.',
         'لأي أسئلة أو اقتراحات بخصوص سياسة الخصوصية، يمكنك التواصل عبر: IhbaliQusai@gmail.com.',
       ],
     ),
@@ -102,7 +102,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
     return GameShell(
       title: 'سياسة الخصوصية',
       subtitle:
-          'شرح واضح لكيفية جمع البيانات واستخدامها، مع توضيح الحقوق والاعتمادات الخاصة بالمحتوى المستخدم داخل ChallengeLand.',
+          'شرح واضح لكيفية جمع البيانات واستخدامها، مع توضيح الحقوق والاعتمادات الخاصة بالمحتوى المستخدم داخل ارض التحدي.',
       showMascot: false,
       action: _BackButton(onTap: () => Navigator.of(context).pop()),
       child: LayoutBuilder(
@@ -242,13 +242,13 @@ class _QuickFactsPanel extends StatelessWidget {
           const _MetaRow(
             icon: Icons.calendar_month_rounded,
             label: 'آخر تحديث',
-            value: '23 أبريل 2026',
+            value: '3 يوليو 2026',
           ),
           const SizedBox(height: 12),
           const _MetaRow(
             icon: Icons.games_rounded,
             label: 'التطبيق',
-            value: 'ChallengeLand',
+            value: 'ارض التحدي',
           ),
           const SizedBox(height: 12),
           const _MetaRow(
