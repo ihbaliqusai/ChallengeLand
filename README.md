@@ -33,7 +33,7 @@ ChallengeLand keeps the original Android quiz gameplay foundation and adds a Flu
 1. Create a Firebase project.
 2. Add an Android app with the published applicationId:
    - `com.qi7bali.landchallengeonline`
-   - (The internal Android `namespace`/Kotlin package is still `net.androidgaming.millionaire2024`; this is invisible to users and unrelated to the Play Store identity.)
+   - (The internal Android `namespace`/Kotlin package is still `com.qi7bali.landchallengeonline`; this is invisible to users and unrelated to the Play Store identity.)
 3. Replace `android/app/google-services.json` with your own Firebase config file.
 4. Enable these Firebase products:
    - Authentication

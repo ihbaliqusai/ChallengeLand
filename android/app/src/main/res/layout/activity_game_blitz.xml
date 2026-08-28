@@ -15,7 +15,7 @@
         android:layout_weight="1"
         >
 
-        <net.androidgaming.millionaire2024.CenterCropVideoView
+        <com.qi7bali.landchallengeonline.CenterCropVideoView
             android:id="@+id/gameBackgroundVideo"
             android:layout_width="match_parent"
             android:layout_height="match_parent" />
@@ -797,7 +797,7 @@
                 android:layout_height="120dp"
                 android:src="@drawable/dialog"
                 android:contentDescription="@string/todo13" />
-            <net.androidgaming.millionaire2024.Typewriter
+            <com.qi7bali.landchallengeonline.Typewriter
                 android:id="@+id/txtDialog"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
@@ -1169,7 +1169,7 @@
                 android:contentDescription="@string/todo28" />
 
         </RelativeLayout>
-        <net.androidgaming.millionaire2024.Typewriter
+        <com.qi7bali.landchallengeonline.Typewriter
             android:id="@+id/txtCallAnswer"
             android:layout_width="156dp"
             android:layout_height="60dp"

@@ -13,7 +13,7 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace 'net.androidgaming.millionaire2024'
+    namespace 'com.qi7bali.landchallengeonline'
     compileSdk 36
     ndkVersion flutter.ndkVersion
 
@@ -29,7 +29,7 @@ android {
     defaultConfig {
         applicationId 'com.qi7bali.landchallengeonline'
         minSdkVersion 23
-        targetSdkVersion 35
+        targetSdkVersion 36
         versionCode flutter.versionCode
         versionName flutter.versionName
         multiDexEnabled true

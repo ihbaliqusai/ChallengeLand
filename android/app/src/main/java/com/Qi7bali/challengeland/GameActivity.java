@@ -1,4 +1,4 @@
-package net.androidgaming.millionaire2024;
+package com.qi7bali.landchallengeonline;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -66,15 +66,15 @@ import org.json.JSONObject;
 
 import java.util.Locale;
 
-import static net.androidgaming.millionaire2024.GameRules.ANSWER_KEY_RIGHT;
-import static net.androidgaming.millionaire2024.GameRules.ANSWER_KEY_WRONG_1;
-import static net.androidgaming.millionaire2024.GameRules.ANSWER_KEY_WRONG_2;
-import static net.androidgaming.millionaire2024.GameRules.ANSWER_KEY_WRONG_3;
-import static net.androidgaming.millionaire2024.GameRules.FIRST_QUESTION_SYNC_BUFFER_MS;
-import static net.androidgaming.millionaire2024.GameRules.MAX_TIMEOUT_STREAK;
-import static net.androidgaming.millionaire2024.GameRules.NEXT_QUESTION_SYNC_BUFFER_MS;
-import static net.androidgaming.millionaire2024.GameRules.ONLINE_SPEED_POINTS;
-import static net.androidgaming.millionaire2024.GameRules.QUESTION_TIMEOUT_MS;
+import static com.qi7bali.landchallengeonline.GameRules.ANSWER_KEY_RIGHT;
+import static com.qi7bali.landchallengeonline.GameRules.ANSWER_KEY_WRONG_1;
+import static com.qi7bali.landchallengeonline.GameRules.ANSWER_KEY_WRONG_2;
+import static com.qi7bali.landchallengeonline.GameRules.ANSWER_KEY_WRONG_3;
+import static com.qi7bali.landchallengeonline.GameRules.FIRST_QUESTION_SYNC_BUFFER_MS;
+import static com.qi7bali.landchallengeonline.GameRules.MAX_TIMEOUT_STREAK;
+import static com.qi7bali.landchallengeonline.GameRules.NEXT_QUESTION_SYNC_BUFFER_MS;
+import static com.qi7bali.landchallengeonline.GameRules.ONLINE_SPEED_POINTS;
+import static com.qi7bali.landchallengeonline.GameRules.QUESTION_TIMEOUT_MS;
 
 public class GameActivity extends AppCompatActivity {
     private static final int DIALOG_CHARACTER_DELAY_MS = 18;

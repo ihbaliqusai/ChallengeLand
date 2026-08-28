@@ -15,14 +15,6 @@
       },
       "oauth_client": [
         {
-          "client_id": "699855440455-28t4f5sgjl997s2g5mkivokud4o3rjpj.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.qi7bali.landchallengeonline",
-            "certificate_hash": "0ba7a3b5d9a21fabfdf0be43bf4005f167527c68"
-          }
-        },
-        {
           "client_id": "699855440455-362q19lvk0req397bpb7958g4ajheopu.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {

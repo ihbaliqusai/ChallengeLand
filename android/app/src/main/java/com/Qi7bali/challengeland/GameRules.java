@@ -1,4 +1,4 @@
-package net.androidgaming.millionaire2024;
+package com.qi7bali.landchallengeonline;
 
 final class GameRules {
     static final int ANSWER_KEY_RIGHT = 1;

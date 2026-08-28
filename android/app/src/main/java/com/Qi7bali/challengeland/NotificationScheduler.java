@@ -1,4 +1,4 @@
-package net.androidgaming.millionaire2024;
+package com.qi7bali.landchallengeonline;
 
 import android.app.AlarmManager;
 import android.app.PendingIntent;
@@ -44,7 +44,7 @@ public final class NotificationScheduler {
 
     private static PendingIntent reminderIntent(Context context) {
         Intent intent = new Intent(context, DailyReminderReceiver.class);
-        intent.setAction("net.androidgaming.millionaire2024.DAILY_REWARD_REMINDER");
+        intent.setAction("com.qi7bali.landchallengeonline.DAILY_REWARD_REMINDER");
         return PendingIntent.getBroadcast(
                 context,
                 DAILY_REMINDER_REQUEST,

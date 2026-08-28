@@ -15,7 +15,7 @@
 - تصميم جديد أقرب لأسلوب ألعاب الموبايل الحديثة
 
 ## Firebase
-- اسم الحزمة: `net.androidgaming.millionaire2024`
+- اسم الحزمة: `com.qi7bali.landchallengeonline`
 - ملف Firebase موجود داخل:
   - `android/app/google-services.json`
 - يجب تفعيل:

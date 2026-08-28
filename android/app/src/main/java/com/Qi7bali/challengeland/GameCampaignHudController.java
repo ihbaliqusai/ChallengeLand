@@ -1,4 +1,4 @@
-package net.androidgaming.millionaire2024;
+package com.qi7bali.landchallengeonline;
 
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;

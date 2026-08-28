@@ -1,14 +1,14 @@
-package net.androidgaming.millionaire2024;
+package com.qi7bali.landchallengeonline;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
-import static net.androidgaming.millionaire2024.GameRules.ANSWER_KEY_RIGHT;
-import static net.androidgaming.millionaire2024.GameRules.ANSWER_KEY_WRONG_1;
-import static net.androidgaming.millionaire2024.GameRules.ANSWER_KEY_WRONG_2;
-import static net.androidgaming.millionaire2024.GameRules.ANSWER_KEY_WRONG_3;
+import static com.qi7bali.landchallengeonline.GameRules.ANSWER_KEY_RIGHT;
+import static com.qi7bali.landchallengeonline.GameRules.ANSWER_KEY_WRONG_1;
+import static com.qi7bali.landchallengeonline.GameRules.ANSWER_KEY_WRONG_2;
+import static com.qi7bali.landchallengeonline.GameRules.ANSWER_KEY_WRONG_3;
 
 final class GameAnswerOptions {
     private GameAnswerOptions() {

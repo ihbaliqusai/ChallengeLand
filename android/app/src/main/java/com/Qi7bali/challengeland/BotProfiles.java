@@ -1,4 +1,4 @@
-package net.androidgaming.millionaire2024;
+package com.qi7bali.landchallengeonline;
 
 final class BotProfiles {
     static final BotProfile[] PROFILES = new BotProfile[]{
