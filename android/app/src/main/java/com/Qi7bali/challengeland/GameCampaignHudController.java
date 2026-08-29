@@ -22,6 +22,12 @@ final class GameCampaignHudController {
             return;
         }
         hideMoneyBox();
+        if (activity.campaignBoard && !"boss".equals(activity.boardCampaignKind)) {
+            if (activity.offlineContestants != null) {
+                activity.offlineContestants.refreshScoreBoard();
+            }
+            return;
+        }
         createProgressHudIfNeeded();
         showGameplayHud();
         updateProgressHud(false);
@@ -41,7 +47,16 @@ final class GameCampaignHudController {
     }
 
     void updateProgressHud(boolean animateStars) {
-        if (!activity.campaignMode || activity.campaignHudPanel == null) {
+        if (!activity.campaignMode) {
+            return;
+        }
+        if (activity.campaignBoard && !"boss".equals(activity.boardCampaignKind)) {
+            if (activity.offlineContestants != null) {
+                activity.offlineContestants.refreshScoreBoard();
+            }
+            return;
+        }
+        if (activity.campaignHudPanel == null) {
             return;
         }
         int targetCount = Math.max(1, activity.getCampaignTargetQuestionCount());
@@ -79,6 +94,14 @@ final class GameCampaignHudController {
     }
 
     int getEarnedStars() {
+        if (activity.campaignBoard) {
+            int target = activity.boardTargetScore > 0 ? activity.boardTargetScore : 500;
+            int score = activity.offlineContestants != null ? activity.offlineContestants.playerScore() : activity.myScore;
+            if (score >= Math.round(target * 1.55f)) return 3;
+            if (score >= Math.round(target * 1.25f)) return 2;
+            if (score >= target) return 1;
+            return 0;
+        }
         if (activity.campaignCorrectAnswers >= 9) return 3;
         if (activity.campaignCorrectAnswers >= 7) return 2;
         if (activity.campaignCorrectAnswers >= 5) return 1;
@@ -89,6 +112,9 @@ final class GameCampaignHudController {
         if (!activity.campaignMode || activity.campaignHudPanel != null) {
             return;
         }
+        if (activity.campaignBoard && !"boss".equals(activity.boardCampaignKind)) {
+            return;
+        }
         View root = activity.findViewById(android.R.id.content);
         if (!(root instanceof FrameLayout)) {
             return;
@@ -96,7 +122,7 @@ final class GameCampaignHudController {
 
         activity.campaignHudPanel = new LinearLayout(activity);
         activity.campaignHudPanel.setOrientation(LinearLayout.VERTICAL);
-        activity.campaignHudPanel.setPadding(activity.dp(14), activity.dp(12), activity.dp(14), activity.dp(12));
+        activity.campaignHudPanel.setPadding(activity.dp(14), activity.dp(10), activity.dp(14), activity.dp(10));
         activity.campaignHudPanel.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
         activity.campaignHudPanel.setBackground(createPanelBackground());
         activity.campaignHudPanel.setElevation(activity.dp(10));
@@ -107,7 +133,7 @@ final class GameCampaignHudController {
                 FrameLayout.LayoutParams.WRAP_CONTENT
         );
         panelParams.gravity = android.view.Gravity.TOP | android.view.Gravity.START;
-        panelParams.setMargins(activity.dp(10), activity.dp(16), activity.dp(10), activity.dp(10));
+        panelParams.setMargins(activity.dp(78), activity.dp(12), activity.dp(10), activity.dp(10));
 
         activity.txtCampaignHudBattle = createText(14, Color.WHITE, true);
         activity.txtCampaignHudBattle.setGravity(android.view.Gravity.CENTER);

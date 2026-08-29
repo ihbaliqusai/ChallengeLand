@@ -5,6 +5,7 @@ import android.content.Context;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.LayerDrawable;
 import android.text.TextUtils;
 import android.util.DisplayMetrics;
 import android.util.TypedValue;
@@ -171,6 +172,16 @@ final class GameOfflineContestantsController {
     // shows each team's name + live point total instead of avatars + rank ordinals.
     private boolean localTeamsBoard = false;
     private int localTeamsActiveQuestionSlot = -1;
+
+    // Solo stage progress card in رحلة المليون (replaces empty 4-slot leaderboard)
+    private TextView soloStageTitle;
+    private TextView soloStageTarget;
+    private TextView soloStageScore;
+    private TextView soloStageQuestions;
+    private final TextView[] soloStageStars = new TextView[3];
+    private FrameLayout soloStageProgressTrack;
+    private View soloStageProgressFill;
+    private int lastEarnedStars = 0;
 
     // Character figure genders: indices 0-4 are male, 5-7 female (see CONTESTANT_DRAWABLES).
     private static final int[] MALE_FIGURES = {0, 1, 2, 3, 4};
@@ -830,6 +841,10 @@ final class GameOfflineContestantsController {
         return value;
     }
 
+    private boolean isSoloCampaignBoard() {
+        return activity.campaignBoard && !"boss".equals(activity.boardCampaignKind) && count == 1;
+    }
+
     private void buildScoreBoard() {
         scoreBoard = activity.findViewById(R.id.offlineScoreBoard);
         scoreBoardContent = activity.findViewById(R.id.offlineScoreBoardContent);
@@ -839,6 +854,13 @@ final class GameOfflineContestantsController {
         scoreBoard.setVisibility(View.VISIBLE);
         scoreBoard.bringToFront();
         scoreBoardContent.removeAllViews();
+
+        ImageView bg = activity.findViewById(R.id.offlineScoreBoardBg);
+        if (isSoloCampaignBoard()) {
+            if (bg != null) bg.setVisibility(View.INVISIBLE);
+        } else {
+            if (bg != null) bg.setVisibility(View.VISIBLE);
+        }
 
         final int visibleRows = getVisibleBoardRowCount();
         boardNameViews = new TextView[visibleRows];
@@ -861,6 +883,11 @@ final class GameOfflineContestantsController {
             return;
         }
         scoreBoardContent.removeAllViews();
+
+        if (isSoloCampaignBoard()) {
+            populateSoloStageCard();
+            return;
+        }
 
         final DisplayMetrics metrics = activity.getResources().getDisplayMetrics();
         final float density = metrics.density;
@@ -967,6 +994,228 @@ final class GameOfflineContestantsController {
         }
     }
 
+    private void populateSoloStageCard() {
+        if (scoreBoard == null || scoreBoardContent == null) {
+            return;
+        }
+        scoreBoardContent.removeAllViews();
+
+        final DisplayMetrics metrics = activity.getResources().getDisplayMetrics();
+        final float density = metrics.density;
+
+        ImageView bg = activity.findViewById(R.id.offlineScoreBoardBg);
+        if (bg != null) bg.setVisibility(View.INVISIBLE);
+
+        GradientDrawable glow = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                new int[]{Color.argb(75, 56, 189, 248), Color.argb(45, 255, 216, 74)});
+        glow.setCornerRadius(activity.dp(16));
+        GradientDrawable glass = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[]{Color.argb(238, 6, 16, 44), Color.argb(230, 4, 10, 30)});
+        glass.setCornerRadius(activity.dp(16));
+        glass.setStroke(px(1.5f, density), Color.argb(195, 255, 215, 75));
+        LayerDrawable cardBg = new LayerDrawable(new android.graphics.drawable.Drawable[]{glow, glass});
+        cardBg.setLayerInset(1, activity.dp(2), activity.dp(2), activity.dp(2), activity.dp(2));
+        scoreBoardContent.setBackground(cardBg);
+
+        LinearLayout cardLayout = new LinearLayout(activity);
+        cardLayout.setOrientation(LinearLayout.VERTICAL);
+        cardLayout.setGravity(Gravity.CENTER_HORIZONTAL);
+        cardLayout.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+        int padH = activity.dp(6);
+        int padV = activity.dp(8);
+        cardLayout.setPadding(padH, padV, padH, padV);
+        FrameLayout.LayoutParams cardParams = new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT);
+        scoreBoardContent.addView(cardLayout, cardParams);
+
+        // 1. Stage Title Badge
+        soloStageTitle = new TextView(activity);
+        soloStageTitle.setTextColor(Color.WHITE);
+        soloStageTitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f);
+        soloStageTitle.setGravity(Gravity.CENTER);
+        soloStageTitle.setIncludeFontPadding(false);
+        if (balooFont != null) soloStageTitle.setTypeface(balooFont, Typeface.BOLD);
+        else soloStageTitle.setTypeface(Typeface.DEFAULT_BOLD);
+
+        GradientDrawable titleBadge = new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
+                new int[]{Color.argb(190, 255, 193, 7), Color.argb(150, 217, 119, 6)});
+        titleBadge.setCornerRadius(activity.dp(12));
+        titleBadge.setStroke(activity.dp(1), Color.argb(230, 255, 235, 150));
+        soloStageTitle.setBackground(titleBadge);
+        soloStageTitle.setPadding(activity.dp(10), activity.dp(3), activity.dp(10), activity.dp(3));
+        LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        titleParams.setMargins(0, 0, 0, activity.dp(6));
+        cardLayout.addView(soloStageTitle, titleParams);
+
+        // 2. Target Goal
+        soloStageTarget = new TextView(activity);
+        soloStageTarget.setTextColor(Color.parseColor("#38BDF8"));
+        soloStageTarget.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f);
+        soloStageTarget.setGravity(Gravity.CENTER);
+        soloStageTarget.setIncludeFontPadding(false);
+        if (balooFont != null) soloStageTarget.setTypeface(balooFont, Typeface.BOLD);
+        else soloStageTarget.setTypeface(Typeface.DEFAULT_BOLD);
+        LinearLayout.LayoutParams targetParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        targetParams.setMargins(0, 0, 0, activity.dp(3));
+        cardLayout.addView(soloStageTarget, targetParams);
+
+        // 3. Current Live Score
+        soloStageScore = new TextView(activity);
+        soloStageScore.setTextColor(Color.parseColor("#FFD700"));
+        soloStageScore.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f);
+        soloStageScore.setGravity(Gravity.CENTER);
+        soloStageScore.setIncludeFontPadding(false);
+        if (balooFont != null) soloStageScore.setTypeface(balooFont, Typeface.BOLD);
+        else soloStageScore.setTypeface(Typeface.DEFAULT_BOLD);
+        LinearLayout.LayoutParams scoreParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        scoreParams.setMargins(0, 0, 0, activity.dp(3));
+        cardLayout.addView(soloStageScore, scoreParams);
+
+        // 4. Questions Counter
+        soloStageQuestions = new TextView(activity);
+        soloStageQuestions.setTextColor(Color.parseColor("#E2E8F0"));
+        soloStageQuestions.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f);
+        soloStageQuestions.setGravity(Gravity.CENTER);
+        soloStageQuestions.setIncludeFontPadding(false);
+        if (balooFont != null) soloStageQuestions.setTypeface(balooFont, Typeface.BOLD);
+        else soloStageQuestions.setTypeface(Typeface.DEFAULT_BOLD);
+        LinearLayout.LayoutParams qParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        qParams.setMargins(0, 0, 0, activity.dp(4));
+        cardLayout.addView(soloStageQuestions, qParams);
+
+        // 5. Stars Row
+        LinearLayout starsRow = new LinearLayout(activity);
+        starsRow.setOrientation(LinearLayout.HORIZONTAL);
+        starsRow.setGravity(Gravity.CENTER);
+        starsRow.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+        LinearLayout.LayoutParams starsParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        starsParams.setMargins(0, 0, 0, activity.dp(4));
+        cardLayout.addView(starsRow, starsParams);
+
+        for (int i = 0; i < 3; i++) {
+            TextView star = new TextView(activity);
+            star.setText("★");
+            star.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f);
+            star.setTextColor(Color.argb(120, 255, 255, 255));
+            star.setGravity(Gravity.CENTER);
+            star.setIncludeFontPadding(false);
+            if (balooFont != null) star.setTypeface(balooFont, Typeface.BOLD);
+            LinearLayout.LayoutParams starItemParams = new LinearLayout.LayoutParams(
+                    activity.dp(22), activity.dp(22));
+            starItemParams.setMargins(activity.dp(2), 0, activity.dp(2), 0);
+            starsRow.addView(star, starItemParams);
+            soloStageStars[i] = star;
+        }
+
+        // 6. Progress Track and Fill
+        soloStageProgressTrack = new FrameLayout(activity);
+        GradientDrawable trackBg = new GradientDrawable();
+        trackBg.setColor(Color.argb(80, 255, 255, 255));
+        trackBg.setCornerRadius(activity.dp(4));
+        soloStageProgressTrack.setBackground(trackBg);
+        LinearLayout.LayoutParams trackParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, activity.dp(5));
+        trackParams.setMargins(activity.dp(6), 0, activity.dp(6), 0);
+        cardLayout.addView(soloStageProgressTrack, trackParams);
+
+        soloStageProgressFill = new View(activity);
+        GradientDrawable fillBg = new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
+                new int[]{Color.rgb(255, 244, 170), Color.rgb(255, 193, 7)});
+        fillBg.setCornerRadius(activity.dp(4));
+        soloStageProgressFill.setBackground(fillBg);
+        soloStageProgressTrack.addView(soloStageProgressFill, new FrameLayout.LayoutParams(0, activity.dp(5)));
+
+        refreshSoloStageCard();
+    }
+
+    private void refreshSoloStageCard() {
+        if (soloStageScore == null || soloStageTarget == null) {
+            return;
+        }
+        int target = activity.boardTargetScore > 0 ? activity.boardTargetScore : 500;
+        int currentScore = scores != null && scores.length > 0 ? scores[0] : 0;
+        int totalPicks = activity.boardTotalTurns > 0 ? activity.boardTotalTurns : (activity.boardSoloPicks > 0 ? activity.boardSoloPicks : 6);
+        int currentPick = Math.min(totalPicks, activity.boardTurnIndex + 1);
+        if (currentPick < 1) currentPick = 1;
+
+        String stageTitle = activity.campaignStageId != null && !activity.campaignStageId.isEmpty()
+                ? "المرحلة " + extractStageNumber(activity.campaignStageId)
+                : "المرحلة 1";
+
+        if (soloStageTitle != null) soloStageTitle.setText(stageTitle);
+        soloStageTarget.setText("🎯 الهدف: " + target);
+        soloStageScore.setText("⭐ مجموعك: " + currentScore);
+        if (soloStageQuestions != null) {
+            soloStageQuestions.setText("📝 الأسئلة: " + currentPick + " / " + totalPicks);
+        }
+
+        int earnedStars = 0;
+        if (currentScore >= Math.round(target * 1.55f)) earnedStars = 3;
+        else if (currentScore >= Math.round(target * 1.25f)) earnedStars = 2;
+        else if (currentScore >= target) earnedStars = 1;
+
+        for (int i = 0; i < 3; i++) {
+            if (soloStageStars[i] != null) {
+                boolean earned = i < earnedStars;
+                soloStageStars[i].setTextColor(earned ? Color.rgb(255, 216, 74) : Color.argb(110, 255, 255, 255));
+                soloStageStars[i].setShadowLayer(
+                        earned ? activity.dp(5) : activity.dp(2),
+                        0,
+                        earned ? 0 : activity.dp(1),
+                        earned ? Color.argb(220, 255, 200, 50) : Color.argb(120, 0, 0, 0)
+                );
+                if (earned && i >= lastEarnedStars) {
+                    animateStar(soloStageStars[i]);
+                }
+            }
+        }
+        lastEarnedStars = earnedStars;
+
+        if (soloStageProgressTrack != null && soloStageProgressFill != null) {
+            final int scoreForProgress = currentScore;
+            final int maxGoal = Math.max(1, Math.round(target * 1.55f));
+            soloStageProgressTrack.post(new Runnable() {
+                @Override
+                public void run() {
+                    int trackWidth = soloStageProgressTrack.getWidth();
+                    if (trackWidth <= 0) return;
+                    float ratio = Math.max(0f, Math.min(1f, (float) scoreForProgress / (float) maxGoal));
+                    ViewGroup.LayoutParams params = soloStageProgressFill.getLayoutParams();
+                    params.width = Math.round(trackWidth * ratio);
+                    soloStageProgressFill.setLayoutParams(params);
+                }
+            });
+        }
+    }
+
+    private String extractStageNumber(String stageId) {
+        if (stageId == null) return "1";
+        String digits = stageId.replaceAll("[^0-9]", "");
+        if (digits.isEmpty()) return "1";
+        try {
+            return String.valueOf(Integer.parseInt(digits));
+        } catch (Exception e) {
+            return digits;
+        }
+    }
+
+    private void animateStar(final TextView star) {
+        if (star == null) return;
+        star.setScaleX(0.6f);
+        star.setScaleY(0.6f);
+        star.animate().scaleX(1.3f).scaleY(1.3f).setDuration(160).withEndAction(new Runnable() {
+            @Override
+            public void run() {
+                star.animate().scaleX(1f).scaleY(1f).setDuration(160).start();
+            }
+        }).start();
+    }
+
     private TextView makeBoardText(float sizeSp, String colorHex, int gravity) {
         TextView view = new TextView(activity);
         view.setTextColor(Color.parseColor(colorHex));
@@ -981,7 +1230,11 @@ final class GameOfflineContestantsController {
         return view;
     }
 
-    private void refreshScoreBoard() {
+    void refreshScoreBoard() {
+        if (isSoloCampaignBoard()) {
+            refreshSoloStageCard();
+            return;
+        }
         if (boardNameViews == null || boardScoreViews == null || boardAvatarViews == null
                 || names == null || scores == null) {
             return;

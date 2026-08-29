@@ -49,7 +49,7 @@ final class GameLayoutController {
                     : Math.round(screenWidthDp * (shortScreen ? 0.56f : 0.58f));
             targetWidthDp = Math.max(shortScreen ? 430 : 480, Math.min(560, targetWidthDp));
             targetWidthDp = Math.min(targetWidthDp, Math.max(360, Math.round(screenWidthDp - 112f)));
-            if (activity.isOfflineContestantMode()) {
+            if (activity.isOfflineContestantMode() || activity.boardMode || activity.campaignMode) {
                 int boardWidthDp = scoreBoardWidthDp(screenHeightDp);
                 int boardLeftDp = Math.round(screenWidthDp - scoreBoardEndMarginDp(screenWidthDp) - boardWidthDp);
                 int maxWidthBesideBoardDp = Math.round(2f * (boardLeftDp - 10f - (screenWidthDp / 2f)));
@@ -89,7 +89,7 @@ final class GameLayoutController {
         // Compress the question/answer block vertically on short landscape
         // screens so the contestant podiums below it have room (no overlap).
         // Online match screens reuse the same tuned geometry as offline play.
-        if (!activity.isOfflineContestantMode() && !activity.modeOnline) {
+        if (!activity.isOfflineContestantMode() && !activity.modeOnline && !activity.boardMode && !activity.campaignMode) {
             return;
         }
         final int qaTopMarginDp = qaTopMarginDp(screenHeightDp);
@@ -276,6 +276,14 @@ final class GameLayoutController {
             return;
         }
         ((ViewGroup.MarginLayoutParams) view.getLayoutParams()).bottomMargin = activity.dp(marginDp);
+        view.requestLayout();
+    }
+
+    private void setStartMargin(View view, int marginDp) {
+        if (view == null || !(view.getLayoutParams() instanceof ViewGroup.MarginLayoutParams)) {
+            return;
+        }
+        ((ViewGroup.MarginLayoutParams) view.getLayoutParams()).setMarginStart(activity.dp(marginDp));
         view.requestLayout();
     }
 

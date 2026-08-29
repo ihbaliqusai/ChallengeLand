@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/campaign_stage.dart';
 import '../../models/stage_progress.dart';
+import '../../services/campaign_defaults.dart';
 import '../../services/campaign_mode_engine.dart';
 import '../../services/campaign_result_handler.dart';
 import '../../services/native_bridge_service.dart';
@@ -145,8 +146,6 @@ class _StageIntroScreenState extends State<StageIntroScreen>
     final stage = widget.stage;
 
     try {
-      // Campaign stages run on the challenge board, which loads its own question
-      // pool natively (LocalQuestions.loadBoardPool) — no per-stage id selection.
       const questionIds = <int>[];
       final effectiveAllowedLevels = stage.allowedLevels
           .where((level) => level.trim().isNotEmpty)
@@ -230,7 +229,10 @@ class _StageIntroScreenState extends State<StageIntroScreen>
   Widget build(BuildContext context) {
     final stage = widget.stage;
     final progress = widget.progress;
-    final accent = _stageAccent(stage);
+    final isBoss = stage.isBossStage;
+    final accent = isBoss ? const Color(0xFFFF3366) : const Color(0xFF38BDF8);
+    final worldIndex = ((stage.order - 1) ~/ 10).clamp(0, CampaignDefaults.worldNames.length - 1);
+    final worldName = CampaignDefaults.worldNames[worldIndex];
 
     return Directionality(
       textDirection: TextDirection.rtl,
@@ -238,16 +240,17 @@ class _StageIntroScreenState extends State<StageIntroScreen>
         body: Stack(
           children: [
             const Positioned.fill(child: LevelCompleteBackground()),
-            // A soft accent wash so boss and solo stages feel distinct.
+            // Ambient soft glow
             Positioned.fill(
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
+                  gradient: RadialGradient(
+                    center: const Alignment(0, -0.4),
+                    radius: 1.2,
                     colors: [
-                      accent.withValues(alpha: 0.16),
-                      Colors.transparent,
+                      accent.withValues(alpha: 0.18),
+                      const Color(0xFF030A24).withValues(alpha: 0.85),
+                      const Color(0xFF020718),
                     ],
                   ),
                 ),
@@ -267,31 +270,35 @@ class _StageIntroScreenState extends State<StageIntroScreen>
                   Expanded(
                     child: Center(
                       child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 560),
+                        constraints: const BoxConstraints(maxWidth: 580),
                         child: SingleChildScrollView(
                           physics: const BouncingScrollPhysics(),
-                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
+                          padding: const EdgeInsets.fromLTRB(16, 6, 16, 16),
                           child: Column(
                             children: [
                               _StageHeroCard(
                                 stage: stage,
                                 progress: progress,
                                 accent: accent,
+                                worldName: worldName,
                               ),
-                              const SizedBox(height: 12),
-                              _ObjectiveCard(
+                              const SizedBox(height: 14),
+                              _MissionAndStarsCard(
                                 stage: stage,
                                 progress: progress,
                                 accent: accent,
                               ),
-                              const SizedBox(height: 12),
-                              _StarThresholdsCard(stage: stage),
-                              const SizedBox(height: 12),
-                              _HowToPlayCard(stage: stage, accent: accent),
-                              const SizedBox(height: 12),
-                              _RewardsCard(stage: stage),
-                              const SizedBox(height: 12),
-                              _BestRecordCard(progress: progress),
+                              const SizedBox(height: 14),
+                              _DualStatsRow(
+                                stage: stage,
+                                progress: progress,
+                                accent: accent,
+                              ),
+                              const SizedBox(height: 14),
+                              _QuickGuideBanner(
+                                isBoss: isBoss,
+                                accent: accent,
+                              ),
                             ],
                           ),
                         ),
@@ -320,12 +327,7 @@ class _StageIntroScreenState extends State<StageIntroScreen>
   }
 }
 
-Color _stageAccent(CampaignStage stage) =>
-    stage.isBossStage ? const Color(0xFFFF4D6D) : const Color(0xFF4D8DFF);
-
-const Color _gold = Color(0xFFFFD95A);
-
-// ── Top bar ───────────────────────────────────────────────────────────────────
+// ── Top Navigation Bar ─────────────────────────────────────────────────────────
 
 class _TopBar extends StatelessWidget {
   const _TopBar({required this.onBack, required this.onLeaderboard});
@@ -336,39 +338,77 @@ class _TopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 8, 14, 4),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
       child: Row(
         children: [
-          _CircleHudButton(icon: Icons.arrow_forward_rounded, onPressed: onBack),
-          const SizedBox(width: 10),
+          _GlassCircleButton(
+            icon: Icons.arrow_forward_rounded,
+            onPressed: onBack,
+          ),
+          const SizedBox(width: 12),
           const Expanded(
             child: Text(
               'تفاصيل المرحلة',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: Colors.white,
-                fontSize: 19,
+                fontSize: 20,
                 fontWeight: FontWeight.w900,
                 shadows: [
                   Shadow(
-                    color: Color(0x99000000),
-                    blurRadius: 8,
-                    offset: Offset(0, 3),
+                    color: Color(0xAA000000),
+                    blurRadius: 10,
+                    offset: Offset(0, 2),
                   ),
                 ],
               ),
             ),
           ),
-          TextButton.icon(
-            onPressed: onLeaderboard,
-            icon: const Icon(Icons.leaderboard_rounded, size: 18),
-            label: const Text('الترتيب'),
-            style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFFBDEBFF),
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              textStyle:
-                  const TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: onLeaderboard,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      const Color(0xFFFFD700).withValues(alpha: 0.22),
+                      const Color(0xFFFFA000).withValues(alpha: 0.12),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: const Color(0xFFFFD700).withValues(alpha: 0.5),
+                    width: 1.2,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFFFD700).withValues(alpha: 0.20),
+                      blurRadius: 12,
+                    ),
+                  ],
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.emoji_events_rounded,
+                      color: Color(0xFFFFD700),
+                      size: 17,
+                    ),
+                    SizedBox(width: 6),
+                    Text(
+                      'المتصدرون',
+                      style: TextStyle(
+                        color: Color(0xFFFFE082),
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ],
@@ -377,10 +417,244 @@ class _TopBar extends StatelessWidget {
   }
 }
 
-// ── Hero card ─────────────────────────────────────────────────────────────────
+// ── Hero Stage Header Card ───────────────────────────────────────────────────
 
 class _StageHeroCard extends StatelessWidget {
   const _StageHeroCard({
+    required this.stage,
+    required this.progress,
+    required this.accent,
+    required this.worldName,
+  });
+
+  final CampaignStage stage;
+  final StageProgress progress;
+  final Color accent;
+  final String worldName;
+
+  @override
+  Widget build(BuildContext context) {
+    final isBoss = stage.isBossStage;
+    final earnedStars = progress.stars;
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(26),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            accent.withValues(alpha: 0.28),
+            const Color(0xFF08163E).withValues(alpha: 0.95),
+            const Color(0xFF040C26).withValues(alpha: 0.98),
+          ],
+        ),
+        border: Border.all(
+          color: accent.withValues(alpha: 0.55),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: accent.withValues(alpha: 0.32),
+            blurRadius: 28,
+            offset: const Offset(0, 10),
+          ),
+          const BoxShadow(
+            color: Colors.black45,
+            blurRadius: 14,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          _StageCrestBadge(order: stage.order, isBoss: isBoss),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.22),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            isBoss ? Icons.local_fire_department_rounded : Icons.explore_rounded,
+                            color: isBoss ? const Color(0xFFFF7A00) : const Color(0xFF7DD3FC),
+                            size: 14,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            worldName,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    if (isBoss)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFF2A55).withValues(alpha: 0.25),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: const Color(0xFFFF2A55).withValues(alpha: 0.6),
+                            width: 1,
+                          ),
+                        ),
+                        child: const Text(
+                          'زعيم العالم',
+                          style: TextStyle(
+                            color: Color(0xFFFF85A1),
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  stage.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 26,
+                    fontWeight: FontWeight.w900,
+                    shadows: [
+                      Shadow(
+                        color: Color(0xDD000000),
+                        blurRadius: 8,
+                        offset: Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                // 3D Star Rating Display
+                Row(
+                  children: [
+                    StarRatingView(stars: earnedStars, size: 24),
+                    const SizedBox(width: 8),
+                    Text(
+                      earnedStars == 3
+                          ? 'مكتملة بالكامل 👑'
+                          : earnedStars > 0
+                              ? '$earnedStars من 3 نجوم'
+                              : 'غير مكتملة بعد',
+                      style: TextStyle(
+                        color: earnedStars > 0 ? const Color(0xFFFFD54F) : Colors.white60,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Stage 3D Crest Badge ─────────────────────────────────────────────────────
+
+class _StageCrestBadge extends StatelessWidget {
+  const _StageCrestBadge({required this.order, required this.isBoss});
+
+  final int order;
+  final bool isBoss;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 76,
+      height: 76,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isBoss
+              ? const [Color(0xFFFF8008), Color(0xFFFFC837), Color(0xFFFF3366)]
+              : const [Color(0xFF38BDF8), Color(0xFF0284C7), Color(0xFF1E3A8A)],
+        ),
+        border: Border.all(
+          color: Colors.white,
+          width: 2.8,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: (isBoss ? const Color(0xFFFF3366) : const Color(0xFF38BDF8))
+                .withValues(alpha: 0.5),
+            blurRadius: 18,
+            spreadRadius: 2,
+          ),
+          const BoxShadow(
+            color: Colors.black54,
+            blurRadius: 10,
+            offset: Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (isBoss)
+              const Icon(
+                Icons.military_tech_rounded,
+                color: Colors.white,
+                size: 18,
+              ),
+            Text(
+              '$order',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: isBoss ? 24 : 28,
+                fontWeight: FontWeight.w900,
+                height: 1,
+                shadows: const [
+                  Shadow(
+                    color: Colors.black54,
+                    blurRadius: 6,
+                    offset: Offset(0, 2),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Core Mission & Stars Dashboard Card ──────────────────────────────────────
+
+class _MissionAndStarsCard extends StatelessWidget {
+  const _MissionAndStarsCard({
     required this.stage,
     required this.progress,
     required this.accent,
@@ -392,138 +666,243 @@ class _StageHeroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final boss = stage.isBossStage;
+    final isBoss = stage.isBossStage;
+    final target = stage.boardTargetScore;
+    final starRules = stage.starRules;
+    final bestScore = progress.bestScore;
+
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(26),
-        gradient: LinearGradient(
-          begin: Alignment.topRight,
-          end: Alignment.bottomLeft,
-          colors: [
-            accent.withValues(alpha: 0.30),
-            const Color(0xFF0A1A3A).withValues(alpha: 0.92),
-          ],
+        borderRadius: BorderRadius.circular(22),
+        color: const Color(0xFF06143A).withValues(alpha: 0.88),
+        border: Border.all(
+          color: const Color(0xFF38BDF8).withValues(alpha: 0.3),
+          width: 1.2,
         ),
-        border: Border.all(color: accent.withValues(alpha: 0.5), width: 1.4),
         boxShadow: [
           BoxShadow(
-            color: accent.withValues(alpha: 0.30),
-            blurRadius: 30,
-            spreadRadius: -8,
-            offset: const Offset(0, 12),
+            color: Colors.black.withValues(alpha: 0.3),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _StageNumberBadge(order: stage.order, boss: boss),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
+          // Section Title
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFD700).withValues(alpha: 0.16),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.stars_rounded,
+                  color: Color(0xFFFFD700),
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'هدف المرحلة والنجوم',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: accent.withValues(alpha: 0.35)),
+                ),
+                child: Text(
+                  isBoss
+                      ? 'مواجهة ${stage.botCount > 0 ? stage.botCount : 1} زعماء'
+                      : '${stage.boardSoloPicks} اختيارات على اللوحة',
+                  style: TextStyle(
+                    color: accent,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          // Primary Objective Banner
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  accent.withValues(alpha: 0.18),
+                  const Color(0xFF041030).withValues(alpha: 0.6),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: accent.withValues(alpha: 0.4),
+                width: 1,
+              ),
+            ),
+            child: Row(
               children: [
-                Text(
-                  stage.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 26,
-                    height: 1.08,
-                    fontWeight: FontWeight.w900,
-                    shadows: [
-                      Shadow(
-                        color: Color(0x99000000),
-                        blurRadius: 8,
-                        offset: Offset(0, 3),
+                Icon(
+                  isBoss ? Icons.shield_rounded : Icons.gps_fixed_rounded,
+                  color: accent,
+                  size: 28,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isBoss
+                            ? 'اهزم الزعيم واحتل المركز الأول'
+                            : 'الهدف المطلوب: $target نقطة',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        isBoss
+                            ? 'اجمع أعلى مجموع نقاط في نهاية الأدوار لفتح العالم التالي'
+                            : 'اختر الأسئلة بذكاء من اللوحة لتحقيق هذا المجموع أو أكثر',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 9),
-                Wrap(
-                  spacing: 7,
-                  runSpacing: 6,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    _TypePill(
-                      icon: boss
-                          ? Icons.workspace_premium_rounded
-                          : Icons.flag_rounded,
-                      label: boss ? 'مواجهة زعماء' : 'مرحلة فردية',
-                      color: accent,
-                    ),
-                    if (boss)
-                      _TypePill(
-                        icon: Icons.local_fire_department_rounded,
-                        label: _bossDifficultyLabel(stage.order),
-                        color: _gold,
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                StarRatingView(stars: progress.stars, size: 22),
               ],
             ),
           ),
+          const SizedBox(height: 16),
+
+          // 3 Star Milestone Tier Cards
+          Row(
+            children: [
+              Expanded(
+                child: _StarMilestoneNode(
+                  starCount: 1,
+                  label: isBoss ? 'الفوز' : '$target',
+                  unit: isBoss ? 'بالمركز 1' : 'نقطة',
+                  isAchieved: progress.stars >= 1 || (bestScore >= target && target > 0),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _StarMilestoneNode(
+                  starCount: 2,
+                  label: '${starRules.twoStarsMinScore}',
+                  unit: 'نقطة',
+                  isAchieved: progress.stars >= 2 || (bestScore >= starRules.twoStarsMinScore && starRules.twoStarsMinScore > 0),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _StarMilestoneNode(
+                  starCount: 3,
+                  label: '${starRules.threeStarsMinScore}',
+                  unit: 'نقطة',
+                  isAchieved: progress.stars >= 3 || (bestScore >= starRules.threeStarsMinScore && starRules.threeStarsMinScore > 0),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
   }
 }
 
-class _StageNumberBadge extends StatelessWidget {
-  const _StageNumberBadge({required this.order, required this.boss});
+class _StarMilestoneNode extends StatelessWidget {
+  const _StarMilestoneNode({
+    required this.starCount,
+    required this.label,
+    required this.unit,
+    required this.isAchieved,
+  });
 
-  final int order;
-  final bool boss;
+  final int starCount;
+  final String label;
+  final String unit;
+  final bool isAchieved;
 
   @override
   Widget build(BuildContext context) {
+    const gold = Color(0xFFFFD700);
+
     return Container(
-      width: 78,
-      height: 78,
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
       decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: boss
-              ? const [Color(0xFFFFF5C4), Color(0xFFFFC43F), Color(0xFFFF7C1E)]
-              : const [Color(0xFFFFFFFF), Color(0xFFCFE2FF), Color(0xFF7FB0FF)],
+        color: isAchieved
+            ? gold.withValues(alpha: 0.16)
+            : Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(
+          color: isAchieved
+              ? gold.withValues(alpha: 0.6)
+              : Colors.white.withValues(alpha: 0.15),
+          width: isAchieved ? 1.4 : 1,
         ),
-        border: Border.all(color: Colors.white, width: 3),
-        boxShadow: [
-          BoxShadow(
-            color: (boss ? const Color(0xFFFFC43F) : const Color(0xFF7FB0FF))
-                .withValues(alpha: 0.45),
-            blurRadius: 20,
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.28),
-            blurRadius: 12,
-            offset: const Offset(0, 7),
-          ),
-        ],
+        boxShadow: isAchieved
+            ? [
+                BoxShadow(
+                  color: gold.withValues(alpha: 0.22),
+                  blurRadius: 10,
+                ),
+              ]
+            : null,
       ),
-      child: Stack(
-        alignment: Alignment.center,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          if (boss)
-            const Positioned(
-              top: 8,
-              child: Icon(Icons.emoji_events_rounded,
-                  color: Color(0xFF8A2F00), size: 17),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(
+              starCount,
+              (index) => const Icon(
+                Icons.star_rounded,
+                color: gold,
+                size: 16,
+              ),
             ),
+          ),
+          const SizedBox(height: 5),
           Text(
-            '$order',
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              color: boss ? const Color(0xFF5B2100) : const Color(0xFF103064),
-              fontSize: 28,
+              color: isAchieved ? Colors.white : Colors.white70,
+              fontSize: 14,
               fontWeight: FontWeight.w900,
-              height: boss ? 1.5 : 1,
+            ),
+          ),
+          Text(
+            unit,
+            style: TextStyle(
+              color: isAchieved ? const Color(0xFFFFE082) : Colors.white38,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],
@@ -532,8 +911,139 @@ class _StageNumberBadge extends StatelessWidget {
   }
 }
 
-class _TypePill extends StatelessWidget {
-  const _TypePill({required this.icon, required this.label, required this.color});
+// ── Dual Stats Row (Rewards + Personal Best) ─────────────────────────────────
+
+class _DualStatsRow extends StatelessWidget {
+  const _DualStatsRow({
+    required this.stage,
+    required this.progress,
+    required this.accent,
+  });
+
+  final CampaignStage stage;
+  final StageProgress progress;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Rewards Card (Right)
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              color: const Color(0xFF06143A).withValues(alpha: 0.88),
+              border: Border.all(
+                color: const Color(0xFFFFD700).withValues(alpha: 0.28),
+                width: 1.1,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.card_giftcard_rounded, color: Color(0xFFFFD700), size: 16),
+                    SizedBox(width: 6),
+                    Text(
+                      'المكافآت',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                _RewardMiniBadge(
+                  icon: Icons.monetization_on_rounded,
+                  label: '+${stage.rewardCoins} ذهب',
+                  color: const Color(0xFFFFD700),
+                ),
+                const SizedBox(height: 6),
+                _RewardMiniBadge(
+                  icon: Icons.diamond_rounded,
+                  label: '+${stage.rewardGems} جوهرة',
+                  color: const Color(0xFF38BDF8),
+                ),
+                const SizedBox(height: 6),
+                _RewardMiniBadge(
+                  icon: Icons.bolt_rounded,
+                  label: '+${stage.rewardXp} خبرة',
+                  color: const Color(0xFF10B981),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+
+        // Personal Record Card (Left)
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              color: const Color(0xFF06143A).withValues(alpha: 0.88),
+              border: Border.all(
+                color: const Color(0xFF38BDF8).withValues(alpha: 0.28),
+                width: 1.1,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.history_rounded, color: Color(0xFF38BDF8), size: 16),
+                    SizedBox(width: 6),
+                    Text(
+                      'سجلك بالمرحلة',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                _RecordMiniRow(
+                  label: 'أفضل نتيجة',
+                  value: progress.bestScore > 0 ? '${progress.bestScore}' : '—',
+                  color: const Color(0xFF38BDF8),
+                ),
+                const SizedBox(height: 6),
+                _RecordMiniRow(
+                  label: 'النجوم',
+                  value: '${progress.stars} / 3',
+                  color: const Color(0xFFFFD700),
+                ),
+                const SizedBox(height: 6),
+                _RecordMiniRow(
+                  label: 'المحاولات',
+                  value: '${progress.attempts}',
+                  color: const Color(0xFF10B981),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RewardMiniBadge extends StatelessWidget {
+  const _RewardMiniBadge({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
 
   final IconData icon;
   final String label;
@@ -542,19 +1052,64 @@ class _TypePill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.18),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.45)),
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, color: color, size: 15),
-          const SizedBox(width: 5),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RecordMiniRow extends StatelessWidget {
+  const _RecordMiniRow({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
           Text(
             label,
+            style: const TextStyle(
+              color: Colors.white60,
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          Text(
+            value,
             style: TextStyle(
               color: color,
               fontSize: 12.5,
@@ -567,572 +1122,53 @@ class _TypePill extends StatelessWidget {
   }
 }
 
-// ── Objective card ────────────────────────────────────────────────────────────
+// ── Quick Guide Compact Banner ───────────────────────────────────────────────
 
-class _ObjectiveCard extends StatelessWidget {
-  const _ObjectiveCard({
-    required this.stage,
-    required this.progress,
+class _QuickGuideBanner extends StatelessWidget {
+  const _QuickGuideBanner({
+    required this.isBoss,
     required this.accent,
   });
 
-  final CampaignStage stage;
-  final StageProgress progress;
+  final bool isBoss;
   final Color accent;
-
-  @override
-  Widget build(BuildContext context) {
-    final boss = stage.isBossStage;
-    return _SectionCard(
-      title: 'الهدف',
-      icon: Icons.my_location_rounded,
-      accent: accent,
-      child: boss ? _bossObjective() : _soloObjective(),
-    );
-  }
-
-  Widget _soloObjective() {
-    final target = stage.boardTargetScore;
-    final best = progress.bestScore.clamp(0, target);
-    final ratio = target <= 0 ? 0.0 : (best / target).clamp(0.0, 1.0);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Container(
-              width: 52,
-              height: 52,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: accent.withValues(alpha: 0.16),
-                border: Border.all(color: accent.withValues(alpha: 0.4)),
-              ),
-              child: Icon(Icons.stars_rounded, color: accent, size: 26),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.baseline,
-                    textBaseline: TextBaseline.alphabetic,
-                    children: [
-                      Text(
-                        '$target',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 34,
-                          fontWeight: FontWeight.w900,
-                          height: 1,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      const Padding(
-                        padding: EdgeInsets.only(bottom: 3),
-                        child: Text(
-                          'نقطة',
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Text(
-                    'اجمع هذه النقاط على اللوحة لإنهاء المرحلة',
-                    style: TextStyle(
-                      color: Colors.white60,
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        _ProgressBar(ratio: ratio, accent: accent),
-        const SizedBox(height: 6),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'أفضل نتيجة لك: ${progress.bestScore}',
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            Text(
-              '${stage.boardSoloPicks} اختيارات',
-              style: TextStyle(
-                color: accent,
-                fontSize: 12,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _bossObjective() {
-    final bots = stage.botCount > 0 ? stage.botCount : 1;
-    final headline =
-        bots == 1 ? 'تغلّب على الزعيم' : 'تغلّب على $bots من الزعماء';
-    return Row(
-      children: [
-        Container(
-          width: 52,
-          height: 52,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: accent.withValues(alpha: 0.16),
-            border: Border.all(color: accent.withValues(alpha: 0.4)),
-          ),
-          child: Icon(Icons.military_tech_rounded, color: accent, size: 27),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                headline,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                  height: 1.1,
-                ),
-              ),
-              const SizedBox(height: 3),
-              const Text(
-                'كن صاحب أعلى نقاط على اللوحة لتفتح الطريق التالي',
-                style: TextStyle(
-                  color: Colors.white60,
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ProgressBar extends StatelessWidget {
-  const _ProgressBar({required this.ratio, required this.accent});
-
-  final double ratio;
-  final Color accent;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(999),
-      child: Stack(
-        children: [
-          Container(height: 9, color: Colors.white.withValues(alpha: 0.10)),
-          FractionallySizedBox(
-            widthFactor: ratio == 0 ? 0.001 : ratio,
-            child: Container(
-              height: 9,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [accent.withValues(alpha: 0.7), accent],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Star thresholds ───────────────────────────────────────────────────────────
-
-class _StarThresholdsCard extends StatelessWidget {
-  const _StarThresholdsCard({required this.stage});
-
-  final CampaignStage stage;
-
-  @override
-  Widget build(BuildContext context) {
-    final rules = stage.starRules;
-    final boss = stage.isBossStage;
-    return _SectionCard(
-      title: 'شروط النجوم',
-      icon: Icons.star_rounded,
-      accent: _gold,
-      child: Row(
-        children: [
-          Expanded(
-            child: _StarTier(
-              stars: 1,
-              text: boss ? 'الفوز بالمواجهة' : 'الوصول للهدف',
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: _StarTier(stars: 2, text: '${rules.twoStarsMinScore} نقطة'),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: _StarTier(stars: 3, text: '${rules.threeStarsMinScore} نقطة'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StarTier extends StatelessWidget {
-  const _StarTier({required this.stars, required this.text});
-
-  final int stars;
-  final String text;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
       decoration: BoxDecoration(
-        color: _gold.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: _gold.withValues(alpha: 0.24)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          StarRatingView(stars: stars, size: 17),
-          const SizedBox(height: 6),
-          Text(
-            text,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── How to play ───────────────────────────────────────────────────────────────
-
-class _HowToPlayCard extends StatelessWidget {
-  const _HowToPlayCard({required this.stage, required this.accent});
-
-  final CampaignStage stage;
-  final Color accent;
-
-  @override
-  Widget build(BuildContext context) {
-    final boss = stage.isBossStage;
-    return _SectionCard(
-      title: 'كيف تلعب',
-      icon: Icons.menu_book_rounded,
-      accent: const Color(0xFF7DD3FC),
-      child: Column(
-        children: [
-          const _HowToRow(
-            icon: Icons.grid_view_rounded,
-            text: 'اختر خانة من اللوحة وأجب عن سؤالها.',
-          ),
-          const SizedBox(height: 8),
-          const _HowToRow(
-            icon: Icons.toll_rounded,
-            text: 'قيمة كل خانة 200 أو 400 أو 600 نقطة.',
-          ),
-          const SizedBox(height: 8),
-          const _HowToRow(
-            icon: Icons.keyboard_rounded,
-            text:
-                'أجب كتابةً لتأخذ النقاط كاملة، أو اكشف الخيارات مقابل نصف النقاط.',
-          ),
-          if (boss) ...[
-            const SizedBox(height: 8),
-            _HowToRow(
-              icon: Icons.emoji_events_rounded,
-              text: 'تنافس مع الزعماء — صاحب أعلى نقاط في النهاية يفوز.',
-              color: accent,
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _HowToRow extends StatelessWidget {
-  const _HowToRow({required this.icon, required this.text, this.color});
-
-  final IconData icon;
-  final String text;
-  final Color? color;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = color ?? const Color(0xFF7DD3FC);
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 30,
-          height: 30,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: c.withValues(alpha: 0.14),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(icon, color: c, size: 17),
+        borderRadius: BorderRadius.circular(18),
+        color: const Color(0xFF040E2C).withValues(alpha: 0.75),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.12),
+          width: 1,
         ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.only(top: 5),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.lightbulb_rounded, color: Color(0xFFFFD700), size: 19),
+          const SizedBox(width: 10),
+          Expanded(
             child: Text(
-              text,
+              isBoss
+                  ? '💡 الزعماء يتنافسون معك على نفس اللوحة — سرقة الأسئلة تمنحك الأفضلية!'
+                  : '💡 الإجابة كتابةً تمنحك النقاط كاملة، بينما كشف الخيارات (أ، ب، ج، د) يُنصفها.',
               style: const TextStyle(
-                color: Colors.white,
-                fontSize: 13.5,
+                color: Colors.white70,
+                fontSize: 12,
                 height: 1.35,
                 fontWeight: FontWeight.w700,
               ),
             ),
           ),
-        ),
-      ],
-    );
-  }
-}
-
-// ── Rewards ───────────────────────────────────────────────────────────────────
-
-class _RewardsCard extends StatelessWidget {
-  const _RewardsCard({required this.stage});
-
-  final CampaignStage stage;
-
-  @override
-  Widget build(BuildContext context) {
-    return _SectionCard(
-      title: 'مكافأة المرحلة',
-      icon: Icons.card_giftcard_rounded,
-      accent: _gold,
-      child: Row(
-        children: [
-          Expanded(
-            child: _RewardTile(
-              icon: Icons.monetization_on_rounded,
-              value: '${stage.rewardCoins}',
-              label: 'عملة',
-              color: _gold,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: _RewardTile(
-              icon: Icons.diamond_rounded,
-              value: '${stage.rewardGems}',
-              label: 'جوهرة',
-              color: const Color(0xFF6FE7FF),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: _RewardTile(
-              icon: Icons.bolt_rounded,
-              value: '${stage.rewardXp}',
-              label: 'خبرة',
-              color: const Color(0xFF54F088),
-            ),
-          ),
         ],
       ),
     );
   }
 }
 
-class _RewardTile extends StatelessWidget {
-  const _RewardTile({
-    required this.icon,
-    required this.value,
-    required this.label,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String value;
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: color.withValues(alpha: 0.22)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: color, size: 20),
-          const SizedBox(height: 5),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.w900,
-              height: 1,
-            ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            label,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.66),
-              fontSize: 11.5,
-              fontWeight: FontWeight.w800,
-              height: 1,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Best record ───────────────────────────────────────────────────────────────
-
-class _BestRecordCard extends StatelessWidget {
-  const _BestRecordCard({required this.progress});
-
-  final StageProgress progress;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-      decoration: BoxDecoration(
-        color: const Color(0xFF061642).withValues(alpha: 0.62),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _RecordMetric(
-              icon: Icons.star_rounded,
-              label: 'أفضل نجوم',
-              value: '${progress.stars}/3',
-              color: _gold,
-            ),
-          ),
-          _divider(),
-          Expanded(
-            child: _RecordMetric(
-              icon: Icons.leaderboard_rounded,
-              label: 'أفضل نتيجة',
-              value: '${progress.bestScore}',
-              color: const Color(0xFF7DD3FC),
-            ),
-          ),
-          _divider(),
-          Expanded(
-            child: _RecordMetric(
-              icon: Icons.replay_rounded,
-              label: 'المحاولات',
-              value: '${progress.attempts}',
-              color: const Color(0xFF54F088),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _divider() => Container(
-        width: 1,
-        height: 34,
-        color: Colors.white.withValues(alpha: 0.12),
-      );
-}
-
-class _RecordMetric extends StatelessWidget {
-  const _RecordMetric({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, color: color, size: 18),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 15,
-            fontWeight: FontWeight.w900,
-            height: 1,
-          ),
-        ),
-        const SizedBox(height: 3),
-        Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.66),
-            fontSize: 12,
-            fontWeight: FontWeight.w800,
-            height: 1,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ── Bottom action bar ─────────────────────────────────────────────────────────
+// ── Bottom Floating Bar with CTA ─────────────────────────────────────────────
 
 class _BottomBar extends StatelessWidget {
   const _BottomBar({
@@ -1150,66 +1186,116 @@ class _BottomBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.bottomCenter,
           end: Alignment.topCenter,
           colors: [
-            const Color(0xFF03081C).withValues(alpha: 0.85),
+            const Color(0xFF020718).withValues(alpha: 0.98),
+            const Color(0xFF020718).withValues(alpha: 0.5),
             Colors.transparent,
           ],
         ),
       ),
       child: Row(
         children: [
+          // Main Launch Button (CTA)
           Expanded(
             flex: 3,
-            child: SizedBox(
-              height: 58,
-              child: FilledButton.icon(
-                onPressed: launching ? null : onStart,
-                icon: launching
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.4,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Icon(Icons.play_arrow_rounded, size: 30),
-                label: Text(launching ? 'جارٍ البدء...' : 'ابدأ المرحلة'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFFFFB22E),
-                  disabledBackgroundColor: const Color(0xFF826646),
-                  foregroundColor: const Color(0xFF321600),
-                  disabledForegroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18),
+            child: Container(
+              height: 56,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(18),
+                gradient: const LinearGradient(
+                  colors: [
+                    Color(0xFFFFC107),
+                    Color(0xFFFF9800),
+                    Color(0xFFF57C00),
+                  ],
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFFF9800).withValues(alpha: 0.45),
+                    blurRadius: 20,
+                    offset: const Offset(0, 6),
                   ),
-                  textStyle:
-                      const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
-                  elevation: 10,
-                  shadowColor: const Color(0xFFFFB22E).withValues(alpha: 0.5),
-                ),
+                ],
               ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          SizedBox(
-            height: 58,
-            child: OutlinedButton.icon(
-              onPressed: launching ? null : onMap,
-              icon: const Icon(Icons.map_rounded),
-              label: const Text('الخريطة'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.white,
-                side: BorderSide(color: Colors.white.withValues(alpha: 0.36)),
-                shape: RoundedRectangleBorder(
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
                   borderRadius: BorderRadius.circular(18),
+                  onTap: launching ? null : onStart,
+                  child: Center(
+                    child: launching
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.6,
+                              color: Color(0xFF331600),
+                            ),
+                          )
+                        : const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.play_arrow_rounded,
+                                color: Color(0xFF331600),
+                                size: 28,
+                              ),
+                              SizedBox(width: 6),
+                              Text(
+                                'ابدأ المرحلة',
+                                style: TextStyle(
+                                  color: Color(0xFF331600),
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
                 ),
-                textStyle: const TextStyle(fontWeight: FontWeight.w900),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+
+          // Secondary Map Button
+          Container(
+            height: 56,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              color: const Color(0xFF061642).withValues(alpha: 0.8),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.25),
+                width: 1.2,
+              ),
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(18),
+                onTap: launching ? null : onMap,
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: [
+                      Icon(Icons.map_rounded, color: Colors.white, size: 20),
+                      SizedBox(width: 6),
+                      Text(
+                        'الخريطة',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
@@ -1219,117 +1305,10 @@ class _BottomBar extends StatelessWidget {
   }
 }
 
-// ── Shared building blocks ────────────────────────────────────────────────────
+// ── Shared Glass Circle Button ────────────────────────────────────────────────
 
-class _SectionCard extends StatelessWidget {
-  const _SectionCard({
-    required this.title,
-    required this.icon,
-    required this.accent,
-    required this.child,
-  });
-
-  final String title;
-  final IconData icon;
-  final Color accent;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-      decoration: BoxDecoration(
-        color: const Color(0xFF061642).withValues(alpha: 0.74),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: accent.withValues(alpha: 0.22)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.18),
-            blurRadius: 14,
-            offset: const Offset(0, 7),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: accent, size: 19),
-              const SizedBox(width: 7),
-              Text(
-                title,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          child,
-        ],
-      ),
-    );
-  }
-}
-
-class _BlockingLoadingOverlay extends StatelessWidget {
-  const _BlockingLoadingOverlay({required this.message});
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: const Color(0xFF020B2A).withValues(alpha: 0.86),
-      ),
-      child: Center(
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-          decoration: BoxDecoration(
-            color: const Color(0xFF061642).withValues(alpha: 0.94),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const CircularProgressIndicator(color: _gold),
-              const SizedBox(height: 14),
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 19,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'سيتم عرض نتيجة المرحلة خلال لحظات.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CircleHudButton extends StatelessWidget {
-  const _CircleHudButton({required this.icon, required this.onPressed});
+class _GlassCircleButton extends StatelessWidget {
+  const _GlassCircleButton({required this.icon, required this.onPressed});
 
   final IconData icon;
   final VoidCallback onPressed;
@@ -1342,12 +1321,21 @@ class _CircleHudButton extends StatelessWidget {
         customBorder: const CircleBorder(),
         onTap: onPressed,
         child: Container(
-          width: 40,
-          height: 40,
+          width: 42,
+          height: 42,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: const Color(0xFF06143D).withValues(alpha: 0.56),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
+            color: const Color(0xFF06143D).withValues(alpha: 0.65),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.22),
+              width: 1.2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.2),
+                blurRadius: 8,
+              ),
+            ],
           ),
           child: Icon(icon, color: Colors.white, size: 22),
         ),
@@ -1356,8 +1344,64 @@ class _CircleHudButton extends StatelessWidget {
   }
 }
 
-String _bossDifficultyLabel(int order) {
-  if (order >= 30) return 'أسطوري';
-  if (order >= 20) return 'صعب';
-  return 'متوسط';
+// ── Loading Overlay ───────────────────────────────────────────────────────────
+
+class _BlockingLoadingOverlay extends StatelessWidget {
+  const _BlockingLoadingOverlay({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFF020B2A).withValues(alpha: 0.88),
+      ),
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+          decoration: BoxDecoration(
+            color: const Color(0xFF061642).withValues(alpha: 0.96),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: const Color(0xFFFFD700).withValues(alpha: 0.4),
+              width: 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFFFD700).withValues(alpha: 0.25),
+                blurRadius: 24,
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(color: Color(0xFFFFD700)),
+              const SizedBox(height: 16),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 19,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'سيتم فتح لوحة التحدي خلال لحظات.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

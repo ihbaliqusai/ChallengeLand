@@ -208,8 +208,8 @@ public class GameActivity extends AppCompatActivity {
     private int boardCols;                      // category count = number of players, so the
                                                 // board holds exactly 6 cells per player
     private int boardCellsRemaining;
-    private int boardTurnIndex;                 // 0-based turn counter
-    private int boardTotalTurns;                // turns actually played: largest multiple of
+    int boardTurnIndex;                 // 0-based turn counter
+    int boardTotalTurns;                // turns actually played: largest multiple of
                                                 // the player count <= total cells, so everyone
                                                 // answers the exact same number of questions
     private int boardPickerSlot;                // current picker (contestant slot)
