@@ -62,7 +62,7 @@ final class GameOfflineContestantsController {
     };
     /** Fixed name for each character; slot 0 (the human) uses the account name instead. */
     private static final String[] CHARACTER_NAMES = {
-            "خالد", "عمر", "فهد", "مازن", "محمود", "إيلين", "سارة", "تاليا"
+            "خالد", "عمر", "فهد", "مازن", "محمود", "إلين", "سارة", "تاليا"
     };
 
     /** Per-character looping idle clip (res/raw); 0 means fall back to the static image. */
@@ -188,7 +188,7 @@ final class GameOfflineContestantsController {
     private static final int[] FEMALE_FIGURES = {5, 6, 7};
     private static final java.util.HashSet<String> FEMALE_NAMES = new java.util.HashSet<>(
             java.util.Arrays.asList(
-                    "ليلى", "هدى", "منى", "سارة", "رنا", "ايلين", "إيلين", "تاليا", "تالا",
+                    "ليلى", "هدى", "منى", "سارة", "رنا", "إلين", "الين", "ايلين", "إيلين", "تاليا", "تالا",
                     "فاطمة", "عائشة", "مريم", "نور", "نوره", "نورة", "سلمى", "رؤى", "دانة",
                     "جنى", "لمى", "رهف", "شهد", "غلا", "أسماء", "اسماء", "هند", "ريم", "ريما",
                     "دلال", "عبير", "حنان", "إيمان", "ايمان", "آلاء", "الاء", "بيان", "جود",
@@ -312,13 +312,18 @@ final class GameOfflineContestantsController {
             slotTeam[i] = team == null ? "" : team.trim().toUpperCase();
             if (i > 0) intelligence[i] = 48 + random.nextInt(42);
 
-            // Pick a figure whose gender matches the displayed name.
-            if (isFemaleName(rawName)) {
-                slotCharacter[i] = FEMALE_FIGURES[femaleCursor % FEMALE_FIGURES.length];
-                femaleCursor++;
+            if (i == 0) {
+                // Slot 0 is the local player; ALWAYS use the player's chosen character figure:
+                slotCharacter[0] = characterIndex % CHARACTER_COUNT;
             } else {
-                slotCharacter[i] = MALE_FIGURES[maleCursor % MALE_FIGURES.length];
-                maleCursor++;
+                // Pick a figure whose gender matches the displayed name for opponents/bots.
+                if (isFemaleName(rawName)) {
+                    slotCharacter[i] = FEMALE_FIGURES[femaleCursor % FEMALE_FIGURES.length];
+                    femaleCursor++;
+                } else {
+                    slotCharacter[i] = MALE_FIGURES[maleCursor % MALE_FIGURES.length];
+                    maleCursor++;
+                }
             }
             names[i] = decorateSeatName(rawName, i, slotTeam[i]);
         }

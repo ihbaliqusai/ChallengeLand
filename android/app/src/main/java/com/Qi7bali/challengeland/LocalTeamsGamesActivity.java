@@ -548,8 +548,10 @@ public class LocalTeamsGamesActivity extends AppCompatActivity {
     }
 
     private void startNewMatch() {
-        Intent intent = new Intent(this, OfflineSetupActivity.class);
+        Intent intent = new Intent(this, GameActivity.class);
+        intent.putExtra("mode", "mono");
         intent.putExtra("localTeams", true);
+        intent.putExtra("characterIndex", AppPrefs.getEffectiveCharacter(this));
         startActivity(intent);
     }
 

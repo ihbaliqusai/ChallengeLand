@@ -563,9 +563,17 @@ public class GameActivity extends AppCompatActivity {
                                 pendingOfflineBoardRestore != null
                                         ? pendingOfflineBoardRestore.optInt("playerCount", getIntent().getIntExtra("playerCount", 4))
                                         : getIntent().getIntExtra("playerCount", 4)));
-                int characterIndex = pendingOfflineBoardRestore != null
-                        ? pendingOfflineBoardRestore.optInt("characterIndex", getIntent().getIntExtra("characterIndex", 0))
-                        : getIntent().getIntExtra("characterIndex", 0);
+                int effectiveChar = AppPrefs.getEffectiveCharacter(this);
+                int intentChar = getIntent().getIntExtra("characterIndex", -1);
+                int characterIndex;
+                if (pendingOfflineBoardRestore != null && pendingOfflineBoardRestore.has("characterIndex")) {
+                    int savedChar = pendingOfflineBoardRestore.optInt("characterIndex", -1);
+                    characterIndex = (savedChar >= 0 && savedChar <= 7) ? savedChar : effectiveChar;
+                } else if (intentChar >= 0 && intentChar <= 7) {
+                    characterIndex = intentChar;
+                } else {
+                    characterIndex = effectiveChar;
+                }
                 boardCharacterIndex = characterIndex;
                 boardMode = true;
                 offlineContestants.setupForBoard(playerCount, characterIndex);
@@ -581,7 +589,10 @@ public class GameActivity extends AppCompatActivity {
                 questionsReady = true;
             } else if (campaignBoard) {
                 // رحلة المليون stage played on the التحدي board (solo or boss).
-                setupCampaignBoardMatch(getIntent().getIntExtra("characterIndex", 0));
+                int effectiveChar = AppPrefs.getEffectiveCharacter(this);
+                int intentChar = getIntent().getIntExtra("characterIndex", -1);
+                int characterIndex = (intentChar >= 0 && intentChar <= 7) ? intentChar : effectiveChar;
+                setupCampaignBoardMatch(characterIndex);
             } else {
                 getQuestions("");
             }
@@ -3543,7 +3554,10 @@ public class GameActivity extends AppCompatActivity {
 
     /** Entry point for an online speed-challenge board match (after matchmaking). */
     private void setupBoardMatch() {
-        int characterIndex = Math.max(0, getIntent().getIntExtra("characterIndex", 0));
+        int intentChar = getIntent().getIntExtra("characterIndex", -1);
+        int characterIndex = (intentChar >= 0 && intentChar <= 7)
+                ? intentChar
+                : AppPrefs.getEffectiveCharacter(this);
         boardMode = true;
         MatchOpponent primary = getPrimaryOpponent();
         String opponentSeatName = (primary != null && primary.name != null
@@ -3573,7 +3587,10 @@ public class GameActivity extends AppCompatActivity {
 
     /** Entry point for a room board match (competition or team) after the lobby starts. */
     private void setupRoomBoardMatch(boolean isTeam) {
-        int characterIndex = Math.max(0, getIntent().getIntExtra("characterIndex", 0));
+        int intentChar = getIntent().getIntExtra("characterIndex", -1);
+        int characterIndex = (intentChar >= 0 && intentChar <= 7)
+                ? intentChar
+                : AppPrefs.getEffectiveCharacter(this);
         boardMode = true;
         boardRoomMatch = true;
         boardTeamMatch = isTeam;

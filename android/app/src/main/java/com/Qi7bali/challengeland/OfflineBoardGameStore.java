@@ -106,7 +106,7 @@ final class OfflineBoardGameStore {
             record.put("status", STATUS_IN_PROGRESS);
             record.put("phase", PHASE_CATEGORY_SELECT);
             record.put("playerCount", 4);
-            record.put("characterIndex", 0);
+            record.put("characterIndex", AppPrefs.DEFAULT_CHARACTER);
             record.put("playerScore", 0);
             record.put("leaderName", "");
             record.put("leaderScore", 0);

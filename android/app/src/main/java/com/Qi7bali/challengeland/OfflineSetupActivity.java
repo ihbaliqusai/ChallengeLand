@@ -77,6 +77,9 @@ public class OfflineSetupActivity extends AppCompatActivity {
                 Intent intent = new Intent(OfflineSetupActivity.this, GameActivity.class);
                 intent.putExtra("mode", "mono");
                 intent.putExtra("playerCount", playerCount);
+                if (getIntent().getBooleanExtra("localTeams", false)) {
+                    intent.putExtra("localTeams", true);
+                }
                 intent.putExtra("characterIndex",
                         AppPrefs.getEffectiveCharacter(OfflineSetupActivity.this));
                 startActivity(intent);

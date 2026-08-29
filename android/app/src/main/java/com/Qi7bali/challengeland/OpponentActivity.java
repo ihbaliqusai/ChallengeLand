@@ -317,6 +317,7 @@ public class OpponentActivity extends AppCompatActivity {
                 intent.putExtra("mode", "online");
                 intent.putExtra("meOwner", meOwner);
                 intent.putExtra("matchMode", "board");
+                intent.putExtra("characterIndex", AppPrefs.getEffectiveCharacter(OpponentActivity.this));
                 try {
                     JSONObject opponentJson = new JSONObject();
                     opponentJson.put("id", opponent.id);
@@ -369,6 +370,7 @@ public class OpponentActivity extends AppCompatActivity {
                 intent.putExtra("mode", "online");
                 intent.putExtra("meOwner", true);
                 intent.putExtra("matchMode", "board");
+                intent.putExtra("characterIndex", AppPrefs.getEffectiveCharacter(OpponentActivity.this));
                 try {
                     JSONObject opponentJson = new JSONObject();
                     opponentJson.put("id", "fictitious");

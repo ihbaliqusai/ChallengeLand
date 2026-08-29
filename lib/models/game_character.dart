@@ -112,7 +112,7 @@ class CharacterCatalog {
     GameCharacter(
       index: 5,
       id: 'ellen',
-      nameAr: 'إيلين',
+      nameAr: 'إلين',
       tagAr: 'الذكية',
       isFemale: true,
       color: Color(0xFFF472B6),
