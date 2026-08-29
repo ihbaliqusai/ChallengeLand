@@ -3,20 +3,16 @@ package com.qi7bali.landchallengeonline;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
-import android.content.DialogInterface;
+import android.content.Context;
 import android.content.Intent;
-import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
-import android.graphics.drawable.RippleDrawable;
-import android.graphics.drawable.StateListDrawable;
-import android.os.Build;
 import android.os.Bundle;
 import android.text.TextUtils;
+import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
-import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.Button;
@@ -27,6 +23,7 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.text.SimpleDateFormat;
@@ -35,19 +32,11 @@ import java.util.Date;
 import java.util.Locale;
 
 public class LocalTeamsGamesActivity extends AppCompatActivity {
-    // ---- Luxury Gaming Palette ----
-    private static final int GOLD_PRIMARY = 0xFFFFC727;
-    private static final int GOLD_SECONDARY = 0xFFF59E0B;
-    private static final int BLUE_PRIMARY = 0xFF38BDF8;
-    private static final int BLUE_SECONDARY = 0xFF0284C7;
-    private static final int GREEN_PRIMARY = 0xFF10B981;
-    private static final int GREEN_SECONDARY = 0xFF059669;
-    private static final int RED_PRIMARY = 0xFFEF4444;
-    private static final int RED_SECONDARY = 0xFFB91C1C;
-    private static final int PURPLE_ACCENT = 0xFFA855F7;
-    private static final int TEXT_LIGHT = 0xFFF8FAFC;
-    private static final int TEXT_MUTED = 0xFF94A3B8;
-    private static final int TEXT_MUTED_LIGHT = 0xFFCBD5E1;
+    private static final int GOLD = 0xFFFFD761;
+    private static final int BLUE = 0xFF7DD3FC;
+    private static final int GREEN = 0xFF67E8A5;
+    private static final int RED = 0xFFEF4444;
+    private static final int TEXT_MUTED = 0xFFC8D6F7;
 
     private LinearLayout activeList;
     private LinearLayout historyList;
@@ -56,7 +45,7 @@ public class LocalTeamsGamesActivity extends AppCompatActivity {
     private TextView summaryView;
 
     private final SimpleDateFormat dateFormat =
-            new SimpleDateFormat("yyyy/MM/dd  HH:mm", Locale.getDefault());
+            new SimpleDateFormat("yyyy/MM/dd HH:mm", Locale.getDefault());
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -64,7 +53,10 @@ public class LocalTeamsGamesActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
                 WindowManager.LayoutParams.FLAG_FULLSCREEN);
-        getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_HIDE_NAVIGATION);
+        getWindow().getDecorView().setSystemUiVisibility(
+                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                        | View.SYSTEM_UI_FLAG_FULLSCREEN
+                        | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
         if (getSupportActionBar() != null) getSupportActionBar().hide();
         buildLayout();
     }
@@ -79,7 +71,6 @@ public class LocalTeamsGamesActivity extends AppCompatActivity {
         FrameLayout root = new FrameLayout(this);
         root.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
 
-        // Background wallpaper
         ImageView bg = new ImageView(this);
         bg.setImageResource(R.drawable.bg_game2);
         bg.setScaleType(ImageView.ScaleType.CENTER_CROP);
@@ -87,14 +78,12 @@ public class LocalTeamsGamesActivity extends AppCompatActivity {
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT));
 
-        // Atmospheric Dark Glass Scrim
         View scrim = new View(this);
         scrim.setBackground(pageScrimBg());
         root.addView(scrim, new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT));
 
-        // Main Container Shell
         LinearLayout shell = new LinearLayout(this);
         shell.setOrientation(LinearLayout.VERTICAL);
         shell.setPadding(dpx(20), dpx(14), dpx(20), dpx(14));
@@ -102,187 +91,206 @@ public class LocalTeamsGamesActivity extends AppCompatActivity {
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT));
 
-        // Header Section
         shell.addView(createHeader(), new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, dpx(108)));
 
-        // Body with two responsive columns
         LinearLayout body = new LinearLayout(this);
         body.setOrientation(LinearLayout.HORIZONTAL);
-        body.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams bodyLp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f);
-        bodyLp.topMargin = dpx(12);
+        bodyLp.topMargin = dpx(10);
         shell.addView(body, bodyLp);
 
-        // Section 1: Active / Resumable Games (Right in RTL)
-        View activeSection = createSection(
-                "المباريات القابلة للمتابعة",
-                "أكمل اللعب من آخر نقطة حفظ في اللوحة",
-                "⚡",
-                GREEN_PRIMARY,
-                true);
+        View activeSection = createSection("المباريات القابلة للمتابعة",
+                "أكمل تحدي الفرق من آخر نقطة حفظ", true);
         LinearLayout.LayoutParams activeLp = new LinearLayout.LayoutParams(0,
                 LinearLayout.LayoutParams.MATCH_PARENT, 1.05f);
         activeLp.setMargins(0, 0, dpx(8), 0);
         body.addView(activeSection, activeLp);
 
-        // Section 2: Match History & Records (Left in RTL)
-        View historySection = createSection(
-                "سجل المباريات والأرشيف",
-                "نتائج التحديات السابقة والفائزين",
-                "📜",
-                BLUE_PRIMARY,
-                false);
+        View historySection = createSection("سجل المباريات والأرشيف",
+                "المباريات المنتهية والنتائج النهائية", false);
         LinearLayout.LayoutParams historyLp = new LinearLayout.LayoutParams(0,
                 LinearLayout.LayoutParams.MATCH_PARENT, 0.95f);
         historyLp.setMargins(dpx(8), 0, 0, 0);
         body.addView(historySection, historyLp);
 
         setContentView(root);
-        refreshList();
     }
 
     private View createHeader() {
         LinearLayout header = new LinearLayout(this);
         header.setOrientation(LinearLayout.VERTICAL);
-        header.setGravity(Gravity.CENTER_VERTICAL);
-        header.setPadding(dpx(16), dpx(10), dpx(16), dpx(10));
-        header.setBackground(headerBg());
+        header.setBackground(cardBg(0xDA081738, 0x8838BDF8, 16, 1));
+        header.setPadding(dpx(18), dpx(10), dpx(18), dpx(10));
 
-        // Top Row: Back Button + Title Block + New Game CTA
         LinearLayout topRow = new LinearLayout(this);
         topRow.setOrientation(LinearLayout.HORIZONTAL);
         topRow.setGravity(Gravity.CENTER_VERTICAL);
-        header.addView(topRow, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
 
-        // Modern Back / Close Button
-        TextView back = navButton("✕");
-        back.setOnClickListener(new View.OnClickListener() {
+        Button backBtn = new Button(this);
+        backBtn.setText("←");
+        backBtn.setTextColor(Color.WHITE);
+        backBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f);
+        backBtn.setTypeface(Typeface.DEFAULT_BOLD);
+        backBtn.setBackground(pillBg(0x33000000, 0x55FFFFFF, 1));
+        backBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 finish();
             }
         });
-        topRow.addView(back);
+        topRow.addView(backBtn, new LinearLayout.LayoutParams(dpx(40), dpx(40)));
 
-        // Title and Subtitle Info
-        LinearLayout titleBlock = new LinearLayout(this);
-        titleBlock.setOrientation(LinearLayout.VERTICAL);
-        titleBlock.setPadding(dpx(14), 0, dpx(14), 0);
-        topRow.addView(titleBlock, new LinearLayout.LayoutParams(0,
-                LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        LinearLayout titleCol = new LinearLayout(this);
+        titleCol.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams titleLp = new LinearLayout.LayoutParams(0,
+                LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        titleLp.setMargins(dpx(12), 0, dpx(12), 0);
+        titleCol.setLayoutParams(titleLp);
 
-        LinearLayout titleBadgeRow = new LinearLayout(this);
-        titleBadgeRow.setOrientation(LinearLayout.HORIZONTAL);
-        titleBadgeRow.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+        TextView tag = new TextView(this);
+        tag.setText("⚔️ التحدي الرئيسي • مواجهة فريقين");
+        tag.setTextColor(GOLD);
+        tag.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f);
+        tag.setTypeface(Typeface.DEFAULT_BOLD);
+        titleCol.addView(tag);
 
-        TextView title = label("⚔️ التحدي الرئيسي", 21.5f, Color.WHITE, true);
-        title.setGravity(Gravity.RIGHT);
-        titleBadgeRow.addView(title);
+        TextView title = new TextView(this);
+        title.setText("إدارة مباريات التحدي الرئيسي");
+        title.setTextColor(Color.WHITE);
+        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17f);
+        title.setTypeface(Typeface.DEFAULT_BOLD);
+        titleCol.addView(title);
 
-        TextView modeBadge = label("فريقان على جهاز واحد", 10.5f, GOLD_PRIMARY, true);
-        modeBadge.setBackground(chipBg(GOLD_PRIMARY, 0x22));
-        modeBadge.setPadding(dpx(8), dpx(3), dpx(8), dpx(3));
-        LinearLayout.LayoutParams modeBadgeLp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        modeBadgeLp.setMargins(dpx(10), 0, 0, 0);
-        titleBadgeRow.addView(modeBadge, modeBadgeLp);
+        topRow.addView(titleCol);
 
-        titleBlock.addView(titleBadgeRow);
-
-        summaryView = label("ابدأ مباراة جديدة أو أكمل مباراة محفوظة بين الفريقين.", 11.5f, TEXT_MUTED_LIGHT, false);
-        LinearLayout.LayoutParams summaryLp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        summaryLp.topMargin = dpx(3);
-        titleBlock.addView(summaryView, summaryLp);
-
-        // Action Buttons: "+ مباراة جديدة"
-        Button newGame = actionButton("＋ مباراة جديدة", GOLD_PRIMARY, GOLD_SECONDARY, 0xFF0F172A);
-        newGame.setOnClickListener(new View.OnClickListener() {
+        Button newBtn = new Button(this);
+        newBtn.setText("＋ مباراة جديدة");
+        newBtn.setTextColor(0xFF031024);
+        newBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f);
+        newBtn.setTypeface(Typeface.DEFAULT_BOLD);
+        newBtn.setAllCaps(false);
+        newBtn.setBackground(pillBg(0xFFFFC727, 0xFFFFF1A8, 1));
+        newBtn.setPadding(dpx(14), 0, dpx(14), 0);
+        newBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                launchGame(null);
+                startNewMatch();
             }
         });
-        LinearLayout.LayoutParams newLp = new LinearLayout.LayoutParams(dpx(168), dpx(44));
-        newLp.setMargins(dpx(12), 0, 0, 0);
-        topRow.addView(newGame, newLp);
+        topRow.addView(newBtn, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, dpx(40)));
 
-        // Bottom Row: Live Stats Chips
-        LinearLayout stats = new LinearLayout(this);
-        stats.setOrientation(LinearLayout.HORIZONTAL);
-        stats.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
-        activeCountView = statChip("0 جارية", GREEN_PRIMARY);
-        historyCountView = statChip("0 بالسجل", BLUE_PRIMARY);
-        stats.addView(activeCountView);
-        View gap = new View(this);
-        stats.addView(gap, new LinearLayout.LayoutParams(dpx(8), 1));
-        stats.addView(historyCountView);
+        header.addView(topRow);
 
+        LinearLayout statsRow = new LinearLayout(this);
+        statsRow.setOrientation(LinearLayout.HORIZONTAL);
+        statsRow.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout.LayoutParams statsLp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         statsLp.topMargin = dpx(6);
-        header.addView(stats, statsLp);
+        statsRow.setLayoutParams(statsLp);
+
+        activeCountView = createChip(GOLD, "⚡ 0 جارية");
+        statsRow.addView(activeCountView);
+
+        historyCountView = createChip(BLUE, "🏆 0 بالسجل");
+        LinearLayout.LayoutParams hcLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        hcLp.setMargins(dpx(8), 0, dpx(8), 0);
+        historyCountView.setLayoutParams(hcLp);
+        statsRow.addView(historyCountView);
+
+        summaryView = new TextView(this);
+        summaryView.setTextColor(TEXT_MUTED);
+        summaryView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f);
+        summaryView.setSingleLine(true);
+        summaryView.setEllipsize(TextUtils.TruncateAt.END);
+        statsRow.addView(summaryView, new LinearLayout.LayoutParams(0,
+                LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+
+        header.addView(statsRow);
 
         return header;
     }
 
-    private View createSection(String title, String subtitle, String icon, int accentColor, boolean activeSection) {
+    private TextView createChip(int color, String text) {
+        TextView tv = new TextView(this);
+        tv.setText(text);
+        tv.setTextColor(color);
+        tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f);
+        tv.setTypeface(Typeface.DEFAULT_BOLD);
+        tv.setPadding(dpx(8), dpx(3), dpx(8), dpx(3));
+        tv.setBackground(pillBg(0x44000000, color, 1));
+        return tv;
+    }
+
+    private View createSection(String title, String subtitle, boolean active) {
         LinearLayout section = new LinearLayout(this);
         section.setOrientation(LinearLayout.VERTICAL);
-        section.setPadding(dpx(14), dpx(12), dpx(14), dpx(10));
-        section.setBackground(sectionBg(accentColor));
+        section.setBackground(cardBg(0xD0050D24, active ? 0x6638BDF8 : 0x441E293B, 14, 1));
+        section.setPadding(dpx(12), dpx(10), dpx(12), dpx(10));
 
-        // Section Title Bar
-        LinearLayout header = new LinearLayout(this);
-        header.setGravity(Gravity.CENTER_VERTICAL);
-        header.setOrientation(LinearLayout.HORIZONTAL);
-        header.setPadding(0, 0, 0, dpx(8));
-        section.addView(header, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        LinearLayout head = new LinearLayout(this);
+        head.setOrientation(LinearLayout.HORIZONTAL);
+        head.setGravity(Gravity.CENTER_VERTICAL);
 
-        // Accent Icon Indicator
-        TextView iconView = label(icon, 16f, accentColor, true);
-        iconView.setBackground(roundedBg(withAlpha(accentColor, 0x24), withAlpha(accentColor, 0x88), 10, 1));
-        iconView.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(dpx(32), dpx(32));
-        iconLp.setMargins(dpx(8), 0, 0, 0);
-        header.addView(iconView, iconLp);
-
-        LinearLayout textBlock = new LinearLayout(this);
-        textBlock.setOrientation(LinearLayout.VERTICAL);
-        header.addView(textBlock, new LinearLayout.LayoutParams(0,
+        TextView titleView = new TextView(this);
+        titleView.setText(title);
+        titleView.setTextColor(active ? GOLD : BLUE);
+        titleView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f);
+        titleView.setTypeface(Typeface.DEFAULT_BOLD);
+        head.addView(titleView, new LinearLayout.LayoutParams(0,
                 LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
 
-        TextView titleView = label(title, 16.5f, Color.WHITE, true);
-        textBlock.addView(titleView);
+        if (!active) {
+            Button clearBtn = new Button(this);
+            clearBtn.setText("تنظيف السجل");
+            clearBtn.setTextColor(0xFFCBD5E1);
+            clearBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f);
+            clearBtn.setAllCaps(false);
+            clearBtn.setBackground(pillBg(0x22FFFFFF, 0x44FFFFFF, 1));
+            clearBtn.setPadding(dpx(8), 0, dpx(8), 0);
+            clearBtn.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    confirmClearHistory();
+                }
+            });
+            head.addView(clearBtn, new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT, dpx(28)));
+        }
 
-        TextView subView = label(subtitle, 11f, TEXT_MUTED, false);
+        section.addView(head);
+
+        TextView subView = new TextView(this);
+        subView.setText(subtitle);
+        subView.setTextColor(TEXT_MUTED);
+        subView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f);
         LinearLayout.LayoutParams subLp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         subLp.topMargin = dpx(2);
-        textBlock.addView(subView, subLp);
+        subLp.bottomMargin = dpx(6);
+        section.addView(subView, subLp);
 
-        // Scrollable List
-        ScrollView scroll = new ScrollView(this);
-        scroll.setFillViewport(true);
-        scroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
-        section.addView(scroll, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
-
+        ScrollView scroller = new ScrollView(this);
+        scroller.setVerticalScrollBarEnabled(false);
         LinearLayout list = new LinearLayout(this);
         list.setOrientation(LinearLayout.VERTICAL);
-        list.setPadding(0, dpx(2), 0, dpx(10));
-        scroll.addView(list, new ScrollView.LayoutParams(
-                ScrollView.LayoutParams.MATCH_PARENT, ScrollView.LayoutParams.WRAP_CONTENT));
+        scroller.addView(list, new ScrollView.LayoutParams(
+                ScrollView.LayoutParams.MATCH_PARENT,
+                ScrollView.LayoutParams.WRAP_CONTENT));
 
-        if (activeSection) {
+        if (active) {
             activeList = list;
         } else {
             historyList = list;
         }
+
+        section.addView(scroller, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
+
         return section;
     }
 
@@ -291,303 +299,328 @@ public class LocalTeamsGamesActivity extends AppCompatActivity {
         activeList.removeAllViews();
         historyList.removeAllViews();
 
-        ArrayList<JSONObject> records = LocalTeamsGameStore.all(this);
-        ArrayList<JSONObject> active = new ArrayList<>();
-        ArrayList<JSONObject> history = new ArrayList<>();
+        ArrayList<JSONObject> all = LocalTeamsGameStore.all(this);
+        int activeCount = 0;
         int finishedCount = 0;
-        for (JSONObject record : records) {
-            if (LocalTeamsGameStore.STATUS_FINISHED.equals(record.optString("status"))) {
+
+        for (final JSONObject record : all) {
+            boolean finished = LocalTeamsGameStore.isFinished(record);
+            if (finished) {
                 finishedCount++;
-                history.add(record);
+                historyList.addView(createCard(record, false));
             } else {
-                active.add(record);
-                history.add(record);
+                activeCount++;
+                activeList.addView(createCard(record, true));
             }
         }
 
-        activeCountView.setText(active.size() + " جارية");
-        historyCountView.setText(history.size() + " بالسجل");
-        summaryView.setText("مباريات محفوظة: " + active.size()
-                + "  •  مباريات منتهية: " + finishedCount
-                + "  •  إجمالي التحديات: " + history.size());
-
-        if (active.isEmpty()) {
-            activeList.addView(emptyState(
+        if (activeCount == 0) {
+            activeList.addView(createEmptyView(
                     "لا توجد مباريات جارية حالياً",
-                    "ابدأ لعبة جديدة بين فريقين وسيتم حفظها تلقائياً لتكملها بأي وقت.",
-                    true));
-        } else {
-            for (JSONObject record : active) {
-                activeList.addView(recordCard(record, true));
-            }
+                    "ابدأ مباراة جديدة وتحدى أصدقاءك في مواجهة فريقين!",
+                    true
+            ));
         }
 
-        if (history.isEmpty()) {
-            historyList.addView(emptyState(
-                    "السجل فارغ بعد",
-                    "سيظهر هنا أرشيف مباريات الفريقين والنتائج وتفاصيل الفائزين.",
-                    false));
-        } else {
-            for (JSONObject record : history) {
-                historyList.addView(recordCard(record, false));
-            }
+        if (finishedCount == 0) {
+            historyList.addView(createEmptyView(
+                    "السجل فارغ",
+                    "المباريات المنتهية ستظهر هنا لتتبع الفائزين والأرشيف.",
+                    false
+            ));
+        }
+
+        if (activeCountView != null) {
+            activeCountView.setText("⚡ " + activeCount + " جارية");
+        }
+        if (historyCountView != null) {
+            historyCountView.setText("🏆 " + finishedCount + " بالسجل");
+        }
+        if (summaryView != null) {
+            summaryView.setText("إجمالي المباريات المسجلة: " + all.size());
         }
     }
 
-    private View recordCard(final JSONObject record, final boolean resumable) {
-        final boolean finished = LocalTeamsGameStore.STATUS_FINISHED.equals(record.optString("status"));
-        final String gameId = record.optString("id", "");
-        final int accent = finished ? GOLD_PRIMARY : (resumable ? GREEN_PRIMARY : BLUE_PRIMARY);
+    private View createEmptyView(String title, String subtitle, boolean canCreate) {
+        LinearLayout empty = new LinearLayout(this);
+        empty.setOrientation(LinearLayout.VERTICAL);
+        empty.setGravity(Gravity.CENTER);
+        empty.setPadding(dpx(16), dpx(28), dpx(16), dpx(28));
+        empty.setBackground(cardBg(0x40030712, 0x20FFFFFF, 12, 1));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        lp.topMargin = dpx(8);
+        empty.setLayoutParams(lp);
+
+        TextView tvTitle = new TextView(this);
+        tvTitle.setText(title);
+        tvTitle.setTextColor(Color.WHITE);
+        tvTitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f);
+        tvTitle.setTypeface(Typeface.DEFAULT_BOLD);
+        tvTitle.setGravity(Gravity.CENTER);
+        empty.addView(tvTitle);
+
+        TextView tvSub = new TextView(this);
+        tvSub.setText(subtitle);
+        tvSub.setTextColor(TEXT_MUTED);
+        tvSub.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f);
+        tvSub.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams subLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        subLp.topMargin = dpx(4);
+        empty.addView(tvSub, subLp);
+
+        if (canCreate) {
+            Button quickBtn = new Button(this);
+            quickBtn.setText("＋ ابدأ مباراة جديدة");
+            quickBtn.setTextColor(0xFF031024);
+            quickBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f);
+            quickBtn.setTypeface(Typeface.DEFAULT_BOLD);
+            quickBtn.setAllCaps(false);
+            quickBtn.setBackground(pillBg(GOLD, 0xFFFFFFFF, 1));
+            quickBtn.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    startNewMatch();
+                }
+            });
+            LinearLayout.LayoutParams btnLp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT, dpx(34));
+            btnLp.topMargin = dpx(10);
+            empty.addView(quickBtn, btnLp);
+        }
+
+        return empty;
+    }
+
+    private View createCard(final JSONObject record, final boolean active) {
+        final String id = record.optString("id", "");
+        final String teamA = record.optString("teamAName", "الفريق الأول");
+        final String teamB = record.optString("teamBName", "الفريق الثاني");
+        final int scoreA = record.optInt("scoreA", 0);
+        final int scoreB = record.optInt("scoreB", 0);
+        final int turn = record.optInt("turnIndex", 0);
+        final int totalTurns = record.optInt("totalTurns", 30);
+        final String phase = record.optString("phase", LocalTeamsGameStore.PHASE_BOARD);
+        final long updated = record.optLong("updatedAt", System.currentTimeMillis());
 
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
-        card.setGravity(Gravity.CENTER_VERTICAL);
-        card.setPadding(dpx(13), dpx(12), dpx(13), dpx(12));
-        card.setBackground(cardBg(accent));
+        card.setBackground(cardBg(
+                active ? 0xF00B1838 : 0xE0060F26,
+                active ? 0x8838BDF8 : 0x44334155,
+                14, 1));
+        card.setPadding(dpx(12), dpx(10), dpx(12), dpx(10));
         LinearLayout.LayoutParams cardLp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        cardLp.setMargins(0, 0, 0, dpx(11));
+        cardLp.bottomMargin = dpx(8);
         card.setLayoutParams(cardLp);
 
-        // Top Metadata Row: Status Chip + Date
-        LinearLayout topMeta = new LinearLayout(this);
-        topMeta.setOrientation(LinearLayout.HORIZONTAL);
-        topMeta.setGravity(Gravity.CENTER_VERTICAL);
-        card.addView(topMeta, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        LinearLayout topRow = new LinearLayout(this);
+        topRow.setOrientation(LinearLayout.HORIZONTAL);
+        topRow.setGravity(Gravity.CENTER_VERTICAL);
 
-        topMeta.addView(metaChip(statusText(record), accent));
-        View spacer = new View(this);
-        topMeta.addView(spacer, new LinearLayout.LayoutParams(0, 1, 1f));
-
-        String date = formatDate(record.optLong("updatedAt", 0L));
-        if (!date.isEmpty()) {
-            topMeta.addView(metaChip(date, BLUE_PRIMARY));
-        }
-
-        // Teams and Score Duel View
-        LinearLayout.LayoutParams scoreLineLp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        scoreLineLp.setMargins(0, dpx(10), 0, dpx(8));
-        card.addView(scoreLine(record), scoreLineLp);
-
-        // Winner Banner (if finished)
-        String winner = winnerText(record);
-        if (!winner.isEmpty()) {
-            TextView winnerChip = label("🏆 " + winner, 12f, GOLD_PRIMARY, true);
-            winnerChip.setGravity(Gravity.CENTER);
-            winnerChip.setPadding(dpx(12), dpx(4), dpx(12), dpx(4));
-            winnerChip.setBackground(roundedBg(0x33F59E0B, 0x88F59E0B, 12, 1));
-            LinearLayout.LayoutParams winnerLp = new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-            winnerLp.gravity = Gravity.CENTER_HORIZONTAL;
-            winnerLp.bottomMargin = dpx(7);
-            card.addView(winnerChip, winnerLp);
-        }
-
-        // Progress Details Bar
-        LinearLayout progressHeader = new LinearLayout(this);
-        progressHeader.setOrientation(LinearLayout.HORIZONTAL);
-        progressHeader.setGravity(Gravity.CENTER_VERTICAL);
-        TextView progressLabel = label(progressText(record), 11f, TEXT_MUTED_LIGHT, false);
-        progressHeader.addView(progressLabel, new LinearLayout.LayoutParams(0,
+        TextView timeView = new TextView(this);
+        timeView.setText("🕒 " + dateFormat.format(new Date(updated)));
+        timeView.setTextColor(TEXT_MUTED);
+        timeView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 9.5f);
+        topRow.addView(timeView, new LinearLayout.LayoutParams(0,
                 LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        card.addView(progressHeader, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
 
-        // Animated / Smooth Progress Bar
-        LinearLayout.LayoutParams progressLp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dpx(6));
-        progressLp.setMargins(0, dpx(6), 0, dpx(10));
-        card.addView(progressBar(record, accent), progressLp);
+        TextView statusBadge = new TextView(this);
+        if (active) {
+            String phaseText = "لوحة التحدي";
+            if (LocalTeamsGameStore.PHASE_CATEGORY_SELECT.equals(phase)) phaseText = "اختيار الفئات";
+            else if (LocalTeamsGameStore.PHASE_QUESTION.equals(phase)) phaseText = "سؤال جاري";
+            statusBadge.setText("⚡ " + phaseText);
+            statusBadge.setTextColor(GREEN);
+            statusBadge.setBackground(pillBg(0x33059669, GREEN, 1));
+        } else {
+            String winnerText = "تعادل";
+            int badgeColor = 0xFF94A3B8;
+            if (scoreA > scoreB) {
+                winnerText = "فوز " + teamA;
+                badgeColor = GOLD;
+            } else if (scoreB > scoreA) {
+                winnerText = "فوز " + teamB;
+                badgeColor = BLUE;
+            }
+            statusBadge.setText("🏆 " + winnerText);
+            statusBadge.setTextColor(badgeColor);
+            statusBadge.setBackground(pillBg(0x33000000, badgeColor, 1));
+        }
+        statusBadge.setTextSize(TypedValue.COMPLEX_UNIT_SP, 9.5f);
+        statusBadge.setTypeface(Typeface.DEFAULT_BOLD);
+        statusBadge.setPadding(dpx(6), dpx(2), dpx(6), dpx(2));
+        topRow.addView(statusBadge);
 
-        // Action Buttons Row (Resume + Delete)
-        LinearLayout actionsRow = new LinearLayout(this);
-        actionsRow.setOrientation(LinearLayout.HORIZONTAL);
-        actionsRow.setGravity(Gravity.CENTER_VERTICAL);
+        card.addView(topRow);
 
-        if (resumable) {
-            // Resume Button
-            Button resume = actionButton("▶ متابعة", GREEN_PRIMARY, GREEN_SECONDARY, Color.WHITE);
-            resume.setOnClickListener(new View.OnClickListener() {
+        LinearLayout duelRow = new LinearLayout(this);
+        duelRow.setOrientation(LinearLayout.HORIZONTAL);
+        duelRow.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams duelLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        duelLp.topMargin = dpx(6);
+        duelLp.bottomMargin = dpx(6);
+        duelRow.setLayoutParams(duelLp);
+
+        TextView aName = new TextView(this);
+        aName.setText(teamA);
+        aName.setTextColor(GOLD);
+        aName.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f);
+        aName.setTypeface(Typeface.DEFAULT_BOLD);
+        aName.setSingleLine(true);
+        aName.setEllipsize(TextUtils.TruncateAt.END);
+        duelRow.addView(aName, new LinearLayout.LayoutParams(0,
+                LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+
+        TextView scorePill = new TextView(this);
+        scorePill.setText(scoreA + "  -  " + scoreB);
+        scorePill.setTextColor(Color.WHITE);
+        scorePill.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f);
+        scorePill.setTypeface(Typeface.DEFAULT_BOLD);
+        scorePill.setPadding(dpx(10), dpx(3), dpx(10), dpx(3));
+        scorePill.setBackground(pillBg(0x44000000, 0x66FFFFFF, 1));
+        duelRow.addView(scorePill);
+
+        TextView bName = new TextView(this);
+        bName.setText(teamB);
+        bName.setTextColor(BLUE);
+        bName.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f);
+        bName.setTypeface(Typeface.DEFAULT_BOLD);
+        bName.setGravity(Gravity.LEFT);
+        bName.setSingleLine(true);
+        bName.setEllipsize(TextUtils.TruncateAt.END);
+        duelRow.addView(bName, new LinearLayout.LayoutParams(0,
+                LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+
+        card.addView(duelRow);
+
+        LinearLayout progressRow = new LinearLayout(this);
+        progressRow.setOrientation(LinearLayout.HORIZONTAL);
+        progressRow.setGravity(Gravity.CENTER_VERTICAL);
+
+        TextView turnInfo = new TextView(this);
+        turnInfo.setText("الدور: " + turn + " من " + totalTurns);
+        turnInfo.setTextColor(TEXT_MUTED);
+        turnInfo.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f);
+        progressRow.addView(turnInfo, new LinearLayout.LayoutParams(0,
+                LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+
+        if (active) {
+            Button resumeBtn = new Button(this);
+            resumeBtn.setText("▶ متابعة اللعب");
+            resumeBtn.setTextColor(0xFF031024);
+            resumeBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f);
+            resumeBtn.setTypeface(Typeface.DEFAULT_BOLD);
+            resumeBtn.setAllCaps(false);
+            resumeBtn.setBackground(pillBg(GREEN, 0xFFFFFFFF, 1));
+            resumeBtn.setPadding(dpx(10), 0, dpx(10), 0);
+            resumeBtn.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    launchGame(gameId);
+                    resumeMatch(id);
                 }
             });
-            LinearLayout.LayoutParams resumeLp = new LinearLayout.LayoutParams(0, dpx(38), 1f);
-            resumeLp.setMargins(0, 0, dpx(8), 0);
-            actionsRow.addView(resume, resumeLp);
+            progressRow.addView(resumeBtn, new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT, dpx(32)));
         }
 
-        // Delete Button (Available for both resumable & history cards)
-        Button deleteBtn = deleteActionButton("🗑️ حذف", new View.OnClickListener() {
+        Button deleteBtn = new Button(this);
+        deleteBtn.setText("🗑️");
+        deleteBtn.setTextColor(RED);
+        deleteBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f);
+        deleteBtn.setBackground(pillBg(0x33EF4444, 0x66EF4444, 1));
+        deleteBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                confirmDeleteGame(record);
+                confirmDelete(id, teamA + " ضد " + teamB);
             }
         });
-        LinearLayout.LayoutParams delLp = new LinearLayout.LayoutParams(
-                resumable ? dpx(92) : LinearLayout.LayoutParams.MATCH_PARENT, dpx(36));
-        actionsRow.addView(deleteBtn, delLp);
+        LinearLayout.LayoutParams delLp = new LinearLayout.LayoutParams(dpx(34), dpx(32));
+        delLp.setMargins(dpx(6), 0, 0, 0);
+        progressRow.addView(deleteBtn, delLp);
 
-        card.addView(actionsRow, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        card.addView(progressRow);
 
         return card;
     }
 
-    private View scoreLine(JSONObject record) {
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setGravity(Gravity.CENTER_VERTICAL);
-
-        // Team A (Gold)
-        String nameA = record.optString("teamAName", "الفريق الأول");
-        View teamABox = teamPill(nameA, GOLD_PRIMARY, 0x22F59E0B);
-        row.addView(teamABox, new LinearLayout.LayoutParams(0,
-                LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-
-        // Score Pill in the middle
-        TextView score = label(record.optInt("scoreA", 0)
-                + "   -   " + record.optInt("scoreB", 0), 16f, Color.WHITE, true);
-        score.setGravity(Gravity.CENTER);
-        score.setBackground(scorePillBg());
-        score.setPadding(dpx(14), dpx(5), dpx(14), dpx(5));
-        LinearLayout.LayoutParams scoreLp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        scoreLp.setMargins(dpx(8), 0, dpx(8), 0);
-        row.addView(score, scoreLp);
-
-        // Team B (Sky Blue)
-        String nameB = record.optString("teamBName", "الفريق الثاني");
-        View teamBBox = teamPill(nameB, BLUE_PRIMARY, 0x220284C7);
-        row.addView(teamBBox, new LinearLayout.LayoutParams(0,
-                LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-
-        return row;
+    private void startNewMatch() {
+        Intent intent = new Intent(this, OfflineSetupActivity.class);
+        intent.putExtra("localTeams", true);
+        startActivity(intent);
     }
 
-    private View teamPill(String name, int color, int fill) {
-        LinearLayout pill = new LinearLayout(this);
-        pill.setOrientation(LinearLayout.HORIZONTAL);
-        pill.setGravity(Gravity.CENTER);
-        pill.setPadding(dpx(10), dpx(7), dpx(10), dpx(7));
-        pill.setBackground(roundedBg(fill, withAlpha(color, 0x77), 12, 1));
-
-        TextView text = label(name == null || name.trim().isEmpty() ? "فريق" : name.trim(),
-                14.5f, color, true);
-        text.setSingleLine(true);
-        text.setEllipsize(TextUtils.TruncateAt.END);
-        text.setGravity(Gravity.CENTER);
-        pill.addView(text, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
-        return pill;
+    private void resumeMatch(String saveId) {
+        if (TextUtils.isEmpty(saveId)) return;
+        Intent intent = new Intent(this, GameActivity.class);
+        intent.putExtra("mode", "mono");
+        intent.putExtra("localTeams", true);
+        intent.putExtra("resumeLocalTeams", true);
+        intent.putExtra("localTeamsSaveId", saveId);
+        intent.putExtra("characterIndex", AppPrefs.getEffectiveCharacter(this));
+        startActivity(intent);
     }
 
-    private View progressBar(JSONObject record, int color) {
-        LinearLayout bar = new LinearLayout(this);
-        bar.setOrientation(LinearLayout.HORIZONTAL);
-        bar.setBackground(roundedBg(0x44000000, 0x22FFFFFF, 6, 1));
-        int turn = Math.max(0, record.optInt("turnIndex", 0));
-        int total = Math.max(0, record.optInt("totalTurns", 0));
-        int progress = total <= 0 ? 0 : Math.max(0, Math.min(100, (turn * 100) / total));
-        if (LocalTeamsGameStore.STATUS_FINISHED.equals(record.optString("status"))) {
-            progress = 100;
-        }
-
-        View fill = new View(this);
-        fill.setBackground(roundedBg(color, color, 6, 0));
-        bar.addView(fill, new LinearLayout.LayoutParams(0,
-                LinearLayout.LayoutParams.MATCH_PARENT, Math.max(1, progress)));
-
-        View rest = new View(this);
-        bar.addView(rest, new LinearLayout.LayoutParams(0,
-                LinearLayout.LayoutParams.MATCH_PARENT, Math.max(1, 100 - progress)));
-        return bar;
-    }
-
-    private TextView metaChip(String text, int color) {
-        TextView chip = label(text, 11f, 0xFFF1F5F9, false);
-        chip.setSingleLine(true);
-        chip.setGravity(Gravity.CENTER);
-        chip.setPadding(dpx(9), dpx(3), dpx(9), dpx(3));
-        chip.setBackground(chipBg(color, 0x25));
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        lp.setMargins(dpx(5), 0, 0, 0);
-        chip.setLayoutParams(lp);
-        return chip;
-    }
-
-    private View emptyState(String title, String subtitle, boolean showStartButton) {
-        LinearLayout view = new LinearLayout(this);
-        view.setOrientation(LinearLayout.VERTICAL);
-        view.setGravity(Gravity.CENTER);
-        view.setPadding(dpx(18), dpx(28), dpx(18), dpx(28));
-        view.setBackground(roundedBg(0x330B1733, 0x33475569, 14, 1));
-
-        TextView icon = label("🎮", 30f, Color.WHITE, false);
-        icon.setGravity(Gravity.CENTER);
-        view.addView(icon);
-
-        TextView titleView = label(title, 15.5f, Color.WHITE, true);
-        titleView.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams titleLp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        titleLp.topMargin = dpx(8);
-        view.addView(titleView, titleLp);
-
-        TextView subView = label(subtitle, 12f, TEXT_MUTED, false);
-        subView.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams subLp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        subLp.topMargin = dpx(5);
-        view.addView(subView, subLp);
-
-        if (showStartButton) {
-            Button startBtn = actionButton("＋ ابدأ مباراة جديدة", GOLD_PRIMARY, GOLD_SECONDARY, 0xFF0F172A);
-            startBtn.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    launchGame(null);
+    private void confirmDelete(final String id, String matchLabel) {
+        showCustomConfirmDialog(
+                "⚠️ تأكيد حذف المباراة",
+                "هل أنت متأكد من رغبتك في حذف مباراة «" + matchLabel + "» نهائياً؟",
+                "نعم، حذف",
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        boolean ok = LocalTeamsGameStore.delete(LocalTeamsGamesActivity.this, id);
+                        if (ok) {
+                            Toast.makeText(LocalTeamsGamesActivity.this, "تم حذف المباراة بنجاح", Toast.LENGTH_SHORT).show();
+                            refreshList();
+                        }
+                    }
                 }
-            });
-            LinearLayout.LayoutParams btnLp = new LinearLayout.LayoutParams(dpx(170), dpx(40));
-            btnLp.topMargin = dpx(16);
-            view.addView(startBtn, btnLp);
-        }
-        return view;
+        );
     }
 
-    private void confirmDeleteGame(final JSONObject record) {
-        if (record == null) return;
-        final String gameId = record.optString("id", "").trim();
-        if (gameId.isEmpty()) return;
+    private void confirmClearHistory() {
+        showCustomConfirmDialog(
+                "🧹 تنظيف سجل المباريات",
+                "هل تريد حذف جميع المباريات المنتهية من السجل؟",
+                "نعم، تنظيف",
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        int count = LocalTeamsGameStore.clearFinished(LocalTeamsGamesActivity.this);
+                        Toast.makeText(LocalTeamsGamesActivity.this, "تم تنظيف " + count + " مباراة من السجل", Toast.LENGTH_SHORT).show();
+                        refreshList();
+                    }
+                }
+        );
+    }
 
-        String teamA = record.optString("teamAName", "الفريق الأول");
-        String teamB = record.optString("teamBName", "الفريق الثاني");
-
-        // Custom Elegant Dialog Layout
+    private void showCustomConfirmDialog(String title, String message, String confirmText, final Runnable onConfirm) {
         LinearLayout dialogView = new LinearLayout(this);
         dialogView.setOrientation(LinearLayout.VERTICAL);
         dialogView.setPadding(dpx(22), dpx(20), dpx(22), dpx(20));
-        dialogView.setBackground(roundedBg(0xF008132B, 0x66EF4444, 18, 1));
+        dialogView.setBackground(cardBg(0xF008132B, 0x8838BDF8, 16, 1));
         dialogView.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
 
-        TextView title = label("⚠️ تأكيد حذف المباراة", 18f, RED_PRIMARY, true);
-        title.setGravity(Gravity.RIGHT);
-        dialogView.addView(title);
+        TextView tvTitle = new TextView(this);
+        tvTitle.setText(title);
+        tvTitle.setTextColor(GOLD);
+        tvTitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16.5f);
+        tvTitle.setTypeface(Typeface.DEFAULT_BOLD);
+        dialogView.addView(tvTitle);
 
-        TextView message = label(
-                "هل أنت متأكد من حذف مباراة:\n« " + teamA + " » ضد « " + teamB + " »؟\nلن يمكنك استعادة تقدم هذه المباراة بعد حذفها.",
-                13.5f, TEXT_LIGHT, false);
-        message.setGravity(Gravity.RIGHT);
+        TextView tvMsg = new TextView(this);
+        tvMsg.setText(message);
+        tvMsg.setTextColor(Color.WHITE);
+        tvMsg.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f);
         LinearLayout.LayoutParams msgLp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        msgLp.topMargin = dpx(10);
-        msgLp.bottomMargin = dpx(20);
-        dialogView.addView(message, msgLp);
+        msgLp.topMargin = dpx(8);
+        msgLp.bottomMargin = dpx(16);
+        dialogView.addView(tvMsg, msgLp);
 
         LinearLayout btnRow = new LinearLayout(this);
         btnRow.setOrientation(LinearLayout.HORIZONTAL);
@@ -601,30 +634,38 @@ public class LocalTeamsGamesActivity extends AppCompatActivity {
             dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
         }
 
-        Button confirmDelete = actionButton("حذف المباراة", RED_PRIMARY, RED_SECONDARY, Color.WHITE);
-        confirmDelete.setOnClickListener(new View.OnClickListener() {
+        Button confirmBtn = new Button(this);
+        confirmBtn.setText(confirmText);
+        confirmBtn.setAllCaps(false);
+        confirmBtn.setTextColor(Color.WHITE);
+        confirmBtn.setTypeface(Typeface.DEFAULT_BOLD);
+        confirmBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f);
+        confirmBtn.setBackground(pillBg(RED, 0xFFFF7777, 1));
+        confirmBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 dialog.dismiss();
-                boolean removed = LocalTeamsGameStore.delete(LocalTeamsGamesActivity.this, gameId);
-                if (removed) {
-                    Toast.makeText(LocalTeamsGamesActivity.this, "تم حذف المباراة بنجاح", Toast.LENGTH_SHORT).show();
-                    refreshList();
-                }
+                if (onConfirm != null) onConfirm.run();
             }
         });
-        LinearLayout.LayoutParams confirmLp = new LinearLayout.LayoutParams(0, dpx(42), 1f);
-        confirmLp.setMargins(0, 0, dpx(8), 0);
-        btnRow.addView(confirmDelete, confirmLp);
+        LinearLayout.LayoutParams confLp = new LinearLayout.LayoutParams(0, dpx(40), 1f);
+        confLp.setMargins(0, 0, dpx(8), 0);
+        btnRow.addView(confirmBtn, confLp);
 
-        Button cancel = deleteActionButton("إلغاء", new View.OnClickListener() {
+        Button cancelBtn = new Button(this);
+        cancelBtn.setText("إلغاء");
+        cancelBtn.setAllCaps(false);
+        cancelBtn.setTextColor(0xFFCBD5E1);
+        cancelBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f);
+        cancelBtn.setBackground(pillBg(0x33FFFFFF, 0x44FFFFFF, 1));
+        cancelBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 dialog.dismiss();
             }
         });
-        LinearLayout.LayoutParams cancelLp = new LinearLayout.LayoutParams(dpx(100), dpx(42));
-        btnRow.addView(cancel, cancelLp);
+        LinearLayout.LayoutParams canLp = new LinearLayout.LayoutParams(dpx(80), dpx(40));
+        btnRow.addView(cancelBtn, canLp);
 
         dialogView.addView(btnRow, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
@@ -632,197 +673,30 @@ public class LocalTeamsGamesActivity extends AppCompatActivity {
         dialog.show();
     }
 
-    private String progressText(JSONObject record) {
-        int turn = Math.max(0, record.optInt("turnIndex", 0));
-        int total = Math.max(0, record.optInt("totalTurns", 0));
-        if (total <= 0) return "لم تبدأ اللوحة بعد";
-        if (LocalTeamsGameStore.STATUS_FINISHED.equals(record.optString("status"))) {
-            return "اكتملت جميع جولات اللوحة";
-        }
-        return "الدور " + Math.min(turn + 1, total) + " من " + total;
-    }
-
-    private String statusText(JSONObject record) {
-        if (!LocalTeamsGameStore.STATUS_FINISHED.equals(record.optString("status"))) {
-            String label = LocalTeamsGameStore.statusLabel(record);
-            return "⏳ " + label;
-        }
-        return record.optInt("winnerSlot", -2) < 0 ? "منتهية • تعادل" : "منتهية";
-    }
-
-    private String winnerText(JSONObject record) {
-        if (!LocalTeamsGameStore.STATUS_FINISHED.equals(record.optString("status"))) return "";
-        int winner = record.optInt("winnerSlot", -2);
-        if (winner < 0) return "تعادل بين الفريقين";
-        String name = record.optString("winnerName", "");
-        if (name.trim().isEmpty()) {
-            name = winner == 1
-                    ? record.optString("teamBName", "الفريق الثاني")
-                    : record.optString("teamAName", "الفريق الأول");
-        }
-        return "الفائز: " + name;
-    }
-
-    private void launchGame(String saveId) {
-        Intent intent = new Intent(this, GameActivity.class);
-        intent.putExtra("mode", "mono");
-        intent.putExtra("localTeams", true);
-        intent.putExtra("characterIndex", AppPrefs.getEffectiveCharacter(this));
-        if (saveId != null && !saveId.trim().isEmpty()) {
-            intent.putExtra("resumeLocalTeams", true);
-            intent.putExtra("localTeamsSaveId", saveId.trim());
-        }
-        startActivity(intent);
-    }
-
-    private String formatDate(long millis) {
-        if (millis <= 0L) return "";
-        return dateFormat.format(new Date(millis));
-    }
-
-    private TextView label(String text, float sp, int color, boolean bold) {
-        TextView view = new TextView(this);
-        view.setText(text);
-        view.setTextColor(color);
-        view.setTextSize(sp);
-        view.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
-        view.setTextDirection(View.TEXT_DIRECTION_RTL);
-        view.setIncludeFontPadding(false);
-        if (bold) view.setTypeface(Typeface.DEFAULT_BOLD);
-        return view;
-    }
-
-    private TextView navButton(String text) {
-        TextView view = label(text, 19f, Color.WHITE, true);
-        view.setGravity(Gravity.CENTER);
-        view.setBackground(roundedBg(0x441F2D4F, 0x5593C5FD, 14, 1));
-        view.setLayoutParams(new LinearLayout.LayoutParams(dpx(42), dpx(42)));
-        return view;
-    }
-
-    private TextView statChip(String text, int color) {
-        TextView view = label(text, 11.5f, Color.WHITE, true);
-        view.setGravity(Gravity.CENTER);
-        view.setMinWidth(dpx(82));
-        view.setPadding(dpx(10), dpx(5), dpx(10), dpx(5));
-        view.setBackground(chipBg(color, 0x28));
-        return view;
-    }
-
-    private Button actionButton(String text, int startColor, int endColor, int textColor) {
-        Button button = new Button(this);
-        button.setText(text);
-        button.setAllCaps(false);
-        button.setTextColor(textColor);
-        button.setTextSize(14f);
-        button.setTypeface(Typeface.DEFAULT_BOLD);
-        button.setMinHeight(0);
-        button.setMinWidth(0);
-        button.setPadding(dpx(12), 0, dpx(12), 0);
-        button.setBackground(buttonBg(startColor, endColor));
-        return button;
-    }
-
-    private Button deleteActionButton(String text, View.OnClickListener listener) {
-        Button button = new Button(this);
-        button.setText(text);
-        button.setAllCaps(false);
-        button.setTextColor(0xFFFCA5A5);
-        button.setTextSize(13f);
-        button.setTypeface(Typeface.DEFAULT_BOLD);
-        button.setMinHeight(0);
-        button.setMinWidth(0);
-        button.setPadding(dpx(10), 0, dpx(10), 0);
-        button.setBackground(roundedBg(0x28EF4444, 0x77EF4444, 12, 1));
-        button.setOnClickListener(listener);
-        return button;
-    }
-
     private GradientDrawable pageScrimBg() {
-        GradientDrawable bg = new GradientDrawable(
+        GradientDrawable gd = new GradientDrawable(
                 GradientDrawable.Orientation.TOP_BOTTOM,
-                new int[]{0xE6050B1A, 0xF5071128, 0xFA091632});
-        return bg;
+                new int[]{0xEE03091A, 0xF506112C, 0xFC040816});
+        return gd;
     }
 
-    private GradientDrawable headerBg() {
-        GradientDrawable bg = new GradientDrawable(
-                GradientDrawable.Orientation.LEFT_RIGHT,
-                new int[]{0xF0081634, 0xEE0F2448, 0xF0091838});
-        bg.setCornerRadius(dpx(18));
-        bg.setStroke(dpx(1), 0x5560A5FA);
-        return bg;
+    private GradientDrawable cardBg(int fillColor, int strokeColor, int radiusDp, int strokeDp) {
+        GradientDrawable gd = new GradientDrawable();
+        gd.setColor(fillColor);
+        gd.setCornerRadius(dpx(radiusDp));
+        if (strokeDp > 0) gd.setStroke(dpx(strokeDp), strokeColor);
+        return gd;
     }
 
-    private GradientDrawable sectionBg(int accent) {
-        GradientDrawable bg = new GradientDrawable(
-                GradientDrawable.Orientation.TOP_BOTTOM,
-                new int[]{0xD007132B, 0xE00A1A38});
-        bg.setCornerRadius(dpx(18));
-        bg.setStroke(dpx(1), withAlpha(accent, 0x55));
-        return bg;
+    private GradientDrawable pillBg(int fillColor, int strokeColor, int strokeDp) {
+        GradientDrawable gd = new GradientDrawable();
+        gd.setColor(fillColor);
+        gd.setCornerRadius(dpx(999));
+        if (strokeDp > 0) gd.setStroke(dpx(strokeDp), strokeColor);
+        return gd;
     }
 
-    private GradientDrawable cardBg(int accent) {
-        GradientDrawable bg = new GradientDrawable(
-                GradientDrawable.Orientation.LEFT_RIGHT,
-                new int[]{0xF00B1836, 0xEB112547});
-        bg.setCornerRadius(dpx(16));
-        bg.setStroke(dpx(1), withAlpha(accent, 0x88));
-        return bg;
-    }
-
-    private GradientDrawable buttonBg(int startColor, int endColor) {
-        GradientDrawable bg = new GradientDrawable(
-                GradientDrawable.Orientation.LEFT_RIGHT,
-                new int[]{startColor, endColor});
-        bg.setCornerRadius(dpx(14));
-        bg.setStroke(dpx(1), 0x77FFFFFF);
-        return bg;
-    }
-
-    private GradientDrawable scorePillBg() {
-        GradientDrawable bg = new GradientDrawable(
-                GradientDrawable.Orientation.LEFT_RIGHT,
-                new int[]{0xFF0E294A, 0xFF0D435C});
-        bg.setCornerRadius(dpx(14));
-        bg.setStroke(dpx(1), 0x887DD3FC);
-        return bg;
-    }
-
-    private GradientDrawable chipBg(int color, int fillAlpha) {
-        return roundedBg(withAlpha(color, fillAlpha), withAlpha(color, 0xBB), 12, 1);
-    }
-
-    private GradientDrawable roundedBg(int fill, int stroke, int radiusDp, int strokeDp) {
-        GradientDrawable bg = new GradientDrawable();
-        bg.setColor(fill);
-        bg.setCornerRadius(dpx(radiusDp));
-        if (strokeDp > 0) {
-            bg.setStroke(dpx(strokeDp), stroke);
-        }
-        return bg;
-    }
-
-    private int withAlpha(int color, int alpha) {
-        return (color & 0x00FFFFFF) | ((alpha & 0xFF) << 24);
-    }
-
-    private int dpx(int value) {
-        return Math.round(value * getResources().getDisplayMetrics().density);
-    }
-
-    @Override
-    public void onWindowFocusChanged(boolean hasFocus) {
-        super.onWindowFocusChanged(hasFocus);
-        if (hasFocus) {
-            getWindow().getDecorView().setSystemUiVisibility(
-                    View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                            | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                            | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                            | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                            | View.SYSTEM_UI_FLAG_FULLSCREEN
-                            | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
-        }
+    private int dpx(float dp) {
+        return (int) (dp * getResources().getDisplayMetrics().density + 0.5f);
     }
 }

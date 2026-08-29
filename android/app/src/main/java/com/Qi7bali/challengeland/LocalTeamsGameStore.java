@@ -163,6 +163,14 @@ final class LocalTeamsGameStore {
         return record;
     }
 
+    static boolean isFinished(JSONObject record) {
+        return record != null && STATUS_FINISHED.equals(record.optString("status"));
+    }
+
+    static boolean isInProgress(JSONObject record) {
+        return record != null && STATUS_IN_PROGRESS.equals(record.optString("status"));
+    }
+
     static String statusLabel(JSONObject record) {
         if (record == null) return "";
         String status = record.optString("status");

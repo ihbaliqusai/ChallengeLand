@@ -2,6 +2,7 @@ package com.qi7bali.landchallengeonline;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import android.content.Intent;
 import android.graphics.Bitmap;
@@ -236,7 +237,12 @@ public class GameActivity extends AppCompatActivity {
     private LinearLayout llyA1, llyA2;                 // the two answer-option rows
     private View boardTypedAnswerPanel;                // text box + submit/reveal buttons
     private EditText boardAnswerInput;
-    private Button btnBoardSubmitAnswer, btnBoardRevealOptions;
+    private Button btnBoardSubmitAnswer, btnBoardRevealOptions, btnBoardConcedeSteal;
+    private View boardRefereePanel;
+    private Button btnBoardRefereeOverride;
+    private boolean boardRefereeOverrideApplied = false;
+    private Handler boardRevealHandler;
+    private Runnable boardRevealRunnable;
     private boolean boardOptionsRevealed = false;      // options currently shown (multiple-choice)
     private boolean boardAwaitingTypedInput = false;   // panel is live and not yet acted upon
     // How many times the options have been revealed for the CURRENT cell. Each reveal
@@ -1726,10 +1732,21 @@ public class GameActivity extends AppCompatActivity {
                             showDialog(timeout ? "انتهى الوقت للأسف" : "إجابة خاطئة للأسف",
                                     "", 1000, 2000, R.drawable.mouth_05, false);
                         }
+                        if (boardMode && boardLocalTeams && !playerCorrect) {
+                            showBoardRefereePanel(true);
+                            CAN_HOME = true;
+                            // In local teams mode on wrong answer, do not advance automatically.
+                            // The game waits until the players press "⏭️ الدور التالي" or "⚖️ تعديل الحكم واحتساب النقاط".
+                            break;
+                        }
                         CAN_HOME = true;
+                        boardRevealHandler = handler;
+                        boardRevealRunnable = this;
                         handler.postDelayed(this, boardMode ? BOARD_REVEAL_HOLD_MS : 3000);
                         break;
                     case 2:
+                        cancelPendingBoardReveal();
+                        showBoardRefereePanel(false);
                         if (boardMode) {
                             endBoardTurn();
                             break;
@@ -3010,6 +3027,8 @@ public class GameActivity extends AppCompatActivity {
 
     private void beginBoardTurn() {
         boardStealActive = false;
+        boardRefereeOverrideApplied = false;
+        showBoardRefereePanel(false);
         if (boardCellsRemaining <= 0 || boardTurnIndex >= boardTotalTurns) {
             finishBoardMatch();
             return;
@@ -3097,6 +3116,7 @@ public class GameActivity extends AppCompatActivity {
     }
 
     private void endBoardTurn() {
+        showBoardRefereePanel(false);
         if (boardLocalTeams && offlineContestants != null) {
             offlineContestants.setLocalTeamsActiveQuestionSlot(-1);
         }
@@ -4830,29 +4850,69 @@ public class GameActivity extends AppCompatActivity {
         rowLp.topMargin = dpx(8);
         buttonsRow.setLayoutParams(rowLp);
 
-        Button submit = makeBoardButton("تأكيد الإجابة", 0xFF2E9E2E);
+        Button submit = makeLuxuryBoardButton("تأكيد الإجابة", new int[]{0xFF22C55E, 0xFF16A34A, 0xFF14532D}, 0xFF86EFAC, 0xFFFFFFFF);
         submit.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 onBoardSubmitTypedAnswer();
             }
         });
-        Button reveal = makeBoardButton("إظهار الخيارات (نصف القيمة)", 0xFFD9892B);
+        Button reveal = makeLuxuryBoardButton("إظهار الخيارات (نصف القيمة)", new int[]{0xFFF59E0B, 0xFFD97706, 0xFF78350F}, 0xFFFDE68A, 0xFFFFFFFF);
         reveal.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 onBoardRevealOptions();
             }
         });
-        buttonsRow.addView(submit);
-        buttonsRow.addView(reveal);
+        LinearLayout.LayoutParams subLp = new LinearLayout.LayoutParams(0, dpx(46), 1f);
+        subLp.setMargins(dpx(4), 0, dpx(4), 0);
+        buttonsRow.addView(submit, subLp);
+
+        LinearLayout.LayoutParams revLp = new LinearLayout.LayoutParams(0, dpx(46), 1f);
+        revLp.setMargins(dpx(4), 0, dpx(4), 0);
+        buttonsRow.addView(reveal, revLp);
         panel.addView(buttonsRow);
+
+        Button concede = makeLuxuryBoardButton("🤝 إقرار بصحة إجابة الخصم (منحهم النقاط)", new int[]{0xFF059669, 0xFF047857, 0xFF064E3B}, 0xFFA7F3D0, 0xFFFFFFFF);
+        concede.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                onBoardConcedeSteal();
+            }
+        });
+        LinearLayout.LayoutParams concedeLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dpx(44));
+        concedeLp.topMargin = dpx(6);
+        concede.setLayoutParams(concedeLp);
+        concede.setVisibility(View.GONE);
+        panel.addView(concede);
 
         boardTypedAnswerPanel = panel;
         boardAnswerInput = input;
         btnBoardSubmitAnswer = submit;
         btnBoardRevealOptions = reveal;
+        btnBoardConcedeSteal = concede;
         llyQA.addView(panel);
+    }
+
+    private Button makeLuxuryBoardButton(String text, int[] gradientColors, int strokeColor, int textColor) {
+        Button b = new Button(this);
+        b.setText(text);
+        b.setAllCaps(false);
+        b.setTextColor(textColor);
+        b.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f);
+        b.setGravity(Gravity.CENTER);
+        b.setIncludeFontPadding(false);
+        if (getBoardFont() != null) b.setTypeface(getBoardFont(), Typeface.BOLD);
+        else b.setTypeface(Typeface.DEFAULT_BOLD);
+        
+        GradientDrawable gd = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, gradientColors);
+        gd.setCornerRadius(dpx(22));
+        if (strokeColor != 0) {
+            gd.setStroke(dpx(1.5f), strokeColor);
+        }
+        b.setBackground(gd);
+        return b;
     }
 
     private Button makeBoardButton(String text, int color) {
@@ -4879,8 +4939,350 @@ public class GameActivity extends AppCompatActivity {
             boardAnswerInput.setEnabled(true);
             if (btnBoardSubmitAnswer != null) btnBoardSubmitAnswer.setEnabled(true);
             if (btnBoardRevealOptions != null) btnBoardRevealOptions.setEnabled(true);
+            if (btnBoardConcedeSteal != null) {
+                boolean showConcede = boardLocalTeams && boardStealActive;
+                btnBoardConcedeSteal.setVisibility(showConcede ? View.VISIBLE : View.GONE);
+                btnBoardConcedeSteal.setEnabled(showConcede);
+            }
         }
         if (!show) hideKeyboard();
+    }
+
+    private void onBoardConcedeSteal() {
+        if (!boardMode || !boardLocalTeams || !boardStealActive || !boardAwaitingTypedInput) return;
+        final int stealSlot = boardPickerSlot;
+        final int originalSlot = (stealSlot == 1) ? 0 : 1;
+        final String stealTeam = boardTeamName(stealSlot);
+        final String originalTeam = boardTeamName(originalSlot);
+        final int award = currentBoardAwardValue();
+
+        LinearLayout dialogView = new LinearLayout(this);
+        dialogView.setOrientation(LinearLayout.VERTICAL);
+        dialogView.setPadding(dpx(22), dpx(20), dpx(22), dpx(20));
+        dialogView.setBackground(gameCustomDialogBg(0xF407132D, 0x8838BDF8, 16, 1));
+        dialogView.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+
+        TextView title = new TextView(this);
+        title.setText("🤝 الروح الرياضية والتحكيم");
+        title.setTextColor(0xFF38BDF8);
+        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17.5f);
+        if (getBoardFont() != null) title.setTypeface(getBoardFont(), Typeface.BOLD);
+        else title.setTypeface(Typeface.DEFAULT_BOLD);
+        title.setGravity(Gravity.RIGHT);
+        dialogView.addView(title);
+
+        TextView message = new TextView(this);
+        message.setText("هل يوافق فريق « " + stealTeam + " » على أن إجابة فريق « " + originalTeam + " » كانت مقبولة وصحيحة، ومنحهم نقاط السؤال (" + award + " نقطة)؟");
+        message.setTextColor(0xFFFFFFFF);
+        message.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13.5f);
+        if (getBoardFont() != null) message.setTypeface(getBoardFont(), Typeface.NORMAL);
+        message.setGravity(Gravity.RIGHT);
+        LinearLayout.LayoutParams msgLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        msgLp.topMargin = dpx(8);
+        msgLp.bottomMargin = dpx(16);
+        dialogView.addView(message, msgLp);
+
+        LinearLayout btnRow = new LinearLayout(this);
+        btnRow.setOrientation(LinearLayout.HORIZONTAL);
+        btnRow.setGravity(Gravity.CENTER_VERTICAL);
+
+        final AlertDialog dialog = new AlertDialog.Builder(this)
+                .setView(dialogView)
+                .create();
+
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+        }
+
+        Button confirmBtn = makeLuxuryBoardButton(
+                "نعم، احتساب النقاط لـ " + originalTeam,
+                new int[]{0xFF10B981, 0xFF059669, 0xFF064E3B},
+                0xFFA7F3D0,
+                0xFFFFFFFF
+        );
+        confirmBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                dialog.dismiss();
+                executeConcedeSteal(originalSlot, award);
+            }
+        });
+        LinearLayout.LayoutParams confirmLp = new LinearLayout.LayoutParams(0, dpx(44), 1f);
+        confirmLp.setMargins(0, 0, dpx(8), 0);
+        btnRow.addView(confirmBtn, confirmLp);
+
+        Button cancelBtn = makeLuxuryBoardButton(
+                "تراجع",
+                new int[]{0x44334155, 0x221E293B},
+                0x5594A3B8,
+                0xFFCBD5E1
+        );
+        cancelBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                dialog.dismiss();
+            }
+        });
+        LinearLayout.LayoutParams cancelLp = new LinearLayout.LayoutParams(dpx(86), dpx(44));
+        btnRow.addView(cancelBtn, cancelLp);
+
+        dialogView.addView(btnRow, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+
+        dialog.show();
+    }
+
+    private void executeConcedeSteal(int originalSlot, int award) {
+        if (EXITING || !boardMode || !boardLocalTeams) return;
+        stopTimer(false);
+        boardAwaitingTypedInput = false;
+        boardStealActive = false;
+        showBoardTypedPanel(false);
+        hideKeyboard();
+
+        if (offlineContestants != null) {
+            offlineContestants.awardCell(originalSlot, award);
+            offlineContestants.showSlotResult(originalSlot, true);
+            offlineContestants.setLocalTeamsActiveQuestionSlot(-1);
+        }
+
+        playSound(R.raw.correct_answer, false, false);
+        if (person != null) {
+            person.like(1000);
+            person.raiseEyeBrowsUp(1000, false, true);
+        }
+
+        String teamName = boardTeamName(originalSlot);
+        showDialog("بروح رياضية! تم احتساب " + award + " نقطة لفريق " + teamName,
+                "", 1000, 2500, R.drawable.mouth_01, false);
+
+        saveLocalTeamsProgress(LocalTeamsGameStore.PHASE_BOARD);
+
+        new Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if (!EXITING) endBoardTurn();
+            }
+        }, 2500);
+    }
+
+    private void cancelPendingBoardReveal() {
+        if (boardRevealHandler != null && boardRevealRunnable != null) {
+            boardRevealHandler.removeCallbacks(boardRevealRunnable);
+            boardRevealRunnable = null;
+        }
+    }
+
+    private void ensureBoardRefereePanel() {
+        if (boardRefereePanel != null || llyQA == null) return;
+        
+        LinearLayout container = new LinearLayout(this);
+        container.setOrientation(LinearLayout.HORIZONTAL);
+        container.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+        container.setGravity(Gravity.CENTER_VERTICAL);
+        container.setPadding(0, 0, 0, 0);
+        
+        LinearLayout.LayoutParams panelLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        panelLp.topMargin = dpx(6);
+        container.setLayoutParams(panelLp);
+
+        // 1. Referee Override Button (Gold Championship Gradient)
+        Button refBtn = makeLuxuryBoardButton(
+                "⚖️ تعديل الحكم واحتساب النقاط",
+                new int[]{0xFFFFD233, 0xFFF59E0B, 0xFFB45309},
+                0xFFFFE885,
+                0xFF0F172A
+        );
+        refBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f);
+        refBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                showBoardRefereeDialog();
+            }
+        });
+        LinearLayout.LayoutParams refLp = new LinearLayout.LayoutParams(0, dpx(44), 1f);
+        refLp.setMargins(dpx(6), 0, dpx(6), 0);
+        container.addView(refBtn, refLp);
+
+        // 2. Next Turn Button (Sapphire & Cyan Glow Gradient)
+        Button skipBtn = makeLuxuryBoardButton(
+                "⏭️ الدور التالي",
+                new int[]{0xFF2563EB, 0xFF1D4ED8, 0xFF0B1B44},
+                0xFF60A5FA,
+                0xFFFFFFFF
+        );
+        skipBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f);
+        skipBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                cancelPendingBoardReveal();
+                showBoardRefereePanel(false);
+                if (!EXITING && boardMode) {
+                    endBoardTurn();
+                }
+            }
+        });
+        LinearLayout.LayoutParams skipLp = new LinearLayout.LayoutParams(0, dpx(44), 1f);
+        skipLp.setMargins(dpx(6), 0, dpx(6), 0);
+        container.addView(skipBtn, skipLp);
+
+        boardRefereePanel = container;
+        btnBoardRefereeOverride = refBtn;
+        llyQA.addView(container);
+    }
+
+    private void showBoardRefereePanel(boolean show) {
+        if (!boardLocalTeams) {
+            if (boardRefereePanel != null) boardRefereePanel.setVisibility(View.GONE);
+            return;
+        }
+        if (show) ensureBoardRefereePanel();
+        if (boardRefereePanel != null) {
+            boardRefereePanel.setVisibility(show ? View.VISIBLE : View.GONE);
+        }
+    }
+
+    private void showBoardRefereeDialog() {
+        if (!boardMode || !boardLocalTeams) return;
+        cancelPendingBoardReveal();
+        final int award = currentBoardAwardValue();
+
+        LinearLayout dialogView = new LinearLayout(this);
+        dialogView.setOrientation(LinearLayout.VERTICAL);
+        dialogView.setPadding(dpx(22), dpx(20), dpx(22), dpx(20));
+        dialogView.setBackground(gameCustomDialogBg(0xF407132D, 0x88F59E0B, 16, 1));
+        dialogView.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+
+        TextView title = new TextView(this);
+        title.setText("⚖️ تعديل الحكم والتحكيم اليدوي");
+        title.setTextColor(0xFFFFC727);
+        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17.5f);
+        if (getBoardFont() != null) title.setTypeface(getBoardFont(), Typeface.BOLD);
+        else title.setTypeface(Typeface.DEFAULT_BOLD);
+        title.setGravity(Gravity.RIGHT);
+        dialogView.addView(title);
+
+        TextView message = new TextView(this);
+        message.setText("إذا اتفقتم بروح رياضية على صحة إحدى الإجابات، اختر الفريق المستحق لمنحه نقاط هذا السؤال (" + award + " نقطة):");
+        message.setTextColor(0xFFFFFFFF);
+        message.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f);
+        if (getBoardFont() != null) message.setTypeface(getBoardFont(), Typeface.NORMAL);
+        message.setGravity(Gravity.RIGHT);
+        LinearLayout.LayoutParams msgLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        msgLp.topMargin = dpx(8);
+        msgLp.bottomMargin = dpx(16);
+        dialogView.addView(message, msgLp);
+
+        final AlertDialog dialog = new AlertDialog.Builder(this)
+                .setView(dialogView)
+                .create();
+
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+        }
+
+        // Team A Button (Gold Championship)
+        Button btnA = makeLuxuryBoardButton(
+                "🏆 احتساب النقاط لـ « " + boardTeamAName + " »",
+                new int[]{0xFFFFD233, 0xFFF59E0B, 0xFFB45309},
+                0xFFFFE885,
+                0xFF0F172A
+        );
+        btnA.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                dialog.dismiss();
+                applyRefereeAward(0, award);
+            }
+        });
+        LinearLayout.LayoutParams aLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dpx(44));
+        aLp.bottomMargin = dpx(8);
+        dialogView.addView(btnA, aLp);
+
+        // Team B Button (Sapphire/Cyan)
+        Button btnB = makeLuxuryBoardButton(
+                "🏆 احتساب النقاط لـ « " + boardTeamBName + " »",
+                new int[]{0xFF38BDF8, 0xFF0284C7, 0xFF075985},
+                0xFFBAE6FD,
+                0xFFFFFFFF
+        );
+        btnB.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                dialog.dismiss();
+                applyRefereeAward(1, award);
+            }
+        });
+        LinearLayout.LayoutParams bLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dpx(44));
+        bLp.bottomMargin = dpx(12);
+        dialogView.addView(btnB, bLp);
+
+        // Cancel Button
+        Button cancelBtn = makeLuxuryBoardButton(
+                "إلغاء والمتابعة للدور التالي",
+                new int[]{0x44334155, 0x221E293B},
+                0x5594A3B8,
+                0xFFCBD5E1
+        );
+        cancelBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                dialog.dismiss();
+                showBoardRefereePanel(false);
+                if (!EXITING && boardMode) {
+                    endBoardTurn();
+                }
+            }
+        });
+        dialogView.addView(cancelBtn, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dpx(40)));
+
+        dialog.show();
+    }
+
+    private void applyRefereeAward(int slot, int award) {
+        if (EXITING || !boardMode || !boardLocalTeams) return;
+        boardRefereeOverrideApplied = true;
+        cancelPendingBoardReveal();
+        showBoardRefereePanel(false);
+
+        if (offlineContestants != null) {
+            offlineContestants.awardCell(slot, award);
+            offlineContestants.showSlotResult(slot, true);
+        }
+
+        playSound(R.raw.correct_answer, false, false);
+        if (person != null) {
+            person.like(1000);
+            person.raiseEyeBrowsUp(1000, false, true);
+        }
+
+        String teamName = boardTeamName(slot);
+        Toast.makeText(this, "تم تعديل الحكم واحتساب " + award + " نقطة لـ " + teamName, Toast.LENGTH_LONG).show();
+
+        saveLocalTeamsProgress(LocalTeamsGameStore.PHASE_BOARD);
+
+        new Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if (!EXITING && boardMode) endBoardTurn();
+            }
+        }, 2200);
+    }
+
+    private GradientDrawable gameCustomDialogBg(int fill, int stroke, int radiusDp, int strokeDp) {
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(fill);
+        bg.setCornerRadius(dpx(radiusDp));
+        if (strokeDp > 0) {
+            bg.setStroke(dpx(strokeDp), stroke);
+        }
+        return bg;
     }
 
     private void setBoardAnswerOptionsVisible(boolean visible) {
