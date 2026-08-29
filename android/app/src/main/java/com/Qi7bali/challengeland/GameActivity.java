@@ -3378,7 +3378,7 @@ public class GameActivity extends AppCompatActivity {
 
         int charIdx = offlineContestants.characterForSlot(seat);
         int videoRes = GameOfflineContestantsController.reactionVideoForCharacter(charIdx, won);
-        if (videoRes != 0) {
+        if (videoRes != 0 && !GameOfflineContestantsController.isLowEndDevice(this)) {
             ChromaVideoView video = new ChromaVideoView(this, videoRes);
             resultVideoViews.add(video);
             // The stage is already aspect-correct (videoW = videoH * 720/1280), so fill it.
@@ -3387,6 +3387,15 @@ public class GameActivity extends AppCompatActivity {
             vLp.gravity = Gravity.CENTER;
             video.setLayoutParams(vLp);
             stage.addView(video);
+        } else {
+            ImageView img = new ImageView(this);
+            img.setImageResource(GameOfflineContestantsController.drawableForCharacter(charIdx));
+            img.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            FrameLayout.LayoutParams vLp = new FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT);
+            vLp.gravity = Gravity.CENTER;
+            img.setLayoutParams(vLp);
+            stage.addView(img);
         }
         card.addView(stage);
 

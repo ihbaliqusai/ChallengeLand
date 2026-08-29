@@ -1,5 +1,7 @@
 package com.qi7bali.landchallengeonline;
 
+import android.app.ActivityManager;
+import android.content.Context;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
@@ -422,12 +424,13 @@ final class GameOfflineContestantsController {
             cell.setClipToPadding(false);
 
             // The contestant stands behind the podium (added first -> drawn underneath).
-            // Each character is an animated clip with its black background keyed out at
-            // draw time (static artwork is the fallback).
+            // On low-RAM devices or when many contestants are present, static artwork is
+            // used for bot slots to avoid exceeding device hardware video decoder limits.
             int videoRes = CONTESTANT_VIDEOS[charIdx];
+            boolean useVideo = videoRes != 0 && !isLowEndDevice(activity) && (count <= 2 || i == 0);
             View contestant;
             float contestantBoxWidthDp;
-            if (videoRes != 0) {
+            if (useVideo) {
                 ChromaVideoView video = new ChromaVideoView(activity, videoRes);
                 videoViews.add(video);
                 slotVideos[i] = video;
@@ -671,6 +674,25 @@ final class GameOfflineContestantsController {
     static int reactionVideoForCharacter(int charIndex, boolean correct) {
         if (charIndex < 0 || charIndex >= CHARACTER_COUNT) charIndex = 0;
         return correct ? CONTESTANT_VIDEOS_CORRECT[charIndex] : CONTESTANT_VIDEOS_WRONG[charIndex];
+    }
+
+    static int drawableForCharacter(int charIndex) {
+        if (charIndex < 0 || charIndex >= CHARACTER_COUNT) charIndex = 0;
+        return CONTESTANT_DRAWABLES[charIndex];
+    }
+
+    static boolean isLowEndDevice(Context context) {
+        if (context == null) return false;
+        try {
+            ActivityManager am = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
+            if (am != null && am.isLowRamDevice()) {
+                return true;
+            }
+            long maxMemMb = Runtime.getRuntime().maxMemory() / (1024 * 1024);
+            return maxMemMb < 256;
+        } catch (Exception ignored) {
+            return false;
+        }
     }
 
     int contestantCount() {
