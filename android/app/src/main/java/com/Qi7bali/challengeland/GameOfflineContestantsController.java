@@ -435,10 +435,8 @@ final class GameOfflineContestantsController {
             cell.setClipToPadding(false);
 
             // The contestant stands behind the podium (added first -> drawn underneath).
-            // On low-RAM devices or when many contestants are present, static artwork is
-            // used for bot slots to avoid exceeding device hardware video decoder limits.
             int videoRes = CONTESTANT_VIDEOS[charIdx];
-            boolean useVideo = videoRes != 0 && !isLowEndDevice(activity) && (count <= 2 || i == 0);
+            boolean useVideo = videoRes != 0 && !isLowEndDevice(activity);
             View contestant;
             float contestantBoxWidthDp;
             if (useVideo) {
