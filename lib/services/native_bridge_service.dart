@@ -289,8 +289,17 @@ class NativeBridgeService {
     await _channel.invokeMethod('launchSettings');
   }
 
-  Future<void> launchSpeedBattle() async {
-    await _channel.invokeMethod('launchSpeedBattle');
+  Future<void> launchSpeedBattle({String? matchMode, String? friendCode}) async {
+    await _channel.invokeMethod('launchSpeedBattle', <String, dynamic>{
+      'matchMode': matchMode ?? '',
+      'friendCode': friendCode ?? '',
+    });
+  }
+
+  Future<void> launchFriendChallenge({required String friendCode}) async {
+    await _channel.invokeMethod('launchFriendChallenge', <String, dynamic>{
+      'friendCode': friendCode,
+    });
   }
 
   Future<void> playCampaignMapMusic() async {

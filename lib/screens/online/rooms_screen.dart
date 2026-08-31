@@ -10,7 +10,9 @@ import '../../services/room_service.dart';
 import 'room_lobby_screen.dart';
 
 class RoomsScreen extends StatefulWidget {
-  const RoomsScreen({super.key});
+  const RoomsScreen({super.key, this.initialRoomCode});
+
+  final String? initialRoomCode;
 
   @override
   State<RoomsScreen> createState() => _RoomsScreenState();
@@ -36,10 +38,35 @@ class _RoomsScreenState extends State<RoomsScreen>
       vsync: this,
       duration: const Duration(milliseconds: 900),
     )..repeat(reverse: true);
+    if (widget.initialRoomCode != null && widget.initialRoomCode!.isNotEmpty) {
+      _roomCodeController.text = widget.initialRoomCode!;
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _checkClipboardAutoFill());
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       context.read<RoomService>().purgeStaleRooms();
     });
+  }
+
+  Future<void> _checkClipboardAutoFill() async {
+    try {
+      final data = await Clipboard.getData(Clipboard.kTextPlain);
+      if (data?.text != null && data!.text!.trim().isNotEmpty && mounted) {
+        final text = data.text!.trim();
+        final match = RegExp(
+          r'(?:رمز الغرفة|كود الغرفة|كود|code)[:\s\n`]*([A-Za-z0-9_-]{8,25})',
+          caseSensitive: false,
+        ).firstMatch(text);
+        final extracted = match?.group(1) ??
+            (RegExp(r'^[A-Za-z0-9_-]{8,25}$').hasMatch(text) ? text : '');
+        if (extracted.isNotEmpty && _roomCodeController.text.isEmpty) {
+          setState(() {
+            _roomCodeController.text = extracted;
+          });
+        }
+      }
+    } catch (_) {}
   }
 
   @override
@@ -750,6 +777,29 @@ class _CreateJoinPanel extends StatelessWidget {
                       fontSize: 14),
                   prefixIcon: Icon(Icons.tag_rounded,
                       color: const Color(0xFFFACC15).withValues(alpha: 0.8)),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.paste_rounded,
+                        color: Color(0xFFFACC15), size: 20),
+                    tooltip: 'لصق الرمز',
+                    onPressed: () async {
+                      try {
+                        final data = await Clipboard.getData(Clipboard.kTextPlain);
+                        if (data?.text != null && data!.text!.trim().isNotEmpty) {
+                          final text = data.text!.trim();
+                          final match = RegExp(
+                            r'(?:رمز الغرفة|كود الغرفة|كود|code)[:\s\n]*([A-Za-z0-9_-]{4,25})',
+                            caseSensitive: false,
+                          ).firstMatch(text);
+                          final extracted = match?.group(1) ??
+                              text.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '');
+                          if (extracted.isNotEmpty) {
+                            roomCodeController.text = extracted;
+                            HapticFeedback.selectionClick();
+                          }
+                        }
+                      } catch (_) {}
+                    },
+                  ),
                   filled: true,
                   fillColor: Colors.white.withValues(alpha: 0.06),
                   enabledBorder: OutlineInputBorder(

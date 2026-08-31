@@ -735,6 +735,60 @@ public class Data {
         return rootRef().child("Games");
     }
 
+    public void claimFriendRequest(final String currentUserId,
+                                   final String targetUserId,
+                                   final OnRandomRequestListener listener) {
+        if (!isRealUser(currentUserId) || !isRealUser(targetUserId)) {
+            if (listener != null) {
+                listener.onSuccess("null");
+            }
+            return;
+        }
+
+        requestsRef().child(targetUserId).runTransaction(new Transaction.Handler() {
+            @Override
+            public Transaction.Result doTransaction(MutableData currentData) {
+                if (currentData.getValue() == null) {
+                    return Transaction.abort();
+                }
+                String status = valueAsString(currentData.child("status").getValue());
+                String acceptedBy = valueAsString(currentData.child("acceptedBy").getValue());
+                String targetId = valueAsString(currentData.child("targetId").getValue());
+                if (!status.isEmpty() && !"waiting".equals(status)) {
+                    return Transaction.abort();
+                }
+                if (!acceptedBy.isEmpty() && !"0".equals(acceptedBy)) {
+                    return Transaction.abort();
+                }
+                if (!targetId.isEmpty() && !targetId.equals(currentUserId)) {
+                    return Transaction.abort();
+                }
+                currentData.child("acceptedBy").setValue(currentUserId);
+                currentData.child("status").setValue("matched");
+                return Transaction.success(currentData);
+            }
+
+            @Override
+            public void onComplete(@Nullable DatabaseError error, boolean committed, @Nullable DataSnapshot currentData) {
+                if (error != null) {
+                    if (listener != null) {
+                        listener.onFailed(error);
+                    }
+                    return;
+                }
+                if (committed) {
+                    if (listener != null) {
+                        listener.onSuccess(targetUserId);
+                    }
+                } else {
+                    if (listener != null) {
+                        listener.onSuccess("null");
+                    }
+                }
+            }
+        });
+    }
+
     private void claimRequestCandidate(final String currentUserId,
                                        final ArrayList<String> candidates,
                                        final int index,
@@ -855,7 +909,7 @@ public class Data {
         return normalized;
     }
 
-    private static String normalizeFriendCode(String friendCode) {
+    public static String normalizeFriendCode(String friendCode) {
         if (friendCode == null) {
             return "";
         }

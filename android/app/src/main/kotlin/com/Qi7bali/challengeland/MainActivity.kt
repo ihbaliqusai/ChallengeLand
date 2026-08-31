@@ -23,7 +23,7 @@ class MainActivity : FlutterActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
-        pendingLaunchAction = intent.getStringExtra("launchAction")
+        handleIntentData(intent)
         syncDailyReminderSchedule()
     }
 
@@ -40,7 +40,28 @@ class MainActivity : FlutterActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        pendingLaunchAction = intent.getStringExtra("launchAction")
+        handleIntentData(intent)
+    }
+
+    private fun handleIntentData(intent: Intent?) {
+        val uri = intent?.data
+        if (uri != null && uri.scheme == "challengeland") {
+            val host = uri.host ?: uri.path.orEmpty()
+            val code = uri.getQueryParameter("code") ?: uri.getQueryParameter("id") ?: ""
+            if (host.contains("challenge") || host.contains("friend")) {
+                if (code.isNotEmpty()) {
+                    pendingLaunchAction = "challenge:$code"
+                }
+            } else if (host.contains("room")) {
+                if (code.isNotEmpty()) {
+                    pendingLaunchAction = "room:$code"
+                }
+            }
+        }
+        val rawAction = intent?.getStringExtra("launchAction")
+        if (rawAction != null) {
+            pendingLaunchAction = rawAction
+        }
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -86,8 +107,21 @@ class MainActivity : FlutterActivity() {
                         result.success(true)
                     }
                     "launchSpeedBattle" -> {
-                        // يفتح شاشة البحث عن خصم عشوائي مباشرة
-                        val intent = Intent(this, OpponentActivity::class.java)
+                        val matchMode = call.argument<String>("matchMode") ?: ""
+                        val friendCode = call.argument<String>("friendCode") ?: ""
+                        val intent = Intent(this, OpponentActivity::class.java).apply {
+                            if (matchMode.isNotBlank()) putExtra("matchMode", matchMode)
+                            if (friendCode.isNotBlank()) putExtra("friendCode", friendCode)
+                        }
+                        startActivity(intent)
+                        result.success(true)
+                    }
+                    "launchFriendChallenge" -> {
+                        val friendCode = call.argument<String>("friendCode") ?: ""
+                        val intent = Intent(this, OpponentActivity::class.java).apply {
+                            putExtra("matchMode", "friend")
+                            putExtra("friendCode", friendCode)
+                        }
                         startActivity(intent)
                         result.success(true)
                     }

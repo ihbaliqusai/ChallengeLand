@@ -91,6 +91,9 @@ public class OpponentActivity extends AppCompatActivity {
         scheduleCancelButton();
         startBrowsingOpponents();
         if ("friend".equals(matchMode) && !friendCode.isEmpty()) {
+            if (btnCancel != null) {
+                btnCancel.setVisibility(View.VISIBLE);
+            }
             startFriendInviteFlow();
         } else {
             startRandomMatchFlow();
@@ -103,30 +106,64 @@ public class OpponentActivity extends AppCompatActivity {
                 btnCancel.setVisibility(View.VISIBLE);
             }
         };
-        cancelButtonHandler.postDelayed(cancelButtonRunnable, 10000);
+        cancelButtonHandler.postDelayed(cancelButtonRunnable, 3000);
     }
 
     private void startFriendInviteFlow() {
-        setStatus("جاري تجهيز تحدي الصديق...");
-        new Data().getUserIdByFriendCode(friendCode, new OnGetGameIdListener() {
+        setStatus("جاري التحقق من كود الصديق...");
+        String normalizedFriendCode = Data.normalizeFriendCode(friendCode);
+        new Data().getUserIdByFriendCode(normalizedFriendCode, new OnGetGameIdListener() {
             @Override
-            public void onSuccess(String targetUserId) {
+            public void onSuccess(final String targetUserId) {
                 if (launchingGame) {
                     return;
                 }
                 if (targetUserId == null || targetUserId.trim().isEmpty()) {
-                    Toast.makeText(OpponentActivity.this, "كود الصديق غير صحيح", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(OpponentActivity.this, "كود الصديق غير صحيح أو غير مسجل", Toast.LENGTH_LONG).show();
                     finish();
                     return;
                 }
                 if (targetUserId.equals(userID)) {
                     Toast.makeText(OpponentActivity.this, "لا يمكنك تحدي نفسك", Toast.LENGTH_SHORT).show();
+                    finish();
                     return;
                 }
-                ownRequestInserted = true;
-                Data.insertRequest(userID, targetUserId);
-                waitForAcceptedRequest();
-                setStatus("تم إرسال الدعوة. بانتظار دخول صديقك...");
+
+                // Try claiming existing request from target first
+                new Data().claimFriendRequest(userID, targetUserId, new OnRandomRequestListener() {
+                    @Override
+                    public void onStart() {}
+
+                    @Override
+                    public void onSuccess(String idOpponent) {
+                        if (launchingGame) {
+                            return;
+                        }
+                        if (idOpponent != null && !idOpponent.isEmpty() && !"null".equals(idOpponent)) {
+                            requestAccepted = true;
+                            setStatus("تم قبول التحدي! جاري تجهيز المواجهة...");
+                            resolveOpponentAndLaunch(idOpponent, false);
+                            return;
+                        }
+
+                        // No active request from target yet -> create our own and wait
+                        ownRequestInserted = true;
+                        Data.insertRequest(userID, targetUserId);
+                        waitForAcceptedRequest();
+                        setStatus("تم إرسال الدعوة. بانتظار دخول صديقك...");
+                        scheduleFriendPolling(targetUserId);
+                    }
+
+                    @Override
+                    public void onFailed(DatabaseError error) {
+                        if (launchingGame) return;
+                        ownRequestInserted = true;
+                        Data.insertRequest(userID, targetUserId);
+                        waitForAcceptedRequest();
+                        setStatus("تم إرسال الدعوة. بانتظار دخول صديقك...");
+                        scheduleFriendPolling(targetUserId);
+                    }
+                });
             }
 
             @Override
@@ -135,6 +172,42 @@ public class OpponentActivity extends AppCompatActivity {
                 finish();
             }
         });
+    }
+
+    private void scheduleFriendPolling(final String targetUserId) {
+        if (launchingGame || requestAccepted) {
+            return;
+        }
+        matchmakingHandler.removeCallbacks(matchmakingRunnable);
+        matchmakingRunnable = new Runnable() {
+            @Override
+            public void run() {
+                if (!requestAccepted && !launchingGame) {
+                    new Data().claimFriendRequest(userID, targetUserId, new OnRandomRequestListener() {
+                        @Override
+                        public void onStart() {}
+
+                        @Override
+                        public void onSuccess(String idOpponent) {
+                            if (launchingGame) return;
+                            if (idOpponent != null && !idOpponent.isEmpty() && !"null".equals(idOpponent)) {
+                                requestAccepted = true;
+                                setStatus("تم قبول التحدي! جاري بدء المواجهة...");
+                                resolveOpponentAndLaunch(idOpponent, false);
+                                return;
+                            }
+                            scheduleFriendPolling(targetUserId);
+                        }
+
+                        @Override
+                        public void onFailed(DatabaseError error) {
+                            scheduleFriendPolling(targetUserId);
+                        }
+                    });
+                }
+            }
+        };
+        matchmakingHandler.postDelayed(matchmakingRunnable, 2000);
     }
 
     private void startRandomMatchFlow() {
