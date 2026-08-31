@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../core/app_settings.dart';
 import '../../core/app_state.dart';
 import '../../services/ad_service.dart';
+import '../../widgets/cross_promo_millionaire_dialog.dart';
 import '../legal/privacy_policy_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -808,6 +809,14 @@ class _ActionsPanel extends StatelessWidget {
               compact: compact,
             ),
             SizedBox(height: compact ? 8 : 10),
+            _ActionLineButton(
+              icon: Icons.emoji_events_rounded,
+              label: _t('لعبتنا الأخرى: تحدي المليون 🏆', 'Our Game: Million Challenge 🏆'),
+              color: const Color(0xFFFBBF24),
+              onTap: () => CrossPromoMillionaireDialog.show(context),
+              compact: compact,
+            ),
+            SizedBox(height: compact ? 6 : 8),
             _ActionLineButton(
               icon: Icons.privacy_tip_rounded,
               label: _t('سياسة الخصوصية', 'Privacy Policy'),

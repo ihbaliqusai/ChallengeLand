@@ -143,6 +143,66 @@ class MainActivity : FlutterActivity() {
                         pendingLaunchAction = null
                         result.success(action)
                     }
+                    "isAppInstalled" -> {
+                        val targetPackage = call.argument<String>("packageName") ?: ""
+                        val isInstalled = if (targetPackage.isNotBlank()) {
+                            try {
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                    packageManager.getPackageInfo(
+                                        targetPackage,
+                                        android.content.pm.PackageManager.PackageInfoFlags.of(0)
+                                    )
+                                } else {
+                                    @Suppress("DEPRECATION")
+                                    packageManager.getPackageInfo(targetPackage, 0)
+                                }
+                                true
+                            } catch (e: Exception) {
+                                false
+                            }
+                        } else {
+                            false
+                        }
+                        result.success(isInstalled)
+                    }
+                    "launchAppOrPlayStore" -> {
+                        val targetPackage = call.argument<String>("packageName") ?: ""
+                        val fallbackUrl = call.argument<String>("playStoreUrl")
+                            ?: "https://play.google.com/store/apps/details?id=$targetPackage"
+                        var launched = false
+                        if (targetPackage.isNotBlank()) {
+                            val launchIntent = packageManager.getLaunchIntentForPackage(targetPackage)
+                            if (launchIntent != null) {
+                                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                startActivity(launchIntent)
+                                launched = true
+                                result.success("launched_app")
+                            }
+                        }
+                        if (!launched && targetPackage.isNotBlank()) {
+                            try {
+                                val marketIntent = Intent(
+                                    Intent.ACTION_VIEW,
+                                    Uri.parse("market://details?id=$targetPackage")
+                                ).apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                startActivity(marketIntent)
+                                result.success("opened_market")
+                            } catch (e: Exception) {
+                                val webIntent = Intent(
+                                    Intent.ACTION_VIEW,
+                                    Uri.parse(fallbackUrl)
+                                ).apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                startActivity(webIntent)
+                                result.success("opened_web")
+                            }
+                        } else if (!launched) {
+                            result.success("error_no_package")
+                        }
+                    }
                     "grantCurrency" -> {
                         val coins = call.argument<Int>("coins") ?: 0
                         val gems = call.argument<Int>("gems") ?: 0

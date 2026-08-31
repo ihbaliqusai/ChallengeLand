@@ -15,6 +15,7 @@ import 'services/native_bridge_service.dart';
 import 'services/profile_service.dart'; // still needed by other screens
 import 'services/room_service.dart';
 import 'services/ad_service.dart';
+import 'services/cross_promo_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -51,6 +52,11 @@ class ChallengeLandApp extends StatelessWidget {
         Provider<AuthService>(create: (_) => AuthService()),
         Provider<ProfileService>(create: (_) => ProfileService()),
         Provider<NativeBridgeService>(create: (_) => NativeBridgeService()),
+        ChangeNotifierProvider<CrossPromoService>(
+          create: (context) =>
+              CrossPromoService(bridge: context.read<NativeBridgeService>())
+                ..checkInstallation(),
+        ),
         ChangeNotifierProvider<AppSettings>(
           create: (context) =>
               AppSettings(context.read<NativeBridgeService>())..load(),

@@ -14,6 +14,32 @@ class NativeBridgeService {
     return action?.trim().isEmpty ?? true ? null : action;
   }
 
+  Future<bool> isAppInstalled(String packageName) async {
+    try {
+      final installed = await _channel.invokeMethod<bool>('isAppInstalled', {
+        'packageName': packageName,
+      });
+      return installed ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<String?> launchAppOrPlayStore({
+    required String packageName,
+    String? playStoreUrl,
+  }) async {
+    try {
+      final result = await _channel.invokeMethod<String>('launchAppOrPlayStore', {
+        'packageName': packageName,
+        'playStoreUrl': playStoreUrl ?? 'https://play.google.com/store/apps/details?id=$packageName',
+      });
+      return result;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> launchLegacyRoomMatch({
     required List<Map<String, dynamic>> opponents,
     required bool meOwner,

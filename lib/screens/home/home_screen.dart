@@ -26,6 +26,8 @@ import '../../services/ad_service.dart';
 import '../../services/campaign_result_handler.dart';
 import '../../services/native_bridge_service.dart';
 import '../../widgets/friend_challenge_modal.dart';
+import '../../widgets/cross_promo_millionaire_badge.dart';
+import '../../widgets/cross_promo_millionaire_dialog.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -682,6 +684,11 @@ class _HomeScreenState extends State<HomeScreen>
                 user: user,
               ),
             ),
+            const Positioned(
+              bottom: 12,
+              left: 14,
+              child: CrossPromoMillionaireBadge(),
+            ),
           ],
         ),
       ),
@@ -1212,6 +1219,96 @@ class _HomeMenuSheet extends StatelessWidget {
                               _openScreen(context, const SettingsScreen()),
                         ),
                       ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      CrossPromoMillionaireDialog.show(rootContext);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            const Color(0xFFF59E0B).withValues(alpha: 0.18),
+                            const Color(0xFF1E293B).withValues(alpha: 0.70),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color:
+                              const Color(0xFFF59E0B).withValues(alpha: 0.40),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 28,
+                            height: 28,
+                            decoration: const BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  Color(0xFFFDE68A),
+                                  Color(0xFFD97706),
+                                ],
+                              ),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.emoji_events_rounded,
+                              color: Color(0xFF451A03),
+                              size: 17,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'لعبة تحدي المليون 🏆',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                                Text(
+                                  'المسابقة الثقافية الشهيرة بأكثر من 50,000 سؤال',
+                                  style: TextStyle(
+                                    color: Color(0xFFFDE68A),
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF59E0B),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Text(
+                              'عرض اللعبة',
+                              style: TextStyle(
+                                color: Color(0xFF0F172A),
+                                fontSize: 11,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
