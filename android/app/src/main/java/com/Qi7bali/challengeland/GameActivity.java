@@ -14,6 +14,7 @@ import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.os.Handler;
 import android.text.TextPaint;
+import android.text.TextUtils;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.util.TypedValue;
@@ -21,6 +22,9 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
+import android.view.MotionEvent;
+import android.view.ViewTreeObserver;
+import android.graphics.Rect;
 import android.content.Context;
 import android.text.InputType;
 import android.view.inputmethod.EditorInfo;
@@ -236,8 +240,11 @@ public class GameActivity extends AppCompatActivity {
     // halves the reward. A wrong answer never deducts points (loses only the turn).
     private LinearLayout llyA1, llyA2;                 // the two answer-option rows
     private View boardTypedAnswerPanel;                // text box + submit/reveal buttons
-    private EditText boardAnswerInput;
+    private BoardAnswerEditText boardAnswerInput;
     private Button btnBoardSubmitAnswer, btnBoardRevealOptions, btnBoardConcedeSteal;
+    private View btnBoardHideKeyboard;
+    private boolean isBoardKeyboardShowing = false;
+    private ViewTreeObserver.OnGlobalLayoutListener boardKeyboardLayoutListener;
     private View boardRefereePanel;
     private Button btnBoardRefereeOverride;
     private boolean boardRefereeOverrideApplied = false;
@@ -1888,7 +1895,7 @@ public class GameActivity extends AppCompatActivity {
         boardResultProceeded = false;
         offlineContestants.release();
         overlay.removeAllViews();
-        overlay.setBackgroundColor(0xF20A0F2E);
+        overlay.setBackgroundColor(0xF6050C1F);
         overlay.setVisibility(View.VISIBLE);
         overlay.bringToFront();
 
@@ -1900,28 +1907,62 @@ public class GameActivity extends AppCompatActivity {
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setGravity(Gravity.CENTER);
-        root.setPadding(dpx(24), dpx(22), dpx(24), dpx(22));
+        root.setPadding(dpx(24), dpx(16), dpx(24), dpx(16));
         scroll.addView(root);
 
-        TextView title = makeBoardText(headline, 28f, 0xFFFFD761, Gravity.CENTER);
+        // Championship Crest Badge
+        TextView crest = new TextView(this);
+        crest.setText("👑🏆");
+        crest.setTextSize(TypedValue.COMPLEX_UNIT_SP, 30f);
+        crest.setGravity(Gravity.CENTER);
+        crest.setBackground(gradientPillBg(0x66020617, 0x991E293B, 0x88FFD700, 1));
+        LinearLayout.LayoutParams crestLp = new LinearLayout.LayoutParams(dpx(68), dpx(68));
+        crestLp.bottomMargin = dpx(10);
+        crest.setLayoutParams(crestLp);
+        root.addView(crest);
+
+        TextView tag = makeBoardText("بطولة التحدي الرئيسي • النتيجة النهائية", 12f, 0xFFFFD700, Gravity.CENTER);
+        LinearLayout.LayoutParams tagLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        tagLp.bottomMargin = dpx(4);
+        tag.setLayoutParams(tagLp);
+        root.addView(tag);
+
+        TextView title = makeBoardText(headline, 24f, 0xFFFFFFFF, Gravity.CENTER);
         LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        tlp.bottomMargin = dpx(20);
+        tlp.bottomMargin = dpx(16);
         title.setLayoutParams(tlp);
         root.addView(title);
 
-        root.addView(makeTeamResultRow(boardTeamAName, scoreA, winSlot == 0 || winSlot < 0));
-        root.addView(makeTeamResultRow(boardTeamBName, scoreB, winSlot == 1 || winSlot < 0));
+        // Dual Result Row
+        LinearLayout resultsRow = new LinearLayout(this);
+        resultsRow.setOrientation(LinearLayout.HORIZONTAL);
+        resultsRow.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams resLp = new LinearLayout.LayoutParams(
+                dpx(540), LinearLayout.LayoutParams.WRAP_CONTENT);
+        resLp.bottomMargin = dpx(16);
+        resultsRow.setLayoutParams(resLp);
+
+        resultsRow.addView(makeTeamResultCard(boardTeamAName, scoreA, winSlot == 0, 0xFFFFD700),
+                new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+
+        View gap = new View(this);
+        resultsRow.addView(gap, new LinearLayout.LayoutParams(dpx(12), 1));
+
+        resultsRow.addView(makeTeamResultCard(boardTeamBName, scoreB, winSlot == 1, 0xFF38BDF8),
+                new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+
+        root.addView(resultsRow);
 
         Button back = new Button(this);
-        back.setText("العودة للقائمة");
+        back.setText("العودة لإدارة المباريات 🏆");
         back.setAllCaps(false);
-        back.setTextColor(0xFFFFFFFF);
-        back.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f);
+        back.setTextColor(0xFF030D1C);
+        back.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14.5f);
         if (getBoardFont() != null) back.setTypeface(getBoardFont(), Typeface.BOLD);
-        back.setBackground(pillBg(0xFF29B6F6));
-        LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(dpx(220), dpx(52));
-        blp.topMargin = dpx(22);
+        back.setBackground(gradientPillBg(0xFFFFC727, 0xFFFFA000, 0xFFFFF1A8, 1));
+        LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(dpx(240), dpx(46));
         back.setLayoutParams(blp);
         back.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -1942,19 +1983,38 @@ public class GameActivity extends AppCompatActivity {
         }, 16000);
     }
 
-    /** One team's result row: 👑 + name + score, gold for the winner, slate otherwise. */
-    private View makeTeamResultRow(String name, int score, boolean won) {
-        int color = won ? 0xFFFFD761 : 0xFF94A3B8;
-        String text = (won ? "👑  " : "") + name + "    " + score;
-        TextView row = makeBoardText(text, 22f, color, Gravity.CENTER);
-        row.setBackground(headerBg());
-        row.setPadding(dpx(20), dpx(12), dpx(20), dpx(12));
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                dpx(280), LinearLayout.LayoutParams.WRAP_CONTENT);
-        lp.bottomMargin = dpx(12);
-        lp.gravity = Gravity.CENTER_HORIZONTAL;
-        row.setLayoutParams(lp);
-        return row;
+    /** One team's result card: Crest + Name + Score + Winner Badge */
+    private View makeTeamResultCard(String name, int score, boolean won, int accent) {
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setGravity(Gravity.CENTER_HORIZONTAL);
+        card.setBackground(cardBg(won ? 0xF20F244C : 0xD5071128, won ? 0xFFFFD700 : 0x4438BDF8, 16, won ? 2 : 1));
+        card.setPadding(dpx(16), dpx(12), dpx(16), dpx(12));
+
+        if (won) {
+            TextView crownBadge = makeBoardText("👑 الفائز بالبطولة", 10.5f, 0xFFFFD700, Gravity.CENTER);
+            crownBadge.setBackground(cardBg(0x33FFD700, 0x88FFD700, 999, 1));
+            crownBadge.setPadding(dpx(10), dpx(2), dpx(10), dpx(2));
+            LinearLayout.LayoutParams cbLp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            cbLp.bottomMargin = dpx(6);
+            crownBadge.setLayoutParams(cbLp);
+            card.addView(crownBadge);
+        }
+
+        TextView nameView = makeBoardText(name, 15f, accent, Gravity.CENTER);
+        nameView.setMaxLines(1);
+        nameView.setEllipsize(TextUtils.TruncateAt.END);
+        card.addView(nameView);
+
+        TextView scoreView = makeBoardText(score + " نقطة", 20f, 0xFFFFFFFF, Gravity.CENTER);
+        LinearLayout.LayoutParams scLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        scLp.topMargin = dpx(4);
+        scoreView.setLayoutParams(scLp);
+        card.addView(scoreView);
+
+        return card;
     }
 
     /** رحلة المليون stage end: solo (reach boardTargetScore) or boss (beat every bot).
@@ -2575,34 +2635,72 @@ public class GameActivity extends AppCompatActivity {
         playCategorySelectMusic();
         saveLocalTeamsProgress(LocalTeamsGameStore.PHASE_SETUP);
         overlay.removeAllViews();
-        overlay.setBackgroundColor(0xF2071026);
+        overlay.setBackgroundColor(0xF6050C1F);
         overlay.setVisibility(View.VISIBLE);
         overlay.bringToFront();
 
         ScrollView scroll = new ScrollView(this);
         scroll.setLayoutParams(new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+        scroll.setFillViewport(true);
+        scroll.setVerticalScrollBarEnabled(false);
+
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setGravity(Gravity.CENTER_HORIZONTAL);
-        root.setPadding(dpx(24), dpx(20), dpx(24), dpx(20));
+        root.setPadding(dpx(24), dpx(16), dpx(24), dpx(16));
         scroll.addView(root);
 
-        TextView title = makeBoardText("أدخلوا أسماء الفريقين", 22f, 0xFFFFFFFF, Gravity.CENTER);
+        // Header Tag
+        TextView tag = makeBoardText("👑 كلاسيكو التحدي الرئيسي • إعداد المواجهة", 12f, 0xFFFFD700, Gravity.CENTER);
+        LinearLayout.LayoutParams tagLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        tagLp.bottomMargin = dpx(4);
+        tag.setLayoutParams(tagLp);
+        root.addView(tag);
+
+        TextView title = makeBoardText("أدخلوا أسماء الفريقين للمنافسة", 22f, 0xFFFFFFFF, Gravity.CENTER);
         LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         tlp.bottomMargin = dpx(16);
         title.setLayoutParams(tlp);
         root.addView(title);
 
-        final EditText inputA = makeTeamNameInput(boardTeamAName, 0xFFFFD761);
-        // First field: "Next" jumps to the second team's field.
+        // Duel Arena Horizontal Row
+        LinearLayout duelRow = new LinearLayout(this);
+        duelRow.setOrientation(LinearLayout.HORIZONTAL);
+        duelRow.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams duelLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        duelLp.bottomMargin = dpx(16);
+        duelRow.setLayoutParams(duelLp);
+
+        final EditText inputA = makeTeamNameInput(boardTeamAName, 0xFFFFD700);
         inputA.setImeOptions(android.view.inputmethod.EditorInfo.IME_FLAG_NO_EXTRACT_UI
                 | android.view.inputmethod.EditorInfo.IME_FLAG_NO_FULLSCREEN
                 | android.view.inputmethod.EditorInfo.IME_ACTION_NEXT);
-        root.addView(makeTeamNameRow("الفريق الأول", inputA, 0xFFFFD761));
-        final EditText inputB = makeTeamNameInput(boardTeamBName, 0xFF7DD3FC);
-        root.addView(makeTeamNameRow("الفريق الثاني", inputB, 0xFF7DD3FC));
+
+        View teamACard = makeTeamSetupCard("🛡️ الفريق الأول", "الركن الذهبي", inputA, 0xFFFFD700, 0x88FFD700);
+        duelRow.addView(teamACard, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+
+        // Center VS Badge
+        TextView vsView = new TextView(this);
+        vsView.setText("VS");
+        vsView.setTextColor(0xFFFFE082);
+        vsView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f);
+        vsView.setTypeface(Typeface.DEFAULT_BOLD);
+        vsView.setGravity(Gravity.CENTER);
+        vsView.setBackground(gradientPillBg(0x66020617, 0x991E293B, 0x88FFD700, 1));
+        LinearLayout.LayoutParams vsLp = new LinearLayout.LayoutParams(dpx(42), dpx(42));
+        vsLp.setMargins(dpx(12), 0, dpx(12), 0);
+        vsView.setLayoutParams(vsLp);
+        duelRow.addView(vsView);
+
+        final EditText inputB = makeTeamNameInput(boardTeamBName, 0xFF38BDF8);
+        View teamBCard = makeTeamSetupCard("الفريق الثاني ⚔️", "الركن السماوي", inputB, 0xFF38BDF8, 0x8838BDF8);
+        duelRow.addView(teamBCard, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+
+        root.addView(duelRow);
 
         final Runnable proceed = new Runnable() {
             @Override
@@ -2643,13 +2741,14 @@ public class GameActivity extends AppCompatActivity {
         });
 
         Button confirm = new Button(this);
-        confirm.setText("التالي");
+        confirm.setText("انطلاق لاختيار الفئات ➔");
         confirm.setAllCaps(false);
-        confirm.setTextColor(0xFFFFFFFF);
+        confirm.setTextColor(0xFF030D1C);
+        confirm.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f);
         if (getBoardFont() != null) confirm.setTypeface(getBoardFont(), Typeface.BOLD);
-        confirm.setBackground(pillBg(0xFF29B6F6));
-        LinearLayout.LayoutParams cflp = new LinearLayout.LayoutParams(dpx(200), dpx(50));
-        cflp.topMargin = dpx(20);
+        confirm.setBackground(gradientPillBg(0xFFFFC727, 0xFFFFA000, 0xFFFFF1A8, 1));
+        LinearLayout.LayoutParams cflp = new LinearLayout.LayoutParams(dpx(260), dpx(48));
+        cflp.topMargin = dpx(6);
         confirm.setLayoutParams(cflp);
         confirm.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -2662,22 +2761,25 @@ public class GameActivity extends AppCompatActivity {
         overlay.addView(scroll);
     }
 
-    /** A labelled team-name field (label above a styled EditText). */
-    private LinearLayout makeTeamNameRow(String label, EditText input, int accent) {
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.VERTICAL);
-        LinearLayout.LayoutParams rlp = new LinearLayout.LayoutParams(
-                dpx(260), LinearLayout.LayoutParams.WRAP_CONTENT);
-        rlp.bottomMargin = dpx(12);
-        row.setLayoutParams(rlp);
-        TextView lbl = makeBoardText(label, 14f, accent, Gravity.CENTER);
-        LinearLayout.LayoutParams llp = new LinearLayout.LayoutParams(
+    private View makeTeamSetupCard(String title, String subtitle, EditText input, int accent, int strokeColor) {
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setBackground(cardBg(0xDD091530, strokeColor, 14, 1));
+        card.setPadding(dpx(14), dpx(10), dpx(14), dpx(10));
+
+        TextView titleView = makeBoardText(title, 13.5f, accent, Gravity.CENTER);
+        card.addView(titleView);
+
+        TextView subView = makeBoardText(subtitle, 9.5f, 0xFF94A3B8, Gravity.CENTER);
+        LinearLayout.LayoutParams subLp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        llp.bottomMargin = dpx(4);
-        lbl.setLayoutParams(llp);
-        row.addView(lbl);
-        row.addView(input);
-        return row;
+        subLp.topMargin = dpx(2);
+        subLp.bottomMargin = dpx(8);
+        subView.setLayoutParams(subLp);
+        card.addView(subView);
+
+        card.addView(input);
+        return card;
     }
 
     private EditText makeTeamNameInput(String initial, int accent) {
@@ -2686,19 +2788,17 @@ public class GameActivity extends AppCompatActivity {
         input.setSingleLine(true);
         input.setInputType(android.text.InputType.TYPE_CLASS_TEXT
                 | android.text.InputType.TYPE_TEXT_FLAG_CAP_WORDS);
-        // Keep the keyboard docked at the bottom — in landscape the IME otherwise opens a
-        // full-screen "extract" editor that covers the whole setup screen.
         input.setImeOptions(android.view.inputmethod.EditorInfo.IME_FLAG_NO_EXTRACT_UI
                 | android.view.inputmethod.EditorInfo.IME_FLAG_NO_FULLSCREEN
                 | android.view.inputmethod.EditorInfo.IME_ACTION_DONE);
         input.setGravity(Gravity.CENTER);
         input.setTextColor(0xFFFFFFFF);
         input.setHintTextColor(0x66FFFFFF);
-        input.setTextSize(16f);
-        if (getBoardFont() != null) input.setTypeface(getBoardFont());
+        input.setTextSize(15f);
+        if (getBoardFont() != null) input.setTypeface(getBoardFont(), Typeface.BOLD);
         input.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(14)});
-        input.setBackground(pillBg(0x33FFFFFF));
-        input.setPadding(dpx(14), dpx(10), dpx(14), dpx(10));
+        input.setBackground(cardBg(0x44000000, accent, 999, 1));
+        input.setPadding(dpx(12), dpx(8), dpx(12), dpx(8));
         input.setLayoutParams(new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
         return input;
@@ -4450,71 +4550,160 @@ public class GameActivity extends AppCompatActivity {
         root.setPadding(dpx(16), dpx(8), dpx(16), dpx(8));
         gridScroll.addView(root);
 
-        String bannerText;
-        if (boardCampaignMatch && "solo".equals(boardCampaignKind)) {
-            int remaining = Math.max(0, boardTotalTurns - boardTurnIndex);
-            bannerText = "الهدف: " + boardTargetScore + "  •  نقاطك: " + offlineContestants.scoreForSlot(0)
-                    + "  •  اختيارات متبقية: " + remaining;
-        } else if (boardLocalTeams) {
-            // Hot-seat: name the team whose turn it is so the device is passed correctly.
-            bannerText = "دور " + boardTeamName(boardPickerSlot) + " — اختر فئة وقيمة";
-        } else {
-            bannerText = boardPickerIsHuman ? "دورك.. اختر فئة وقيمة"
-                    : ("دور " + offlineContestants.nameForSlot(boardPickerSlot));
-        }
-        TextView banner = makeBoardText(bannerText, 18f,
-                boardPickerIsHuman ? 0xFF61FF39 : 0xFFFFD761, Gravity.CENTER);
-        LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        blp.bottomMargin = dpx(8);
-        banner.setLayoutParams(blp);
-        root.addView(banner);
+        if (boardLocalTeams) {
+            LinearLayout arenaHeader = new LinearLayout(this);
+            arenaHeader.setOrientation(LinearLayout.HORIZONTAL);
+            arenaHeader.setGravity(Gravity.CENTER_VERTICAL);
+            arenaHeader.setBackground(gradientCardBg(0xEE0B1939, 0xEE040A1A, 0x66FFD700, 14, 1));
+            arenaHeader.setPadding(dpx(14), dpx(6), dpx(14), dpx(6));
+            LinearLayout.LayoutParams ahlp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            ahlp.bottomMargin = dpx(8);
+            arenaHeader.setLayoutParams(ahlp);
 
-        // 30-second pick timer (human turn only); auto-picks a cell on timeout.
-        if (shouldUseBoardSelectTimer()) {
-            boardSelectCountdownView = makeBoardText("⏱ " + BOARD_SELECT_SECONDS, 16f, 0xFF61FF39, Gravity.CENTER);
-            boardSelectCountdownView.setBackground(headerBg());
-            boardSelectCountdownView.setPadding(dpx(14), dpx(3), dpx(14), dpx(3));
-            LinearLayout.LayoutParams cdLp = new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-            cdLp.gravity = Gravity.CENTER_HORIZONTAL;
-            cdLp.bottomMargin = dpx(8);
-            boardSelectCountdownView.setLayoutParams(cdLp);
-            root.addView(boardSelectCountdownView);
-        } else {
-            boardSelectCountdownView = null;
-        }
+            // Team A Card (Gold)
+            boolean isTurnA = (boardPickerSlot == 0);
+            int scoreA = (offlineContestants != null && offlineContestants.contestantCount() > 0)
+                    ? offlineContestants.scoreForSlot(0) : 0;
+            LinearLayout teamABox = new LinearLayout(this);
+            teamABox.setOrientation(LinearLayout.VERTICAL);
+            teamABox.setGravity(Gravity.CENTER);
+            teamABox.setBackground(isTurnA ? gradientCardBg(0x44FFD700, 0x22B45309, 0xFFFFD700, 10, 2)
+                    : cardBg(0x221E293B, 0x44FFD700, 10, 1));
+            teamABox.setPadding(dpx(10), dpx(4), dpx(10), dpx(4));
+            LinearLayout.LayoutParams tabLp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+            teamABox.setLayoutParams(tabLp);
 
-        // Compact standings strip (the side score board is hidden behind the overlay).
-        android.widget.HorizontalScrollView scoresScroll = new android.widget.HorizontalScrollView(this);
-        scoresScroll.setHorizontalScrollBarEnabled(false);
-        LinearLayout.LayoutParams ssLp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        ssLp.bottomMargin = dpx(10);
-        scoresScroll.setLayoutParams(ssLp);
-        LinearLayout scoresRow = new LinearLayout(this);
-        scoresRow.setOrientation(LinearLayout.HORIZONTAL);
-        scoresRow.setGravity(Gravity.CENTER);
-        int contestantCount = offlineContestants.contestantCount();
-        for (int s = 0; s < contestantCount; s++) {
-            String prefix = boardTeamMatch
-                    ? ("[" + ("B".equals(boardSeatTeam[s]) ? "ب" : "أ") + "] ")
-                    : "";
-            String chipText = prefix + offlineContestants.nameForSlot(s) + ": " + offlineContestants.scoreForSlot(s);
-            int chipColor = s == boardPickerSlot
-                    ? 0xFFFFD761
-                    : (boardTeamMatch && "B".equals(boardSeatTeam[s]) ? 0xFF7DD3FC : 0xFFFFFFFF);
-            TextView chip = makeBoardText(chipText, 12f, chipColor, Gravity.CENTER);
-            chip.setBackground(headerBg());
-            chip.setPadding(dpx(8), dpx(4), dpx(8), dpx(4));
-            LinearLayout.LayoutParams chLp = new LinearLayout.LayoutParams(
+            TextView aTag = makeBoardText((isTurnA ? "⚡ " : "🛡️ ") + boardTeamName(0), 12f, 0xFFFFD700, Gravity.CENTER);
+            aTag.setTypeface(Typeface.DEFAULT_BOLD);
+            aTag.setMaxLines(1);
+            aTag.setEllipsize(TextUtils.TruncateAt.END);
+            teamABox.addView(aTag);
+
+            TextView aScore = makeBoardText(scoreA + " نقطة", 11f, 0xFFE2E8F0, Gravity.CENTER);
+            teamABox.addView(aScore);
+            arenaHeader.addView(teamABox);
+
+            // Center Status / Turn Indicator
+            LinearLayout centerBox = new LinearLayout(this);
+            centerBox.setOrientation(LinearLayout.VERTICAL);
+            centerBox.setGravity(Gravity.CENTER);
+            LinearLayout.LayoutParams cbLp = new LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-            chLp.setMargins(dpx(4), 0, dpx(4), 0);
-            chip.setLayoutParams(chLp);
-            scoresRow.addView(chip);
+            cbLp.setMargins(dpx(12), 0, dpx(12), 0);
+            centerBox.setLayoutParams(cbLp);
+
+            int activeColor = isTurnA ? 0xFFFFD700 : 0xFF38BDF8;
+            TextView turnTag = makeBoardText("⚔️ دور " + boardTeamName(boardPickerSlot) + " ⚔️", 13.5f, activeColor, Gravity.CENTER);
+            turnTag.setTypeface(Typeface.DEFAULT_BOLD);
+            centerBox.addView(turnTag);
+
+            TextView promptTag = makeBoardText("اختر فئة وقيمة السؤال", 10f, 0xFF94A3B8, Gravity.CENTER);
+            centerBox.addView(promptTag);
+            arenaHeader.addView(centerBox);
+
+            // Team B Card (Cyan)
+            boolean isTurnB = (boardPickerSlot == 1);
+            int scoreB = (offlineContestants != null && offlineContestants.contestantCount() > 1)
+                    ? offlineContestants.scoreForSlot(1) : 0;
+            LinearLayout teamBBox = new LinearLayout(this);
+            teamBBox.setOrientation(LinearLayout.VERTICAL);
+            teamBBox.setGravity(Gravity.CENTER);
+            teamBBox.setBackground(isTurnB ? gradientCardBg(0x440284C7, 0x220369A1, 0xFF38BDF8, 10, 2)
+                    : cardBg(0x221E293B, 0x4438BDF8, 10, 1));
+            teamBBox.setPadding(dpx(10), dpx(4), dpx(10), dpx(4));
+            LinearLayout.LayoutParams tbbLp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+            teamBBox.setLayoutParams(tbbLp);
+
+            TextView bTag = makeBoardText((isTurnB ? "⚡ " : "⚔️ ") + boardTeamName(1), 12f, 0xFF38BDF8, Gravity.CENTER);
+            bTag.setTypeface(Typeface.DEFAULT_BOLD);
+            bTag.setMaxLines(1);
+            bTag.setEllipsize(TextUtils.TruncateAt.END);
+            teamBBox.addView(bTag);
+
+            TextView bScore = makeBoardText(scoreB + " نقطة", 11f, 0xFFE2E8F0, Gravity.CENTER);
+            teamBBox.addView(bScore);
+            arenaHeader.addView(teamBBox);
+
+            root.addView(arenaHeader);
+
+            if (shouldUseBoardSelectTimer()) {
+                boardSelectCountdownView = makeBoardText("⏱ " + BOARD_SELECT_SECONDS, 15f, 0xFF61FF39, Gravity.CENTER);
+                boardSelectCountdownView.setBackground(gradientPillBg(0xCC059669, 0xCC10B981, 0xFF6EE7B7, 1));
+                boardSelectCountdownView.setPadding(dpx(14), dpx(3), dpx(14), dpx(3));
+                LinearLayout.LayoutParams cdLp = new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+                cdLp.gravity = Gravity.CENTER_HORIZONTAL;
+                cdLp.bottomMargin = dpx(8);
+                boardSelectCountdownView.setLayoutParams(cdLp);
+                root.addView(boardSelectCountdownView);
+            } else {
+                boardSelectCountdownView = null;
+            }
+        } else {
+            String bannerText;
+            if (boardCampaignMatch && "solo".equals(boardCampaignKind)) {
+                int remaining = Math.max(0, boardTotalTurns - boardTurnIndex);
+                bannerText = "الهدف: " + boardTargetScore + "  •  نقاطك: " + offlineContestants.scoreForSlot(0)
+                        + "  •  اختيارات متبقية: " + remaining;
+            } else {
+                bannerText = boardPickerIsHuman ? "دورك.. اختر فئة وقيمة"
+                        : ("دور " + offlineContestants.nameForSlot(boardPickerSlot));
+            }
+            TextView banner = makeBoardText(bannerText, 18f,
+                    boardPickerIsHuman ? 0xFF61FF39 : 0xFFFFD761, Gravity.CENTER);
+            LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            blp.bottomMargin = dpx(8);
+            banner.setLayoutParams(blp);
+            root.addView(banner);
+
+            // 30-second pick timer (human turn only); auto-picks a cell on timeout.
+            if (shouldUseBoardSelectTimer()) {
+                boardSelectCountdownView = makeBoardText("⏱ " + BOARD_SELECT_SECONDS, 16f, 0xFF61FF39, Gravity.CENTER);
+                boardSelectCountdownView.setBackground(headerBg());
+                boardSelectCountdownView.setPadding(dpx(14), dpx(3), dpx(14), dpx(3));
+                LinearLayout.LayoutParams cdLp = new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+                cdLp.gravity = Gravity.CENTER_HORIZONTAL;
+                cdLp.bottomMargin = dpx(8);
+                boardSelectCountdownView.setLayoutParams(cdLp);
+                root.addView(boardSelectCountdownView);
+            } else {
+                boardSelectCountdownView = null;
+            }
+
+            // Compact standings strip (the side score board is hidden behind the overlay).
+            android.widget.HorizontalScrollView scoresScroll = new android.widget.HorizontalScrollView(this);
+            scoresScroll.setHorizontalScrollBarEnabled(false);
+            LinearLayout.LayoutParams ssLp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            ssLp.bottomMargin = dpx(10);
+            scoresScroll.setLayoutParams(ssLp);
+            LinearLayout scoresRow = new LinearLayout(this);
+            scoresRow.setOrientation(LinearLayout.HORIZONTAL);
+            scoresRow.setGravity(Gravity.CENTER);
+            int contestantCount = offlineContestants.contestantCount();
+            for (int s = 0; s < contestantCount; s++) {
+                String prefix = boardTeamMatch
+                        ? ("[" + ("B".equals(boardSeatTeam[s]) ? "ب" : "أ") + "] ")
+                        : "";
+                String chipText = prefix + offlineContestants.nameForSlot(s) + ": " + offlineContestants.scoreForSlot(s);
+                int chipColor = s == boardPickerSlot
+                        ? 0xFFFFD761
+                        : (boardTeamMatch && "B".equals(boardSeatTeam[s]) ? 0xFF7DD3FC : 0xFFFFFFFF);
+                TextView chip = makeBoardText(chipText, 12f, chipColor, Gravity.CENTER);
+                chip.setBackground(headerBg());
+                chip.setPadding(dpx(8), dpx(4), dpx(8), dpx(4));
+                LinearLayout.LayoutParams chLp = new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+                chLp.setMargins(dpx(4), 0, dpx(4), 0);
+                chip.setLayoutParams(chLp);
+                scoresRow.addView(chip);
+            }
+            scoresScroll.addView(scoresRow);
+            root.addView(scoresScroll);
         }
-        scoresScroll.addView(scoresRow);
-        root.addView(scoresScroll);
 
         // Team board: show the running team totals above the categories.
         if (boardTeamMatch) {
@@ -4814,9 +5003,76 @@ public class GameActivity extends AppCompatActivity {
         }, 700);
     }
 
+    private void restoreImmersiveMode() {
+        if (getWindow() != null && getWindow().getDecorView() != null) {
+            getWindow().getDecorView().setSystemUiVisibility(
+                    View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                            | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                            | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                            | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                            | View.SYSTEM_UI_FLAG_FULLSCREEN
+                            | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
+        }
+    }
+
+    private void setupKeyboardListener() {
+        if (boardKeyboardLayoutListener != null) return;
+        final View decor = getWindow() != null ? getWindow().getDecorView() : null;
+        if (decor == null) return;
+
+        boardKeyboardLayoutListener = new ViewTreeObserver.OnGlobalLayoutListener() {
+            private boolean wasOpen = false;
+            @Override
+            public void onGlobalLayout() {
+                if (isFinishing() || isDestroyed()) return;
+                Rect r = new Rect();
+                decor.getWindowVisibleDisplayFrame(r);
+                int screenHeight = decor.getRootView().getHeight();
+                int keypadHeight = screenHeight - r.bottom;
+                boolean isOpen = keypadHeight > screenHeight * 0.15;
+                if (isOpen != wasOpen) {
+                    wasOpen = isOpen;
+                    isBoardKeyboardShowing = isOpen;
+                    onBoardKeyboardVisibilityChanged(isOpen);
+                }
+            }
+        };
+        decor.getViewTreeObserver().addOnGlobalLayoutListener(boardKeyboardLayoutListener);
+    }
+
+    private void onBoardKeyboardVisibilityChanged(boolean isVisible) {
+        if (!boardMode || !boardAwaitingTypedInput) {
+            if (!isVisible) restoreImmersiveMode();
+            return;
+        }
+
+        // Adjust question box height so question, input, and options stay visible above keyboard
+        RelativeLayout frameQ = findViewById(R.id.frameQ);
+        if (frameQ != null) {
+            ViewGroup.LayoutParams lp = frameQ.getLayoutParams();
+            if (lp != null) {
+                lp.height = isVisible ? dpx(92) : dpx(140);
+                frameQ.setLayoutParams(lp);
+            }
+        }
+        TextView txtQ = findViewById(R.id.txtQ);
+        if (txtQ != null) {
+            txtQ.setTextSize(TypedValue.COMPLEX_UNIT_SP, isVisible ? 18f : 25f);
+        }
+
+        if (btnBoardHideKeyboard != null) {
+            btnBoardHideKeyboard.setVisibility(isVisible ? View.VISIBLE : View.GONE);
+        }
+
+        if (!isVisible) {
+            restoreImmersiveMode();
+        }
+    }
+
     /** Lazily builds the text box + submit/reveal buttons inside the Q/A column. */
     private void ensureBoardTypedPanel() {
         if (boardTypedAnswerPanel != null || llyQA == null) return;
+        setupKeyboardListener();
 
         LinearLayout panel = new LinearLayout(this);
         panel.setOrientation(LinearLayout.VERTICAL);
@@ -4826,27 +5082,36 @@ public class GameActivity extends AppCompatActivity {
         panelLp.topMargin = dpx(4);
         panel.setLayoutParams(panelLp);
 
-        EditText input = new EditText(this);
+        // --- Main unified action row: [Input field] [Hide keyboard] [Submit] [Reveal options] ---
+        LinearLayout mainRow = new LinearLayout(this);
+        mainRow.setOrientation(LinearLayout.HORIZONTAL);
+        mainRow.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+        mainRow.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        mainRow.setLayoutParams(rowLp);
+
+        BoardAnswerEditText input = new BoardAnswerEditText(this);
         input.setSingleLine(true);
         // NO_EXTRACT_UI stops the keyboard taking over the whole screen with its
         // landscape full-screen "extract" editor (the big black box + DONE button).
         input.setImeOptions(EditorInfo.IME_ACTION_DONE | EditorInfo.IME_FLAG_NO_EXTRACT_UI);
         input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
-        input.setHint("اكتب إجابتك هنا");
+        input.setHint("اكتب إجابتك هنا...");
         input.setHintTextColor(0x99FFFFFF);
         input.setTextColor(0xFFFFFFFF);
-        input.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f);
+        input.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f);
         input.setGravity(Gravity.CENTER);
         input.setTextDirection(View.TEXT_DIRECTION_RTL);
-        input.setPadding(dpx(16), dpx(8), dpx(16), dpx(8));
+        input.setPadding(dpx(12), dpx(6), dpx(12), dpx(6));
         GradientDrawable inputBg = new GradientDrawable();
-        inputBg.setColor(0xFF0E2347);
-        inputBg.setCornerRadius(dpx(12));
-        inputBg.setStroke(dpx(2), 0xFF61FF39);
+        inputBg.setColor(0xEE0E2347);
+        inputBg.setCornerRadius(dpx(14));
+        inputBg.setStroke(dpx(1.8f), 0xFF38BDF8);
         input.setBackground(inputBg);
         if (getBoardFont() != null) input.setTypeface(getBoardFont(), Typeface.BOLD);
-        LinearLayout.LayoutParams inLp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dpx(52));
+        LinearLayout.LayoutParams inLp = new LinearLayout.LayoutParams(0, dpx(48), 1f);
+        inLp.setMargins(dpx(3), 0, dpx(3), 0);
         input.setLayoutParams(inLp);
         input.setOnEditorActionListener(new TextView.OnEditorActionListener() {
             @Override
@@ -4858,38 +5123,73 @@ public class GameActivity extends AppCompatActivity {
                 return false;
             }
         });
-        panel.addView(input);
+        input.setOnKeyBackPressedListener(new BoardAnswerEditText.OnKeyBackPressedListener() {
+            @Override
+            public void onKeyBackPressed() {
+                hideKeyboard();
+            }
+        });
+        mainRow.addView(input);
 
-        LinearLayout buttonsRow = new LinearLayout(this);
-        buttonsRow.setOrientation(LinearLayout.HORIZONTAL);
-        LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        rowLp.topMargin = dpx(8);
-        buttonsRow.setLayoutParams(rowLp);
+        // Dedicated quick button to hide keyboard when typing
+        Button hideBtn = new Button(this);
+        hideBtn.setText("⌨️⌄");
+        hideBtn.setAllCaps(false);
+        hideBtn.setTextColor(0xFFE2E8F0);
+        hideBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f);
+        hideBtn.setGravity(Gravity.CENTER);
+        hideBtn.setPadding(0, 0, 0, 0);
+        hideBtn.setIncludeFontPadding(false);
+        GradientDrawable hideBg = new GradientDrawable();
+        hideBg.setColor(0xDD1E293B);
+        hideBg.setCornerRadius(dpx(14));
+        hideBg.setStroke(dpx(1.5f), 0xFF64748B);
+        hideBtn.setBackground(hideBg);
+        LinearLayout.LayoutParams hideLp = new LinearLayout.LayoutParams(dpx(46), dpx(48));
+        hideLp.setMargins(dpx(2), 0, dpx(2), 0);
+        hideBtn.setLayoutParams(hideLp);
+        hideBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                hideKeyboard();
+            }
+        });
+        hideBtn.setVisibility(isBoardKeyboardShowing ? View.VISIBLE : View.GONE);
+        mainRow.addView(hideBtn);
 
-        Button submit = makeLuxuryBoardButton("تأكيد الإجابة", new int[]{0xFF22C55E, 0xFF16A34A, 0xFF14532D}, 0xFF86EFAC, 0xFFFFFFFF);
+        // Submit answer button
+        Button submit = makeLuxuryBoardButton("تأكيد ✓", new int[]{0xFF10B981, 0xFF059669, 0xFF064E3B}, 0xFF6EE7B7, 0xFFFFFFFF);
+        LinearLayout.LayoutParams subLp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dpx(48));
+        subLp.setMargins(dpx(3), 0, dpx(3), 0);
+        submit.setPadding(dpx(14), 0, dpx(14), 0);
+        submit.setMinWidth(dpx(95));
+        submit.setLayoutParams(subLp);
         submit.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 onBoardSubmitTypedAnswer();
             }
         });
-        Button reveal = makeLuxuryBoardButton("إظهار الخيارات (نصف القيمة)", new int[]{0xFFF59E0B, 0xFFD97706, 0xFF78350F}, 0xFFFDE68A, 0xFFFFFFFF);
+        mainRow.addView(submit);
+
+        // Reveal options button - ALWAYS on same row as input, so visible even when keyboard is open!
+        Button reveal = makeLuxuryBoardButton("إظهار الخيارات 💡", new int[]{0xFFF59E0B, 0xFFD97706, 0xFF78350F}, 0xFFFDE68A, 0xFFFFFFFF);
+        LinearLayout.LayoutParams revLp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dpx(48));
+        revLp.setMargins(dpx(3), 0, dpx(3), 0);
+        reveal.setPadding(dpx(14), 0, dpx(14), 0);
+        reveal.setMinWidth(dpx(135));
+        reveal.setLayoutParams(revLp);
         reveal.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 onBoardRevealOptions();
             }
         });
-        LinearLayout.LayoutParams subLp = new LinearLayout.LayoutParams(0, dpx(46), 1f);
-        subLp.setMargins(dpx(4), 0, dpx(4), 0);
-        buttonsRow.addView(submit, subLp);
+        mainRow.addView(reveal);
 
-        LinearLayout.LayoutParams revLp = new LinearLayout.LayoutParams(0, dpx(46), 1f);
-        revLp.setMargins(dpx(4), 0, dpx(4), 0);
-        buttonsRow.addView(reveal, revLp);
-        panel.addView(buttonsRow);
+        panel.addView(mainRow);
 
+        // Steal concede button (Row 2, local teams mode)
         Button concede = makeLuxuryBoardButton("🤝 إقرار بصحة إجابة الخصم (منحهم النقاط)", new int[]{0xFF059669, 0xFF047857, 0xFF064E3B}, 0xFFA7F3D0, 0xFFFFFFFF);
         concede.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -4898,14 +5198,15 @@ public class GameActivity extends AppCompatActivity {
             }
         });
         LinearLayout.LayoutParams concedeLp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dpx(44));
-        concedeLp.topMargin = dpx(6);
+                LinearLayout.LayoutParams.MATCH_PARENT, dpx(40));
+        concedeLp.topMargin = dpx(5);
         concede.setLayoutParams(concedeLp);
         concede.setVisibility(View.GONE);
         panel.addView(concede);
 
         boardTypedAnswerPanel = panel;
         boardAnswerInput = input;
+        btnBoardHideKeyboard = hideBtn;
         btnBoardSubmitAnswer = submit;
         btnBoardRevealOptions = reveal;
         btnBoardConcedeSteal = concede;
@@ -5310,19 +5611,29 @@ public class GameActivity extends AppCompatActivity {
 
     private void hideKeyboard() {
         InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
-        if (imm == null) return;
-        View focus = getCurrentFocus();
-        if (focus != null) {
-            imm.hideSoftInputFromWindow(focus.getWindowToken(), 0);
-        } else if (boardAnswerInput != null) {
-            imm.hideSoftInputFromWindow(boardAnswerInput.getWindowToken(), 0);
+        if (imm != null) {
+            View focus = getCurrentFocus();
+            if (focus != null) {
+                imm.hideSoftInputFromWindow(focus.getWindowToken(), 0);
+            } else if (boardAnswerInput != null) {
+                imm.hideSoftInputFromWindow(boardAnswerInput.getWindowToken(), 0);
+            }
         }
+        if (boardAnswerInput != null && boardAnswerInput.hasFocus()) {
+            boardAnswerInput.clearFocus();
+        }
+        isBoardKeyboardShowing = false;
+        if (btnBoardHideKeyboard != null) {
+            btnBoardHideKeyboard.setVisibility(View.GONE);
+        }
+        restoreImmersiveMode();
     }
 
     /** Player chose to reveal the four options: switch to multiple-choice. Each reveal
      *  halves the cell's award (carried across a التحدي الرئيسي steal). */
     private void onBoardRevealOptions() {
         if (!boardMode || !boardAwaitingTypedInput) return;
+        hideKeyboard();
         boardAwaitingTypedInput = false;
         boardOptionsRevealed = true;
         boardRevealCount++;
@@ -5617,6 +5928,40 @@ public class GameActivity extends AppCompatActivity {
         d.setColor(color);
         d.setCornerRadius(dpx(25));
         return d;
+    }
+
+    private GradientDrawable pillBg(int fillColor, int strokeColor, int strokeDp) {
+        GradientDrawable gd = new GradientDrawable();
+        gd.setColor(fillColor);
+        gd.setCornerRadius(dpx(999));
+        if (strokeDp > 0) gd.setStroke(dpx(strokeDp), strokeColor);
+        return gd;
+    }
+
+    private GradientDrawable cardBg(int fillColor, int strokeColor, int radiusDp, int strokeDp) {
+        GradientDrawable gd = new GradientDrawable();
+        gd.setColor(fillColor);
+        gd.setCornerRadius(dpx(radiusDp));
+        if (strokeDp > 0) gd.setStroke(dpx(strokeDp), strokeColor);
+        return gd;
+    }
+
+    private GradientDrawable gradientCardBg(int startColor, int endColor, int strokeColor, int radiusDp, int strokeDp) {
+        GradientDrawable gd = new GradientDrawable(
+                GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[]{startColor, endColor});
+        gd.setCornerRadius(dpx(radiusDp));
+        if (strokeDp > 0) gd.setStroke(dpx(strokeDp), strokeColor);
+        return gd;
+    }
+
+    private GradientDrawable gradientPillBg(int startColor, int endColor, int strokeColor, int strokeDp) {
+        GradientDrawable gd = new GradientDrawable(
+                GradientDrawable.Orientation.LEFT_RIGHT,
+                new int[]{startColor, endColor});
+        gd.setCornerRadius(dpx(999));
+        if (strokeDp > 0) gd.setStroke(dpx(strokeDp), strokeColor);
+        return gd;
     }
 
     private int dpx(float dp) {
@@ -8634,6 +8979,10 @@ public class GameActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        if (boardKeyboardLayoutListener != null && getWindow() != null && getWindow().getDecorView() != null) {
+            getWindow().getDecorView().getViewTreeObserver().removeOnGlobalLayoutListener(boardKeyboardLayoutListener);
+            boardKeyboardLayoutListener = null;
+        }
         cancelPendingFictitiousAnswer();
         if (isFinishing()) {
             leaveOnlineMatchIfNeeded();
@@ -8658,6 +9007,33 @@ public class GameActivity extends AppCompatActivity {
         super.onDestroy();
     }
 
+    private boolean isTouchOnView(View v, MotionEvent ev) {
+        if (v == null || v.getVisibility() != View.VISIBLE) return false;
+        Rect r = new Rect();
+        v.getGlobalVisibleRect(r);
+        return r.contains((int) ev.getRawX(), (int) ev.getRawY());
+    }
+
+    @Override
+    public boolean dispatchTouchEvent(MotionEvent ev) {
+        if (ev.getAction() == MotionEvent.ACTION_DOWN) {
+            if (boardMode && boardAwaitingTypedInput && boardAnswerInput != null && boardAnswerInput.hasFocus()) {
+                Rect inRect = new Rect();
+                boardAnswerInput.getGlobalVisibleRect(inRect);
+                if (!inRect.contains((int) ev.getRawX(), (int) ev.getRawY())) {
+                    boolean touchedAction = isTouchOnView(btnBoardRevealOptions, ev)
+                            || isTouchOnView(btnBoardSubmitAnswer, ev)
+                            || isTouchOnView(btnBoardHideKeyboard, ev)
+                            || isTouchOnView(btnBoardConcedeSteal, ev);
+                    if (!touchedAction) {
+                        hideKeyboard();
+                    }
+                }
+            }
+        }
+        return super.dispatchTouchEvent(ev);
+    }
+
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
@@ -8674,6 +9050,16 @@ public class GameActivity extends AppCompatActivity {
 
     @Override
     public void onBackPressed() {
+        if (boardMode && boardAwaitingTypedInput) {
+            if (isBoardKeyboardShowing || (boardAnswerInput != null && boardAnswerInput.hasFocus())) {
+                hideKeyboard();
+                return;
+            }
+            // Keyboard is already hidden; player presses Back to switch from typing to 4 options
+            onBoardRevealOptions();
+            return;
+        }
+
         confirmExit();
         // The board overlay is brought to the front, so lift the exit dialog above
         // it while it is showing, otherwise the confirmation would be hidden.

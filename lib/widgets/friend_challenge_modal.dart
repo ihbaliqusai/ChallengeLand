@@ -1,19 +1,25 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../core/app_state.dart';
+import '../models/player_profile.dart';
+import '../services/invite_service.dart';
 
 class FriendChallengeModal extends StatefulWidget {
-  const FriendChallengeModal({super.key});
+  const FriendChallengeModal({super.key, this.initialFriendCode});
 
-  static Future<void> show(BuildContext context) {
+  final String? initialFriendCode;
+
+  static Future<void> show(BuildContext context, {String? initialFriendCode}) {
     return showDialog<void>(
       context: context,
       barrierDismissible: true,
-      barrierColor: Colors.black87,
-      builder: (context) => const FriendChallengeModal(),
+      barrierColor: Colors.black.withValues(alpha: 0.82),
+      builder: (context) => FriendChallengeModal(initialFriendCode: initialFriendCode),
     );
   }
 
@@ -21,70 +27,174 @@ class FriendChallengeModal extends StatefulWidget {
   State<FriendChallengeModal> createState() => _FriendChallengeModalState();
 }
 
-class _FriendChallengeModalState extends State<FriendChallengeModal> {
+class _FriendChallengeModalState extends State<FriendChallengeModal>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController;
   final TextEditingController _friendCodeController = TextEditingController();
-  bool _isLoading = false;
+
+  bool _isVerifying = false;
+  bool _isLaunching = false;
   String? _errorMessage;
+  PlayerProfile? _verifiedOpponent;
+  Timer? _debounceTimer;
+
+  bool _showQrCode = false;
+  List<PlayerProfile> _recentOpponents = [];
+  bool _loadingRecent = true;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _checkClipboardAutoFill());
+    _tabController = TabController(length: 3, vsync: this);
+    if (widget.initialFriendCode != null && widget.initialFriendCode!.isNotEmpty) {
+      _friendCodeController.text = widget.initialFriendCode!.toUpperCase();
+      _tabController.index = 1; // switch to enter code tab
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _verifyEnteredCode(_friendCodeController.text);
+      });
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _checkClipboardAutoFill();
+        _loadRecentOpponents();
+      });
+    }
   }
 
   @override
   void dispose() {
+    _tabController.dispose();
     _friendCodeController.dispose();
+    _debounceTimer?.cancel();
     super.dispose();
   }
 
-  String _extractCode(String text) {
-    if (text.isEmpty) return '';
-    final trimmed = text.trim();
-    if (RegExp(r'^[A-Za-z0-9]{4,15}$').hasMatch(trimmed)) {
-      return trimmed.toUpperCase();
-    }
-    final match = RegExp(r'(?:كود التحدي(?: الخاص بي)?|رمز الغرفة|كود|code)[:\s\n]*([A-Za-z0-9]{4,15})', caseSensitive: false).firstMatch(text);
-    if (match != null && match.group(1) != null) {
-      return match.group(1)!.trim().toUpperCase();
-    }
-    final cleanWords = text.replaceAll(RegExp(r'https?://[^\s]+'), '').split(RegExp(r'\s+'));
-    for (final word in cleanWords) {
-      final clean = word.replaceAll(RegExp(r'[^A-Za-z0-9]'), '');
-      if (clean.length >= 6 && clean.length <= 12) {
-        return clean.toUpperCase();
+  Future<void> _loadRecentOpponents() async {
+    try {
+      final inviteService = context.read<InviteService>();
+      final list = await inviteService.getRecentOpponents();
+      if (mounted) {
+        setState(() {
+          _recentOpponents = list;
+          _loadingRecent = false;
+        });
       }
+    } catch (_) {
+      if (mounted) setState(() => _loadingRecent = false);
     }
-    return trimmed.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').toUpperCase();
   }
 
   Future<void> _checkClipboardAutoFill() async {
     try {
-      final data = await Clipboard.getData(Clipboard.kTextPlain);
-      if (data?.text != null && data!.text!.trim().isNotEmpty && mounted) {
-        final extracted = _extractCode(data.text!);
-        final myCode = context.read<AppState>().friendCode;
-        if (extracted.isNotEmpty && extracted != myCode && _friendCodeController.text.isEmpty) {
-          setState(() {
-            _friendCodeController.text = extracted;
-          });
-        }
+      final clip = await Clipboard.getData(Clipboard.kTextPlain);
+      if (clip?.text == null || clip!.text!.trim().isEmpty || !mounted) return;
+      final inviteService = context.read<InviteService>();
+      final code = inviteService.extractFriendCode(clip.text!);
+      final myCode = context.read<AppState>().friendCode;
+      if (code.isNotEmpty && code != myCode && _friendCodeController.text.isEmpty) {
+        setState(() {
+          _friendCodeController.text = code;
+        });
+        _verifyEnteredCode(code);
       }
     } catch (_) {}
   }
 
+  void _onCodeChanged(String value) {
+    if (_errorMessage != null) {
+      setState(() => _errorMessage = null);
+    }
+    _debounceTimer?.cancel();
+    final trimmed = value.trim().toUpperCase();
+    if (trimmed.isEmpty) {
+      setState(() {
+        _verifiedOpponent = null;
+        _isVerifying = false;
+      });
+      return;
+    }
+    _debounceTimer = Timer(const Duration(milliseconds: 450), () {
+      _verifyEnteredCode(trimmed);
+    });
+  }
+
+  Future<void> _verifyEnteredCode(String rawCode) async {
+    final cleanCode = rawCode.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').toUpperCase();
+    final appState = context.read<AppState>();
+    final myCode = appState.friendCode;
+    final myUid = appState.user?.uid ?? '';
+
+    if (cleanCode.isEmpty) {
+      setState(() {
+        _verifiedOpponent = null;
+        _isVerifying = false;
+      });
+      return;
+    }
+
+    if (cleanCode == myCode || cleanCode == myUid.toUpperCase()) {
+      setState(() {
+        _verifiedOpponent = null;
+        _errorMessage = 'لا يمكنك تحدي نفسك! أدخل كود صديقك';
+        _isVerifying = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _isVerifying = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final inviteService = context.read<InviteService>();
+      final profile = await inviteService.verifyFriendCode(
+        cleanCode,
+        myFriendCode: myCode,
+        myUid: myUid,
+      );
+
+      if (!mounted) return;
+
+      if (profile != null) {
+        setState(() {
+          _verifiedOpponent = profile;
+          _errorMessage = null;
+          _isVerifying = false;
+        });
+      } else {
+        setState(() {
+          _verifiedOpponent = null;
+          _isVerifying = false;
+          // Even if not directly found in public_profiles, allow entering
+          // if it looks like a valid format, but inform user
+          if (cleanCode.length < 4) {
+            _errorMessage = 'كود الصديق غير مكتمل';
+          } else {
+            _errorMessage = 'لم يتم التحقق من وجود اللاعب، تأكد من صحة الكود';
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isVerifying = false;
+        });
+      }
+    }
+  }
+
   Future<void> _pasteFromClipboard() async {
     try {
-      final data = await Clipboard.getData(Clipboard.kTextPlain);
-      if (data?.text != null && data!.text!.trim().isNotEmpty) {
-        final extracted = _extractCode(data.text!);
-        if (extracted.isNotEmpty) {
-          setState(() {
-            _friendCodeController.text = extracted;
-            _errorMessage = null;
-          });
-          HapticFeedback.selectionClick();
-        }
+      final clip = await Clipboard.getData(Clipboard.kTextPlain);
+      if (clip?.text != null && clip!.text!.trim().isNotEmpty && mounted) {
+        final inviteService = context.read<InviteService>();
+        final code = inviteService.extractFriendCode(clip.text!);
+        final extracted = code.isNotEmpty ? code : clip.text!.trim().toUpperCase();
+        setState(() {
+          _friendCodeController.text = extracted;
+        });
+        HapticFeedback.selectionClick();
+        _verifyEnteredCode(extracted);
       }
     } catch (_) {}
   }
@@ -99,12 +209,12 @@ class _FriendChallengeModalState extends State<FriendChallengeModal> {
         SnackBar(
           content: Row(
             children: [
-              const Icon(Icons.check_circle_rounded, color: Color(0xFF34D399)),
+              const Icon(Icons.check_circle_rounded, color: Color(0xFF34D399), size: 18),
               const SizedBox(width: 8),
               Text('تم نسخ كود التحدي: $code'),
             ],
           ),
-          backgroundColor: const Color(0xFF1E293B),
+          backgroundColor: const Color(0xFF0F172A),
           duration: const Duration(seconds: 2),
           behavior: SnackBarBehavior.floating,
         ),
@@ -112,100 +222,93 @@ class _FriendChallengeModalState extends State<FriendChallengeModal> {
     } catch (_) {}
   }
 
-  Future<void> _shareOnlyCode(String code) async {
+  Future<void> _shareToWhatsApp(String code, String playerName) async {
     if (code.isEmpty) return;
+    final message = InviteService.buildFriendInviteShareMessage(
+      code: code,
+      playerName: playerName,
+    );
     try {
-      await Share.share(code, subject: 'كود التحدي في أرض التحدي');
+      await Share.share(message, subject: 'تحداني في أرض التحدي!');
     } catch (_) {}
   }
 
-  Future<void> _shareMyCode(String code) async {
+  Future<void> _shareGeneral(String code, String playerName) async {
     if (code.isEmpty) return;
+    final message = InviteService.buildFriendInviteShareMessage(
+      code: code,
+      playerName: playerName,
+    );
     try {
-      final shareText =
-          '⚔️ *تحداني الآن في لعبة أرض التحدي (ChallengeLand)!*\n\n'
-          '🔑 *كود التحدي:*\n`$code`\n\n'
-          '📲 *رابط تحميل وفتح اللعبة مباشرة (Google Play):*\n'
-          'https://play.google.com/store/apps/details?id=com.qi7bali.landchallengeonline\n\n'
-          '🎮 بعد فتح اللعبة، اختر "تحدي صديق" والصق الكود للعب ضدي مباشرة!';
-      await Share.share(shareText, subject: 'تحدي 1 ضد 1 في أرض التحدي');
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('تعذر فتح نافذة المشاركة على هذا الجهاز.'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    }
+      await Share.share(message, subject: 'كود التحدي في أرض التحدي');
+    } catch (_) {}
   }
 
-  Future<void> _startFriendChallenge() async {
-    final rawCode = _friendCodeController.text.trim().toUpperCase();
-    final cleanCode = rawCode.replaceAll(RegExp(r'[^A-Za-z0-9]'), '');
-
+  Future<void> _launchChallenge(String targetCode) async {
+    final cleanCode = targetCode.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').toUpperCase();
     if (cleanCode.isEmpty) {
-      setState(() {
-        _errorMessage = 'يرجى إدخال كود الصديق';
-      });
+      setState(() => _errorMessage = 'يرجى إدخال كود صديقك');
       return;
     }
 
     final appState = context.read<AppState>();
-    final myCode = appState.friendCode;
-
-    if (cleanCode == myCode && myCode.isNotEmpty) {
-      setState(() {
-        _errorMessage = 'لا يمكنك تحدي نفسك! أدخل كود صديقك';
-      });
+    if (cleanCode == appState.friendCode) {
+      setState(() => _errorMessage = 'لا يمكنك تحدي نفسك!');
       return;
     }
 
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+    setState(() => _isLaunching = true);
 
     try {
-      Navigator.of(context).pop(); // Close modal
+      // Save to recent opponents if we have a verified profile
+      if (_verifiedOpponent != null) {
+        final inviteService = context.read<InviteService>();
+        await inviteService.saveRecentOpponent(_verifiedOpponent!);
+      }
+
+      if (!mounted) return;
+      Navigator.of(context).pop();
       await appState.openFriendChallenge(cleanCode);
     } catch (e) {
       if (mounted) {
         setState(() {
-          _isLoading = false;
+          _isLaunching = false;
           _errorMessage = 'تعذر بدء التحدي: $e';
         });
       }
     }
   }
 
-  Future<void> _startRandomMatch() async {
-    Navigator.of(context).pop();
-    await context.read<AppState>().openSpeedBattle();
-  }
-
   @override
   Widget build(BuildContext context) {
     final appState = context.watch<AppState>();
     final myCode = appState.friendCode;
-    final size = MediaQuery.of(context).size;
-    final isLandscape = size.width > size.height;
-    final maxWidth = isLandscape ? 620.0 : 420.0;
+    final myUser = appState.user;
+    final playerName = myUser?.displayName ?? 'بطل التحدي';
+    final userLevel = appState.level;
+
+    final media = MediaQuery.of(context);
+    final isLandscape = media.size.width > media.size.height;
+    final dialogWidth = isLandscape ? 680.0 : 420.0;
+    final dialogMaxHeight = isLandscape ? media.size.height * 0.92 : media.size.height * 0.85;
 
     return Dialog(
       backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Center(
         child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: maxWidth),
+          constraints: BoxConstraints(
+            maxWidth: dialogWidth,
+            maxHeight: dialogMaxHeight,
+          ),
           child: Container(
             decoration: BoxDecoration(
               gradient: const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  Color(0xFF0F1E4A),
-                  Color(0xFF080D24),
+                  Color(0xFF0F172A),
+                  Color(0xFF0A0F1D),
                 ],
               ),
               borderRadius: BorderRadius.circular(24),
@@ -216,428 +319,809 @@ class _FriendChallengeModalState extends State<FriendChallengeModal> {
               boxShadow: [
                 BoxShadow(
                   color: const Color(0xFFFFD700).withValues(alpha: 0.15),
-                  blurRadius: 28,
-                  spreadRadius: 2,
+                  blurRadius: 30,
+                  spreadRadius: 1,
                 ),
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.7),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
+                  color: Colors.black.withValues(alpha: 0.8),
+                  blurRadius: 25,
+                  offset: const Offset(0, 8),
                 ),
               ],
             ),
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // ── Header ──────────────────────────────────────────
-                  Row(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // ── Header ──────────────────────────────────────────
+                _buildHeader(context),
+
+                // ── Tabs Bar ─────────────────────────────────────────
+                _buildTabBar(),
+
+                // ── Tab Views ────────────────────────────────────────
+                Flexible(
+                  child: TabBarView(
+                    controller: _tabController,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFFFFD700), Color(0xFFF59E0B)],
+                      _buildMyCardTab(myCode, playerName, userLevel),
+                      _buildEnterCodeTab(),
+                      _buildRecentOpponentsTab(),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Header Widget ───────────────────────────────────────────────────────────
+
+  Widget _buildHeader(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF131D3A).withValues(alpha: 0.6),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        border: Border(
+          bottom: BorderSide(
+            color: Colors.white.withValues(alpha: 0.08),
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: const LinearGradient(
+                colors: [Color(0xFFFFD700), Color(0xFFF59E0B)],
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFFFD700).withValues(alpha: 0.3),
+                  blurRadius: 10,
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.sports_esports_rounded,
+              color: Color(0xFF070E24),
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'مركز تحدي الأصدقاء (1 ضد 1)',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  'شارك كودك، امسح رمز QR، أو نافس خصوماً سابقين',
+                  style: TextStyle(
+                    color: Color(0xFF94A3B8),
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: () => Navigator.of(context).pop(),
+            icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 22),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            tooltip: 'إغلاق',
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Tab Bar ─────────────────────────────────────────────────────────────────
+
+  Widget _buildTabBar() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFF080D1E),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: TabBar(
+        controller: _tabController,
+        indicator: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          gradient: const LinearGradient(
+            colors: [Color(0xFF1E3A8A), Color(0xFF0284C7)],
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF0284C7).withValues(alpha: 0.35),
+              blurRadius: 8,
+            ),
+          ],
+        ),
+        indicatorSize: TabBarIndicatorSize.tab,
+        dividerColor: Colors.transparent,
+        labelColor: Colors.white,
+        unselectedLabelColor: const Color(0xFF94A3B8),
+        labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+        unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal, fontSize: 12),
+        tabs: const [
+          Tab(
+            iconMargin: EdgeInsets.only(bottom: 2),
+            icon: Icon(Icons.badge_rounded, size: 18),
+            text: 'بطاقة التحدي',
+          ),
+          Tab(
+            iconMargin: EdgeInsets.only(bottom: 2),
+            icon: Icon(Icons.vpn_key_rounded, size: 18),
+            text: 'إدخال الكود',
+          ),
+          Tab(
+            iconMargin: EdgeInsets.only(bottom: 2),
+            icon: Icon(Icons.history_rounded, size: 18),
+            text: 'خصوم أخيرون',
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Tab 1: My Challenge Card ────────────────────────────────────────────────
+
+  Widget _buildMyCardTab(String myCode, String playerName, int userLevel) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Gamer Identity Card
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  const Color(0xFF1E293B).withValues(alpha: 0.7),
+                  const Color(0xFF0F172A).withValues(alpha: 0.9),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: const Color(0xFFFFD700).withValues(alpha: 0.3),
+              ),
+            ),
+            child: Row(
+              children: [
+                // Avatar Badge
+                Stack(
+                  alignment: Alignment.bottomRight,
+                  children: [
+                    Container(
+                      width: 54,
+                      height: 54,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: const Color(0xFFFFD700),
+                          width: 2,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFFFD700).withValues(alpha: 0.3),
+                            blurRadius: 10,
                           ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFFFFD700).withValues(alpha: 0.4),
-                              blurRadius: 10,
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.sports_esports_rounded,
-                          color: Color(0xFF070E24),
-                          size: 22,
+                        ],
+                        image: const DecorationImage(
+                          image: AssetImage('assets/ui/user.png'),
+                          fit: BoxFit.cover,
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      const Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'تحدي صديق (1 ضد 1)',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Text(
-                              'شارك كودك أو أدخل كود صديقك لبدء المواجهة',
-                              style: TextStyle(
-                                color: Color(0xFF94A3B8),
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFD700),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        'Lv.$userLevel',
+                        style: const TextStyle(
+                          color: Color(0xFF0F172A),
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                      IconButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(Icons.close_rounded, color: Colors.white70),
-                        tooltip: 'إغلاق',
+                    ),
+                  ],
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        playerName,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      const Text(
+                        'جاهز للمواجهة ⚔️',
+                        style: TextStyle(
+                          color: Color(0xFF34D399),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                ),
+                // QR Toggle button
+                IconButton.filledTonal(
+                  onPressed: () {
+                    setState(() => _showQrCode = !_showQrCode);
+                  },
+                  style: IconButton.styleFrom(
+                    backgroundColor: _showQrCode
+                        ? const Color(0xFFFFD700)
+                        : const Color(0xFF334155).withValues(alpha: 0.7),
+                    foregroundColor: _showQrCode ? const Color(0xFF0F172A) : Colors.white,
+                  ),
+                  icon: const Icon(Icons.qr_code_2_rounded, size: 22),
+                  tooltip: _showQrCode ? 'إخفاء الرمز' : 'عرض رمز QR',
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
 
-                  // ── Card 1: My Code ────────────────────────────────
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF132252).withValues(alpha: 0.7),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: const Color(0xFF38BDF8).withValues(alpha: 0.3),
+          // QR Code Display Card (Expandable)
+          if (_showQrCode && myCode.isNotEmpty)
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.4),
+                    blurRadius: 16,
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'امسح الرمز بكاميرا الهاتف للانضمام مباشرة',
+                    style: TextStyle(
+                      color: Color(0xFF0F172A),
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: 140,
+                    height: 140,
+                    child: QrImageView(
+                      data: 'CL:$myCode',
+                      version: QrVersions.auto,
+                      size: 140.0,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'كود التحدي: $myCode',
+                    style: const TextStyle(
+                      color: Color(0xFF1E3A8A),
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+          // Stylized Challenge Code Card
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF080E24),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: const Color(0xFFFFD700).withValues(alpha: 0.5),
+                width: 1.2,
+              ),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.vpn_key_rounded, color: Color(0xFFFFD700), size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'كود التحدي الخاص بك',
+                        style: TextStyle(
+                          color: Color(0xFF94A3B8),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Text(
+                        myCode.isNotEmpty ? myCode : '---',
+                        style: const TextStyle(
+                          color: Color(0xFFFFD700),
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 3,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                ElevatedButton.icon(
+                  onPressed: myCode.isNotEmpty ? () => _copyMyCode(myCode) : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1E3A8A),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  icon: const Icon(Icons.copy_rounded, size: 16),
+                  label: const Text(
+                    'نسخ',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Quick Share Row
+          Row(
+            children: [
+              // WhatsApp Direct Share
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: myCode.isNotEmpty ? () => _shareToWhatsApp(myCode, playerName) : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF25D366),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 11),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  icon: const Icon(Icons.send_rounded, size: 16),
+                  label: const Text(
+                    'مشاركة عبر واتساب',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              // Full Share
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: myCode.isNotEmpty ? () => _shareGeneral(myCode, playerName) : null,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF38BDF8),
+                    side: BorderSide(
+                      color: const Color(0xFF38BDF8).withValues(alpha: 0.5),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 11),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  icon: const Icon(Icons.share_rounded, size: 16),
+                  label: const Text(
+                    'مشاركة عامة',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Tab 2: Enter Code & Live Preview ────────────────────────────────────────
+
+  Widget _buildEnterCodeTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Input row
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _friendCodeController,
+                  textCapitalization: TextCapitalization.characters,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 2,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'أدخل كود صديقك هنا...',
+                    hintStyle: const TextStyle(
+                      color: Color(0xFF64748B),
+                      fontSize: 13,
+                      letterSpacing: 0,
+                    ),
+                    filled: true,
+                    fillColor: const Color(0xFF080E24),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: Colors.white.withValues(alpha: 0.15),
                       ),
                     ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: Colors.white.withValues(alpha: 0.15),
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(
+                        color: Color(0xFFFFD700),
+                        width: 1.5,
+                      ),
+                    ),
+                    suffixIcon: _isVerifying
+                        ? const Padding(
+                            padding: EdgeInsets.all(12),
+                            child: SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Color(0xFFFFD700),
+                              ),
+                            ),
+                          )
+                        : null,
+                  ),
+                  onChanged: _onCodeChanged,
+                  onSubmitted: (val) => _launchChallenge(val),
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Paste Button
+              ElevatedButton.icon(
+                onPressed: _pasteFromClipboard,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF334155),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                icon: const Icon(Icons.paste_rounded, size: 16),
+                label: const Text('لصق', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+
+          // Error indicator
+          if (_errorMessage != null) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.info_outline_rounded, color: Color(0xFFF87171), size: 14),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    _errorMessage!,
+                    style: const TextStyle(
+                      color: Color(0xFFF87171),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+
+          const SizedBox(height: 12),
+
+          // Live Opponent Preview Card
+          if (_verifiedOpponent != null)
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0F264A).withValues(alpha: 0.8),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: const Color(0xFF38BDF8).withValues(alpha: 0.6),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: const Color(0xFF38BDF8), width: 1.5),
+                      image: const DecorationImage(
+                        image: AssetImage('assets/ui/user.png'),
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Row(
+                        Row(
                           children: [
-                            Icon(
-                              Icons.vpn_key_rounded,
+                            Text(
+                              _verifiedOpponent!.username,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            const Icon(
+                              Icons.verified_rounded,
                               color: Color(0xFF38BDF8),
                               size: 16,
                             ),
-                            SizedBox(width: 6),
-                            Text(
-                              'كود التحدي الخاص بك',
-                              style: TextStyle(
-                                color: Color(0xFF93C5FD),
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
                           ],
                         ),
-                        const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 10,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF070F28),
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                    color: const Color(0xFFFFD700).withValues(alpha: 0.4),
-                                  ),
-                                ),
-                                child: Text(
-                                  myCode.isNotEmpty ? myCode : '---',
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                    color: Color(0xFFFFD700),
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 3,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            // Copy button
-                            ElevatedButton.icon(
-                              onPressed: myCode.isNotEmpty ? () => _copyMyCode(myCode) : null,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF1E3A8A),
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 11,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                              ),
-                              icon: const Icon(Icons.copy_rounded, size: 16),
-                              label: const Text(
-                                'نسخ الكود',
-                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            // Full invite share
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: myCode.isNotEmpty ? () => _shareMyCode(myCode) : null,
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: const Color(0xFF38BDF8),
-                                  side: BorderSide(
-                                    color: const Color(0xFF38BDF8).withValues(alpha: 0.4),
-                                  ),
-                                  padding: const EdgeInsets.symmetric(vertical: 8),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                ),
-                                icon: const Icon(Icons.share_rounded, size: 15),
-                                label: const Text(
-                                  'مشاركة الدعوة كاملة',
-                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            // Share only code
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: myCode.isNotEmpty ? () => _shareOnlyCode(myCode) : null,
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: const Color(0xFFFFD700),
-                                  side: BorderSide(
-                                    color: const Color(0xFFFFD700).withValues(alpha: 0.4),
-                                  ),
-                                  padding: const EdgeInsets.symmetric(vertical: 8),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                ),
-                                icon: const Icon(Icons.send_rounded, size: 15),
-                                label: const Text(
-                                  'إرسال الكود فقط',
-                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                            ),
-                          ],
+                        Text(
+                          'الانتصارات: ${_verifiedOpponent!.wins} • النقاط: ${_verifiedOpponent!.totalScore}',
+                          style: const TextStyle(
+                            color: Color(0xFF94A3B8),
+                            fontSize: 11,
+                          ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 16),
-
-                  // ── Card 2: Enter Friend Code ──────────────────────
                   Container(
-                    padding: const EdgeInsets.all(14),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF132252).withValues(alpha: 0.7),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: const Color(0xFFFFD700).withValues(alpha: 0.3),
-                      ),
+                      color: const Color(0xFF34D399).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFF34D399).withValues(alpha: 0.5)),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Row(
-                          children: [
-                            Icon(
-                              Icons.person_search_rounded,
-                              color: Color(0xFFFFD700),
-                              size: 16,
-                            ),
-                            SizedBox(width: 6),
-                            Text(
-                              'أدخل كود صديقك للعب ضده',
-                              style: TextStyle(
-                                color: Color(0xFFFDE68A),
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: _friendCodeController,
-                                textCapitalization: TextCapitalization.characters,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 2,
-                                ),
-                                decoration: InputDecoration(
-                                  hintText: 'أدخل كود صديقك هنا...',
-                                  hintStyle: const TextStyle(
-                                    color: Color(0xFF64748B),
-                                    fontSize: 13,
-                                    letterSpacing: 0,
-                                  ),
-                                  filled: true,
-                                  fillColor: const Color(0xFF070F28),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 14,
-                                    vertical: 10,
-                                  ),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                    borderSide: BorderSide(
-                                      color: Colors.white.withValues(alpha: 0.2),
-                                    ),
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                    borderSide: BorderSide(
-                                      color: Colors.white.withValues(alpha: 0.2),
-                                    ),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                    borderSide: const BorderSide(
-                                      color: Color(0xFFFFD700),
-                                      width: 1.5,
-                                    ),
-                                  ),
-                                ),
-                                onChanged: (_) {
-                                  if (_errorMessage != null) {
-                                    setState(() => _errorMessage = null);
-                                  }
-                                },
-                                onSubmitted: (_) => _startFriendChallenge(),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            // Paste button
-                            ElevatedButton.icon(
-                              onPressed: _pasteFromClipboard,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF334155),
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 12,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                              ),
-                              icon: const Icon(Icons.paste_rounded, size: 16),
-                              label: const Text(
-                                'لصق',
-                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                          ],
-                        ),
-                        if (_errorMessage != null) ...[
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.error_outline_rounded,
-                                color: Color(0xFFEF4444),
-                                size: 14,
-                              ),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: Text(
-                                  _errorMessage!,
-                                  style: const TextStyle(
-                                    color: Color(0xFFEF4444),
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                        const SizedBox(height: 12),
-                        // Start Challenge Button
-                        SizedBox(
-                          width: double.infinity,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [
-                                  Color(0xFFFFD700),
-                                  Color(0xFFF59E0B),
-                                ],
-                              ),
-                              borderRadius: BorderRadius.circular(12),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: const Color(0xFFFFD700).withValues(alpha: 0.35),
-                                  blurRadius: 12,
-                                  offset: const Offset(0, 3),
-                                ),
-                              ],
-                            ),
-                            child: ElevatedButton.icon(
-                              onPressed: _isLoading ? null : _startFriendChallenge,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.transparent,
-                                shadowColor: Colors.transparent,
-                                foregroundColor: const Color(0xFF0B1437),
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              icon: _isLoading
-                                  ? const SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Color(0xFF0B1437),
-                                      ),
-                                    )
-                                  : const Icon(Icons.flash_on_rounded, size: 20),
-                              label: Text(
-                                _isLoading ? 'جاري بدء التحدي...' : 'بدء التحدي ضد الصديق',
-                                style: const TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-
-                  // ── Quick Match Option ─────────────────────────────
-                  OutlinedButton.icon(
-                    onPressed: _startRandomMatch,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF38BDF8),
-                      side: BorderSide(
-                        color: const Color(0xFF38BDF8).withValues(alpha: 0.5),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    icon: const Icon(Icons.shuffle_rounded, size: 18),
-                    label: const Text(
-                      'أو ابحث عن منافس عشوائي أونلاين',
+                    child: const Text(
+                      'جاهز للتحدي ⚔️',
                       style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF34D399),
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
                 ],
               ),
             ),
+
+          const SizedBox(height: 14),
+
+          // Start Challenge Button
+          Container(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFFFFD700), Color(0xFFF59E0B)],
+              ),
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFFFD700).withValues(alpha: 0.35),
+                  blurRadius: 14,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: ElevatedButton.icon(
+              onPressed: _isLaunching
+                  ? null
+                  : () => _launchChallenge(_friendCodeController.text),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                shadowColor: Colors.transparent,
+                foregroundColor: const Color(0xFF0B1437),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              icon: _isLaunching
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Color(0xFF0B1437),
+                      ),
+                    )
+                  : const Icon(Icons.flash_on_rounded, size: 20),
+              label: Text(
+                _isLaunching ? 'جاري بدء التحدي...' : 'بدء المواجهة الحاسمة ⚔️',
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Tab 3: Recent Opponents ─────────────────────────────────────────────────
+
+  Widget _buildRecentOpponentsTab() {
+    if (_loadingRecent) {
+      return const Center(
+        child: CircularProgressIndicator(color: Color(0xFFFFD700)),
+      );
+    }
+
+    if (_recentOpponents.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withValues(alpha: 0.05),
+                ),
+                child: const Icon(Icons.people_outline_rounded, color: Colors.white38, size: 36),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'لا يوجد خصوم أخيرون حالياً',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'شارك كودك مع أصدقائك أو العب مباريات لتسجيل منافسيك هنا وتحديهم بنقرة واحدة!',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white38,
+                  fontSize: 11,
+                ),
+              ),
+            ],
           ),
         ),
-      ),
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      itemCount: _recentOpponents.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      itemBuilder: (context, index) {
+        final opponent = _recentOpponents[index];
+        final cleanCode = opponent.uid.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').toUpperCase();
+        final displayCode = cleanCode.length > 10 ? cleanCode.substring(0, 10) : cleanCode;
+
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFF0A122A).withValues(alpha: 0.7),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  image: DecorationImage(
+                    image: AssetImage('assets/ui/user.png'),
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      opponent.username,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      'كود: $displayCode',
+                      style: const TextStyle(
+                        color: Color(0xFF94A3B8),
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              ElevatedButton.icon(
+                onPressed: () {
+                  _friendCodeController.text = displayCode;
+                  _tabController.index = 1;
+                  _verifyEnteredCode(displayCode);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1E3A8A),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                icon: const Icon(Icons.flash_on_rounded, size: 14),
+                label: const Text('تحدي', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

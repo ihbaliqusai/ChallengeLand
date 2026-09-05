@@ -641,6 +641,7 @@ class AppState extends ChangeNotifier {
           'level': level ?? this.level,
           'trophies': trophies ?? this.trophies,
           'lastSeenAt': FieldValue.serverTimestamp(),
+          'friendCode': friendCode,
         },
         SetOptions(merge: true),
       );

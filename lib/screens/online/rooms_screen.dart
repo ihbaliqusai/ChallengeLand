@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../core/app_state.dart';
 import '../../models/player_profile.dart';
 import '../../models/room.dart';
+import '../../services/invite_service.dart';
 import '../../services/profile_service.dart';
 import '../../services/room_service.dart';
 import 'room_lobby_screen.dart';
@@ -54,16 +55,15 @@ class _RoomsScreenState extends State<RoomsScreen>
       final data = await Clipboard.getData(Clipboard.kTextPlain);
       if (data?.text != null && data!.text!.trim().isNotEmpty && mounted) {
         final text = data.text!.trim();
-        final match = RegExp(
-          r'(?:رمز الغرفة|كود الغرفة|كود|code)[:\s\n`]*([A-Za-z0-9_-]{8,25})',
-          caseSensitive: false,
-        ).firstMatch(text);
-        final extracted = match?.group(1) ??
-            (RegExp(r'^[A-Za-z0-9_-]{8,25}$').hasMatch(text) ? text : '');
+        final inviteService = context.read<InviteService>();
+        final extracted = inviteService.extractRoomId(text);
         if (extracted.isNotEmpty && _roomCodeController.text.isEmpty) {
-          setState(() {
-            _roomCodeController.text = extracted;
-          });
+          final preview = await inviteService.verifyRoom(extracted);
+          if (preview != null && mounted) {
+            setState(() {
+              _roomCodeController.text = extracted;
+            });
+          }
         }
       }
     } catch (_) {}

@@ -651,7 +651,8 @@ public class Data {
     }
 
     public void getUserIdByFriendCode(String friendCode, final OnGetGameIdListener listener) {
-        String normalizedCode = normalizeFriendCode(friendCode);
+        final String rawFriendCode = friendCode == null ? "" : friendCode.trim();
+        String normalizedCode = normalizeFriendCode(rawFriendCode);
         if (normalizedCode.isEmpty()) {
             if (listener != null) {
                 listener.onSuccess("");
@@ -665,14 +666,40 @@ public class Data {
                 .addListenerForSingleValueEvent(new ValueEventListener() {
                     @Override
                     public void onDataChange(DataSnapshot snapshot) {
-                        String userId = "";
+                        String foundUserId = "";
                         for (DataSnapshot child : snapshot.getChildren()) {
-                            userId = child.getKey();
+                            foundUserId = child.getKey();
                             break;
                         }
-                        if (listener != null) {
-                            listener.onSuccess(userId == null ? "" : userId);
+                        if (foundUserId != null && !foundUserId.trim().isEmpty()) {
+                            if (listener != null) {
+                                listener.onSuccess(foundUserId);
+                            }
+                            return;
                         }
+
+                        // Fallback: check if the code itself is a direct user ID
+                        usersRegisteredRef().child(rawFriendCode).addListenerForSingleValueEvent(new ValueEventListener() {
+                            @Override
+                            public void onDataChange(DataSnapshot directSnapshot) {
+                                if (directSnapshot.exists() && directSnapshot.getKey() != null) {
+                                    if (listener != null) {
+                                        listener.onSuccess(directSnapshot.getKey());
+                                    }
+                                } else {
+                                    if (listener != null) {
+                                        listener.onSuccess("");
+                                    }
+                                }
+                            }
+
+                            @Override
+                            public void onCancelled(DatabaseError error) {
+                                if (listener != null) {
+                                    listener.onSuccess("");
+                                }
+                            }
+                        });
                     }
 
                     @Override

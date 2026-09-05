@@ -13,7 +13,7 @@ class CrossPromoService extends ChangeNotifier {
   static const String millionaireStoreUrl =
       'https://play.google.com/store/apps/details?id=net.androidgaming.millionaire2024';
   static const String millionaireTitle = 'تحدي المليون';
-  static const String millionaireSubtitle = 'المسابقة الثقافية الشهيرة بأكثر من 50,000 سؤال';
+  static const String millionaireSubtitle = 'لعبة أسئلة ومعلومات عامة';
   static const String millionaireRating = '4.8';
   static const String millionaireDownloads = '+100';
 

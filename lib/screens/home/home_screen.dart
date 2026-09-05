@@ -24,6 +24,7 @@ import '../../services/room_service.dart';
 import '../../widgets/currency_reward_overlay.dart';
 import '../../services/ad_service.dart';
 import '../../services/campaign_result_handler.dart';
+import '../../services/invite_service.dart';
 import '../../services/native_bridge_service.dart';
 import '../../widgets/friend_challenge_modal.dart';
 import '../../widgets/cross_promo_millionaire_badge.dart';
@@ -94,61 +95,29 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-  String? _lastPromptedClipboardCode;
-
   Future<void> _checkClipboardForIncomingInvite() async {
     if (!mounted) return;
     try {
-      final data = await Clipboard.getData(Clipboard.kTextPlain);
-      if (data?.text == null || data!.text!.trim().isEmpty || !mounted) return;
-      final text = data.text!.trim();
-      final myCode = context.read<AppState>().friendCode;
+      final appState = context.read<AppState>();
+      final myCode = appState.friendCode;
+      final myUid = appState.user?.uid ?? '';
+      final inviteService = context.read<InviteService>();
 
-      // Extract friend challenge code
-      final isFriendMsg = text.contains('تحدي') ||
-          text.contains('كود') ||
-          text.contains('ChallengeLand') ||
-          RegExp(r'^[A-Za-z0-9]{6,12}$').hasMatch(text);
+      final candidate = await inviteService.inspectClipboardInvite(
+        myFriendCode: myCode,
+        myUid: myUid,
+      );
 
-      if (isFriendMsg) {
-        final codeMatch = RegExp(
-          r'(?:كود التحدي(?: الخاص بي)?|كود|code)[:\s\n`]*([A-Za-z0-9]{4,15})',
-          caseSensitive: false,
-        ).firstMatch(text);
-        final code = codeMatch?.group(1)?.trim().toUpperCase() ??
-            (RegExp(r'^[A-Za-z0-9]{6,12}$').hasMatch(text)
-                ? text.toUpperCase()
-                : '');
-
-        if (code.isNotEmpty &&
-            code != myCode &&
-            code != _lastPromptedClipboardCode) {
-          _lastPromptedClipboardCode = code;
-          if (!mounted) return;
-          _showIncomingChallengePrompt(code);
-          return;
-        }
-      }
-
-      // Extract Room invite
-      if (text.contains('غرف') || text.contains('room')) {
-        final roomMatch = RegExp(
-          r'(?:رمز الغرفة|كود الغرفة|room)[:\s\n`]*([A-Za-z0-9_-]{8,25})',
-          caseSensitive: false,
-        ).firstMatch(text);
-        final roomId = roomMatch?.group(1)?.trim();
-        if (roomId != null &&
-            roomId.isNotEmpty &&
-            roomId != _lastPromptedClipboardCode) {
-          _lastPromptedClipboardCode = roomId;
-          if (!mounted) return;
-          _showIncomingRoomPrompt(roomId);
-        }
+      if (candidate != null && mounted) {
+        _showIncomingInviteDialog(candidate);
       }
     } catch (_) {}
   }
 
-  void _showIncomingChallengePrompt(String code) {
+  void _showIncomingInviteDialog(InviteCandidate candidate) {
+    final isFriend = candidate.type == InviteType.friendChallenge;
+    final primaryColor = isFriend ? const Color(0xFFFFD700) : const Color(0xFF38BDF8);
+
     showDialog<void>(
       context: context,
       barrierDismissible: true,
@@ -156,22 +125,22 @@ class _HomeScreenState extends State<HomeScreen>
         backgroundColor: Colors.transparent,
         child: Container(
           padding: const EdgeInsets.all(20),
-          constraints: const BoxConstraints(maxWidth: 400),
+          constraints: const BoxConstraints(maxWidth: 420),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [Color(0xFF0F1E4A), Color(0xFF080D24)],
             ),
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(22),
             border: Border.all(
-              color: const Color(0xFFFFD700).withValues(alpha: 0.5),
+              color: primaryColor.withValues(alpha: 0.5),
               width: 1.5,
             ),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFFFFD700).withValues(alpha: 0.2),
-                blurRadius: 24,
+                color: primaryColor.withValues(alpha: 0.2),
+                blurRadius: 28,
               ),
             ],
           ),
@@ -180,54 +149,70 @@ class _HomeScreenState extends State<HomeScreen>
             children: [
               Container(
                 padding: const EdgeInsets.all(12),
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: LinearGradient(
-                    colors: [Color(0xFFFFD700), Color(0xFFF59E0B)],
+                    colors: isFriend
+                        ? [const Color(0xFFFFD700), const Color(0xFFF59E0B)]
+                        : [const Color(0xFF38BDF8), const Color(0xFF0284C7)],
                   ),
                 ),
-                child: const Icon(
-                  Icons.sports_esports_rounded,
-                  color: Color(0xFF0B1437),
+                child: Icon(
+                  isFriend ? Icons.sports_esports_rounded : Icons.groups_rounded,
+                  color: isFriend ? const Color(0xFF0B1437) : Colors.white,
                   size: 28,
                 ),
               ),
               const SizedBox(height: 12),
-              const Text(
-                '⚔️ تم اكتشاف دعوة تحدي من صديق!',
+              Text(
+                candidate.title,
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
+              Text(
+                candidate.subtitle,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Color(0xFF94A3B8),
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(height: 12),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
                   color: const Color(0xFF070F28),
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
-                    color: const Color(0xFFFFD700).withValues(alpha: 0.5),
+                    color: primaryColor.withValues(alpha: 0.4),
                   ),
                 ),
                 child: Text(
-                  code,
-                  style: const TextStyle(
-                    color: Color(0xFFFFD700),
-                    fontSize: 18,
+                  candidate.code,
+                  style: TextStyle(
+                    color: primaryColor,
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 2,
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 18),
               Row(
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () => Navigator.of(ctx).pop(),
+                      onPressed: () {
+                        Navigator.of(ctx).pop();
+                        final inviteService = context.read<InviteService>();
+                        inviteService.dismissInviteCode(candidate.code);
+                        inviteService.dismissInviteCode(candidate.rawText);
+                      },
                       style: OutlinedButton.styleFrom(
                         foregroundColor: Colors.white70,
                         side: BorderSide(
@@ -246,162 +231,75 @@ class _HomeScreenState extends State<HomeScreen>
                     flex: 2,
                     child: Container(
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFFFD700), Color(0xFFF59E0B)],
+                        gradient: LinearGradient(
+                          colors: isFriend
+                              ? [const Color(0xFFFFD700), const Color(0xFFF59E0B)]
+                              : [const Color(0xFF38BDF8), const Color(0xFF0284C7)],
                         ),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: ElevatedButton(
-                        onPressed: () {
+                        onPressed: () async {
                           Navigator.of(ctx).pop();
-                          context.read<AppState>().openFriendChallenge(code);
+                          final inviteService = context.read<InviteService>();
+                          await inviteService.dismissInviteCode(candidate.code);
+                          await inviteService.dismissInviteCode(candidate.rawText);
+
+                          if (!mounted) return;
+
+                          if (isFriend) {
+                            FriendChallengeModal.show(
+                              context,
+                              initialFriendCode: candidate.code,
+                            );
+                          } else {
+                            final userId = context.read<AppState>().user?.uid;
+                            if (userId != null) {
+                              try {
+                                final joinResult = await context
+                                    .read<RoomService>()
+                                    .joinRoom(
+                                      roomId: candidate.code,
+                                      userId: userId,
+                                    );
+                                if (!mounted) return;
+                                await Navigator.of(context).push(
+                                  MaterialPageRoute<void>(
+                                    builder: (_) => RoomLobbyScreen(
+                                      roomId: candidate.code,
+                                      isJoiningMidGame: joinResult.joinedMidGame,
+                                    ),
+                                  ),
+                                );
+                                return;
+                              } catch (_) {}
+                            }
+                            if (!mounted) return;
+                            Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) =>
+                                    RoomsScreen(initialRoomCode: candidate.code),
+                              ),
+                            );
+                          }
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.transparent,
                           shadowColor: Colors.transparent,
-                          foregroundColor: const Color(0xFF0B1437),
+                          foregroundColor: isFriend
+                              ? const Color(0xFF0B1437)
+                              : Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 10),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10),
                           ),
                         ),
-                        child: const Text(
-                          'بدء التحدي الآن',
-                          style: TextStyle(
+                        child: Text(
+                          isFriend ? 'بدء التحدي الآن ⚔️' : 'انضمام للغرفة 🏆',
+                          style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
                           ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showIncomingRoomPrompt(String roomId) {
-    showDialog<void>(
-      context: context,
-      barrierDismissible: true,
-      builder: (ctx) => Dialog(
-        backgroundColor: Colors.transparent,
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          constraints: const BoxConstraints(maxWidth: 400),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF0F1E4A), Color(0xFF080D24)],
-            ),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: const Color(0xFF38BDF8).withValues(alpha: 0.5),
-              width: 1.5,
-            ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    colors: [Color(0xFF38BDF8), Color(0xFF0284C7)],
-                  ),
-                ),
-                child: const Icon(
-                  Icons.groups_rounded,
-                  color: Colors.white,
-                  size: 28,
-                ),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                '🏆 تم اكتشاف دعوة غرفة جماعية!',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'رمز الغرفة: $roomId',
-                style: const TextStyle(
-                  color: Color(0xFF93C5FD),
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.of(ctx).pop(),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.white70,
-                        side: BorderSide(
-                          color: Colors.white.withValues(alpha: 0.2),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                      ),
-                      child: const Text('تجاهل'),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    flex: 2,
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        Navigator.of(ctx).pop();
-                        final userId = context.read<AppState>().user?.uid;
-                        if (userId != null) {
-                          try {
-                            final joinResult = await context.read<RoomService>().joinRoom(
-                                  roomId: roomId,
-                                  userId: userId,
-                                );
-                            if (!mounted) return;
-                            await Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) => RoomLobbyScreen(
-                                  roomId: roomId,
-                                  isJoiningMidGame: joinResult.joinedMidGame,
-                                ),
-                              ),
-                            );
-                            return;
-                          } catch (_) {}
-                        }
-                        if (!mounted) return;
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => RoomsScreen(initialRoomCode: roomId),
-                          ),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0284C7),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      child: const Text(
-                        'انضمام للغرفة',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
