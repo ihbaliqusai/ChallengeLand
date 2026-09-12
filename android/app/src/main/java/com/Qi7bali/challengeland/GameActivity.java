@@ -3125,6 +3125,8 @@ public class GameActivity extends AppCompatActivity {
             } else if (norm.equals(normalizeArabic("الأنمي")) || norm.equals(normalizeArabic("الانمي"))) {
                 tiers = boardPool.get("أنمي");
                 if (tiers == null) tiers = boardPool.get("الأنمي");
+            } else if (norm.equals(normalizeArabic("خمن الأغنية")) || norm.equals(normalizeArabic("خمن الاغنية"))) {
+                tiers = boardPool.get("خمن الأغنية");
             } else if (norm.equals(normalizeArabic("قصة مسلسل عربي"))) {
                 tiers = boardPool.get("مسلسلات عربية");
             } else if (norm.equals(normalizeArabic("قصة فيلم عربي"))) {
