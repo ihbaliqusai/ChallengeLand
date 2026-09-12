@@ -651,15 +651,17 @@ public class LocalTeamsGamesActivity extends AppCompatActivity {
         arLp.topMargin = dpx(2);
         actionRow.setLayoutParams(arLp);
 
+        final String tvCode = LocalTeamsGameStore.getOrAssignTvCode(this, record);
+
         if (active) {
             Button resumeBtn = new Button(this);
-            resumeBtn.setText("⚔️ متابعة التحدي");
+            resumeBtn.setText("⚔️ متابعة");
             resumeBtn.setTextColor(TEXT_WHITE);
             resumeBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f);
             resumeBtn.setTypeface(Typeface.DEFAULT_BOLD);
             resumeBtn.setAllCaps(false);
             resumeBtn.setBackground(gradientPillBg(0xFF059669, 0xFF10B981, 0xFF6EE7B7, 1));
-            resumeBtn.setPadding(dpx(14), 0, dpx(14), 0);
+            resumeBtn.setPadding(dpx(10), 0, dpx(10), 0);
             resumeBtn.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
@@ -667,8 +669,27 @@ public class LocalTeamsGamesActivity extends AppCompatActivity {
                 }
             });
             LinearLayout.LayoutParams resLp = new LinearLayout.LayoutParams(0, dpx(32), 1f);
-            resLp.setMargins(dpx(6), 0, 0, 0);
+            resLp.setMargins(dpx(4), 0, 0, 0);
             actionRow.addView(resumeBtn, resLp);
+
+            Button tvBtn = new Button(this);
+            tvBtn.setText("📺 للشاشة");
+            tvBtn.setTextColor(GOLD);
+            tvBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f);
+            tvBtn.setTypeface(Typeface.DEFAULT_BOLD);
+            tvBtn.setAllCaps(false);
+            tvBtn.setBackground(gradientPillBg(0x33FFD700, 0x55B45309, 0x88FFD700, 1));
+            tvBtn.setPadding(dpx(10), 0, dpx(10), 0);
+            tvBtn.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    showTvCodeDialog(tvCode, teamA + " ضد " + teamB);
+                }
+            });
+            LinearLayout.LayoutParams tvLp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT, dpx(32));
+            tvLp.setMargins(dpx(4), 0, 0, 0);
+            actionRow.addView(tvBtn, tvLp);
         } else {
             TextView archInfo = new TextView(this);
             archInfo.setText("📁 مباراة مكتملة ومؤرشفة");
@@ -705,8 +726,23 @@ public class LocalTeamsGamesActivity extends AppCompatActivity {
         startActivity(intent);
     }
 
-    private void resumeMatch(String saveId) {
+    private void resumeMatch(final String saveId) {
         if (TextUtils.isEmpty(saveId)) return;
+        JSONObject record = LocalTeamsGameStore.get(this, saveId);
+        String tvCode = record != null ? record.optString("tvCode", "") : "";
+        if (!TextUtils.isEmpty(tvCode)) {
+            LocalTeamsGameStore.fetchFromCloud(this, tvCode, new LocalTeamsGameStore.OnCloudSyncListener() {
+                @Override
+                public void onSync(JSONObject updated) {
+                    launchResumeIntent(saveId);
+                }
+            });
+        } else {
+            launchResumeIntent(saveId);
+        }
+    }
+
+    private void launchResumeIntent(String saveId) {
         Intent intent = new Intent(this, GameActivity.class);
         intent.putExtra("mode", "mono");
         intent.putExtra("localTeams", true);
@@ -714,6 +750,150 @@ public class LocalTeamsGamesActivity extends AppCompatActivity {
         intent.putExtra("localTeamsSaveId", saveId);
         intent.putExtra("characterIndex", AppPrefs.getEffectiveCharacter(this));
         startActivity(intent);
+    }
+
+    private void showTvCodeDialog(final String tvCode, String matchTitle) {
+        LinearLayout dialogView = new LinearLayout(this);
+        dialogView.setOrientation(LinearLayout.VERTICAL);
+        dialogView.setPadding(dpx(22), dpx(20), dpx(22), dpx(20));
+        dialogView.setBackground(gradientCardBg(0xF80A183C, 0xF8040A1A, 0xAAFFD700, 18, 1));
+        dialogView.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+
+        TextView tvTitle = new TextView(this);
+        tvTitle.setText("📺 تشغيل المباراة على الشاشة أو اللابتوب");
+        tvTitle.setTextColor(GOLD);
+        tvTitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15.5f);
+        tvTitle.setTypeface(Typeface.DEFAULT_BOLD);
+        tvTitle.setGravity(Gravity.CENTER);
+        dialogView.addView(tvTitle);
+
+        TextView subTitle = new TextView(this);
+        subTitle.setText(matchTitle);
+        subTitle.setTextColor(TEXT_MUTED);
+        subTitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f);
+        subTitle.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams stLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        stLp.topMargin = dpx(2);
+        stLp.bottomMargin = dpx(14);
+        dialogView.addView(subTitle, stLp);
+
+        LinearLayout codeBox = new LinearLayout(this);
+        codeBox.setOrientation(LinearLayout.VERTICAL);
+        codeBox.setGravity(Gravity.CENTER);
+        codeBox.setBackground(gradientCardBg(0x33FFD700, 0x1A000000, 0x88FFD700, 14, 2));
+        codeBox.setPadding(dpx(16), dpx(10), dpx(16), dpx(10));
+        LinearLayout.LayoutParams cbLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        cbLp.bottomMargin = dpx(12);
+        codeBox.setLayoutParams(cbLp);
+
+        TextView labelCode = new TextView(this);
+        labelCode.setText("رمز التلفزيون السريع (TV PIN)");
+        labelCode.setTextColor(0xFFE2B852);
+        labelCode.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f);
+        labelCode.setGravity(Gravity.CENTER);
+        codeBox.addView(labelCode);
+
+        TextView codeView = new TextView(this);
+        codeView.setText(tvCode);
+        codeView.setTextColor(TEXT_WHITE);
+        codeView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 36f);
+        codeView.setTypeface(Typeface.DEFAULT_BOLD);
+        codeView.setLetterSpacing(0.2f);
+        codeView.setGravity(Gravity.CENTER);
+        codeBox.addView(codeView);
+
+        dialogView.addView(codeBox);
+
+        LinearLayout guideBox = new LinearLayout(this);
+        guideBox.setOrientation(LinearLayout.VERTICAL);
+        guideBox.setBackground(cardBg(0x221E293B, 0x3338BDF8, 10, 1));
+        guideBox.setPadding(dpx(12), dpx(8), dpx(12), dpx(8));
+        LinearLayout.LayoutParams gbLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        gbLp.bottomMargin = dpx(16);
+        guideBox.setLayoutParams(gbLp);
+
+        TextView step1 = new TextView(this);
+        step1.setText("1. افتح الرابط في متصفح التلفزيون أو اللابتوب:");
+        step1.setTextColor(0xFF94A3B8);
+        step1.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f);
+        guideBox.addView(step1);
+
+        final String webUrl = "https://challengeland.web.app/play";
+        TextView urlView = new TextView(this);
+        urlView.setText(webUrl);
+        urlView.setTextColor(BLUE);
+        urlView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f);
+        urlView.setTypeface(Typeface.DEFAULT_BOLD);
+        urlView.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams uvLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        uvLp.topMargin = dpx(4);
+        uvLp.bottomMargin = dpx(6);
+        urlView.setLayoutParams(uvLp);
+        guideBox.addView(urlView);
+
+        TextView step2 = new TextView(this);
+        step2.setText("2. أدخل الرمز « " + tvCode + " » لتفتح اللعبة فوراً بكامل نقاطها وفئاتها!");
+        step2.setTextColor(0xFFE2E8F0);
+        step2.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f);
+        guideBox.addView(step2);
+
+        dialogView.addView(guideBox);
+
+        LinearLayout btnRow = new LinearLayout(this);
+        btnRow.setOrientation(LinearLayout.HORIZONTAL);
+        btnRow.setGravity(Gravity.CENTER);
+
+        final AlertDialog dialog = new AlertDialog.Builder(this)
+                .setView(dialogView)
+                .create();
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+        }
+
+        Button copyBtn = new Button(this);
+        copyBtn.setText("📋 نسخ الرابط والرمز");
+        copyBtn.setTextColor(TEXT_WHITE);
+        copyBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f);
+        copyBtn.setTypeface(Typeface.DEFAULT_BOLD);
+        copyBtn.setAllCaps(false);
+        copyBtn.setBackground(gradientPillBg(0xFF0284C7, 0xFF0369A1, 0xFF38BDF8, 1));
+        copyBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                android.content.ClipboardManager clipboard = (android.content.ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                if (clipboard != null) {
+                    android.content.ClipData clip = android.content.ClipData.newPlainText(
+                            "ChallengeLand TV Link",
+                            "رابط شاشة التحدي: " + webUrl + " | رمز الدخول: " + tvCode);
+                    clipboard.setPrimaryClip(clip);
+                    Toast.makeText(LocalTeamsGamesActivity.this, "تم نسخ الرابط والرمز بنجاح", Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+        LinearLayout.LayoutParams cpLp = new LinearLayout.LayoutParams(0, dpx(36), 1f);
+        cpLp.setMargins(dpx(4), 0, 0, 0);
+        btnRow.addView(copyBtn, cpLp);
+
+        Button closeBtn = new Button(this);
+        closeBtn.setText("إغلاق");
+        closeBtn.setTextColor(TEXT_MUTED);
+        closeBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f);
+        closeBtn.setBackground(pillBg(0x331E293B, 0x66475569, 1));
+        closeBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                dialog.dismiss();
+            }
+        });
+        LinearLayout.LayoutParams clLp = new LinearLayout.LayoutParams(dpx(75), dpx(36));
+        btnRow.addView(closeBtn, clLp);
+
+        dialogView.addView(btnRow);
+        dialog.show();
     }
 
     private void confirmDelete(final String id, String matchLabel) {

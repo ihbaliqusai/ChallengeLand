@@ -4600,6 +4600,25 @@ public class GameActivity extends AppCompatActivity {
 
             TextView promptTag = makeBoardText("اختر فئة وقيمة السؤال", 10f, 0xFF94A3B8, Gravity.CENTER);
             centerBox.addView(promptTag);
+
+            JSONObject curRec = LocalTeamsGameStore.get(this, localTeamsSaveId);
+            final String currentTvCode = curRec != null ? curRec.optString("tvCode", "") : "";
+            if (!currentTvCode.isEmpty()) {
+                TextView tvBadge = makeBoardText("📺 رمز الشاشة: " + currentTvCode, 9.5f, 0xFFE2B852, Gravity.CENTER);
+                tvBadge.setBackground(gradientPillBg(0x33FFD700, 0x1A000000, 0x66FFD700, 1));
+                tvBadge.setPadding(dpx(8), dpx(1), dpx(8), dpx(1));
+                LinearLayout.LayoutParams tbLp = new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+                tbLp.topMargin = dpx(2);
+                tvBadge.setLayoutParams(tbLp);
+                tvBadge.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        Toast.makeText(GameActivity.this, "افتح https://challengeland.web.app/play واكتب الرمز: " + currentTvCode, Toast.LENGTH_LONG).show();
+                    }
+                });
+                centerBox.addView(tvBadge);
+            }
             arenaHeader.addView(centerBox);
 
             // Team B Card (Cyan)

@@ -2,6 +2,13 @@ package com.qi7bali.landchallengeonline;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.util.Log;
+
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -9,7 +16,11 @@ import org.json.JSONObject;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Random;
 
 final class LocalTeamsGameStore {
@@ -95,11 +106,21 @@ final class LocalTeamsGameStore {
             next.put(record);
         }
         writeArray(context, prune(next));
+        syncToCloud(record);
     }
 
     static boolean delete(Context context, String id) {
         if (id == null || id.trim().isEmpty()) return false;
         String targetId = id.trim();
+        JSONObject existing = get(context, targetId);
+        if (existing != null) {
+            String tvCode = existing.optString("tvCode", "").trim();
+            if (!tvCode.isEmpty()) {
+                try {
+                    FirebaseDatabase.getInstance().getReference("TvMatches").child(tvCode).removeValue();
+                } catch (Exception ignored) {}
+            }
+        }
         JSONArray current = readArray(context);
         JSONArray next = new JSONArray();
         boolean removed = false;
@@ -127,6 +148,12 @@ final class LocalTeamsGameStore {
             if (item == null) continue;
             if (STATUS_FINISHED.equals(item.optString("status"))) {
                 removedCount++;
+                String tvCode = item.optString("tvCode", "").trim();
+                if (!tvCode.isEmpty()) {
+                    try {
+                        FirebaseDatabase.getInstance().getReference("TvMatches").child(tvCode).removeValue();
+                    } catch (Exception ignored) {}
+                }
             } else {
                 next.put(item);
             }
@@ -141,11 +168,30 @@ final class LocalTeamsGameStore {
         writeArray(context, new JSONArray());
     }
 
+    static String generateTvCode() {
+        int code = 1000 + new Random().nextInt(9000);
+        return String.valueOf(code);
+    }
+
+    static String getOrAssignTvCode(Context context, JSONObject record) {
+        if (record == null) return "";
+        String code = record.optString("tvCode", "").trim();
+        if (code.isEmpty()) {
+            code = generateTvCode();
+            try {
+                record.put("tvCode", code);
+                upsert(context, record);
+            } catch (Exception ignored) {}
+        }
+        return code;
+    }
+
     static JSONObject baseRecord(String id) {
         long now = System.currentTimeMillis();
         JSONObject record = new JSONObject();
         try {
             record.put("id", id == null || id.trim().isEmpty() ? newGameId() : id.trim());
+            record.put("tvCode", generateTvCode());
             record.put("createdAt", now);
             record.put("updatedAt", now);
             record.put("status", STATUS_IN_PROGRESS);
@@ -184,6 +230,131 @@ final class LocalTeamsGameStore {
         if (PHASE_CATEGORY_SELECT.equals(phase)) return "بانتظار اختيار الفئات";
         if (PHASE_QUESTION.equals(phase)) return "قيد الإجابة";
         return "قيد اللعب";
+    }
+
+    static void syncToCloud(final JSONObject record) {
+        if (record == null) return;
+        try {
+            String tvCode = record.optString("tvCode", "").trim();
+            if (tvCode.isEmpty()) return;
+            Map<String, Object> map = jsonToMap(record);
+            FirebaseDatabase.getInstance().getReference("TvMatches").child(tvCode).setValue(map);
+        } catch (Exception e) {
+            Log.w("LocalTeamsGameStore", "Failed to sync to cloud: " + e.getMessage());
+        }
+    }
+
+    static void fetchFromCloud(final Context context, final String tvCode, final OnCloudSyncListener listener) {
+        if (tvCode == null || tvCode.trim().isEmpty()) {
+            if (listener != null) listener.onSync(null);
+            return;
+        }
+        DatabaseReference ref = FirebaseDatabase.getInstance().getReference("TvMatches").child(tvCode.trim());
+        ref.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot snapshot) {
+                if (snapshot.exists() && snapshot.getValue() instanceof Map) {
+                    try {
+                        JSONObject cloudRecord = mapToJson((Map<?, ?>) snapshot.getValue());
+                        String id = cloudRecord.optString("id", "");
+                        if (!id.isEmpty()) {
+                            JSONObject localRecord = get(context, id);
+                            long cloudUpdated = cloudRecord.optLong("updatedAt", 0L);
+                            long localUpdated = localRecord != null ? localRecord.optLong("updatedAt", 0L) : 0L;
+                            if (cloudUpdated >= localUpdated) {
+                                upsert(context, cloudRecord);
+                                if (listener != null) listener.onSync(cloudRecord);
+                                return;
+                            }
+                        }
+                    } catch (Exception ignored) {}
+                }
+                if (listener != null) listener.onSync(null);
+            }
+
+            @Override
+            public void onCancelled(DatabaseError error) {
+                if (listener != null) listener.onSync(null);
+            }
+        });
+    }
+
+    interface OnCloudSyncListener {
+        void onSync(JSONObject record);
+    }
+
+    private static Map<String, Object> jsonToMap(JSONObject json) throws org.json.JSONException {
+        Map<String, Object> map = new HashMap<>();
+        Iterator<String> keys = json.keys();
+        while (keys.hasNext()) {
+            String key = keys.next();
+            Object value = json.opt(key);
+            if (value == null || value == JSONObject.NULL) {
+                continue;
+            } else if (value instanceof JSONObject) {
+                map.put(key, jsonToMap((JSONObject) value));
+            } else if (value instanceof JSONArray) {
+                map.put(key, jsonToList((JSONArray) value));
+            } else {
+                map.put(key, value);
+            }
+        }
+        return map;
+    }
+
+    private static List<Object> jsonToList(JSONArray array) throws org.json.JSONException {
+        List<Object> list = new ArrayList<>();
+        for (int i = 0; i < array.length(); i++) {
+            Object value = array.opt(i);
+            if (value == null || value == JSONObject.NULL) {
+                list.add("");
+            } else if (value instanceof JSONObject) {
+                list.add(jsonToMap((JSONObject) value));
+            } else if (value instanceof JSONArray) {
+                list.add(jsonToList((JSONArray) value));
+            } else {
+                list.add(value);
+            }
+        }
+        return list;
+    }
+
+    static JSONObject mapToJson(Map<?, ?> map) {
+        if (map == null) return new JSONObject();
+        try {
+            JSONObject out = new JSONObject();
+            for (Map.Entry<?, ?> entry : map.entrySet()) {
+                String key = String.valueOf(entry.getKey());
+                Object val = entry.getValue();
+                if (val instanceof Map) {
+                    out.put(key, mapToJson((Map<?, ?>) val));
+                } else if (val instanceof List) {
+                    out.put(key, listToJson((List<?>) val));
+                } else {
+                    out.put(key, val);
+                }
+            }
+            return out;
+        } catch (Exception e) {
+            return new JSONObject();
+        }
+    }
+
+    static JSONArray listToJson(List<?> list) {
+        JSONArray arr = new JSONArray();
+        if (list == null) return arr;
+        try {
+            for (Object item : list) {
+                if (item instanceof Map) {
+                    arr.put(mapToJson((Map<?, ?>) item));
+                } else if (item instanceof List) {
+                    arr.put(listToJson((List<?>) item));
+                } else {
+                    arr.put(item);
+                }
+            }
+        } catch (Exception ignored) {}
+        return arr;
     }
 
     private static JSONArray readArray(Context context) {
