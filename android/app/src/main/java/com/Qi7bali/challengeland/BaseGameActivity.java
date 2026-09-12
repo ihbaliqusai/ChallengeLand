@@ -230,6 +230,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
     }
 
     ArrayList<Question> questions = new ArrayList<>();
+    private final ImageObservationController imageObservationController = new ImageObservationController();
     ArrayList<TextView> listAnswerViews = new ArrayList<>();
     ArrayList<LinearLayout> steps = new ArrayList<>();
     ArrayList<Integer> currentAnswerOrder = new ArrayList<>();
@@ -5578,9 +5579,6 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                 final Question question = questions.get(currentQuestion);
                 playQuestionMusic();
 
-                txtQ.setText(question.Q);
-                applyQuestionTextSize(question.Q);
-
                 final ArrayList<Integer> answerOrder = getQuestionShuffled(question);
                 currentAnswerOrder.clear();
                 currentAnswerOrder.addAll(answerOrder);
@@ -5593,7 +5591,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                 applyAnswerTextSizes(answerDisplayTexts);
 
                 final Handler handler = new Handler();
-                Runnable runnable = new Runnable() {
+                final Runnable runnable = new Runnable() {
                     int i = -1;
 
                     @Override
@@ -5637,7 +5635,53 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                         }
                     }
                 };
-                handler.postDelayed(runnable, 1000);
+
+                final Runnable startQuestionReveal = new Runnable() {
+                    @Override
+                    public void run() {
+                        if (EXITING || isFinishing()) return;
+                        txtQ.setText(question.Q);
+                        applyQuestionTextSize(question.Q);
+                        txtQ.setOnClickListener(null);
+                        handler.postDelayed(runnable, 800);
+                    }
+                };
+
+                if (question.getImg() != null && !question.getImg().trim().isEmpty()) {
+                    for (TextView tv : listAnswerViews) {
+                        if (tv != null) tv.setText("");
+                    }
+                    txtQ.setText("اضغط لترى الصورة 👁️");
+                    applyQuestionTextSize("اضغط لترى الصورة 👁️");
+                    final boolean[] dialogOpened = new boolean[]{false};
+                    final Handler autoPromptHandler = new Handler();
+                    final Runnable openObservation = new Runnable() {
+                        @Override
+                        public void run() {
+                            if (dialogOpened[0] || EXITING || isFinishing()) return;
+                            dialogOpened[0] = true;
+                            autoPromptHandler.removeCallbacksAndMessages(null);
+                            imageObservationController.showObservationImage(BaseGameActivity.this, question.getImg(), new ImageObservationController.OnObservationFinishedListener() {
+                                @Override
+                                public void onFinished() {
+                                    if (EXITING || isFinishing()) return;
+                                    startQuestionReveal.run();
+                                }
+                            });
+                        }
+                    };
+                    txtQ.setOnClickListener(new View.OnClickListener() {
+                        @Override
+                        public void onClick(View v) {
+                            openObservation.run();
+                        }
+                    });
+                    autoPromptHandler.postDelayed(openObservation, 4000);
+                } else {
+                    txtQ.setText(question.Q);
+                    applyQuestionTextSize(question.Q);
+                    handler.postDelayed(runnable, 1000);
+                }
 
             } else {
                 onQuestionsExhausted();
@@ -6256,6 +6300,9 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         if (gameBackgroundVideo != null) {
             gameBackgroundVideo.stopPlayback();
             gameBackgroundVideo = null;
+        }
+        if (imageObservationController != null) {
+            imageObservationController.dismiss();
         }
         super.onDestroy();
     }

@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/rlyObservationRoot"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_gravity="center"
+    android:layout_marginStart="16dp"
+    android:layout_marginEnd="16dp"
+    android:background="@drawable/game_question_panel"
+    android:padding="16dp">
+
+    <!-- Header: Title and Countdown Badge -->
+    <LinearLayout
+        android:id="@+id/llyObservationHeader"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingBottom="12dp">
+
+        <TextView
+            android:id="@+id/txtObservationTitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:fontFamily="@font/baloo"
+            android:gravity="start"
+            android:includeFontPadding="false"
+            android:text="👁️ دقة ملاحظة"
+            android:textColor="#FFD700"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/txtObservationTimer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/game_answer_letter_bg"
+            android:fontFamily="@font/baloo"
+            android:includeFontPadding="false"
+            android:paddingStart="14dp"
+            android:paddingTop="4dp"
+            android:paddingEnd="14dp"
+            android:paddingBottom="4dp"
+            android:text="5 ثوانٍ"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- Image Container with Loading Indicator -->
+    <FrameLayout
+        android:id="@+id/frameObservationImage"
+        android:layout_width="match_parent"
+        android:layout_height="320dp"
+        android:layout_below="@id/llyObservationHeader"
+        android:background="#1A001F3F">
+
+        <ProgressBar
+            android:id="@+id/pbObservationLoading"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_gravity="center"
+            android:indeterminate="true" />
+
+        <ImageView
+            android:id="@+id/imgObservation"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_gravity="center"
+            android:adjustViewBounds="true"
+            android:contentDescription="@string/todo11"
+            android:scaleType="fitCenter"
+            android:visibility="gone" />
+    </FrameLayout>
+
+    <!-- Footer Hint -->
+    <TextView
+        android:id="@+id/txtObservationHint"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/frameObservationImage"
+        android:layout_marginTop="10dp"
+        android:fontFamily="@font/baloo"
+        android:gravity="center"
+        android:includeFontPadding="false"
+        android:text="ركز جيداً في أدق تفاصيل الصورة قبل اختفائها!"
+        android:textColor="#A0C8FF"
+        android:textSize="15sp" />
+
+</RelativeLayout>

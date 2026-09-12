@@ -2,7 +2,15 @@ package com.qi7bali.landchallengeonline;
 
 public class Question {
 
-    String Level, Q, R, W1, W2, W3, Category;
+    String Level, Q, R, W1, W2, W3, Category, Img;
+
+    public String getImg() {
+        return Img;
+    }
+
+    public void setImg(String img) {
+        Img = img;
+    }
 
     public String getLevel() {
         return Level;

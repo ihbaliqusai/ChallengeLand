@@ -273,6 +273,7 @@ public class GameActivity extends AppCompatActivity {
     private String offlineBoardSaveId = "";
     private JSONObject pendingOfflineBoardRestore;
     private boolean offlineBoardRestoreConsumed = false;
+    private final ImageObservationController imageObservationController = new ImageObservationController();
     private boolean offlineBoardFinished = false;
     private int boardCharacterIndex = 0;
 
@@ -2890,7 +2891,10 @@ public class GameActivity extends AppCompatActivity {
     private void buildBoardCategoryList() {
         boardAllCategories.clear();
         if (boardPool != null) {
-            boardAllCategories.addAll(boardPool.keySet());
+            for (String cat : boardPool.keySet()) {
+                if (LocalQuestions.isCategoryHidden(cat)) continue;
+                boardAllCategories.add(cat);
+            }
         }
     }
 
@@ -4963,7 +4967,39 @@ public class GameActivity extends AppCompatActivity {
             for (int i = 0; i < 4; i++) {
                 bindBoardAnswerView(i, answerOrder.get(i), answerDisplayTexts.get(i));
             }
-            startBoardTypedTurn();
+            if (question.getImg() != null && !question.getImg().trim().isEmpty()) {
+                txtQ.setText("اضغط لترى الصورة 👁️");
+                applyQuestionTextSize("اضغط لترى الصورة 👁️");
+                final boolean[] boardDialogOpened = new boolean[]{false};
+                final Handler boardAutoPrompt = new Handler();
+                final Runnable openBoardObservation = new Runnable() {
+                    @Override
+                    public void run() {
+                        if (boardDialogOpened[0] || EXITING || isFinishing()) return;
+                        boardDialogOpened[0] = true;
+                        boardAutoPrompt.removeCallbacksAndMessages(null);
+                        imageObservationController.showObservationImage(GameActivity.this, question.getImg(), new ImageObservationController.OnObservationFinishedListener() {
+                            @Override
+                            public void onFinished() {
+                                if (EXITING || isFinishing()) return;
+                                txtQ.setText(question.Q);
+                                applyQuestionTextSize(question.Q);
+                                txtQ.setOnClickListener(null);
+                                startBoardTypedTurn();
+                            }
+                        });
+                    }
+                };
+                txtQ.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        openBoardObservation.run();
+                    }
+                });
+                boardAutoPrompt.postDelayed(openBoardObservation, 4000);
+            } else {
+                startBoardTypedTurn();
+            }
             return;
         }
 
@@ -8778,9 +8814,6 @@ public class GameActivity extends AppCompatActivity {
                 final Question question = questions.get(currentQuestion);
                 playQuestionMusic();
 
-                txtQ.setText(question.Q);
-                applyQuestionTextSize(question.Q);
-
                 final ArrayList<Integer> answerOrder = getQuestionShuffled(question);
                 currentAnswerOrder.clear();
                 currentAnswerOrder.addAll(answerOrder);
@@ -8793,7 +8826,7 @@ public class GameActivity extends AppCompatActivity {
                 applyAnswerTextSizes(answerDisplayTexts);
 
                 final Handler handler = new Handler();
-                Runnable runnable = new Runnable() {
+                final Runnable runnable = new Runnable() {
                     int i = -1;
 
                     @Override
@@ -8843,7 +8876,53 @@ public class GameActivity extends AppCompatActivity {
                         }
                     }
                 };
-                handler.postDelayed(runnable, 1000);
+
+                final Runnable startQuestionReveal = new Runnable() {
+                    @Override
+                    public void run() {
+                        if (EXITING || isFinishing()) return;
+                        txtQ.setText(question.Q);
+                        applyQuestionTextSize(question.Q);
+                        txtQ.setOnClickListener(null);
+                        handler.postDelayed(runnable, 800);
+                    }
+                };
+
+                if (question.getImg() != null && !question.getImg().trim().isEmpty()) {
+                    for (TextView tv : listAnswerViews) {
+                        if (tv != null) tv.setText("");
+                    }
+                    txtQ.setText("اضغط لترى الصورة 👁️");
+                    applyQuestionTextSize("اضغط لترى الصورة 👁️");
+                    final boolean[] dialogOpened = new boolean[]{false};
+                    final Handler autoPromptHandler = new Handler();
+                    final Runnable openObservation = new Runnable() {
+                        @Override
+                        public void run() {
+                            if (dialogOpened[0] || EXITING || isFinishing()) return;
+                            dialogOpened[0] = true;
+                            autoPromptHandler.removeCallbacksAndMessages(null);
+                            imageObservationController.showObservationImage(GameActivity.this, question.getImg(), new ImageObservationController.OnObservationFinishedListener() {
+                                @Override
+                                public void onFinished() {
+                                    if (EXITING || isFinishing()) return;
+                                    startQuestionReveal.run();
+                                }
+                            });
+                        }
+                    };
+                    txtQ.setOnClickListener(new View.OnClickListener() {
+                        @Override
+                        public void onClick(View v) {
+                            openObservation.run();
+                        }
+                    });
+                    autoPromptHandler.postDelayed(openObservation, 4000);
+                } else {
+                    txtQ.setText(question.Q);
+                    applyQuestionTextSize(question.Q);
+                    handler.postDelayed(runnable, 1000);
+                }
 
             } else {
                 Toast.makeText(this,
@@ -9057,6 +9136,9 @@ public class GameActivity extends AppCompatActivity {
         mpBeep1 = null;
         if (backgroundVideoController != null) backgroundVideoController.stop();
         backgroundVideoController = null;
+        if (imageObservationController != null) {
+            imageObservationController.dismiss();
+        }
         super.onDestroy();
     }
 

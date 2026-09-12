@@ -20,6 +20,16 @@ public class LocalQuestions {
     /** Category used for questions that have no (or an empty) Category field.
      *  Must match a file name under assets/categories (منوعات.png). */
     public static final String FALLBACK_CATEGORY = "منوعات";
+
+    /**
+     * Categories temporarily hidden from gameplay until more content is added.
+     */
+    public static boolean isCategoryHidden(String category) {
+        if (category == null) return false;
+        String trimmed = category.trim();
+        return trimmed.equals("دقة ملاحظة") || trimmed.equals("دقه ملاحظه");
+    }
+
     public static ArrayList<Question> load(Context context) {
         final ArrayList<Question> questions = new ArrayList<>();
         final ArrayList<Question> allQuestions0 = new ArrayList<>();
@@ -41,6 +51,9 @@ public class LocalQuestions {
             for (int i = 0; i < array.length(); i++) {
                 JSONObject item = array.getJSONObject(i);
                 Question q = parseQuestion(item);
+                if (isCategoryHidden(q.getCategory())) {
+                    continue;
+                }
                 switch (q.getLevel()) {
                     case "0":
                         allQuestions0.add(q);
@@ -81,7 +94,11 @@ public class LocalQuestions {
             JSONArray array = new JSONArray(output.toString(StandardCharsets.UTF_8.name()));
             for (int i = 0; i < array.length(); i++) {
                 JSONObject item = array.getJSONObject(i);
-                questions.add(parseQuestion(item));
+                Question q = parseQuestion(item);
+                if (isCategoryHidden(q.getCategory())) {
+                    continue;
+                }
+                questions.add(q);
             }
         } catch (Exception ignored) {
         }
@@ -97,6 +114,7 @@ public class LocalQuestions {
         q.setW2(item.optString("W2"));
         q.setW3(item.optString("W3"));
         q.setLevel(item.optString("Level"));
+        q.setImg(item.optString("Img", ""));
         String category = item.optString("Category", FALLBACK_CATEGORY);
         if (category == null || category.trim().isEmpty()) {
             category = FALLBACK_CATEGORY;
@@ -156,6 +174,9 @@ public class LocalQuestions {
             JSONArray array = new JSONArray(output.toString(StandardCharsets.UTF_8.name()));
             for (int i = 0; i < array.length(); i++) {
                 Question q = parseQuestion(array.getJSONObject(i));
+                if (isCategoryHidden(q.getCategory())) {
+                    continue;
+                }
                 String category = q.getCategory();
                 ArrayList<ArrayList<Question>> tiers = pool.get(category);
                 if (tiers == null) {

@@ -1900,6 +1900,111 @@
       // ==========================================================================
       // 10. QUESTION ENGINE (قوانين اللعبة الكاملة)
       // ==========================================================================
+      function showWebObservationModal(imageUrl, onFinished) {
+        const overlay = document.createElement('div');
+        overlay.style.position = 'fixed';
+        overlay.style.inset = '0';
+        overlay.style.background = 'rgba(3, 7, 18, 0.95)';
+        overlay.style.backdropFilter = 'blur(12px)';
+        overlay.style.zIndex = '999999';
+        overlay.style.display = 'flex';
+        overlay.style.flexDirection = 'column';
+        overlay.style.alignItems = 'center';
+        overlay.style.justifyContent = 'center';
+        overlay.style.padding = '20px';
+
+        const card = document.createElement('div');
+        card.style.background = 'linear-gradient(180deg, #0d1e44 0%, #071129 100%)';
+        card.style.border = '2px solid rgba(56, 189, 248, 0.6)';
+        card.style.borderRadius = '24px';
+        card.style.boxShadow = '0 25px 60px rgba(0,0,0,0.9), 0 0 35px rgba(56,189,248,0.3)';
+        card.style.padding = '20px';
+        card.style.maxWidth = '800px';
+        card.style.width = '90%';
+        card.style.display = 'flex';
+        card.style.flexDirection = 'column';
+        card.style.alignItems = 'center';
+
+        const header = document.createElement('div');
+        header.style.display = 'flex';
+        header.style.justifyContent = 'space-between';
+        header.style.alignItems = 'center';
+        header.style.width = '100%';
+        header.style.marginBottom = '14px';
+
+        const title = document.createElement('div');
+        title.textContent = '👁️ دقة ملاحظة';
+        title.style.color = '#38bdf8';
+        title.style.fontSize = '22px';
+        title.style.fontWeight = 'bold';
+
+        const badge = document.createElement('div');
+        badge.textContent = 'تحميل الصورة..';
+        badge.style.background = 'rgba(239, 68, 68, 0.2)';
+        badge.style.color = '#f87171';
+        badge.style.border = '1px solid #ef4444';
+        badge.style.borderRadius = '20px';
+        badge.style.padding = '6px 16px';
+        badge.style.fontSize = '18px';
+        badge.style.fontWeight = 'bold';
+
+        header.appendChild(title);
+        header.appendChild(badge);
+        card.appendChild(header);
+
+        const img = document.createElement('img');
+        img.style.maxWidth = '100%';
+        img.style.maxHeight = '65vh';
+        img.style.borderRadius = '16px';
+        img.style.objectFit = 'contain';
+        img.style.display = 'none';
+
+        const spinner = document.createElement('div');
+        spinner.textContent = '⏳ جاري تحميل الصورة...';
+        spinner.style.color = '#94a3b8';
+        spinner.style.fontSize = '18px';
+        spinner.style.margin = '40px 0';
+
+        card.appendChild(spinner);
+        card.appendChild(img);
+        overlay.appendChild(card);
+        document.body.appendChild(overlay);
+
+        let timer = null;
+        let finished = false;
+        const cleanup = () => {
+          if (finished) return;
+          finished = true;
+          if (timer) clearInterval(timer);
+          if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+          if (onFinished) onFinished();
+        };
+
+        img.onload = () => {
+          spinner.style.display = 'none';
+          img.style.display = 'block';
+          badge.style.background = 'rgba(14, 165, 233, 0.2)';
+          badge.style.color = '#38bdf8';
+          badge.style.border = '1px solid #0284c7';
+          let sec = 5;
+          badge.textContent = sec + ' ثوانٍ';
+          timer = setInterval(() => {
+            sec--;
+            if (sec <= 0) {
+              cleanup();
+            } else {
+              badge.textContent = sec + ' ثوانٍ';
+            }
+          }, 1000);
+        };
+
+        img.onerror = () => {
+          cleanup();
+        };
+
+        img.src = imageUrl;
+      }
+
       function openQuestion(col, row, catName, pts, qObj) {
         initAudioContext();
         clearAnswerRevealTimeout();
@@ -1919,7 +2024,6 @@
         updatePointsBadge();
         updateTurnBadge();
 
-        qText.textContent = qObj.Q || 'نص السؤال';
         stealBanner.style.display = 'none';
         btnConcedeSteal.style.display = 'none';
         panelReferee.style.display = 'none';
@@ -1927,8 +2031,6 @@
 
         setupMultipleChoiceOptions(qObj);
 
-        panelTypedAnswer.style.display = 'flex';
-        panelMultipleChoice.style.display = 'none';
         inputAnswerText.value = '';
         inputAnswerText.disabled = false;
         btnSubmitTyped.disabled = false;
@@ -1936,9 +2038,32 @@
         btnRevealOptions.textContent = `إظهار الخيارات 💡 (تصبح ${Math.floor(pts / 2)} نقطة)`;
 
         questionModal.classList.add('active');
-        setTimeout(() => inputAnswerText.focus(), 250);
 
-        startTimer();
+        if (qObj.Img && qObj.Img.trim()) {
+          panelTypedAnswer.style.display = 'none';
+          panelMultipleChoice.style.display = 'none';
+          qText.innerHTML = '<button id="btnWebObservation" style="background: linear-gradient(135deg, #0284c7, #0369a1); color: #fff; border: 2px solid #38bdf8; border-radius: 14px; padding: 14px 28px; font-size: 22px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 20px rgba(2,132,199,0.5);">اضغط لترى الصورة 👁️</button>';
+          let obsOpened = false;
+          const openObs = () => {
+            if (obsOpened) return;
+            obsOpened = true;
+            showWebObservationModal(qObj.Img, () => {
+              qText.textContent = qObj.Q || 'نص السؤال';
+              panelTypedAnswer.style.display = 'flex';
+              setTimeout(() => inputAnswerText.focus(), 250);
+              startTimer();
+            });
+          };
+          const btnObs = document.getElementById('btnWebObservation');
+          if (btnObs) btnObs.onclick = openObs;
+          setTimeout(openObs, 4000);
+        } else {
+          qText.textContent = qObj.Q || 'نص السؤال';
+          panelTypedAnswer.style.display = 'flex';
+          panelMultipleChoice.style.display = 'none';
+          setTimeout(() => inputAnswerText.focus(), 250);
+          startTimer();
+        }
       }
 
       function updatePointsBadge() {
