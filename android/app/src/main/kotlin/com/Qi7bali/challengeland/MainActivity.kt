@@ -302,7 +302,7 @@ class MainActivity : FlutterActivity() {
                                 putExtra("seriesWinsRequired", intArg(call.argument<Any>("seriesWinsRequired"), 0))
                                 putExtra("teamAllyName", stringArg(call.argument<Any>("teamAllyName"), ""))
                                 putExtra("teamEnemyName", stringArg(call.argument<Any>("teamEnemyName"), ""))
-                                // رحلة المليون — التحدي board stage params
+                                // تحدي المراحل — التحدي board stage params
                                 putExtra("campaignBoard", boolArg(call.argument<Any>("campaignBoard"), false))
                                 putExtra("boardKind", stringArg(call.argument<Any>("boardKind"), "solo"))
                                 putExtra("boardTargetScore", intArg(call.argument<Any>("boardTargetScore"), 0))

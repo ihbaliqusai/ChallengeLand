@@ -440,7 +440,7 @@ class CampaignStage {
   final int? seriesWinsRequired;
   final String? teamAllyName;
   final String? teamEnemyName;
-  // ---- رحلة المليون board stage (التحدي) ----
+  // ---- تحدي المراحل board stage (التحدي) ----
   final String boardKind;        // 'solo' | 'boss'
   final int boardTargetScore;    // solo: points needed to pass (rises each stage)
   final int boardSoloPicks;      // solo: number of cells the player may pick

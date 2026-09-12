@@ -1,6 +1,6 @@
 import '../models/campaign_stage.dart';
 
-/// رحلة المليون stages — every stage now plays the التحدي board.
+/// تحدي المراحل stages — every stage now plays the التحدي board.
 ///
 /// * Normal stages (order not a multiple of 10): a SOLO board. The lone player
 ///   takes [CampaignStage.boardSoloPicks] picks and must reach

@@ -16,6 +16,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.os.Handler;
+import android.os.SystemClock;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.TextPaint;
@@ -251,6 +252,9 @@ public abstract class BaseGameActivity extends AppCompatActivity {
     RingProgressBar pbTime;
     VideoView gameBackgroundVideo;
     CountDownTimer cdtProgress;
+    private boolean isQuestionTimerRunning = false;
+    private boolean wasTimerRunningBeforePause = false;
+    private long timerPauseElapsedRealtime = 0L;
     MediaPlayer mpSound, mpEffect, mpBeep, mpBeep1;
     CircleImageView imgPlayer1, imgPlayer2, imgMe, imgOpponent;
     boolean FAST_LIGHTS,
@@ -979,6 +983,43 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         SOUND_ON = AppPrefs.isSoundEnabled(this);
         MUSIC_ON = AppPrefs.isMusicEnabled(this);
         applyVolumeUi();
+
+        if (mpBeep == null) {
+            try { mpBeep = MediaPlayer.create(this, R.raw.beep); } catch (Exception ignored) {}
+        }
+        if (mpBeep1 == null) {
+            try { mpBeep1 = MediaPlayer.create(this, R.raw.beep1); } catch (Exception ignored) {}
+        }
+
+        if (wasTimerRunningBeforePause) {
+            wasTimerRunningBeforePause = false;
+            long elapsedSincePauseMs = SystemClock.elapsedRealtime() - timerPauseElapsedRealtime;
+            int elapsedTicks = (int) (elapsedSincePauseMs / 100L);
+            PROGRESS_VALUE -= elapsedTicks;
+
+            if (PROGRESS_VALUE <= 0) {
+                PROGRESS_VALUE = 0;
+                if (pbTime != null) pbTime.setProgress(0);
+                if (txtProgress != null) txtProgress.setText("0");
+                handleQuestionTimeout();
+            } else {
+                int pbText = Math.max(1, (int) Math.ceil(PROGRESS_VALUE / 10.0));
+                if (pbTime != null) {
+                    pbTime.setProgress(PROGRESS_VALUE);
+                    if (pbText > 10) {
+                        pbTime.setRingProgressColor(getResources().getColor(R.color.progressGreen));
+                    } else if (pbText > 5) {
+                        pbTime.setRingProgressColor(getResources().getColor(R.color.progressOrange));
+                    } else {
+                        pbTime.setRingProgressColor(getResources().getColor(R.color.progressRed));
+                    }
+                }
+                if (txtProgress != null) {
+                    txtProgress.setText(String.valueOf(pbText));
+                }
+                startTimer(false);
+            }
+        }
     }
 
     private void setupGameBackgroundVideo() {
@@ -5176,6 +5217,31 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         }, 2000);
     }
 
+    private void handleQuestionTimeout() {
+        if (cdtProgress != null) {
+            cdtProgress.cancel();
+            cdtProgress = null;
+        }
+        isQuestionTimerRunning = false;
+        wasTimerRunningBeforePause = false;
+        PROGRESS_VALUE = 300;
+        //TIMER_VALUE = 10000;
+        if (modeOnline) {
+            CAN_PLAY = false;
+            Animations.progressZoomOut(rlyProgress);
+            // Only submit timeout if the player hasn't already
+            // submitted (or selected an answer awaiting confirm).
+            // This prevents the timer from overwriting a valid
+            // answer with a timeout right before resolution.
+            if (!myAnswerSubmitted) {
+                submitOnlineAnswer(0);
+                resolveOnlineRoundIfReady();
+            }
+        } else {
+            checkAnswer(true);
+        }
+    }
+
     private void startTimer(boolean start) {
         int randomTime = 15;
         if (!EXITING) {
@@ -5197,61 +5263,63 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                 }
                 startBlitzBotSimulation();
             }
+            isQuestionTimerRunning = true;
+            if (cdtProgress != null) {
+                cdtProgress.cancel();
+                cdtProgress = null;
+            }
             final int finalRandomTime = randomTime;
-            cdtProgress = new CountDownTimer(50000, 100) {
+            long timerDurationMs = Math.max(50000L, (PROGRESS_VALUE + 50) * 100L);
+            cdtProgress = new CountDownTimer(timerDurationMs, 100) {
                 int pbText;
 
                 @Override
                 public void onTick(long l) {
                     //TIMER_VALUE = l;
                     PROGRESS_VALUE--;
-                    if (PROGRESS_VALUE > 0) pbTime.setProgress(PROGRESS_VALUE);
+                    if (PROGRESS_VALUE > 0 && pbTime != null) {
+                        pbTime.setProgress(PROGRESS_VALUE);
+                    }
+                    if (PROGRESS_VALUE <= 0) {
+                        this.cancel();
+                        handleQuestionTimeout();
+                        return;
+                    }
                     if ((PROGRESS_VALUE % 10) == 0) {
                         pbText = PROGRESS_VALUE / 10;
-                        txtProgress.setText(pbText + "");
-                        if (pbText > 10)
-                            pbTime.setRingProgressColor(getResources().getColor(R.color.progressGreen));
-                        else if (pbText > 5) {
-                            if (SOUND_ON)
-                            mpBeep.start();
-                            pbTime.setRingProgressColor(getResources().getColor(R.color.progressOrange));
+                        if (txtProgress != null) {
+                            txtProgress.setText(pbText + "");
+                        }
+                        if (pbText > 10) {
+                            if (pbTime != null) {
+                                pbTime.setRingProgressColor(getResources().getColor(R.color.progressGreen));
+                            }
+                        } else if (pbText > 5) {
+                            if (SOUND_ON && mpBeep != null) {
+                                try { mpBeep.start(); } catch (Exception ignored) {}
+                            }
+                            if (pbTime != null) {
+                                pbTime.setRingProgressColor(getResources().getColor(R.color.progressOrange));
+                            }
                         } else if (pbText > 0) {
-                            if (SOUND_ON)
-                            mpBeep1.start();
-                            pbTime.setRingProgressColor(getResources().getColor(R.color.progressRed));
+                            if (SOUND_ON && mpBeep1 != null) {
+                                try { mpBeep1.start(); } catch (Exception ignored) {}
+                            }
+                            if (pbTime != null) {
+                                pbTime.setRingProgressColor(getResources().getColor(R.color.progressRed));
+                            }
                         } else {
                             this.cancel();
-                            PROGRESS_VALUE = 300;
-                            //TIMER_VALUE = 10000;
-                            if (modeOnline) {
-                                CAN_PLAY = false;
-                                Animations.progressZoomOut(rlyProgress);
-                                // Only submit timeout if the player hasn't already
-                                // submitted (or selected an answer awaiting confirm).
-                                // This prevents the timer from overwriting a valid
-                                // answer with a timeout right before resolution.
-                                if (!myAnswerSubmitted) {
-                                    submitOnlineAnswer(0);
-                                    resolveOnlineRoundIfReady();
-                                }
-                            } else {
-                                checkAnswer(true);
-                            }
-                            //onWrongAnswer(true);
-                            /*if(modeOnline) {
-                                if(opponentAnswer>0) {
-                                    showThumbPlayerAnswer(2, opponentAnswer);
-                                    checkAnswer();
-                                    //Toast.makeText(BaseGameActivity.this, "Opponent answer : "+opponentAnswer, Toast.LENGTH_SHORT).show();
-                                }
-
-                            }*/
+                            handleQuestionTimeout();
                         }
                     }
                 }
 
                 @Override
                 public void onFinish() {
+                    if (isQuestionTimerRunning) {
+                        handleQuestionTimeout();
+                    }
                 }
             }.start();
         }
@@ -5260,8 +5328,11 @@ public abstract class BaseGameActivity extends AppCompatActivity {
     private void stopTimer(boolean pause) {
         if (cdtProgress != null) {
             cdtProgress.cancel();
+            cdtProgress = null;
         }
+        isQuestionTimerRunning = false;
         if (!pause) {
+            wasTimerRunningBeforePause = false;
             Animations.progressZoomOut(rlyProgress);
             //TIMER_VALUE = 10000;
             PROGRESS_VALUE = 300;
@@ -6261,10 +6332,17 @@ public abstract class BaseGameActivity extends AppCompatActivity {
 
     @Override
     protected void onPause() {
+        if (isQuestionTimerRunning && cdtProgress != null) {
+            wasTimerRunningBeforePause = true;
+            timerPauseElapsedRealtime = SystemClock.elapsedRealtime();
+            cdtProgress.cancel();
+            cdtProgress = null;
+        } else {
+            wasTimerRunningBeforePause = false;
+        }
         if (gameBackgroundVideo != null && gameBackgroundVideo.isPlaying()) {
             gameBackgroundVideo.pause();
         }
-        if(cdtProgress != null) cdtProgress.cancel();
         releasePlayer(mpSound);
         mpSound = null;
         currentSoundIsMusic = false;
@@ -6279,6 +6357,8 @@ public abstract class BaseGameActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        isQuestionTimerRunning = false;
+        wasTimerRunningBeforePause = false;
         cancelPendingFictitiousAnswer();
         if (isFinishing()) {
             leaveOnlineMatchIfNeeded();

@@ -5,7 +5,7 @@ import 'package:challenge_land/models/stage_progress.dart';
 import 'package:challenge_land/services/campaign_defaults.dart';
 import 'package:challenge_land/services/campaign_service.dart';
 
-/// رحلة المليون now plays the التحدي board for every stage: normal stages are a
+/// تحدي المراحل now plays the التحدي board for every stage: normal stages are a
 /// solo board with a rising target score, and every 10th stage is a boss board
 /// against bots. These tests pin that board design + the shared progression rules.
 void main() {

@@ -120,7 +120,7 @@ class CampaignModeEngine {
 
   bool isBossMode(CampaignMode mode) => mode == CampaignMode.bossBattle;
 
-  /// Every رحلة المليون stage now plays the التحدي board. We pass `stageType` /
+  /// Every تحدي المراحل stage now plays the التحدي board. We pass `stageType` /
   /// `campaignMode` as `'board'` so the native side runs the board engine (not the
   /// legacy single-question / boss flow), plus the board params (solo target or boss
   /// bots) and the world's themed category set.
@@ -138,7 +138,7 @@ class CampaignModeEngine {
       'allow5050': false,
       'allowAudience': false,
       'allowCall': false,
-      // رحلة المليون board params
+      // تحدي المراحل board params
       'campaignBoard': true,
       'boardKind': isBoss ? 'boss' : 'solo',
       'boardTargetScore': stage.boardTargetScore,

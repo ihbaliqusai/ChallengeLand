@@ -173,7 +173,7 @@ final class GameOfflineContestantsController {
     private boolean localTeamsBoard = false;
     private int localTeamsActiveQuestionSlot = -1;
 
-    // Solo stage progress card in رحلة المليون (replaces empty 4-slot leaderboard)
+    // Solo stage progress card in تحدي المراحل (replaces empty 4-slot leaderboard)
     private TextView soloStageTitle;
     private TextView soloStageTarget;
     private TextView soloStageScore;
@@ -216,7 +216,7 @@ final class GameOfflineContestantsController {
         setupInternal(playerCount, characterIndex);
     }
 
-    /** Solo board (رحلة المليون normal stage): a single contestant — the player only,
+    /** Solo board (تحدي المراحل normal stage): a single contestant — the player only,
      *  no bots — so the player accumulates points against a target. */
     void setupForSoloBoard(int characterIndex) {
         count = 1;
@@ -241,7 +241,7 @@ final class GameOfflineContestantsController {
         if (namePlate != null) namePlate.setVisibility(View.VISIBLE);
     }
 
-    /** Overrides every bot's answer skill (used by رحلة المليون boss stages, which
+    /** Overrides every bot's answer skill (used by تحدي المراحل boss stages, which
      *  scale boss strength with the world). Slot 0 (the human) is left untouched. */
     void setBoardBotIntelligence(int value) {
         if (intelligence == null) return;

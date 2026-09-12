@@ -13,6 +13,7 @@ import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.os.Handler;
+import android.os.SystemClock;
 import android.text.TextPaint;
 import android.text.TextUtils;
 import android.util.DisplayMetrics;
@@ -116,6 +117,13 @@ public class GameActivity extends AppCompatActivity {
     GameCampaignHudController campaignHudController;
     GameCampaignResultStore campaignResultStore;
     CountDownTimer cdtProgress;
+    private boolean isQuestionTimerRunning = false;
+    private boolean wasTimerRunningBeforePause = false;
+    private long timerPauseElapsedRealtime = 0L;
+    private boolean wasCampaignStageTimerRunningBeforePause = false;
+    private boolean wasBoardSelectTimerRunningBeforePause = false;
+    private long boardSelectRemainingMs = 0L;
+    private long boardSelectPauseElapsedRealtime = 0L;
     MediaPlayer mpBeep, mpBeep1;
     CircleImageView imgPlayer1, imgPlayer2, imgMe, imgOpponent;
     boolean FAST_LIGHTS,
@@ -329,7 +337,7 @@ public class GameActivity extends AppCompatActivity {
     private final ArrayList<ChromaVideoView> resultVideoViews = new ArrayList<>();
     private boolean boardResultProceeded = false;
 
-    // ---- Campaign board ("رحلة المليون" stage on the التحدي board) ----
+    // ---- Campaign board ("تحدي المراحل" stage on the التحدي board) ----
     // Each Million-Journey stage now plays the التحدي board. Solo stages (order not a
     // multiple of 10): count == 1, the player takes boardSoloPicks turns and must reach
     // boardTargetScore. Boss stages (every 10th): count == 1 + boardBotCount competitive
@@ -347,6 +355,11 @@ public class GameActivity extends AppCompatActivity {
     int boardBotIntelligence = 0;
     String boardCategoryPolicy = "playerPick";  // playerPick | curated | random | worldThemed
     final ArrayList<String> boardWorldCategories = new ArrayList<>();
+
+    private JSONObject pendingCampaignBoardRestore = null;
+    private boolean campaignBoardRestoreConsumed = false;
+    private int pendingCampaignResumeQuestion = -1;
+    private String savedCampaignAmount = null;
 
     private boolean questionsReady = false;
     private boolean startPending = false;
@@ -596,11 +609,17 @@ public class GameActivity extends AppCompatActivity {
                 buildBoardCategoryList();
                 questionsReady = true;
             } else if (campaignBoard) {
-                // رحلة المليون stage played on the التحدي board (solo or boss).
+                // تحدي المراحل stage played on the التحدي board (solo or boss).
                 int effectiveChar = AppPrefs.getEffectiveCharacter(this);
                 int intentChar = getIntent().getIntExtra("characterIndex", -1);
                 int characterIndex = (intentChar >= 0 && intentChar <= 7) ? intentChar : effectiveChar;
                 setupCampaignBoardMatch(characterIndex);
+                loadCampaignProgressIfNeeded(savedInstanceState);
+            } else if (campaignMode) {
+                loadCampaignProgressIfNeeded(savedInstanceState);
+                if (pendingCampaignResumeQuestion < 0) {
+                    getQuestions("");
+                }
             } else {
                 getQuestions("");
             }
@@ -699,16 +718,18 @@ public class GameActivity extends AppCompatActivity {
                 t++;
                 switch (t) {
                     case 1:
-                        person.moveShow2Hands(2000);
+                        person.moveShow2Hands(isCampaignResume() ? 1000 : 2000);
                         if (boardMode) {
                             String boardGreeting = boardCampaignMatch
-                                    ? ("boss".equals(boardCampaignKind)
-                                        ? "مواجهة الزعماء.. استعد!"
-                                        : "رحلتك نحو المليون.. اجمع نقاط الهدف!")
+                                    ? (isCampaignResume()
+                                        ? "مرحباً بعودتك.. نتابع تحدي المراحل"
+                                        : ("boss".equals(boardCampaignKind)
+                                            ? "مواجهة الزعماء.. استعد!"
+                                            : "مرحباً بكم في تحدي المراحل.. اجمع نقاط الهدف!"))
                                     : boardLocalTeams
                                         ? localTeamsOpeningGreeting()
                                         : "مرحبا بكم في تحدي الفئات.. اختاروا فئاتكم";
-                            showDialog(boardGreeting, "", 800, 2200, R.drawable.mouth_01, false);
+                            showDialog(boardGreeting, "", 800, isCampaignResume() ? 1200 : 2200, R.drawable.mouth_01, false);
                         } else if (modeOnline) {
                             rlyScore.setVisibility(View.VISIBLE);
                             Animations.move(rlyScore, 500, -300, 0, 0, 0);
@@ -716,11 +737,14 @@ public class GameActivity extends AppCompatActivity {
                         } else if (campaignMode) {
                             campaignHudController.hideMoneyBox();
                             campaignHudController.showGameplayHud();
-                            showDialog(getCampaignOpeningMessage(), "", 800, 2200, R.drawable.mouth_01, false);
+                            String msg = isCampaignResume()
+                                    ? "مرحباً بعودتك.. نتابع تحدي المراحل"
+                                    : getCampaignOpeningMessage();
+                            showDialog(msg, "", 800, isCampaignResume() ? 1200 : 2200, R.drawable.mouth_01, false);
                         } else {
                             showDialog("مرحبا بكم في أرض التحدي", "", 800, 2200, R.drawable.mouth_01, false);
                         }
-                        handler.postDelayed(this, 3000);
+                        handler.postDelayed(this, isCampaignResume() ? 1200 : 3000);
                         break;
                     case 2:
                         person.moveShowHand(1000);
@@ -740,7 +764,7 @@ public class GameActivity extends AppCompatActivity {
                 }
             }
         };
-        handler.postDelayed(runnable, 4000);
+        handler.postDelayed(runnable, isCampaignResume() ? 500 : 4000);
 
         View.OnClickListener buttonListener = new View.OnClickListener() {
             @Override
@@ -1074,6 +1098,13 @@ public class GameActivity extends AppCompatActivity {
         if (offlineBoardSaveId != null && !offlineBoardSaveId.trim().isEmpty()) {
             outState.putString("offlineBoardSaveId", offlineBoardSaveId);
         }
+        if (campaignMode && !campaignResultPersisted && !EXITING) {
+            saveCampaignProgress(campaignBoard ? currentOfflineBoardPhase() : null);
+            JSONObject rec = CampaignProgressStore.get(this, campaignStageId);
+            if (rec != null) {
+                outState.putString("campaignProgressJson", rec.toString());
+            }
+        }
     }
 
     private void applyVolumeUi() {
@@ -1103,6 +1134,82 @@ public class GameActivity extends AppCompatActivity {
         SOUND_ON = AppPrefs.isSoundEnabled(this);
         MUSIC_ON = AppPrefs.isMusicEnabled(this);
         applyVolumeUi();
+
+        if (mpBeep == null) {
+            try { mpBeep = MediaPlayer.create(this, R.raw.beep); } catch (Exception ignored) {}
+        }
+        if (mpBeep1 == null) {
+            try { mpBeep1 = MediaPlayer.create(this, R.raw.beep1); } catch (Exception ignored) {}
+        }
+
+        if (wasTimerRunningBeforePause) {
+            wasTimerRunningBeforePause = false;
+            long elapsedSincePauseMs = SystemClock.elapsedRealtime() - timerPauseElapsedRealtime;
+            int elapsedTicks = (int) (elapsedSincePauseMs / 100L);
+            PROGRESS_VALUE -= elapsedTicks;
+
+            if (PROGRESS_VALUE <= 0) {
+                PROGRESS_VALUE = 0;
+                if (pbTime != null) pbTime.setProgress(0);
+                if (txtProgress != null) txtProgress.setText("0");
+                handleQuestionTimeout();
+            } else {
+                int pbText = Math.max(1, (int) Math.ceil(PROGRESS_VALUE / 10.0));
+                if (pbTime != null) {
+                    pbTime.setProgress(PROGRESS_VALUE);
+                    if (pbText > 10) {
+                        pbTime.setRingProgressColor(getResources().getColor(R.color.progressGreen));
+                    } else if (pbText > 5) {
+                        pbTime.setRingProgressColor(getResources().getColor(R.color.progressOrange));
+                    } else {
+                        pbTime.setRingProgressColor(getResources().getColor(R.color.progressRed));
+                    }
+                }
+                if (txtProgress != null) {
+                    txtProgress.setText(String.valueOf(pbText));
+                }
+                startTimer(false);
+            }
+        }
+
+        if (wasBoardSelectTimerRunningBeforePause) {
+            wasBoardSelectTimerRunningBeforePause = false;
+            long elapsedMs = SystemClock.elapsedRealtime() - boardSelectPauseElapsedRealtime;
+            boardSelectRemainingMs -= elapsedMs;
+            if (boardSelectRemainingMs <= 0L) {
+                boardSelectRemainingMs = 0L;
+                if (boardSelectCountdownView != null) {
+                    boardSelectCountdownView.setText("⏱ 0");
+                }
+                if (!EXITING && boardMode && boardPickerIsHuman) {
+                    View overlay = findViewById(R.id.boardOverlay);
+                    if (overlay != null && overlay.getVisibility() == View.VISIBLE) {
+                        int[] cell = pickRandomRemainingCell();
+                        if (cell != null) {
+                            Toast.makeText(GameActivity.this, "انتهى وقت الاختيار، تم اختيار خانة تلقائياً",
+                                    Toast.LENGTH_SHORT).show();
+                            onCellPicked(cell[0], cell[1]);
+                        }
+                    }
+                }
+            } else {
+                startBoardSelectTimerWithDuration(boardSelectRemainingMs);
+            }
+        }
+
+        if (wasCampaignStageTimerRunningBeforePause && campaignMode && !campaignResultPersisted && campaignTimeLimitSeconds > 0) {
+            wasCampaignStageTimerRunningBeforePause = false;
+            long elapsedMs = System.currentTimeMillis() - campaignStartedAtMs;
+            long remainingMs = (campaignTimeLimitSeconds * 1000L) - elapsedMs;
+            if (remainingMs <= 0L) {
+                if (txtCampaignTimer != null) {
+                    txtCampaignTimer.setText(formatCampaignRemaining(0));
+                }
+                handleCampaignTimeExpired();
+            } else {
+                startCampaignStageTimerWithDuration(remainingMs);
+            }
+        }
     }
     private void setupCampaignBossBattle() {
         opponents.clear();
@@ -1229,9 +1336,9 @@ public class GameActivity extends AppCompatActivity {
     }
     private String getCampaignOpeningMessage() {
         if (campaignBossBattle) {
-            return "أمامك الزعيم. اهزمه لفتح الطريق التالي!";
+            return "مرحباً بكم في تحدي المراحل.. اهزم الزعيم لفتح الطريق التالي!";
         }
-        return "أمامك 10 أسئلة. اجمع أكبر عدد من النجوم!";
+        return "مرحباً بكم في تحدي المراحل.. اجمع أكبر عدد من النجوم!";
     }
 
     private String getCampaignAnswerMessage(boolean correct, int starsBefore) {
@@ -2018,7 +2125,7 @@ public class GameActivity extends AppCompatActivity {
         return card;
     }
 
-    /** رحلة المليون stage end: solo (reach boardTargetScore) or boss (beat every bot).
+    /** تحدي المراحل stage end: solo (reach boardTargetScore) or boss (beat every bot).
      *  Bridges into the campaign pipeline so Flutter awards stars/rewards/progress. */
     private void finishCampaignBoardMatch() {
         stopTimer(false);
@@ -2084,6 +2191,9 @@ public class GameActivity extends AppCompatActivity {
     private void startBoardMode() {
         applyBoardModeChrome();
         if (boardCampaignMatch) {
+            if (restoreCampaignBoardState(pendingCampaignBoardRestore)) {
+                return;
+            }
             startCampaignBoardMode();
             return;
         }
@@ -2622,6 +2732,293 @@ public class GameActivity extends AppCompatActivity {
         return true;
     }
 
+    private boolean isCampaignResume() {
+        return campaignMode && (pendingCampaignBoardRestore != null || pendingCampaignResumeQuestion >= 0);
+    }
+
+    private void clearCampaignProgress() {
+        CampaignProgressStore.clear(this);
+        pendingCampaignBoardRestore = null;
+        pendingCampaignResumeQuestion = -1;
+    }
+
+    private void loadCampaignProgressIfNeeded(Bundle savedInstanceState) {
+        if (!campaignMode || campaignStageId == null || campaignStageId.trim().isEmpty()) return;
+        try {
+            JSONObject record = null;
+            if (savedInstanceState != null && savedInstanceState.containsKey("campaignProgressJson")) {
+                String raw = savedInstanceState.getString("campaignProgressJson");
+                if (raw != null && !raw.trim().isEmpty()) {
+                    record = new JSONObject(raw);
+                }
+            }
+            if (record == null) {
+                record = CampaignProgressStore.get(this, campaignStageId);
+            }
+            if (record == null) return;
+
+            if (!campaignStageId.equals(record.optString("stageId", ""))) {
+                return;
+            }
+
+            campaignCorrectAnswers = record.optInt("correctAnswers", campaignCorrectAnswers);
+            campaignWrongAnswers = record.optInt("wrongAnswers", campaignWrongAnswers);
+            campaignAnsweredQuestions = record.optInt("answeredQuestions", campaignAnsweredQuestions);
+            campaignLivesRemaining = record.optInt("livesRemaining", campaignLivesRemaining);
+            campaignStartedAtMs = record.optLong("startedAtMs", campaignStartedAtMs);
+            usedHelp5050 = record.optBoolean("usedHelp5050", usedHelp5050);
+            usedHelpAudience = record.optBoolean("usedHelpAudience", usedHelpAudience);
+            usedHelpCall = record.optBoolean("usedHelpCall", usedHelpCall);
+
+            if (campaignBoard) {
+                boardMyCorrectCount = record.optInt("boardMyCorrectCount", boardMyCorrectCount);
+                pendingCampaignBoardRestore = record;
+            } else {
+                int resumeIndex = record.optInt("currentQuestion", -1);
+                if (resumeIndex >= 0) {
+                    pendingCampaignResumeQuestion = resumeIndex;
+                    savedCampaignAmount = record.optString("currentAmount", "$0");
+                    currentStep = record.optInt("currentStep", resumeIndex);
+
+                    JSONArray qArr = record.optJSONArray("questions");
+                    if (qArr != null && qArr.length() > 0) {
+                        ArrayList<Question> loadedQuestions = new ArrayList<>();
+                        for (int i = 0; i < qArr.length(); i++) {
+                            Question q = questionFromJson(qArr.optJSONObject(i));
+                            if (q != null) loadedQuestions.add(q);
+                        }
+                        if (!loadedQuestions.isEmpty()) {
+                            questions = loadedQuestions;
+                            questionsReady = true;
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+    }
+
+    private void saveCampaignProgress(String phase) {
+        if (!campaignMode || campaignResultPersisted || EXITING) return;
+        if (campaignBoard) {
+            saveCampaignBoardProgress(phase);
+        } else {
+            saveCampaignClassicProgress();
+        }
+    }
+
+    private void saveCampaignBoardProgress(String phase) {
+        if (!campaignMode || !campaignBoard || campaignResultPersisted || EXITING) return;
+        try {
+            JSONObject record = new JSONObject();
+            long now = System.currentTimeMillis();
+            record.put("stageId", campaignStageId);
+            record.put("campaignId", campaignId);
+            record.put("mode", "campaign");
+            record.put("campaignBoard", true);
+            record.put("boardKind", boardCampaignKind);
+            record.put("updatedAt", now);
+            record.put("status", OfflineBoardGameStore.STATUS_IN_PROGRESS);
+            String safePhase = (phase == null || phase.trim().isEmpty())
+                    ? currentOfflineBoardPhase() : phase.trim();
+            record.put("phase", safePhase);
+            int playerCount = offlineContestants == null ? 0 : offlineContestants.contestantCount();
+            record.put("playerCount", Math.max(1, playerCount));
+            record.put("characterIndex", boardCharacterIndex);
+            record.put("turnIndex", Math.max(0, boardTurnIndex));
+            record.put("totalTurns", Math.max(0, boardTotalTurns));
+            record.put("boardMyCorrectCount", Math.max(0, boardMyCorrectCount));
+            record.put("correctAnswers", Math.max(0, campaignCorrectAnswers));
+            record.put("wrongAnswers", Math.max(0, campaignWrongAnswers));
+            record.put("answeredQuestions", Math.max(0, campaignAnsweredQuestions));
+            record.put("livesRemaining", Math.max(0, campaignLivesRemaining));
+            record.put("startedAtMs", campaignStartedAtMs);
+            record.put("usedHelp5050", usedHelp5050);
+            record.put("usedHelpAudience", usedHelpAudience);
+            record.put("usedHelpCall", usedHelpCall);
+
+            JSONObject state = new JSONObject();
+            state.put("phase", safePhase);
+            state.put("boardCols", boardCols);
+            state.put("cellsRemaining", boardCellsRemaining);
+            state.put("turnIndex", boardTurnIndex);
+            state.put("totalTurns", boardTotalTurns);
+            state.put("pickerSlot", boardPickerSlot);
+            state.put("pickerIsHuman", boardPickerIsHuman);
+            state.put("pickedCol", boardPickedCol);
+            state.put("pickedRow", boardPickedRow);
+            state.put("revealCount", boardRevealCount);
+            state.put("optionsRevealed", boardOptionsRevealed);
+
+            JSONArray names = new JSONArray();
+            JSONArray scores = new JSONArray();
+            JSONArray intelligence = new JSONArray();
+            for (int i = 0; i < playerCount; i++) {
+                names.put(offlineContestants.nameForSlot(i));
+                scores.put(offlineContestants.scoreForSlot(i));
+                intelligence.put(offlineContestants.intelligenceForSlot(i));
+            }
+            state.put("names", names);
+            state.put("scores", scores);
+            state.put("intelligence", intelligence);
+            record.put("names", names);
+            record.put("scores", scores);
+
+            JSONArray categories = new JSONArray();
+            for (String category : boardSelectedCategories) {
+                categories.put(category == null ? "" : category);
+            }
+            state.put("selectedCategories", categories);
+
+            JSONArray cells = new JSONArray();
+            if (boardCellQuestion != null) {
+                for (int col = 0; col < boardCols; col++) {
+                    JSONArray colArray = new JSONArray();
+                    for (int row = 0; row < BOARD_ROWS; row++) {
+                        JSONObject cell = new JSONObject();
+                        cell.put("consumed", boardCellConsumed != null
+                                && col < boardCellConsumed.length
+                                && boardCellConsumed[col] != null
+                                && row < boardCellConsumed[col].length
+                                && boardCellConsumed[col][row]);
+                        Question q = (col < boardCellQuestion.length && boardCellQuestion[col] != null
+                                && row < boardCellQuestion[col].length)
+                                ? boardCellQuestion[col][row] : null;
+                        cell.put("question", questionToJson(q));
+                        colArray.put(cell);
+                    }
+                    cells.put(colArray);
+                }
+            }
+            state.put("cells", cells);
+            record.put("state", state);
+
+            CampaignProgressStore.save(this, campaignStageId, record);
+        } catch (Exception ignored) {}
+    }
+
+    private void saveCampaignClassicProgress() {
+        if (!campaignMode || campaignBoard || campaignResultPersisted || EXITING) return;
+        if (currentQuestion < 0) return;
+        try {
+            JSONObject record = new JSONObject();
+            record.put("stageId", campaignStageId);
+            record.put("campaignId", campaignId);
+            record.put("mode", "campaign");
+            record.put("campaignBoard", false);
+            record.put("currentQuestion", currentQuestion);
+            record.put("currentStep", currentStep);
+            record.put("currentAmount", txtAmount != null ? txtAmount.getText().toString() : "$0");
+            record.put("correctAnswers", campaignCorrectAnswers);
+            record.put("wrongAnswers", campaignWrongAnswers);
+            record.put("answeredQuestions", campaignAnsweredQuestions);
+            record.put("livesRemaining", campaignLivesRemaining);
+            record.put("startedAtMs", campaignStartedAtMs);
+            record.put("usedHelp5050", usedHelp5050);
+            record.put("usedHelpAudience", usedHelpAudience);
+            record.put("usedHelpCall", usedHelpCall);
+
+            if (questions != null && !questions.isEmpty()) {
+                JSONArray qArr = new JSONArray();
+                for (Question q : questions) {
+                    qArr.put(questionToJson(q));
+                }
+                record.put("questions", qArr);
+            }
+
+            CampaignProgressStore.save(this, campaignStageId, record);
+        } catch (Exception ignored) {}
+    }
+
+    private boolean restoreCampaignBoardState(JSONObject record) {
+        if (record == null || campaignBoardRestoreConsumed) return false;
+        JSONObject state = record.optJSONObject("state");
+        if (state == null) return false;
+        JSONArray categories = state.optJSONArray("selectedCategories");
+        if (categories == null || categories.length() == 0) {
+            String phase = state.optString("phase", record.optString("phase", ""));
+            if (OfflineBoardGameStore.PHASE_CATEGORY_SELECT.equals(phase) && "playerPick".equals(boardCategoryPolicy)) {
+                campaignBoardRestoreConsumed = true;
+                showCategorySelect();
+                return true;
+            }
+            return false;
+        }
+
+        campaignBoardRestoreConsumed = true;
+        stopCategorySelectMusicIfPlaying();
+        JSONArray names = state.optJSONArray("names");
+        JSONArray scores = state.optJSONArray("scores");
+        JSONArray intelligence = state.optJSONArray("intelligence");
+        int count = offlineContestants.contestantCount();
+        for (int i = 0; i < count; i++) {
+            if (names != null) offlineContestants.setContestantName(i, names.optString(i, offlineContestants.nameForSlot(i)));
+            if (scores != null) offlineContestants.setScoreForSlot(i, scores.optInt(i, 0));
+            if (intelligence != null) offlineContestants.setIntelligenceForSlot(i, intelligence.optInt(i, offlineContestants.intelligenceForSlot(i)));
+        }
+
+        boardSelectedCategories.clear();
+        for (int i = 0; i < categories.length(); i++) {
+            String category = categories.optString(i, "");
+            if (!category.trim().isEmpty()) boardSelectedCategories.add(category);
+        }
+        boardCols = Math.max(1, Math.min(boardSelectedCategories.size(),
+                state.optInt("boardCols", boardSelectedCategories.size())));
+        boardCellQuestion = new Question[boardCols][BOARD_ROWS];
+        boardCellConsumed = new boolean[boardCols][BOARD_ROWS];
+
+        JSONArray cells = state.optJSONArray("cells");
+        Set<Question> used = new HashSet<>();
+        for (int col = 0; col < boardCols; col++) {
+            for (int row = 0; row < BOARD_ROWS; row++) {
+                JSONObject cell = null;
+                if (cells != null) {
+                    JSONArray colArray = cells.optJSONArray(col);
+                    if (colArray != null) cell = colArray.optJSONObject(row);
+                }
+                if (cell != null) {
+                    boardCellConsumed[col][row] = cell.optBoolean("consumed", false);
+                    boardCellQuestion[col][row] = questionFromJson(cell.optJSONObject("question"));
+                }
+                if (boardCellQuestion[col][row] == null) {
+                    String category = boardSelectedCategories.get(Math.min(col, boardSelectedCategories.size() - 1));
+                    boardCellQuestion[col][row] = drawBoardQuestion(category, boardTierForRow(row), used);
+                }
+            }
+        }
+
+        boardCellsRemaining = state.optInt("cellsRemaining", countRemainingBoardCells());
+        boardTurnIndex = state.optInt("turnIndex", 0);
+        boardTotalTurns = state.optInt("totalTurns", Math.max(0, boardCols * BOARD_ROWS));
+        boardPickerSlot = state.optInt("pickerSlot", 0);
+        boardPickerIsHuman = state.optBoolean("pickerIsHuman", boardPickerSlot == 0);
+        boardPickedCol = state.optInt("pickedCol", -1);
+        boardPickedRow = state.optInt("pickedRow", -1);
+        boardRevealCount = Math.max(0, state.optInt("revealCount", 0));
+        boardOptionsRevealed = state.optBoolean("optionsRevealed", false);
+
+        boardMyCorrectCount = record.optInt("boardMyCorrectCount", boardMyCorrectCount);
+        campaignCorrectAnswers = record.optInt("correctAnswers", campaignCorrectAnswers);
+        campaignWrongAnswers = record.optInt("wrongAnswers", campaignWrongAnswers);
+        campaignAnsweredQuestions = record.optInt("answeredQuestions", campaignAnsweredQuestions);
+        campaignLivesRemaining = record.optInt("livesRemaining", campaignLivesRemaining);
+        campaignStartedAtMs = record.optLong("startedAtMs", campaignStartedAtMs);
+
+        String phase = state.optString("phase", record.optString("phase", OfflineBoardGameStore.PHASE_BOARD));
+        if (OfflineBoardGameStore.PHASE_QUESTION.equals(phase)
+                && boardPickedCol >= 0 && boardPickedCol < boardCols
+                && boardPickedRow >= 0 && boardPickedRow < BOARD_ROWS
+                && !boardCellConsumed[boardPickedCol][boardPickedRow]) {
+            boardCurrentQuestion = boardCellQuestion[boardPickedCol][boardPickedRow];
+            hideBoardOverlay();
+            initQuestion();
+            CAN_PLAY = false;
+            showBoardQuestion(boardCurrentQuestion, boardPickerIsHuman);
+        } else {
+            beginBoardTurn();
+        }
+        return true;
+    }
+
     // ---- Team-names setup (التحدي الرئيسي) ------------------------------
 
     /** First screen of التحدي الرئيسي: enter the two team names, then pick the 6
@@ -2805,7 +3202,7 @@ public class GameActivity extends AppCompatActivity {
         return input;
     }
 
-    /** Sets up the offline board contestants for a رحلة المليون stage (solo or boss). */
+    /** Sets up the offline board contestants for a تحدي المراحل stage (solo or boss). */
     private void setupCampaignBoardMatch(int characterIndex) {
         boardMode = true;
         boardCampaignMatch = true;
@@ -2835,6 +3232,7 @@ public class GameActivity extends AppCompatActivity {
             boardCols = Math.max(2, Math.min(boardSoloCols, boardAllCategories.size()));
         }
         if ("playerPick".equals(boardCategoryPolicy)) {
+            saveCampaignProgress(OfflineBoardGameStore.PHASE_CATEGORY_SELECT);
             showCategorySelect();
         } else {
             onCategoriesChosen(pickCampaignCategories(boardCols));
@@ -3077,6 +3475,9 @@ public class GameActivity extends AppCompatActivity {
         if (shouldSaveOfflineBoard()) {
             saveOfflineBoardProgress(OfflineBoardGameStore.PHASE_BOARD);
         }
+        if (boardCampaignMatch) {
+            saveCampaignProgress(OfflineBoardGameStore.PHASE_BOARD);
+        }
         beginBoardTurn();
     }
 
@@ -3179,6 +3580,9 @@ public class GameActivity extends AppCompatActivity {
         if (shouldSaveOfflineBoard()) {
             saveOfflineBoardProgress(OfflineBoardGameStore.PHASE_BOARD);
         }
+        if (boardCampaignMatch) {
+            saveCampaignProgress(OfflineBoardGameStore.PHASE_BOARD);
+        }
         showBoardGrid();
         if (!boardPickerIsHuman) {
             new Handler().postDelayed(new Runnable() {
@@ -3201,6 +3605,9 @@ public class GameActivity extends AppCompatActivity {
         boardCurrentQuestion = boardCellQuestion[boardPickedCol][boardPickedRow];
         if (shouldSaveOfflineBoard()) {
             saveOfflineBoardProgress(OfflineBoardGameStore.PHASE_QUESTION);
+        }
+        if (boardCampaignMatch) {
+            saveCampaignProgress(OfflineBoardGameStore.PHASE_QUESTION);
         }
         enterBoardQuestion(false);
     }
@@ -3226,6 +3633,9 @@ public class GameActivity extends AppCompatActivity {
         if (shouldSaveOfflineBoard()) {
             saveOfflineBoardProgress(OfflineBoardGameStore.PHASE_QUESTION);
         }
+        if (boardCampaignMatch) {
+            saveCampaignProgress(OfflineBoardGameStore.PHASE_QUESTION);
+        }
         if (boardOnline) {
             cancelBoardSelectTimer();
             writeOnlineTurnPick(boardOnlineTurn, col, row);
@@ -3247,6 +3657,9 @@ public class GameActivity extends AppCompatActivity {
         }
         if (shouldSaveOfflineBoard()) {
             saveOfflineBoardProgress(OfflineBoardGameStore.PHASE_QUESTION);
+        }
+        if (boardCampaignMatch) {
+            saveCampaignProgress(OfflineBoardGameStore.PHASE_QUESTION);
         }
     }
 
@@ -3276,6 +3689,9 @@ public class GameActivity extends AppCompatActivity {
         }
         if (shouldSaveOfflineBoard()) {
             saveOfflineBoardProgress(OfflineBoardGameStore.PHASE_BOARD);
+        }
+        if (boardCampaignMatch) {
+            saveCampaignProgress(OfflineBoardGameStore.PHASE_BOARD);
         }
         beginBoardTurn();
     }
@@ -4813,9 +5229,16 @@ public class GameActivity extends AppCompatActivity {
             boardSelectCountdownView = null;
             return;
         }
-        boardSelectTimer = new CountDownTimer(BOARD_SELECT_SECONDS * 1000L, 1000L) {
+        startBoardSelectTimerWithDuration(BOARD_SELECT_SECONDS * 1000L);
+    }
+
+    private void startBoardSelectTimerWithDuration(long durationMs) {
+        cancelBoardSelectTimer();
+        boardSelectRemainingMs = durationMs;
+        boardSelectTimer = new CountDownTimer(durationMs, 1000L) {
             @Override
             public void onTick(long ms) {
+                boardSelectRemainingMs = ms;
                 int secs = (int) Math.ceil(ms / 1000.0);
                 if (boardSelectCountdownView != null) {
                     boardSelectCountdownView.setText("⏱ " + secs);
@@ -4827,6 +5250,7 @@ public class GameActivity extends AppCompatActivity {
             @Override
             public void onFinish() {
                 boardSelectTimer = null;
+                boardSelectRemainingMs = 0L;
                 if (EXITING || !boardMode || !boardPickerIsHuman) return;
                 View overlay = findViewById(R.id.boardOverlay);
                 if (overlay == null || overlay.getVisibility() != View.VISIBLE) return;
@@ -4845,6 +5269,8 @@ public class GameActivity extends AppCompatActivity {
             boardSelectTimer.cancel();
             boardSelectTimer = null;
         }
+        boardSelectRemainingMs = 0L;
+        wasBoardSelectTimerRunningBeforePause = false;
     }
 
     /** One category block: 200/400/600 pills on each side of the artwork card. */
@@ -5720,6 +6146,9 @@ public class GameActivity extends AppCompatActivity {
         }
         if (shouldSaveOfflineBoard()) {
             saveOfflineBoardProgress(OfflineBoardGameStore.PHASE_QUESTION);
+        }
+        if (boardCampaignMatch) {
+            saveCampaignProgress(OfflineBoardGameStore.PHASE_QUESTION);
         }
         showDialog("اختر الإجابة الصحيحة (القيمة الآن " + currentBoardAwardValue() + ")",
                 "", 600, 1400, R.drawable.mouth_01, true);
@@ -8145,7 +8574,12 @@ public class GameActivity extends AppCompatActivity {
             return;
         }
         campaignStartedAtMs = System.currentTimeMillis();
-        campaignStageTimer = new CountDownTimer(campaignTimeLimitSeconds * 1000L, 1000L) {
+        startCampaignStageTimerWithDuration(campaignTimeLimitSeconds * 1000L);
+    }
+
+    private void startCampaignStageTimerWithDuration(long durationMs) {
+        stopCampaignStageTimer();
+        campaignStageTimer = new CountDownTimer(durationMs, 1000L) {
             @Override
             public void onTick(long millisUntilFinished) {
                 if (txtCampaignTimer != null) {
@@ -8206,6 +8640,7 @@ public class GameActivity extends AppCompatActivity {
         if (!campaignMode) {
             return;
         }
+        clearCampaignProgress();
         Log.d("CampaignStage", "CAMP_FINISH_TO_FLUTTER");
             stopCurrentSound();
         if (cdtProgress != null) cdtProgress.cancel();
@@ -8352,25 +8787,54 @@ public class GameActivity extends AppCompatActivity {
                         }
                         if (modeOnline)
                             showDialog("نبدأ الآن.. استعدوا للمباراة", "", 1000, 3000, R.drawable.mouth_01, false);
-                        else if (campaignMode)
-                            showDialog(getCampaignOpeningMessage(), "", 1000, 3000, R.drawable.mouth_01, false);
-                        else
+                        else if (campaignMode) {
+                            String msg = (pendingCampaignResumeQuestion >= 0)
+                                    ? "مرحباً بعودتك.. نتابع تحدي المراحل"
+                                    : getCampaignOpeningMessage();
+                            showDialog(msg, "", 1000, (pendingCampaignResumeQuestion >= 0) ? 2000 : 3000, R.drawable.mouth_01, false);
+                        } else
                             showDialog("نبدأ الآن.. بالتوفيق للجميع", "", 1000, 3000, R.drawable.mouth_01, false);
-                        handler.postDelayed(this, 5000);
+                        handler.postDelayed(this, (campaignMode && pendingCampaignResumeQuestion >= 0) ? 2500 : 5000);
                         break;
                     case 2:
                         playSound(R.raw.lets_play, true, false);
                         person.moveHead(2000);
                         person.lookAside(2500);
-                        showDialog("السؤال الأول يقول ..", "", 1000, 2000, R.drawable.mouth_01, false);
+                        if (campaignMode && pendingCampaignResumeQuestion >= 0) {
+                            showDialog("نتابع المرحلة.. السؤال رقم " + (pendingCampaignResumeQuestion + 1) + " يقول ..", "", 1000, 2000, R.drawable.mouth_01, false);
+                        } else {
+                            showDialog("السؤال الأول يقول ..", "", 1000, 2000, R.drawable.mouth_01, false);
+                        }
                         handler.postDelayed(this, 2000);
                         break;
                     case 3:
                         if (campaignMode) {
-                            campaignStartedAtMs = System.currentTimeMillis();
+                            if (campaignStartedAtMs <= 0L) {
+                                campaignStartedAtMs = System.currentTimeMillis();
+                            }
                         }
                         startCampaignStageTimerIfNeeded();
-                        if (modeOnline || campaignBossBattle) {
+                        if (campaignMode && pendingCampaignResumeQuestion >= 0 && questions != null && pendingCampaignResumeQuestion < questions.size()) {
+                            int resumeQ = pendingCampaignResumeQuestion;
+                            pendingCampaignResumeQuestion = -1;
+                            currentStep = resumeQ;
+                            for (int s = 0; s < steps.size(); s++) {
+                                if (s < resumeQ) {
+                                    steps.get(s).setBackgroundResource(R.color.darkBlueApp);
+                                } else if (s == resumeQ) {
+                                    steps.get(s).setBackgroundResource(R.color.stepSelected);
+                                } else {
+                                    steps.get(s).setBackgroundResource(android.R.color.transparent);
+                                }
+                            }
+                            if (savedCampaignAmount != null && !savedCampaignAmount.isEmpty()) {
+                                txtAmount.setText(savedCampaignAmount);
+                            }
+                            campaignHudController.updateProgressHud(false);
+                            updateInventoryBadges();
+                            applyCampaignLifelineRestrictions();
+                            showQuestionNow(resumeQ);
+                        } else if (modeOnline || campaignBossBattle) {
                             requestSynchronizedQuestion(0);
                         } else {
                             nextQuestion();
@@ -8456,6 +8920,30 @@ public class GameActivity extends AppCompatActivity {
         }, 2000);
     }
 
+    private void handleQuestionTimeout() {
+        if (cdtProgress != null) {
+            cdtProgress.cancel();
+            cdtProgress = null;
+        }
+        isQuestionTimerRunning = false;
+        wasTimerRunningBeforePause = false;
+        PROGRESS_VALUE = 300;
+        //TIMER_VALUE = 10000;
+        if (modeOnline && !boardMode) {
+            CAN_PLAY = false;
+            // Only submit timeout if the player hasn't already
+            // submitted (or selected an answer awaiting confirm).
+            // This prevents the timer from overwriting a valid
+            // answer with a timeout right before resolution.
+            if (!myAnswerSubmitted) {
+                submitOnlineAnswer(0);
+                resolveOnlineRoundIfReady();
+            }
+        } else {
+            checkAnswer(true);
+        }
+    }
+
     void startTimer(boolean start) {
         int randomTime = 15;
         if (!EXITING) {
@@ -8478,60 +8966,63 @@ public class GameActivity extends AppCompatActivity {
                     scheduleCampaignBossAnswer();
                 }
             }
+            isQuestionTimerRunning = true;
+            if (cdtProgress != null) {
+                cdtProgress.cancel();
+                cdtProgress = null;
+            }
             final int finalRandomTime = randomTime;
-            cdtProgress = new CountDownTimer(50000, 100) {
+            long timerDurationMs = Math.max(50000L, (PROGRESS_VALUE + 50) * 100L);
+            cdtProgress = new CountDownTimer(timerDurationMs, 100) {
                 int pbText;
 
                 @Override
                 public void onTick(long l) {
                     //TIMER_VALUE = l;
                     PROGRESS_VALUE--;
-                    if (PROGRESS_VALUE > 0) pbTime.setProgress(PROGRESS_VALUE);
+                    if (PROGRESS_VALUE > 0 && pbTime != null) {
+                        pbTime.setProgress(PROGRESS_VALUE);
+                    }
+                    if (PROGRESS_VALUE <= 0) {
+                        this.cancel();
+                        handleQuestionTimeout();
+                        return;
+                    }
                     if ((PROGRESS_VALUE % 10) == 0) {
                         pbText = PROGRESS_VALUE / 10;
-                        txtProgress.setText(pbText + "");
-                        if (pbText > 10)
-                            pbTime.setRingProgressColor(getResources().getColor(R.color.progressGreen));
-                        else if (pbText > 5) {
-                            if (SOUND_ON)
-                            mpBeep.start();
-                            pbTime.setRingProgressColor(getResources().getColor(R.color.progressOrange));
+                        if (txtProgress != null) {
+                            txtProgress.setText(pbText + "");
+                        }
+                        if (pbText > 10) {
+                            if (pbTime != null) {
+                                pbTime.setRingProgressColor(getResources().getColor(R.color.progressGreen));
+                            }
+                        } else if (pbText > 5) {
+                            if (SOUND_ON && mpBeep != null) {
+                                try { mpBeep.start(); } catch (Exception ignored) {}
+                            }
+                            if (pbTime != null) {
+                                pbTime.setRingProgressColor(getResources().getColor(R.color.progressOrange));
+                            }
                         } else if (pbText > 0) {
-                            if (SOUND_ON)
-                            mpBeep1.start();
-                            pbTime.setRingProgressColor(getResources().getColor(R.color.progressRed));
+                            if (SOUND_ON && mpBeep1 != null) {
+                                try { mpBeep1.start(); } catch (Exception ignored) {}
+                            }
+                            if (pbTime != null) {
+                                pbTime.setRingProgressColor(getResources().getColor(R.color.progressRed));
+                            }
                         } else {
                             this.cancel();
-                            PROGRESS_VALUE = 300;
-                            //TIMER_VALUE = 10000;
-                            if (modeOnline && !boardMode) {
-                                CAN_PLAY = false;
-                                // Only submit timeout if the player hasn't already
-                                // submitted (or selected an answer awaiting confirm).
-                                // This prevents the timer from overwriting a valid
-                                // answer with a timeout right before resolution.
-                                if (!myAnswerSubmitted) {
-                                    submitOnlineAnswer(0);
-                                    resolveOnlineRoundIfReady();
-                                }
-                            } else {
-                                checkAnswer(true);
-                            }
-                            //onWrongAnswer(true);
-                            /*if(modeOnline) {
-                                if(opponentAnswer>0) {
-                                    showThumbPlayerAnswer(2, opponentAnswer);
-                                    checkAnswer();
-                                    //Toast.makeText(GameActivity.this, "Opponent answer : "+opponentAnswer, Toast.LENGTH_SHORT).show();
-                                }
-
-                            }*/
+                            handleQuestionTimeout();
                         }
                     }
                 }
 
                 @Override
                 public void onFinish() {
+                    if (isQuestionTimerRunning) {
+                        handleQuestionTimeout();
+                    }
                 }
             }.start();
         }
@@ -8540,8 +9031,11 @@ public class GameActivity extends AppCompatActivity {
     private void stopTimer(boolean pause) {
         if (cdtProgress != null) {
             cdtProgress.cancel();
+            cdtProgress = null;
         }
+        isQuestionTimerRunning = false;
         if (!pause) {
+            wasTimerRunningBeforePause = false;
             Animations.progressZoomOut(rlyProgress);
             //TIMER_VALUE = 10000;
             PROGRESS_VALUE = 300;
@@ -8806,6 +9300,9 @@ public class GameActivity extends AppCompatActivity {
             currentQuestion = questionIndex;
             updateQuestionCounter();
             campaignHudController.updateProgressHud(false);
+            if (campaignMode && !campaignBoard) {
+                saveCampaignProgress(null);
+            }
             spectatorEliminationRound = eliminationMode && localPlayerEliminated;
             scheduledQuestionStartAt = 0L;
             pendingQuestionIndex = -1;
@@ -9087,6 +9584,29 @@ public class GameActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         ACTIVITY_PAUSED = true;
+        if (isQuestionTimerRunning && cdtProgress != null) {
+            wasTimerRunningBeforePause = true;
+            timerPauseElapsedRealtime = SystemClock.elapsedRealtime();
+            cdtProgress.cancel();
+            cdtProgress = null;
+        } else {
+            wasTimerRunningBeforePause = false;
+        }
+        if (boardSelectTimer != null) {
+            wasBoardSelectTimerRunningBeforePause = true;
+            boardSelectPauseElapsedRealtime = SystemClock.elapsedRealtime();
+            boardSelectTimer.cancel();
+            boardSelectTimer = null;
+        } else {
+            wasBoardSelectTimerRunningBeforePause = false;
+        }
+        if (campaignStageTimer != null) {
+            wasCampaignStageTimerRunningBeforePause = true;
+            campaignStageTimer.cancel();
+            campaignStageTimer = null;
+        } else {
+            wasCampaignStageTimerRunningBeforePause = false;
+        }
         if (boardLocalTeams && boardMode && !localTeamsFinished) {
             boolean safeToSave = boardCurrentQuestion == null || boardAwaitingTypedInput || CAN_PLAY;
             if (safeToSave) {
@@ -9099,8 +9619,13 @@ public class GameActivity extends AppCompatActivity {
                 saveOfflineBoardProgress(currentOfflineBoardPhase());
             }
         }
+        if (campaignMode && !campaignResultPersisted && !EXITING) {
+            boolean safeToSave = !campaignBoard || boardCurrentQuestion == null || boardAwaitingTypedInput || CAN_PLAY;
+            if (safeToSave) {
+                saveCampaignProgress(currentOfflineBoardPhase());
+            }
+        }
         if (backgroundVideoController != null) backgroundVideoController.pause();
-        if(cdtProgress != null) cdtProgress.cancel();
         if (soundController != null) soundController.releaseCurrent();
         GameSoundController.release(mpBeep);
         mpBeep = null;
@@ -9111,6 +9636,10 @@ public class GameActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        isQuestionTimerRunning = false;
+        wasTimerRunningBeforePause = false;
+        wasBoardSelectTimerRunningBeforePause = false;
+        wasCampaignStageTimerRunningBeforePause = false;
         if (boardKeyboardLayoutListener != null && getWindow() != null && getWindow().getDecorView() != null) {
             getWindow().getDecorView().getViewTreeObserver().removeOnGlobalLayoutListener(boardKeyboardLayoutListener);
             boardKeyboardLayoutListener = null;
@@ -9212,6 +9741,7 @@ public class GameActivity extends AppCompatActivity {
         }
     }
     private void persistPendingCampaignStageResult(boolean completed, int money, int wrongAnswers) {
+        clearCampaignProgress();
         campaignResultStore.persistPendingStageResult(completed, money, wrongAnswers);
     }
 

@@ -191,7 +191,7 @@ class CampaignResultHandler {
   }
 
   static const String _loggedOutSaveMessage =
-      'سجّل الدخول لحفظ تقدمك في رحلة المليون.';
+      'سجّل الدخول لحفظ تقدمك في تحدي المراحل.';
 
   static String saveFailureMessage(Object error) => _saveFailureMessage(error);
 

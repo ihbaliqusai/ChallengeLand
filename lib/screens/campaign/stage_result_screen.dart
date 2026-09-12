@@ -56,7 +56,7 @@ class _StageResultScreenState extends State<StageResultScreen>
     return submissionResult.attempt.uid.isEmpty && rawNativeResult != null;
   }
 
-  // رحلة المليون board boss stages carry the neutral `classic` type/mode, so the
+  // تحدي المراحل board boss stages carry the neutral `classic` type/mode, so the
   // legacy fields alone never flag them. `stage.isBossStage` catches every 10th
   // (board) stage as well as any legacy single-boss stage.
   bool get _isBossStage =>
@@ -385,7 +385,7 @@ class _StageResultScreenState extends State<StageResultScreen>
         ..hideCurrentSnackBar()
         ..showSnackBar(
           const SnackBar(
-            content: Text('سجّل الدخول لحفظ تقدمك في رحلة المليون.'),
+            content: Text('سجّل الدخول لحفظ تقدمك في تحدي المراحل.'),
           ),
         );
       return;
@@ -523,7 +523,7 @@ class _StageResultScreenState extends State<StageResultScreen>
       }
     }
     if (error is ArgumentError) {
-      return 'سجّل الدخول لحفظ تقدمك في رحلة المليون.';
+      return 'سجّل الدخول لحفظ تقدمك في تحدي المراحل.';
     }
     return 'تعذر حفظ النتيجة الآن. سيتم عرض نتيجتك الحالية فقط.';
   }

@@ -837,7 +837,7 @@ class _LoadingState extends StatelessWidget {
           CircularProgressIndicator(color: Color(0xFFFACC15)),
           SizedBox(height: 12),
           Text(
-            'جاري تحميل رحلة المليون...',
+            'جاري تحميل تحدي المراحل...',
             textAlign: TextAlign.center,
             style: TextStyle(
               color: Colors.white,

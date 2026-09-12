@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 class CampaignHeader extends StatelessWidget {
   const CampaignHeader({
@@ -83,7 +83,7 @@ class CampaignHeader extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'رحلة المليون',
+                      'تحدي المراحل',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(

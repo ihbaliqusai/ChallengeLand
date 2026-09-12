@@ -4,6 +4,7 @@ import android.graphics.Color;
 import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.os.Handler;
+import android.os.SystemClock;
 import android.widget.TextView;
 
 /**
@@ -26,6 +27,7 @@ public class BlitzGameActivity extends BaseGameActivity {
     private long globalMillisLeft;
     private boolean blitzFinished = false;
     private boolean timerEverStarted = false;
+    private long blitzPauseTimestamp = 0L;
 
     private static final int COLOR_NORMAL  = Color.WHITE;
     private static final int COLOR_WARNING = Color.parseColor("#FFCC00"); // <= 20s
@@ -151,7 +153,36 @@ public class BlitzGameActivity extends BaseGameActivity {
     }
 
     @Override
+    protected void onPause() {
+        if (timerEverStarted && !blitzFinished && globalMillisLeft > 0) {
+            blitzPauseTimestamp = SystemClock.elapsedRealtime();
+            cancelGlobalTimer();
+        }
+        super.onPause();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (timerEverStarted && !blitzFinished) {
+            if (blitzPauseTimestamp > 0L) {
+                long elapsedMs = SystemClock.elapsedRealtime() - blitzPauseTimestamp;
+                blitzPauseTimestamp = 0L;
+                globalMillisLeft -= elapsedMs;
+                if (globalMillisLeft <= 0) {
+                    globalMillisLeft = 0;
+                    updateTimerText(0);
+                    finishBlitzGame();
+                    return;
+                }
+            }
+            resumeGlobalTimer();
+        }
+    }
+
+    @Override
     protected void onDestroy() {
+        blitzPauseTimestamp = 0L;
         cancelGlobalTimer();
         cancelBlitzBotSimulation();
         super.onDestroy();

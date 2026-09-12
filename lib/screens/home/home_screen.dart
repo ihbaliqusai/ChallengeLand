@@ -1997,7 +1997,7 @@ class _CenterArena extends StatelessWidget {
                 children: [
                   _BattleButton(
                     glowCtrl: glowCtrl,
-                    label: 'رحلة المليون',
+                    label: 'تحدي المراحل',
                     green: true,
                     compact: isCompactHeight,
                     enabled: appState.isOnline,
@@ -2025,7 +2025,7 @@ class _CenterArena extends StatelessWidget {
                   children: [
                     _BattleButton(
                       glowCtrl: glowCtrl,
-                      label: 'Ø±Ø­Ù„Ø© Ø§Ù„Ù…Ù„ÙŠÙˆÙ†',
+                      label: 'تحدي المراحل',
                       green: true,
                       compact: isCompactHeight,
                       enabled: appState.isOnline,
