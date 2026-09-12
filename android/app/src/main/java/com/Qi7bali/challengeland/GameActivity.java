@@ -3115,8 +3115,26 @@ public class GameActivity extends AppCompatActivity {
     }
 
     private ArrayList<Question> boardTierList(String category, int tier) {
-        if (boardPool == null) return null;
+        if (boardPool == null || category == null) return null;
         ArrayList<ArrayList<Question>> tiers = boardPool.get(category);
+        if (tiers == null) {
+            String norm = normalizeArabic(category);
+            if (norm.equals(normalizeArabic("أنمي")) || norm.equals(normalizeArabic("انمي"))) {
+                tiers = boardPool.get("الأنمي");
+                if (tiers == null) tiers = boardPool.get("أنمي");
+            } else if (norm.equals(normalizeArabic("الأنمي")) || norm.equals(normalizeArabic("الانمي"))) {
+                tiers = boardPool.get("أنمي");
+                if (tiers == null) tiers = boardPool.get("الأنمي");
+            } else if (norm.equals(normalizeArabic("قصة مسلسل عربي"))) {
+                tiers = boardPool.get("مسلسلات عربية");
+            } else if (norm.equals(normalizeArabic("قصة فيلم عربي"))) {
+                tiers = boardPool.get("أفلام عربية");
+            } else if (norm.equals(normalizeArabic("قصة مسلسل اجنبي")) || norm.equals(normalizeArabic("قصة مسلسل أجنبي"))) {
+                tiers = boardPool.get("مسلسلات أجنبية");
+            } else if (norm.equals(normalizeArabic("قصة فيلم اجنبي")) || norm.equals(normalizeArabic("قصة فيلم أجنبي"))) {
+                tiers = boardPool.get("أفلام أجنبية");
+            }
+        }
         if (tiers == null || tier < 0 || tier >= tiers.size()) return null;
         return tiers.get(tier);
     }
@@ -5841,7 +5859,21 @@ public class GameActivity extends AppCompatActivity {
             }
         }
         String norm = normalizeArabic(category);
+        if (norm.equals(normalizeArabic("قصة مسلسل عربي"))) {
+            norm = normalizeArabic("مسلسلات عربية");
+        } else if (norm.equals(normalizeArabic("قصة فيلم عربي"))) {
+            norm = normalizeArabic("أفلام عربية");
+        } else if (norm.equals(normalizeArabic("قصة مسلسل اجنبي")) || norm.equals(normalizeArabic("قصة مسلسل أجنبي"))) {
+            norm = normalizeArabic("مسلسلات أجنبية");
+        } else if (norm.equals(normalizeArabic("قصة فيلم اجنبي")) || norm.equals(normalizeArabic("قصة فيلم أجنبي"))) {
+            norm = normalizeArabic("أفلام أجنبية");
+        } else if (norm.equals(normalizeArabic("أنمي")) || norm.equals(normalizeArabic("انمي"))) {
+            norm = normalizeArabic("الأنمي");
+        }
         String exact = categoryAssetIndex.get(norm);
+        if (exact == null && (norm.equals(normalizeArabic("الأنمي")) || norm.equals(normalizeArabic("الانمي")))) {
+            exact = categoryAssetIndex.get(normalizeArabic("أنمي"));
+        }
         if (exact != null) return exact;
         // Fall back to the longest file name contained in the category name (or vice
         // versa) so "جغرافيا ودول" finds جغرافيا.png and "رياضه" finds رياضة.png.

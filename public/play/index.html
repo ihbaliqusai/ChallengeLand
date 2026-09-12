@@ -1484,7 +1484,7 @@
 
       // 3. Category Assets Matcher
       const CATEGORY_FILES = [
-        "ألغاز.png", "أمثال.png", "اختراعات.png", "أنمي.png", "أفلام عربية.png", "أفلام أجنبية.png", "تاريخ.png", "تقنية.png",
+        "ألغاز.png", "أمثال.png", "اختراعات.png", "الأنمي.png", "أنمي.png", "أفلام عربية.png", "أفلام أجنبية.png", "تاريخ.png", "تقنية.png",
         "جسم الإنسان.png", "جغرافيا.png", "حيوانات.png", "خمن الأكلة.png",
         "خمن الاسم.png", "خمن الصورة.png", "خمن المدينة او الدولة.png", "دول.png",
         "دين واسلاميات.png", "ركز شوي.png", "رياضة.png", "زووم.png", "سبيس تون.png",
@@ -1509,12 +1509,23 @@
       }
 
       function getCategoryAssetUrl(categoryName) {
-        if (!categoryName) return "/categories/" + encodeURIComponent("معلومات عامة.png");
-        const norm = normalizeArabic(categoryName);
+        if (!categoryName) return "/categories/" + encodeURIComponent("معلومات عامة.png") + "?v=3";
+        let norm = normalizeArabic(categoryName);
+        if (norm === normalizeArabic("قصة مسلسل عربي")) {
+          norm = normalizeArabic("مسلسلات عربية");
+        } else if (norm === normalizeArabic("قصة فيلم عربي")) {
+          norm = normalizeArabic("أفلام عربية");
+        } else if (norm === normalizeArabic("قصة مسلسل اجنبي") || norm === normalizeArabic("قصة مسلسل أجنبي")) {
+          norm = normalizeArabic("مسلسلات أجنبية");
+        } else if (norm === normalizeArabic("قصة فيلم اجنبي") || norm === normalizeArabic("قصة فيلم أجنبي")) {
+          norm = normalizeArabic("أفلام أجنبية");
+        } else if (norm === normalizeArabic("أنمي") || norm === normalizeArabic("انمي")) {
+          norm = normalizeArabic("الأنمي");
+        }
         for (const file of CATEGORY_FILES) {
           const base = file.replace(/\.png$/i, "");
           if (normalizeArabic(base) === norm) {
-            return "/categories/" + encodeURIComponent(file);
+            return "/categories/" + encodeURIComponent(file) + "?v=3";
           }
         }
         let best = null;
@@ -1524,12 +1535,12 @@
           const normBase = normalizeArabic(base);
           if (norm.includes(normBase) || normBase.includes(norm)) {
             if (normBase.length > bestLen) {
-              best = "/categories/" + encodeURIComponent(file);
+              best = "/categories/" + encodeURIComponent(file) + "?v=3";
               bestLen = normBase.length;
             }
           }
         }
-        return best || ("/categories/" + encodeURIComponent("معلومات عامة.png"));
+        return best || ("/categories/" + encodeURIComponent("معلومات عامة.png") + "?v=3");
       }
 
       // 4. Smart Answer Matching
@@ -1850,7 +1861,7 @@
             const artUrl = getCategoryAssetUrl(categoryName);
             card.innerHTML = `
               <div class="category-card-art">
-                <img src="${artUrl}" alt="${categoryName}" class="category-art-img" onerror="this.src='/categories/معلومات%20عامة.png'" />
+                <img src="${artUrl}" alt="${categoryName}" class="category-art-img" onerror="if(this.src.indexOf('معلومات%20عامة')===-1)this.src='/categories/معلومات%20عامة.png?v=3';" />
               </div>
               <div class="category-card-bar">
                 <span class="category-bar-text">${categoryName}</span>
