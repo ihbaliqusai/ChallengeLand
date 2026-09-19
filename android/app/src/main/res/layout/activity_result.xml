@@ -411,9 +411,34 @@
             android:orientation="horizontal">
 
             <Button
-                android:id="@+id/btnNewGame"
-                android:layout_width="210dp"
+                android:id="@+id/btnDoubleReward"
+                android:layout_width="wrap_content"
+                android:minWidth="190dp"
                 android:layout_height="50dp"
+                android:layout_marginStart="8dp"
+                android:layout_marginEnd="8dp"
+                android:background="@drawable/result_button_gold"
+                android:elevation="6dp"
+                android:fontFamily="@font/baloo"
+                android:gravity="center"
+                android:minHeight="0dp"
+                android:paddingStart="18dp"
+                android:paddingEnd="18dp"
+                android:stateListAnimator="@null"
+                android:text="ضاعف الجائزة 2x 🎬 (+200)"
+                android:textAllCaps="false"
+                android:textColor="#111827"
+                android:textSize="15.5sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
+
+            <Button
+                android:id="@+id/btnNewGame"
+                android:layout_width="wrap_content"
+                android:minWidth="180dp"
+                android:layout_height="50dp"
+                android:layout_marginStart="8dp"
+                android:layout_marginEnd="8dp"
                 android:background="@drawable/result_button_primary"
                 android:fontFamily="@font/baloo"
                 android:gravity="center"
@@ -429,9 +454,11 @@
 
             <Button
                 android:id="@+id/btnHome"
-                android:layout_width="210dp"
+                android:layout_width="wrap_content"
+                android:minWidth="180dp"
                 android:layout_height="50dp"
-                android:layout_marginStart="12dp"
+                android:layout_marginStart="8dp"
+                android:layout_marginEnd="8dp"
                 android:background="@drawable/result_button_secondary"
                 android:fontFamily="@font/baloo"
                 android:gravity="center"

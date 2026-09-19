@@ -110,6 +110,7 @@ public class GameActivity extends AppCompatActivity {
     GameBackgroundVideoController backgroundVideoController;
     GameSoundController soundController;
     GameInterstitialAdController interstitialAdController;
+    GameRewardedAdController rewardedAdController;
     GameLifelineController lifelineController;
     GameLayoutController layoutController;
     GameOpponentHudController opponentHudController;
@@ -440,6 +441,8 @@ public class GameActivity extends AppCompatActivity {
         backgroundVideoController.setup();
         soundController = new GameSoundController(this);
         interstitialAdController = new GameInterstitialAdController(this);
+        rewardedAdController = new GameRewardedAdController(this);
+        rewardedAdController.preload();
         lifelineController = new GameLifelineController(this);
         layoutController = new GameLayoutController(this);
         opponentHudController = new GameOpponentHudController(this);
@@ -3366,16 +3369,20 @@ public class GameActivity extends AppCompatActivity {
                     tile.setOnClickListener(new View.OnClickListener() {
                         @Override
                         public void onClick(View v) {
+                            if (!AppPrefs.isCategoryUnlocked(GameActivity.this, category)) {
+                                showCategoryUnlockDialog(category, tile, selected, counter, confirm);
+                                return;
+                            }
                             if (selected.contains(category)) {
                                 selected.remove(category);
-                                tile.setBackground(categoryTileBg(false));
+                                tile.setBackground(categoryTileBg(false, false));
                             } else {
                                 if (selected.size() >= boardCols) {
                                     Toast.makeText(GameActivity.this, "اخترت " + boardCols + " فئات بالفعل", Toast.LENGTH_SHORT).show();
                                     return;
                                 }
                                 selected.add(category);
-                                tile.setBackground(categoryTileBg(true));
+                                tile.setBackground(categoryTileBg(true, false));
                             }
                             counter.setText(selected.size() + " / " + boardCols);
                             boolean ready = selected.size() == boardCols;
@@ -3417,12 +3424,149 @@ public class GameActivity extends AppCompatActivity {
         overlay.addView(scroll);
     }
 
-    private FrameLayout makeCategoryTile(String category) {
+    private FrameLayout makeCategoryTile(final String category) {
+        final boolean isUnlocked = AppPrefs.isCategoryUnlocked(this, category);
         FrameLayout tile = new FrameLayout(this);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dpx(86), 1f);
         lp.setMargins(dpx(5), dpx(5), dpx(5), dpx(5));
         tile.setLayoutParams(lp);
-        tile.setBackground(categoryTileBg(false));
+        tile.setTag(category);
+        tile.setBackground(categoryTileBg(false, !isUnlocked));
+        Bitmap art = categoryBitmap(category);
+        if (art != null) {
+            ImageView img = new ImageView(this);
+            img.setImageBitmap(art);
+            img.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            img.setPadding(dpx(6), dpx(4), dpx(6), dpx(24));
+            if (!isUnlocked) {
+                img.setAlpha(0.55f);
+            }
+            img.setLayoutParams(new FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+            tile.addView(img);
+        }
+        TextView label = makeBoardText(category, 12f, 0xFFFFFFFF, Gravity.CENTER);
+        label.setMaxLines(1);
+        label.setPadding(dpx(4), dpx(2), dpx(4), dpx(2));
+        label.setLayoutParams(new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT,
+                Gravity.BOTTOM));
+        tile.addView(label);
+
+        if (!isUnlocked) {
+            TextView lockBadge = new TextView(this);
+            lockBadge.setText("🔒");
+            lockBadge.setTextSize(11f);
+            lockBadge.setPadding(dpx(4), dpx(2), dpx(4), dpx(2));
+            FrameLayout.LayoutParams blp = new FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT,
+                    Gravity.TOP | Gravity.START);
+            blp.setMargins(dpx(4), dpx(4), 0, 0);
+            lockBadge.setLayoutParams(blp);
+            tile.addView(lockBadge);
+        }
+        return tile;
+    }
+
+    private void showCategoryUnlockDialog(final String category,
+                                          final FrameLayout tile,
+                                          final ArrayList<String> selected,
+                                          final TextView counter,
+                                          final Button confirm) {
+        final android.app.Dialog dialog = new android.app.Dialog(this);
+        dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
+        dialog.setContentView(R.layout.dialog_category_unlock);
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
+            dialog.getWindow().setLayout(
+                    android.view.WindowManager.LayoutParams.WRAP_CONTENT,
+                    android.view.WindowManager.LayoutParams.WRAP_CONTENT
+            );
+        }
+        dialog.setCancelable(true);
+        dialog.setCanceledOnTouchOutside(true);
+
+        TextView txtCategoryTitle = dialog.findViewById(R.id.txtCategoryTitle);
+        if (txtCategoryTitle != null) {
+            txtCategoryTitle.setText("فئة مميزة 🌟: " + category);
+        }
+
+        ImageView imgCategoryArt = dialog.findViewById(R.id.imgCategoryArt);
+        if (imgCategoryArt != null) {
+            Bitmap art = categoryBitmap(category);
+            if (art != null) {
+                imgCategoryArt.setImageBitmap(art);
+            }
+        }
+
+        int gems = AppPrefs.getGems(this);
+        TextView txtGemsInfo = dialog.findViewById(R.id.txtGemsInfo);
+        if (txtGemsInfo != null) {
+            txtGemsInfo.setText("فتح دائم على حسابك بدون قيود\n(رصيدك: " + gems + " 💎)");
+        }
+
+        View btnClose = dialog.findViewById(R.id.btnCloseDialog);
+        if (btnClose != null) {
+            btnClose.setOnClickListener(v -> dialog.dismiss());
+        }
+
+        Button btnRentWithAd = dialog.findViewById(R.id.btnRentWithAd);
+        if (btnRentWithAd != null) {
+            btnRentWithAd.setOnClickListener(v -> {
+                dialog.dismiss();
+                if (rewardedAdController == null) {
+                    Toast.makeText(GameActivity.this, "تعذر تجهيز الإعلان، يرجى المحاولة لاحقاً", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                Toast.makeText(GameActivity.this, "جاري فتح الإعلان...", Toast.LENGTH_SHORT).show();
+                rewardedAdController.show(new GameRewardedAdController.RewardCallback() {
+                    @Override
+                    public void onRewardEarned(com.google.android.gms.ads.rewarded.RewardItem reward) {
+                        AppPrefs.rentCategoryWithAd(GameActivity.this, category, CategoryConfig.DEFAULT_AD_RENTAL_HOURS);
+                        runOnUiThread(() -> {
+                            Toast.makeText(GameActivity.this, "تم فتح فئة [" + category + "] لمدة 24 ساعة! 🎉", Toast.LENGTH_LONG).show();
+                            refreshUnlockedTile(category, tile, selected, counter, confirm);
+                        });
+                    }
+
+                    @Override
+                    public void onAdClosed(boolean userEarnedReward) {}
+
+                    @Override
+                    public void onAdFailedToLoad(String errorReason) {
+                        runOnUiThread(() -> Toast.makeText(GameActivity.this, errorReason, Toast.LENGTH_SHORT).show());
+                    }
+                });
+            });
+        }
+
+        Button btnUnlockWithGems = dialog.findViewById(R.id.btnUnlockWithGems);
+        if (btnUnlockWithGems != null) {
+            btnUnlockWithGems.setText("شراء دائم (" + CategoryConfig.DEFAULT_PERMANENT_GEM_COST + " 💎)");
+            btnUnlockWithGems.setOnClickListener(v -> {
+                int currentGems = AppPrefs.getGems(GameActivity.this);
+                if (currentGems < CategoryConfig.DEFAULT_PERMANENT_GEM_COST) {
+                    Toast.makeText(GameActivity.this, "رصيد الجواهر غير كافٍ (تحتاج " + CategoryConfig.DEFAULT_PERMANENT_GEM_COST + " جوهرة)", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                dialog.dismiss();
+                boolean ok = AppPrefs.unlockCategoryPermanently(GameActivity.this, category, CategoryConfig.DEFAULT_PERMANENT_GEM_COST);
+                if (ok) {
+                    Toast.makeText(GameActivity.this, "تم شراء فئة [" + category + "] بشكل دائم! 🎉", Toast.LENGTH_LONG).show();
+                    refreshUnlockedTile(category, tile, selected, counter, confirm);
+                } else {
+                    Toast.makeText(GameActivity.this, "فشلت عملية الشراء", Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
+
+        dialog.show();
+    }
+
+    private void refreshUnlockedTile(String category, FrameLayout tile,
+                                     ArrayList<String> selected, TextView counter, Button confirm) {
+        tile.setBackground(categoryTileBg(true, false));
+        tile.removeAllViews();
         Bitmap art = categoryBitmap(category);
         if (art != null) {
             ImageView img = new ImageView(this);
@@ -3440,7 +3584,23 @@ public class GameActivity extends AppCompatActivity {
                 FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT,
                 Gravity.BOTTOM));
         tile.addView(label);
-        return tile;
+
+        if (!selected.contains(category)) {
+            if (counter != null) {
+                if (selected.size() < boardCols) {
+                    selected.add(category);
+                    counter.setText(selected.size() + " / " + boardCols);
+                    boolean ready = selected.size() == boardCols;
+                    confirm.setEnabled(ready);
+                    confirm.setAlpha(ready ? 1f : 0.5f);
+                }
+            } else {
+                selected.clear();
+                selected.add(category);
+                confirm.setEnabled(true);
+                confirm.setAlpha(1f);
+            }
+        }
     }
 
     private void onCategoriesChosen(ArrayList<String> chosen) {
@@ -4376,12 +4536,18 @@ public class GameActivity extends AppCompatActivity {
                     tile.setOnClickListener(new View.OnClickListener() {
                         @Override
                         public void onClick(View v) {
+                            if (!AppPrefs.isCategoryUnlocked(GameActivity.this, category)) {
+                                showCategoryUnlockDialog(category, tile, selected, null, confirm);
+                                return;
+                            }
                             selected.clear();
                             selected.add(category);
                             for (FrameLayout t : tiles) {
-                                t.setBackground(categoryTileBg(false));
+                                String tCat = t.getTag() instanceof String ? (String) t.getTag() : "";
+                                boolean isLocked = !AppPrefs.isCategoryUnlocked(GameActivity.this, tCat);
+                                t.setBackground(categoryTileBg(false, isLocked));
                             }
-                            tile.setBackground(categoryTileBg(true));
+                            tile.setBackground(categoryTileBg(true, false));
                             confirm.setEnabled(true);
                             confirm.setAlpha(1f);
                         }
@@ -6405,10 +6571,20 @@ public class GameActivity extends AppCompatActivity {
     }
 
     private GradientDrawable categoryTileBg(boolean selected) {
+        return categoryTileBg(selected, false);
+    }
+
+    private GradientDrawable categoryTileBg(boolean selected, boolean locked) {
         GradientDrawable d = new GradientDrawable();
-        d.setColor(selected ? 0xFF1E5AA8 : 0xCC13294B);
-        d.setCornerRadius(dpx(12));
-        d.setStroke(dpx(selected ? 3 : 1), selected ? 0xFFFFC107 : 0x66FFFFFF);
+        if (locked) {
+            d.setColor(0xD9091328);
+            d.setCornerRadius(dpx(12));
+            d.setStroke(dpx(1), 0x99FACC15);
+        } else {
+            d.setColor(selected ? 0xFF1E5AA8 : 0xCC13294B);
+            d.setCornerRadius(dpx(12));
+            d.setStroke(dpx(selected ? 3 : 1), selected ? 0xFFFFC107 : 0x66FFFFFF);
+        }
         return d;
     }
 

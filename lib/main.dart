@@ -17,6 +17,7 @@ import 'services/room_service.dart';
 import 'services/ad_service.dart';
 import 'services/cross_promo_service.dart';
 import 'services/invite_service.dart';
+import 'services/in_app_purchase_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -53,6 +54,12 @@ class ChallengeLandApp extends StatelessWidget {
         Provider<AuthService>(create: (_) => AuthService()),
         Provider<ProfileService>(create: (_) => ProfileService()),
         Provider<NativeBridgeService>(create: (_) => NativeBridgeService()),
+        Provider<InAppPurchaseService>(
+          create: (context) => InAppPurchaseService(
+            nativeBridge: context.read<NativeBridgeService>(),
+          )..initialize(),
+          dispose: (_, service) => service.dispose(),
+        ),
         ChangeNotifierProvider<CrossPromoService>(
           create: (context) =>
               CrossPromoService(bridge: context.read<NativeBridgeService>())

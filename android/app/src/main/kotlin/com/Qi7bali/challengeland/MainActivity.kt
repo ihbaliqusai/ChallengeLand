@@ -506,16 +506,24 @@ class MainActivity : FlutterActivity() {
                             "gems_6500"  -> PlayerProgress.addGems(this, 6500)
                             "gems_14000" -> PlayerProgress.addGems(this, 14000)
                             "pack_starter" -> {
-                                PlayerProgress.addGems(this, 120)
-                                PlayerProgress.addCoins(this, 500)
+                                PlayerProgress.addGems(this, 100)
+                                PlayerProgress.addCoins(this, 10000)
                             }
                             "pack_value" -> {
                                 PlayerProgress.addGems(this, 600)
-                                PlayerProgress.addCoins(this, 2000)
+                                PlayerProgress.addCoins(this, 35000)
                             }
                             "pack_champion" -> {
                                 PlayerProgress.addGems(this, 1800)
-                                PlayerProgress.addCoins(this, 10000)
+                                PlayerProgress.addCoins(this, 100000)
+                            }
+                            "no_ads" -> {
+                                AppPrefs.setVip(this, true)
+                            }
+                            "vip_pass", "vip_monthly" -> {
+                                AppPrefs.setVip(this, true)
+                                PlayerProgress.addGems(this, 500)
+                                PlayerProgress.addCoins(this, 5000)
                             }
                             else -> delivered = false
                         }
@@ -664,6 +672,28 @@ class MainActivity : FlutterActivity() {
                             if (ok) AppPrefs.unlockCharacter(this, index)
                             result.success(ok)
                         }
+                    }
+                    "getCategoryState" -> {
+                        val unlocked = AppPrefs.getUnlockedCategories(this).toList()
+                        val rentals = AppPrefs.getActiveRentals(this)
+                        val isVip = AppPrefs.isVip(this)
+                        result.success(mapOf(
+                            "unlocked" to unlocked,
+                            "rentals" to rentals,
+                            "isVip" to isVip
+                        ))
+                    }
+                    "unlockCategory" -> {
+                        val category = call.argument<String>("category") ?: ""
+                        val gemCost = call.argument<Int>("gemCost") ?: CategoryConfig.DEFAULT_PERMANENT_GEM_COST
+                        val ok = AppPrefs.unlockCategoryPermanently(this, category, gemCost)
+                        result.success(ok)
+                    }
+                    "rentCategory" -> {
+                        val category = call.argument<String>("category") ?: ""
+                        val hours = call.argument<Int>("hours") ?: CategoryConfig.DEFAULT_AD_RENTAL_HOURS
+                        val ok = AppPrefs.rentCategoryWithAd(this, category, hours)
+                        result.success(ok)
                     }
                     else -> result.notImplemented()
             }

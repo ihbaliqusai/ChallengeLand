@@ -103,6 +103,108 @@ public final class AppPrefs {
         userPrefs(c).edit().putStringSet("unlockedCharacters", set).apply();
     }
 
+    // ==========================================
+    // Category Unlocks & Rewarded Ad Rentals
+    // ==========================================
+    private static final String KEY_UNLOCKED_CATEGORIES = "unlockedCategories";
+    private static final String KEY_CATEGORY_RENTALS = "categoryRentalsJson";
+
+    public static Set<String> getUnlockedCategories(Context c) {
+        return new HashSet<>(userPrefs(c).getStringSet(KEY_UNLOCKED_CATEGORIES, new HashSet<String>()));
+    }
+
+    public static boolean isCategoryUnlocked(Context c, String category) {
+        if (category == null || category.trim().isEmpty()) return true;
+        if (CategoryConfig.isCoreFree(category)) return true;
+        if (isVip(c)) return true;
+
+        String norm = CategoryConfig.normalize(category);
+        for (String u : getUnlockedCategories(c)) {
+            if (CategoryConfig.normalize(u).equals(norm)) return true;
+        }
+
+        // Check active rental
+        long expiry = getCategoryRentalExpiry(c, category);
+        return expiry > System.currentTimeMillis();
+    }
+
+    public static long getCategoryRentalExpiry(Context c, String category) {
+        if (category == null || category.trim().isEmpty()) return 0L;
+        String norm = CategoryConfig.normalize(category);
+        try {
+            String jsonStr = userPrefs(c).getString(KEY_CATEGORY_RENTALS, "{}");
+            org.json.JSONObject obj = new org.json.JSONObject(jsonStr);
+            return obj.optLong(norm, 0L);
+        } catch (Exception e) {
+            return 0L;
+        }
+    }
+
+    public static int getRemainingRentalHours(Context c, String category) {
+        long expiry = getCategoryRentalExpiry(c, category);
+        long diffMs = expiry - System.currentTimeMillis();
+        if (diffMs <= 0) return 0;
+        return (int) Math.ceil((double) diffMs / (3600.0 * 1000.0));
+    }
+
+    public static boolean unlockCategoryPermanently(Context c, String category, int gemCost) {
+        if (category == null || category.trim().isEmpty()) return false;
+        if (gemCost > 0) {
+            if (!PlayerProgress.spendGems(c, gemCost)) {
+                return false;
+            }
+        }
+        Set<String> set = getUnlockedCategories(c);
+        set.add(category.trim());
+        userPrefs(c).edit().putStringSet(KEY_UNLOCKED_CATEGORIES, set).apply();
+        return true;
+    }
+
+    public static boolean rentCategoryWithAd(Context c, String category, int durationHours) {
+        if (category == null || category.trim().isEmpty()) return false;
+        if (durationHours <= 0) durationHours = CategoryConfig.DEFAULT_AD_RENTAL_HOURS;
+        String norm = CategoryConfig.normalize(category);
+        try {
+            String jsonStr = userPrefs(c).getString(KEY_CATEGORY_RENTALS, "{}");
+            org.json.JSONObject obj = new org.json.JSONObject(jsonStr);
+            long currentExpiry = obj.optLong(norm, 0L);
+            long baseTime = Math.max(System.currentTimeMillis(), currentExpiry);
+            long newExpiry = baseTime + (durationHours * 3600L * 1000L);
+            obj.put(norm, newExpiry);
+            userPrefs(c).edit().putString(KEY_CATEGORY_RENTALS, obj.toString()).apply();
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    public static java.util.Map<String, Long> getActiveRentals(Context c) {
+        java.util.Map<String, Long> map = new java.util.HashMap<>();
+        try {
+            String jsonStr = userPrefs(c).getString(KEY_CATEGORY_RENTALS, "{}");
+            org.json.JSONObject obj = new org.json.JSONObject(jsonStr);
+            long now = System.currentTimeMillis();
+            java.util.Iterator<String> keys = obj.keys();
+            while (keys.hasNext()) {
+                String key = keys.next();
+                long expiry = obj.optLong(key, 0L);
+                if (expiry > now) {
+                    map.put(key, expiry);
+                }
+            }
+        } catch (Exception ignored) {}
+        return map;
+    }
+
+    public static boolean isVip(Context c) {
+        return settingsPrefs(c).getBoolean("isVip", false) || purchasePrefs(c).getBoolean("vip_pass_active", false);
+    }
+
+    public static void setVip(Context c, boolean vip) {
+        settingsPrefs(c).edit().putBoolean("isVip", vip).apply();
+        purchasePrefs(c).edit().putBoolean("vip_pass_active", vip).apply();
+    }
+
     public static void setSoundEnabled(Context c, boolean enabled) {
         settingsPrefs(c).edit().putBoolean("soundEnabled", enabled).apply();
     }

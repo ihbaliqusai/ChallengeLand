@@ -16,6 +16,7 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.view.animation.DecelerateInterpolator;
 import android.view.animation.OvershootInterpolator;
+import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -34,7 +35,9 @@ import de.hdodenhof.circleimageview.CircleImageView;
 
 public class ResultActivity extends AppCompatActivity {
     private InterstitialAd interstitialAd;
+    private GameRewardedAdController rewardedAdController;
     private boolean homeNavigationRequested = false;
+    private boolean rewardDoubled = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -208,6 +211,69 @@ public class ResultActivity extends AppCompatActivity {
                     buildOpponentSummary(matchMode, opponent, anySetsNonZero),
                     false
             ));
+        }
+
+        rewardedAdController = new GameRewardedAdController(this);
+        rewardedAdController.preload();
+        final Button btnDoubleReward = findViewById(R.id.btnDoubleReward);
+        if (btnDoubleReward != null) {
+            if (positiveResult) {
+                btnDoubleReward.setVisibility(View.VISIBLE);
+                btnDoubleReward.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+                        if (rewardDoubled) return;
+                        if (!Data.isNetworkAvailable(ResultActivity.this)) {
+                            Toast.makeText(ResultActivity.this, "لا يوجد اتصال بالإنترنت", Toast.LENGTH_SHORT).show();
+                            return;
+                        }
+                        btnDoubleReward.setEnabled(false);
+                        btnDoubleReward.setText("جارٍ فتح الإعلان...");
+                        rewardedAdController.show(new GameRewardedAdController.RewardCallback() {
+                            @Override
+                            public void onRewardEarned(com.google.android.gms.ads.rewarded.RewardItem reward) {
+                                rewardDoubled = true;
+                                PlayerProgress.addCoins(ResultActivity.this, 200);
+                                runOnUiThread(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        btnDoubleReward.setText("تمت المضاعفة 2x ✓");
+                                        btnDoubleReward.setEnabled(false);
+                                        Toast.makeText(ResultActivity.this, "مبروك! تمت إضافة 200 كوين إضافية بنجاح! 🎉", Toast.LENGTH_LONG).show();
+                                    }
+                                });
+                            }
+
+                            @Override
+                            public void onAdClosed(boolean userEarnedReward) {
+                                if (!userEarnedReward && !rewardDoubled) {
+                                    runOnUiThread(new Runnable() {
+                                        @Override
+                                        public void run() {
+                                            btnDoubleReward.setEnabled(true);
+                                            btnDoubleReward.setText("ضاعف الجائزة 2x 🎬 (+200)");
+                                        }
+                                    });
+                                }
+                            }
+
+                            @Override
+                            public void onAdFailedToLoad(final String errorReason) {
+                                runOnUiThread(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        btnDoubleReward.setEnabled(true);
+                                        btnDoubleReward.setText("ضاعف الجائزة 2x 🎬 (+200)");
+                                        Toast.makeText(ResultActivity.this, errorReason, Toast.LENGTH_SHORT).show();
+                                    }
+                                });
+                            }
+                        });
+                    }
+                });
+            } else {
+                btnDoubleReward.setVisibility(View.GONE);
+            }
         }
 
         findViewById(R.id.btnNewGame).setOnClickListener(new View.OnClickListener() {

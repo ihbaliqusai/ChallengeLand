@@ -209,6 +209,42 @@ class AdService extends ChangeNotifier {
     return completer.future;
   }
 
+  /// Shows a rewarded ad for specific actions (such as renting a category or revival)
+  /// without being constrained by the daily coin claim faucet cooldown.
+  Future<bool> showActionRewardedAd() async {
+    final ad = _rewardedAd;
+    if (ad == null) {
+      _loadRewarded();
+      return false;
+    }
+
+    final completer = Completer<bool>();
+    _rewardedAd = null;
+
+    ad.fullScreenContentCallback = FullScreenContentCallback(
+      onAdDismissedFullScreenContent: (a) {
+        a.dispose();
+        _loadRewarded();
+        if (!completer.isCompleted) completer.complete(false);
+      },
+      onAdFailedToShowFullScreenContent: (a, _) {
+        a.dispose();
+        _loadRewarded();
+        if (!completer.isCompleted) completer.complete(false);
+      },
+    );
+
+    ad.show(
+      onUserEarnedReward: (_, __) {
+        if (!completer.isCompleted) {
+          completer.complete(true);
+        }
+      },
+    );
+
+    return completer.future;
+  }
+
   /// Shows an interstitial ad (no reward). Fire-and-forget.
   void showInterstitialAd() {
     final ad = _interstitialAd;

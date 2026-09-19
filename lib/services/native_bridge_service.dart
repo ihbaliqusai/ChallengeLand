@@ -575,6 +575,70 @@ class NativeBridgeService {
     }
   }
 
+  /// يُعيد حالة الفئات المحفوظة من Android:
+  /// {'unlocked': List<String>, 'rentals': Map<String, int>, 'isVip': bool}
+  Future<Map<String, dynamic>> getCategoryState() async {
+    try {
+      final result =
+          await _channel.invokeMapMethod<String, dynamic>('getCategoryState');
+      final unlocked = <String>[];
+      final rawUnlocked = result?['unlocked'];
+      if (rawUnlocked is List) {
+        for (final item in rawUnlocked) {
+          if (item != null) unlocked.add(item.toString());
+        }
+      }
+      final rentals = <String, int>{};
+      final rawRentals = result?['rentals'];
+      if (rawRentals is Map) {
+        rawRentals.forEach((k, v) {
+          final expiry = (v as num?)?.toInt() ?? 0;
+          if (expiry > 0) rentals[k.toString()] = expiry;
+        });
+      }
+      final isVip = result?['isVip'] == true;
+      return {
+        'unlocked': unlocked,
+        'rentals': rentals,
+        'isVip': isVip,
+      };
+    } on MissingPluginException {
+      return {'unlocked': <String>[], 'rentals': <String, int>{}, 'isVip': false};
+    } catch (_) {
+      return {'unlocked': <String>[], 'rentals': <String, int>{}, 'isVip': false};
+    }
+  }
+
+  /// يفتح فئة مقفلة بشكل دائم بخصم الجواهر من رصيد اللاعب
+  Future<bool> unlockCategoryPermanently(String category, {int gemCost = 150}) async {
+    try {
+      final result = await _channel.invokeMethod<bool>('unlockCategory', {
+        'category': category,
+        'gemCost': gemCost,
+      });
+      return result ?? false;
+    } on MissingPluginException {
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// يستأجر فئة مقفلة لمدة ساعات معينة (افتراضياً 24 ساعة) بعد مشاهدة إعلان
+  Future<bool> rentCategory(String category, {int hours = 24}) async {
+    try {
+      final result = await _channel.invokeMethod<bool>('rentCategory', {
+        'category': category,
+        'hours': hours,
+      });
+      return result ?? false;
+    } on MissingPluginException {
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Map<String, dynamic>? _decodeCampaignResult(dynamic raw) {
     final decoded = _decodeNativeMap(raw);
     if (decoded == null) return null;

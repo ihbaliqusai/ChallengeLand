@@ -76,3 +76,10 @@ dependencies {
     implementation 'com.squareup.picasso:picasso:2.5.2'
     implementation 'de.hdodenhof:circleimageview:2.1.0'
 }
+
+configurations.all {
+    resolutionStrategy {
+        force 'com.android.billingclient:billing:8.0.0'
+        force 'com.android.billingclient:billing-ktx:8.0.0'
+    }
+}

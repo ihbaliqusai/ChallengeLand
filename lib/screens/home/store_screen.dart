@@ -5,8 +5,10 @@ import 'package:provider/provider.dart';
 import '../../core/app_settings.dart';
 import '../../core/app_state.dart';
 import '../../models/game_character.dart';
+import '../../models/game_category.dart';
 import '../../services/ad_service.dart';
 import '../../services/native_bridge_service.dart';
+import '../../services/in_app_purchase_service.dart';
 import '../../widgets/currency_reward_overlay.dart';
 import '../character/character_select_screen.dart';
 
@@ -31,6 +33,152 @@ const List<_CoinItem> _kCoinItems = <_CoinItem>[
   _CoinItem(label: '35,000', coinAmount: 35000, gemCost: 290, tag: 'قيمة'),
   _CoinItem(label: '90,000', coinAmount: 90000, gemCost: 700, tag: 'كبير'),
 ];
+
+class _BundleItem {
+  const _BundleItem({
+    required this.id,
+    required this.title,
+    required this.coins,
+    required this.gems,
+    required this.price,
+    required this.originalPrice,
+    required this.tag,
+    required this.tagColor,
+    required this.colors,
+    required this.icon,
+    this.multiplier = '',
+    this.subtitle = '',
+    this.ctaColors = const [Color(0xFF22C55E), Color(0xFF16A34A)],
+    this.ctaShadowColor = const Color(0xFF14532D),
+    this.ctaTextColor = Colors.white,
+  });
+
+  final String id;
+  final String title;
+  final int coins;
+  final int gems;
+  final String price;
+  final String originalPrice;
+  final String tag;
+  final Color tagColor;
+  final List<Color> colors;
+  final IconData icon;
+  final String multiplier;
+  final String subtitle;
+  final List<Color> ctaColors;
+  final Color ctaShadowColor;
+  final Color ctaTextColor;
+}
+
+const List<_BundleItem> _kSpecialBundles = <_BundleItem>[
+  _BundleItem(
+    id: 'pack_starter',
+    title: 'حزمة المبتدئ الخارقة',
+    subtitle: 'عرض الترحيب الحصري لمرة واحدة',
+    multiplier: 'قيمة 5X ⚡',
+    coins: 10000,
+    gems: 100,
+    price: r'$0.99',
+    originalPrice: r'$4.99',
+    tag: 'خصم 80% 🔥',
+    tagColor: Color(0xFFEF4444),
+    colors: [Color(0xFF3B0764), Color(0xFF1E1035)],
+    icon: Icons.bolt_rounded,
+    ctaColors: [Color(0xFF22C55E), Color(0xFF16A34A), Color(0xFF15803D)],
+    ctaShadowColor: Color(0xFF14532D),
+    ctaTextColor: Colors.white,
+  ),
+  _BundleItem(
+    id: 'pack_value',
+    title: 'باقة القيمة الذهبية',
+    subtitle: 'الخيار الأكثر شعبية وتفضيلاً',
+    multiplier: 'قيمة 4X ⭐',
+    coins: 35000,
+    gems: 600,
+    price: r'$2.99',
+    originalPrice: r'$9.99',
+    tag: 'الأكثر طلباً 🏆',
+    tagColor: Color(0xFF38BDF8),
+    colors: [Color(0xFF0C2A4A), Color(0xFF041525)],
+    icon: Icons.auto_awesome_rounded,
+    ctaColors: [Color(0xFFFFDF73), Color(0xFFF59E0B), Color(0xFFD97706)],
+    ctaShadowColor: Color(0xFF78350F),
+    ctaTextColor: Color(0xFF451A03),
+  ),
+  _BundleItem(
+    id: 'pack_champion',
+    title: 'باقة الأبطال الملكية',
+    subtitle: 'أعلى قيمة وسيطرة لنجوم الصدارة',
+    multiplier: 'أعلى توفير 💎',
+    coins: 100000,
+    gems: 1800,
+    price: r'$9.99',
+    originalPrice: r'$24.99',
+    tag: 'الباقة الملكية 👑',
+    tagColor: Color(0xFFF59E0B),
+    colors: [Color(0xFF381A02), Color(0xFF1A0A00)],
+    icon: Icons.workspace_premium_rounded,
+    ctaColors: [Color(0xFFFFE082), Color(0xFFF59E0B), Color(0xFFB45309)],
+    ctaShadowColor: Color(0xFF78350F),
+    ctaTextColor: Color(0xFF451A03),
+  ),
+];
+
+class _GemStoreItem {
+  const _GemStoreItem({
+    required this.id,
+    required this.title,
+    required this.gems,
+    required this.price,
+    required this.tag,
+    required this.tagColor,
+    required this.colors,
+    required this.icon,
+  });
+
+  final String id;
+  final String title;
+  final int gems;
+  final String price;
+  final String tag;
+  final Color tagColor;
+  final List<Color> colors;
+  final IconData icon;
+}
+
+const List<_GemStoreItem> _kGemStoreItems = <_GemStoreItem>[
+  _GemStoreItem(
+    id: 'gems_80',
+    title: 'كيس جواهر صغير',
+    gems: 80,
+    price: r'$0.99',
+    tag: 'شحن سريع 💎',
+    tagColor: Color(0xFF38BDF8),
+    colors: [Color(0xFF0C2A4A), Color(0xFF041525)],
+    icon: Icons.diamond_outlined,
+  ),
+  _GemStoreItem(
+    id: 'gems_500',
+    title: 'صندوق جواهر متوسط',
+    gems: 500,
+    price: r'$4.99',
+    tag: 'الأكثر طلباً ⭐',
+    tagColor: Color(0xFFF59E0B),
+    colors: [Color(0xFF1E1B4B), Color(0xFF0F0E2A)],
+    icon: Icons.diamond_rounded,
+  ),
+  _GemStoreItem(
+    id: 'gems_1200',
+    title: 'حقيبة جواهر كبيرة',
+    gems: 1200,
+    price: r'$9.99',
+    tag: 'أعلى توفير 🔥',
+    tagColor: Color(0xFF10B981),
+    colors: [Color(0xFF064E3B), Color(0xFF022C22)],
+    icon: Icons.all_inclusive_rounded,
+  ),
+];
+
 
 class StoreScreen extends StatefulWidget {
   const StoreScreen({super.key});
@@ -149,6 +297,152 @@ class _StoreScreenState extends State<StoreScreen> {
     _showSnack('تمت إضافة ${item.label} كوين.');
   }
 
+  Future<void> _rentCategory(GameCategory cat) async {
+    if (_busy) return;
+    final adService = context.read<AdService>();
+    final appState = context.read<AppState>();
+    await _haptic();
+
+    setState(() => _busy = true);
+    final watched = await adService.showActionRewardedAd();
+    if (!mounted) return;
+    setState(() => _busy = false);
+
+    if (!watched) {
+      _showSnack('تعذر تشغيل الإعلان أو تم إغلاقه قبل اكتماله.', isError: true);
+      return;
+    }
+
+    final success = await appState.rentCategoryWithAd(cat.name, hours: 24);
+    if (!mounted) return;
+    if (success) {
+      _showSnack('تم فتح فئة "${cat.name}" لمدة 24 ساعة! 🎉');
+    } else {
+      _showSnack('حدث خطأ أثناء تفعيل الفئة.', isError: true);
+    }
+  }
+
+  Future<void> _unlockCategory(GameCategory cat) async {
+    if (_busy) return;
+    final appState = context.read<AppState>();
+    await _haptic();
+
+    if (appState.gems < cat.gemCost) {
+      _showSnack('رصيد الجواهر غير كافٍ (تحتاج ${cat.gemCost} جوهرة).', isError: true);
+      return;
+    }
+
+    final ok = await _confirm(
+      'امتلاك الفئة للأبد',
+      'فتح فئة "${cat.name}" بشكل دائم مقابل ${cat.gemCost} جوهرة؟',
+    );
+    if (!ok || !mounted) return;
+
+    setState(() => _busy = true);
+    final success = await appState.unlockCategoryWithGems(cat.name, gemCost: cat.gemCost);
+    if (!mounted) return;
+    setState(() => _busy = false);
+
+    if (success) {
+      _showSnack('تم شراء فئة "${cat.name}" بشكل دائم! 🎉');
+    } else {
+      _showSnack('فشلت عملية الشراء.', isError: true);
+    }
+  }
+
+  Future<void> _buyBundle(_BundleItem bundle) async {
+    if (_busy) return;
+    final appState = context.read<AppState>();
+    final iap = context.read<InAppPurchaseService>();
+    await _haptic();
+
+    final ok = await _confirm(
+      bundle.title,
+      'تأكيد الحصول على ${bundle.title} (${bundle.coins} كوين + ${bundle.gems} جوهرة) مقابل ${bundle.price}؟',
+    );
+    if (!ok || !mounted) return;
+
+    setState(() => _busy = true);
+    final success = await iap.buyProduct(bundle.id);
+    if (!mounted) return;
+    if (success) {
+      await appState.loadCurrency();
+    }
+    if (!mounted) return;
+    setState(() => _busy = false);
+
+    if (!success) {
+      _showSnack('تعذر إتمام عملية الشراء.', isError: true);
+      return;
+    }
+    _showSnack('مبروك! تم تفعيل ${bundle.title} وإضافة المكافآت بنجاح! 🎉');
+  }
+
+  Future<void> _buyVipPass() async {
+    if (_busy) return;
+    final appState = context.read<AppState>();
+    final iap = context.read<InAppPurchaseService>();
+    await _haptic();
+
+    if (appState.isVip) {
+      _showSnack('العضوية المميزة VIP مفعلة بالفعل على حسابك! 👑');
+      return;
+    }
+
+    final ok = await _confirm(
+      'اشتراك VIP المميز',
+      'تفعيل اشتراك VIP (فتح جميع الفئات الـ 45 + بدون إعلانات + 5,000 كوين + 500 جوهرة) مقابل 4.99\$ شهرياً؟',
+    );
+    if (!ok || !mounted) return;
+
+    setState(() => _busy = true);
+    final vipId = iap.products.containsKey('vip_monthly')
+        ? 'vip_monthly'
+        : (iap.products.containsKey('vip_pass') ? 'vip_pass' : 'vip_monthly');
+    final success = await iap.buyProduct(vipId);
+    if (!mounted) return;
+    if (success) {
+      await appState.loadCategoryState();
+      await appState.loadCurrency();
+    }
+    if (!mounted) return;
+    setState(() => _busy = false);
+
+    if (!success) {
+      _showSnack('تعذر تفعيل العضوية المميزة.', isError: true);
+      return;
+    }
+    _showSnack('أهلاً بك في العضوية المميزة VIP! تم فتح جميع المزايا بنجاح! 👑');
+  }
+
+  Future<void> _buyGemItem(_GemStoreItem item) async {
+    if (_busy) return;
+    final appState = context.read<AppState>();
+    final iap = context.read<InAppPurchaseService>();
+    await _haptic();
+
+    final ok = await _confirm(
+      item.title,
+      'تأكيد شراء ${item.title} (${item.gems} جوهرة) مقابل ${item.price}؟',
+    );
+    if (!ok || !mounted) return;
+
+    setState(() => _busy = true);
+    final success = await iap.buyProduct(item.id);
+    if (!mounted) return;
+    if (success) {
+      await appState.loadCurrency();
+    }
+    if (!mounted) return;
+    setState(() => _busy = false);
+
+    if (!success) {
+      _showSnack('تعذر إتمام عملية الشراء.', isError: true);
+      return;
+    }
+    _showSnack('مبروك! تمت إضافة ${item.gems} جوهرة بنجاح! 💎');
+  }
+
   Future<bool> _confirm(String title, String message) async {
     return await showDialog<bool>(
           context: context,
@@ -259,9 +553,15 @@ class _StoreScreenState extends State<StoreScreen> {
                           .where(appState.isCharacterUnlocked)
                           .length,
                       busy: _busy,
+                      appState: appState,
                       onOpenCharacters: _openCharacters,
                       onWatchAd: _watchRewardedAd,
                       onBuyCoins: _buyCoins,
+                      onRentCategory: _rentCategory,
+                      onUnlockCategory: _unlockCategory,
+                      onBuyBundle: _buyBundle,
+                      onBuyGem: _buyGemItem,
+                      onBuyVip: _buyVipPass,
                     ),
                   ),
                 ],
@@ -300,9 +600,15 @@ class _StoreDashboard extends StatelessWidget {
     required this.selectedCharacter,
     required this.unlockedCharacters,
     required this.busy,
+    required this.appState,
     required this.onOpenCharacters,
     required this.onWatchAd,
     required this.onBuyCoins,
+    required this.onRentCategory,
+    required this.onUnlockCategory,
+    required this.onBuyBundle,
+    required this.onBuyGem,
+    required this.onBuyVip,
   });
 
   final int coins;
@@ -311,9 +617,15 @@ class _StoreDashboard extends StatelessWidget {
   final GameCharacter selectedCharacter;
   final int unlockedCharacters;
   final bool busy;
+  final AppState appState;
   final VoidCallback onOpenCharacters;
   final VoidCallback onWatchAd;
   final void Function(_CoinItem item) onBuyCoins;
+  final void Function(GameCategory cat) onRentCategory;
+  final void Function(GameCategory cat) onUnlockCategory;
+  final void Function(_BundleItem bundle) onBuyBundle;
+  final void Function(_GemStoreItem item) onBuyGem;
+  final VoidCallback onBuyVip;
 
   @override
   Widget build(BuildContext context) {
@@ -321,6 +633,11 @@ class _StoreDashboard extends StatelessWidget {
       builder: (context, constraints) {
         final horizontalPadding = constraints.maxWidth < 760 ? 12.0 : 16.0;
         final gap = constraints.maxWidth < 760 ? 10.0 : 12.0;
+        final bundleColumns = constraints.maxWidth >= 760
+            ? 3
+            : constraints.maxWidth >= 500
+                ? 2
+                : 1;
         final coinColumns = constraints.maxWidth >= 1120
             ? 5
             : constraints.maxWidth >= 820
@@ -328,6 +645,15 @@ class _StoreDashboard extends StatelessWidget {
                 : constraints.maxWidth >= 560
                     ? 2
                     : 1;
+        final categoryColumns = constraints.maxWidth >= 1100
+            ? 5
+            : constraints.maxWidth >= 760
+                ? 4
+                : constraints.maxWidth >= 520
+                    ? 3
+                    : constraints.maxWidth >= 330
+                        ? 2
+                        : 1;
 
         return CustomScrollView(
           physics: const BouncingScrollPhysics(),
@@ -349,6 +675,164 @@ class _StoreDashboard extends StatelessWidget {
                   busy: busy,
                   onOpenCharacters: onOpenCharacters,
                   onWatchAd: onWatchAd,
+                ),
+              ),
+            ),
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(
+                horizontalPadding,
+                0,
+                horizontalPadding,
+                14,
+              ),
+              sliver: SliverToBoxAdapter(
+                child: _VipPassCard(
+                  isVip: appState.isVip,
+                  busy: busy,
+                  onTap: onBuyVip,
+                ),
+              ),
+            ),
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(
+                horizontalPadding,
+                0,
+                horizontalPadding,
+                10,
+              ),
+              sliver: const SliverToBoxAdapter(
+                child: _SectionHeader(
+                  icon: Icons.local_fire_department_rounded,
+                  title: 'العروض الحصرية والباقات',
+                  subtitle: 'أفضل قيمة لتعزيز رصيدك فوراً وشراء ما تريد',
+                  color: Color(0xFFEF4444),
+                ),
+              ),
+            ),
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(
+                horizontalPadding,
+                0,
+                horizontalPadding,
+                18,
+              ),
+              sliver: SliverGrid(
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: bundleColumns,
+                  crossAxisSpacing: gap,
+                  mainAxisSpacing: gap,
+                  mainAxisExtent: bundleColumns == 1
+                      ? 126
+                      : bundleColumns == 2
+                          ? 190
+                          : 200,
+                ),
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final bundle = _kSpecialBundles[index];
+                    return _BundleCard(
+                      bundle: bundle,
+                      busy: busy,
+                      onTap: () => onBuyBundle(bundle),
+                    );
+                  },
+                  childCount: _kSpecialBundles.length,
+                ),
+              ),
+            ),
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(
+                horizontalPadding,
+                0,
+                horizontalPadding,
+                10,
+              ),
+              sliver: const SliverToBoxAdapter(
+                child: _SectionHeader(
+                  icon: Icons.diamond_rounded,
+                  title: 'باقات الجواهر',
+                  subtitle: 'اشحن الجواهر مباشرة لفتح الفئات وتطوير حسابك',
+                  color: Color(0xFF38BDF8),
+                ),
+              ),
+            ),
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(
+                horizontalPadding,
+                0,
+                horizontalPadding,
+                18,
+              ),
+              sliver: SliverGrid(
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: bundleColumns,
+                  crossAxisSpacing: gap,
+                  mainAxisSpacing: gap,
+                  mainAxisExtent: bundleColumns == 1
+                      ? 110
+                      : bundleColumns == 2
+                          ? 180
+                          : 190,
+                ),
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final gemItem = _kGemStoreItems[index];
+                    return _GemStoreCard(
+                      item: gemItem,
+                      busy: busy,
+                      onTap: () => onBuyGem(gemItem),
+                    );
+                  },
+                  childCount: _kGemStoreItems.length,
+                ),
+              ),
+            ),
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(
+                horizontalPadding,
+                0,
+                horizontalPadding,
+                10,
+              ),
+              sliver: const SliverToBoxAdapter(
+                child: _SectionHeader(
+                  icon: Icons.auto_awesome_rounded,
+                  title: 'الفئات المميزة',
+                  subtitle: 'استأجر 24 ساعة بمشاهدة إعلان 🎥 أو امتلكها للأبد 💎',
+                  color: Color(0xFFFACC15),
+                ),
+              ),
+            ),
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(
+                horizontalPadding,
+                0,
+                horizontalPadding,
+                20,
+              ),
+              sliver: SliverGrid(
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: categoryColumns,
+                  crossAxisSpacing: gap,
+                  mainAxisSpacing: gap,
+                  mainAxisExtent: 148,
+                ),
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final cat = CategoryCatalog.premiumCategories[index];
+                    return _CategoryStoreCard(
+                      category: cat,
+                      isUnlocked: appState.isCategoryUnlocked(cat.name),
+                      hoursLeft: appState.getCategoryRemainingRentalHours(cat.name),
+                      isPermanent: appState.isVip ||
+                          appState.unlockedCategories.any(
+                              (u) => GameCategory.normalize(u) == GameCategory.normalize(cat.name)),
+                      busy: busy,
+                      onRent: () => onRentCategory(cat),
+                      onUnlock: () => onUnlockCategory(cat),
+                    );
+                  },
+                  childCount: CategoryCatalog.premiumCategories.length,
                 ),
               ),
             ),
@@ -1157,4 +1641,1572 @@ String _formatDuration(Duration duration) {
     return '${duration.inHours}:$minutes';
   }
   return '$minutes:$seconds';
+}
+
+class _VipPassCard extends StatelessWidget {
+  const _VipPassCard({
+    required this.isVip,
+    this.busy = false,
+    this.onTap,
+  });
+
+  final bool isVip;
+  final bool busy;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFF1E1702),
+            Color(0xFF0F0E17),
+            Color(0xFF1A1404),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border.all(
+          color: const Color(0xFFF59E0B).withValues(alpha: 0.70),
+          width: 1.6,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFF59E0B).withValues(alpha: 0.16),
+            blurRadius: 24,
+            offset: const Offset(0, 6),
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.7),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18.4),
+        child: Stack(
+          children: [
+            Positioned(
+              top: 0,
+              left: 40,
+              right: 40,
+              height: 2,
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.transparent,
+                      const Color(0xFFFFDF73).withValues(alpha: 0.9),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: -20,
+              right: -20,
+              child: Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: const Color(0xFFEAB308).withValues(alpha: 0.08),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 52,
+                        height: 52,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: const LinearGradient(
+                            colors: [
+                              Color(0xFFFFDF73),
+                              Color(0xFFD97706),
+                              Color(0xFF78350F),
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFD97706).withValues(alpha: 0.45),
+                              blurRadius: 12,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                          border: Border.all(
+                            color: const Color(0xFFFFE082),
+                            width: 2,
+                          ),
+                        ),
+                        child: const Center(
+                          child: Icon(
+                            Icons.workspace_premium_rounded,
+                            color: Color(0xFF1E1402),
+                            size: 30,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Text(
+                                  'العضوية الملكية VIP',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16.5,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: -0.2,
+                                  ),
+                                ),
+                                const Spacer(),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: isVip
+                                          ? [const Color(0xFF10B981), const Color(0xFF047857)]
+                                          : [const Color(0xFFF59E0B), const Color(0xFFB45309)],
+                                    ),
+                                    borderRadius: BorderRadius.circular(10),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: (isVip ? const Color(0xFF10B981) : const Color(0xFFF59E0B))
+                                            .withValues(alpha: 0.35),
+                                        blurRadius: 6,
+                                      ),
+                                    ],
+                                  ),
+                                  child: Text(
+                                    isVip ? 'مفعلة بالكامل ✓' : 'عرض حصري 🔥',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            const Text(
+                              'امتيازات لا نهائية للاعبين النخبة لتجربة لعب أسطورية بدون قيود',
+                              style: TextStyle(
+                                color: Color(0xFFFFDF73),
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  const Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _VipPerkBadge(
+                        icon: Icons.lock_open_rounded,
+                        label: '45 فئة مفتوحة مجاناً',
+                        color: Color(0xFF38BDF8),
+                      ),
+                      _VipPerkBadge(
+                        icon: Icons.block_rounded,
+                        label: 'بدون إعلانات بينية',
+                        color: Color(0xFFF43F5E),
+                      ),
+                      _VipPerkBadge(
+                        icon: Icons.diamond_rounded,
+                        label: '+500 جوهرة شهرياً',
+                        color: Color(0xFF34D399),
+                      ),
+                      _VipPerkBadge(
+                        icon: Icons.monetization_on_rounded,
+                        label: '+5,000 كوين فوري',
+                        color: Color(0xFFFACC15),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  if (isVip)
+                    Container(
+                      height: 44,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        color: const Color(0xFF10B981).withValues(alpha: 0.16),
+                        border: Border.all(
+                          color: const Color(0xFF10B981).withValues(alpha: 0.5),
+                        ),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.check_circle_rounded, color: Color(0xFF34D399), size: 20),
+                          SizedBox(width: 8),
+                          Text(
+                            'اشتراك VIP نشط ويمنحك جميع المزايا',
+                            style: TextStyle(
+                              color: Color(0xFF34D399),
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    Container(
+                      height: 48,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(14),
+                        gradient: const LinearGradient(
+                          colors: [
+                            Color(0xFFFFE082),
+                            Color(0xFFF59E0B),
+                            Color(0xFFD97706),
+                          ],
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                        ),
+                        boxShadow: [
+                          const BoxShadow(
+                            color: Color(0xFF78350F),
+                            offset: Offset(0, 4),
+                            blurRadius: 0,
+                          ),
+                          BoxShadow(
+                            color: const Color(0xFFF59E0B).withValues(alpha: 0.45),
+                            offset: const Offset(0, 6),
+                            blurRadius: 14,
+                          ),
+                        ],
+                        border: Border.all(
+                          color: const Color(0xFFFFF7ED),
+                          width: 1.2,
+                        ),
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: busy ? null : onTap,
+                          borderRadius: BorderRadius.circular(14),
+                          splashColor: Colors.white24,
+                          child: Center(
+                            child: busy
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.2,
+                                      color: Color(0xFF451A03),
+                                    ),
+                                  )
+                                : const Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.workspace_premium_rounded,
+                                        size: 22,
+                                        color: Color(0xFF451A03),
+                                      ),
+                                      SizedBox(width: 8),
+                                      Text(
+                                        'تفعيل العضوية الملكية 4.99\$ 👑',
+                                        style: TextStyle(
+                                          color: Color(0xFF451A03),
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w900,
+                                          letterSpacing: -0.2,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _VipPerkBadge extends StatelessWidget {
+  const _VipPerkBadge({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: color.withValues(alpha: 0.35),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 11.5,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BundleCard extends StatelessWidget {
+  const _BundleCard({
+    required this.bundle,
+    required this.busy,
+    required this.onTap,
+  });
+
+  final _BundleItem bundle;
+  final bool busy;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth >= 330;
+
+        return Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                bundle.colors[0],
+                bundle.colors[1],
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: bundle.tagColor.withValues(alpha: 0.65),
+              width: 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: bundle.tagColor.withValues(alpha: 0.28),
+                blurRadius: 16,
+                offset: const Offset(0, 5),
+              ),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.55),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(14.5),
+            child: Stack(
+              children: [
+                // Top Gloss Reflection Line
+                Positioned(
+                  top: 0,
+                  left: 20,
+                  right: 20,
+                  height: 1.5,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.transparent,
+                          bundle.tagColor.withValues(alpha: 0.85),
+                          Colors.transparent,
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                // Internal Radial Glow
+                Positioned(
+                  top: isWide ? 10 : 25,
+                  right: isWide ? 10 : null,
+                  left: isWide ? null : 15,
+                  child: Container(
+                    width: 70,
+                    height: 70,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: bundle.tagColor.withValues(alpha: 0.22),
+                          blurRadius: 24,
+                          spreadRadius: 8,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  child: isWide
+                      ? _buildWideLayout(context)
+                      : _buildVerticalShowcaseLayout(context),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildVerticalShowcaseLayout(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // 1. Top Badges Row (Discount Ribbon on start, Multiplier on end)
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    bundle.tagColor.withValues(alpha: 0.95),
+                    bundle.tagColor.withValues(alpha: 0.75),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(6),
+                boxShadow: [
+                  BoxShadow(
+                    color: bundle.tagColor.withValues(alpha: 0.35),
+                    blurRadius: 6,
+                  ),
+                ],
+              ),
+              child: Text(
+                bundle.tag,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.2,
+                ),
+              ),
+            ),
+            if (bundle.multiplier.isNotEmpty)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.55),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: const Color(0xFFFACC15).withValues(alpha: 0.75),
+                    width: 0.8,
+                  ),
+                ),
+                child: Text(
+                  bundle.multiplier,
+                  style: const TextStyle(
+                    color: Color(0xFFFACC15),
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        // 2. Title and Emblem Row
+        Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  colors: [
+                    bundle.tagColor.withValues(alpha: 0.85),
+                    bundle.tagColor.withValues(alpha: 0.35),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                border: Border.all(
+                  color: bundle.tagColor.withValues(alpha: 0.8),
+                  width: 1.2,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: bundle.tagColor.withValues(alpha: 0.3),
+                    blurRadius: 6,
+                  ),
+                ],
+              ),
+              child: Center(
+                child: Icon(
+                  bundle.icon,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    bundle.title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -0.2,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (bundle.subtitle.isNotEmpty) ...[
+                    const SizedBox(height: 1),
+                    Text(
+                      bundle.subtitle,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.7),
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        // 3. High-Contrast Reward Showcase Box
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.35),
+            borderRadius: BorderRadius.circular(9),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.12),
+              width: 0.8,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.monetization_on_rounded, color: Color(0xFFFFD66B), size: 14),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${bundle.coins}',
+                    style: const TextStyle(
+                      color: Color(0xFFFFD66B),
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
+              Text(
+                '+',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.4),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.diamond_rounded, color: Color(0xFF7DD3FC), size: 14),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${bundle.gems}',
+                    style: const TextStyle(
+                      color: Color(0xFF7DD3FC),
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const Spacer(),
+        // 4. Strikethrough & High-Impact 3D Buy Button
+        Row(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text(
+                    'بدلاً من',
+                    style: TextStyle(
+                      color: Colors.white38,
+                      fontSize: 8.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  Text(
+                    bundle.originalPrice,
+                    style: const TextStyle(
+                      color: Color(0xFFF87171),
+                      fontSize: 11,
+                      decoration: TextDecoration.lineThrough,
+                      decorationColor: Color(0xFFEF4444),
+                      decorationThickness: 2,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: _TactileBundleButton(
+                price: bundle.price,
+                colors: bundle.ctaColors,
+                shadowColor: bundle.ctaShadowColor,
+                textColor: bundle.ctaTextColor,
+                busy: busy,
+                onTap: onTap,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildWideLayout(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: LinearGradient(
+              colors: [
+                bundle.tagColor.withValues(alpha: 0.85),
+                bundle.tagColor.withValues(alpha: 0.35),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            border: Border.all(
+              color: bundle.tagColor.withValues(alpha: 0.8),
+              width: 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: bundle.tagColor.withValues(alpha: 0.35),
+                blurRadius: 10,
+              ),
+            ],
+          ),
+          child: Center(
+            child: Icon(
+              bundle.icon,
+              color: Colors.white,
+              size: 26,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    bundle.title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: bundle.tagColor.withValues(alpha: 0.85),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      bundle.tag,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  if (bundle.multiplier.isNotEmpty) ...[
+                    const SizedBox(width: 5),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                      decoration: BoxDecoration(
+                        color: Colors.black45,
+                        borderRadius: BorderRadius.circular(5),
+                        border: Border.all(
+                          color: const Color(0xFFFACC15).withValues(alpha: 0.7),
+                          width: 0.8,
+                        ),
+                      ),
+                      child: Text(
+                        bundle.multiplier,
+                        style: const TextStyle(
+                          color: Color(0xFFFACC15),
+                          fontSize: 9,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              if (bundle.subtitle.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(
+                  bundle.subtitle,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.65),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: Colors.black38,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: const Color(0xFFFACC15).withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.monetization_on_rounded, color: Color(0xFFFFD66B), size: 13),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${bundle.coins}',
+                          style: const TextStyle(
+                            color: Color(0xFFFFD66B),
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: Colors.black38,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: const Color(0xFF38BDF8).withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.diamond_rounded, color: Color(0xFF7DD3FC), size: 13),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${bundle.gems}',
+                          style: const TextStyle(
+                            color: Color(0xFF7DD3FC),
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 10),
+        Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              bundle.originalPrice,
+              style: const TextStyle(
+                color: Color(0xFFF87171),
+                fontSize: 11,
+                decoration: TextDecoration.lineThrough,
+                decorationColor: Color(0xFFEF4444),
+                decorationThickness: 2,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 4),
+            _TactileBundleButton(
+              price: bundle.price,
+              colors: bundle.ctaColors,
+              shadowColor: bundle.ctaShadowColor,
+              textColor: bundle.ctaTextColor,
+              busy: busy,
+              onTap: onTap,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _GemStoreCard extends StatelessWidget {
+  const _GemStoreCard({
+    required this.item,
+    required this.busy,
+    required this.onTap,
+  });
+
+  final _GemStoreItem item;
+  final bool busy;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth >= 330;
+
+        return Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                item.colors[0],
+                item.colors[1],
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: item.tagColor.withValues(alpha: 0.65),
+              width: 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: item.tagColor.withValues(alpha: 0.22),
+                blurRadius: 14,
+                offset: const Offset(0, 4),
+              ),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.5),
+                blurRadius: 8,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(14.5),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              child: isWide ? _buildWideLayout(context) : _buildVerticalLayout(context),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildWideLayout(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: LinearGradient(
+              colors: [
+                item.tagColor.withValues(alpha: 0.85),
+                item.tagColor.withValues(alpha: 0.35),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            border: Border.all(
+              color: item.tagColor.withValues(alpha: 0.8),
+              width: 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: item.tagColor.withValues(alpha: 0.35),
+                blurRadius: 10,
+              ),
+            ],
+          ),
+          child: Center(
+            child: Icon(
+              item.icon,
+              color: Colors.white,
+              size: 22,
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    item.title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: item.tagColor.withValues(alpha: 0.85),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      item.tag,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 3),
+              Row(
+                children: [
+                  const Icon(Icons.diamond_rounded, color: Color(0xFF38BDF8), size: 15),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${item.gems} جوهرة',
+                    style: const TextStyle(
+                      color: Color(0xFF7DD3FC),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 82,
+          child: _TactileBundleButton(
+            price: item.price,
+            colors: const [Color(0xFF0284C7), Color(0xFF0369A1), Color(0xFF075985)],
+            shadowColor: const Color(0xFF0C4A6E),
+            textColor: Colors.white,
+            busy: busy,
+            onTap: onTap,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildVerticalLayout(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+              decoration: BoxDecoration(
+                color: item.tagColor.withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(7),
+                border: Border.all(
+                  color: item.tagColor.withValues(alpha: 0.5),
+                  width: 0.8,
+                ),
+              ),
+              child: Text(
+                item.tag,
+                style: TextStyle(
+                  color: item.tagColor,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+            Icon(item.icon, color: const Color(0xFF7DD3FC), size: 18),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          item.title,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 13,
+            fontWeight: FontWeight.w900,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: 4),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.35),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.12),
+              width: 0.8,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.diamond_rounded, color: Color(0xFF7DD3FC), size: 14),
+              const SizedBox(width: 4),
+              Text(
+                '${item.gems} جوهرة',
+                style: const TextStyle(
+                  color: Color(0xFF7DD3FC),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const Spacer(),
+        _TactileBundleButton(
+          price: item.price,
+          colors: const [Color(0xFF0284C7), Color(0xFF0369A1), Color(0xFF075985)],
+          shadowColor: const Color(0xFF0C4A6E),
+          textColor: Colors.white,
+          busy: busy,
+          onTap: onTap,
+        ),
+      ],
+    );
+  }
+}
+
+class _TactileBundleButton extends StatelessWidget {
+  const _TactileBundleButton({
+    required this.price,
+    required this.busy,
+    required this.onTap,
+    this.colors = const [Color(0xFF22C55E), Color(0xFF16A34A), Color(0xFF15803D)],
+    this.shadowColor = const Color(0xFF14532D),
+    this.textColor = Colors.white,
+  });
+
+  final String price;
+  final bool busy;
+  final VoidCallback onTap;
+  final List<Color> colors;
+  final Color shadowColor;
+  final Color textColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 38,
+      constraints: const BoxConstraints(minWidth: 88),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        gradient: LinearGradient(
+          colors: colors,
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: shadowColor,
+            offset: const Offset(0, 3),
+            blurRadius: 0,
+          ),
+          BoxShadow(
+            color: colors[0].withValues(alpha: 0.45),
+            offset: const Offset(0, 4),
+            blurRadius: 10,
+          ),
+        ],
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.55),
+          width: 1,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: busy ? null : onTap,
+          borderRadius: BorderRadius.circular(10),
+          splashColor: Colors.white24,
+          child: Center(
+            child: busy
+                ? SizedBox(
+                    width: 15,
+                    height: 15,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.2,
+                      color: textColor,
+                    ),
+                  )
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.shopping_bag_rounded,
+                        color: textColor,
+                        size: 14,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'شراء $price',
+                        style: TextStyle(
+                          color: textColor,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -0.2,
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CategoryStoreCard extends StatelessWidget {
+  const _CategoryStoreCard({
+    required this.category,
+    required this.isUnlocked,
+    required this.hoursLeft,
+    required this.isPermanent,
+    required this.busy,
+    required this.onRent,
+    required this.onUnlock,
+  });
+
+  final GameCategory category;
+  final bool isUnlocked;
+  final int hoursLeft;
+  final bool isPermanent;
+  final bool busy;
+  final VoidCallback onRent;
+  final VoidCallback onUnlock;
+
+  @override
+  Widget build(BuildContext context) {
+    final statusColor = isPermanent
+        ? const Color(0xFF10B981)
+        : hoursLeft > 0
+            ? const Color(0xFFF59E0B)
+            : const Color(0xFF38BDF8);
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFF0F1D36),
+            Color(0xFF081224),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isPermanent
+              ? const Color(0xFF10B981).withValues(alpha: 0.6)
+              : hoursLeft > 0
+                  ? const Color(0xFFF59E0B).withValues(alpha: 0.6)
+                  : const Color(0xFF38BDF8).withValues(alpha: 0.35),
+          width: 1.4,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: (isPermanent
+                    ? const Color(0xFF10B981)
+                    : hoursLeft > 0
+                        ? const Color(0xFFF59E0B)
+                        : const Color(0xFF0284C7))
+                .withValues(alpha: 0.16),
+            blurRadius: 12,
+            offset: const Offset(0, 5),
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.5),
+            blurRadius: 6,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(7),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Category Illustration Artwork Showcase Container
+          Container(
+            height: 68,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(11),
+              gradient: const LinearGradient(
+                colors: [
+                  Color(0xFF14243B),
+                  Color(0xFF0B1424),
+                ],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+              border: Border.all(
+                color: statusColor.withValues(alpha: 0.28),
+                width: 0.9,
+              ),
+            ),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // Subtle colored glow behind the artwork token
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: statusColor.withValues(alpha: 0.2),
+                        blurRadius: 12,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                ),
+                // Centered artwork illustration - full aspect ratio, perfectly proportioned
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 8),
+                  child: Image.asset(
+                    category.assetPath,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) {
+                      return const Icon(
+                        Icons.category_rounded,
+                        color: Color(0xFF94A3B8),
+                        size: 28,
+                      );
+                    },
+                  ),
+                ),
+                // Floating Category Tag (Top-Start)
+                if (category.tag.isNotEmpty)
+                  Positioned(
+                    top: 4,
+                    left: 4,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.82),
+                        borderRadius: BorderRadius.circular(5),
+                        border: Border.all(
+                          color: const Color(0xFFFACC15).withValues(alpha: 0.75),
+                          width: 0.7,
+                        ),
+                      ),
+                      child: Text(
+                        category.tag,
+                        style: const TextStyle(
+                          color: Color(0xFFFACC15),
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ),
+                // Floating Lock/Unlock Status Icon (Top-End)
+                Positioned(
+                  top: 4,
+                  right: 4,
+                  child: Container(
+                    padding: const EdgeInsets.all(3.5),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.82),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: statusColor.withValues(alpha: 0.8),
+                        width: 0.8,
+                      ),
+                    ),
+                    child: Icon(
+                      isPermanent
+                          ? Icons.workspace_premium_rounded
+                          : (hoursLeft > 0 ? Icons.timer_rounded : Icons.lock_rounded),
+                      size: 11,
+                      color: statusColor,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 6),
+          // Category Title
+          Text(
+            category.name,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12.5,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.2,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 6),
+          // Actions / Status Banner
+          if (isPermanent)
+            Container(
+              height: 32,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: const Color(0xFF10B981).withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(9),
+                border: Border.all(
+                  color: const Color(0xFF10B981).withValues(alpha: 0.5),
+                ),
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.check_circle_rounded, color: Color(0xFF34D399), size: 14),
+                  SizedBox(width: 4),
+                  Text(
+                    'مفتوحة للأبد ✓',
+                    style: TextStyle(
+                      color: Color(0xFF34D399),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else if (hoursLeft > 0)
+            Container(
+              height: 32,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF59E0B).withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(9),
+                border: Border.all(
+                  color: const Color(0xFFF59E0B).withValues(alpha: 0.5),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.timer_rounded, color: Color(0xFFFACC15), size: 13),
+                  const SizedBox(width: 4),
+                  Text(
+                    'متبقي $hoursLeft ساعة',
+                    style: const TextStyle(
+                      color: Color(0xFFFACC15),
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            Row(
+              children: [
+                // 3D Rent 24h with Ad Button
+                Expanded(
+                  flex: 3,
+                  child: Container(
+                    height: 32,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      gradient: const LinearGradient(
+                        colors: [
+                          Color(0xFF38BDF8),
+                          Color(0xFF0284C7),
+                        ],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      ),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0xFF075985),
+                          offset: Offset(0, 2),
+                          blurRadius: 0,
+                        ),
+                      ],
+                      border: Border.all(
+                        color: const Color(0xFFBAE6FD),
+                        width: 0.8,
+                      ),
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: busy ? null : onRent,
+                        borderRadius: BorderRadius.circular(8),
+                        child: const Center(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.videocam_rounded, color: Colors.white, size: 13),
+                              SizedBox(width: 3),
+                              Text(
+                                '24س مجاناً',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 5),
+                // 3D Permanent Unlock with Gems Button
+                Expanded(
+                  flex: 2,
+                  child: Container(
+                    height: 32,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      gradient: const LinearGradient(
+                        colors: [
+                          Color(0xFFFFDF73),
+                          Color(0xFFF59E0B),
+                        ],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      ),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0xFF92400E),
+                          offset: Offset(0, 2),
+                          blurRadius: 0,
+                        ),
+                      ],
+                      border: Border.all(
+                        color: const Color(0xFFFEF08A),
+                        width: 0.8,
+                      ),
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: busy ? null : onUnlock,
+                        borderRadius: BorderRadius.circular(8),
+                        child: Center(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.diamond_rounded, color: Color(0xFF451A03), size: 12),
+                              const SizedBox(width: 2),
+                              Text(
+                                '${category.gemCost}',
+                                style: const TextStyle(
+                                  color: Color(0xFF451A03),
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
 }

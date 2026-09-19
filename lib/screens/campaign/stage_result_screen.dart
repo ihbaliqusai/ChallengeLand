@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../core/app_state.dart';
 import '../../models/campaign_stage.dart';
 import '../../models/stage_attempt.dart';
+import '../../services/ad_service.dart';
 import '../../services/campaign_mode_engine.dart';
 import '../../services/campaign_result_handler.dart';
 import '../../services/campaign_service.dart';
@@ -47,6 +48,9 @@ class _StageResultScreenState extends State<StageResultScreen>
   bool _returnedFromNative = false;
   bool _pendingResultRetryScheduled = false;
   DateTime? _missingResultSince;
+  bool _rewardDoubled = false;
+  bool _doublingReward = false;
+  bool _usingSecondChance = false;
 
   CampaignStage get stage => widget.stage;
   StageSubmissionResult get submissionResult => widget.submissionResult;
@@ -214,6 +218,14 @@ class _StageResultScreenState extends State<StageResultScreen>
                                         bossDefeated: bossDefeated,
                                       ),
                                     ),
+                                    if (!completed) ...[
+                                      const SizedBox(height: 10),
+                                      _SecondChanceCard(
+                                        busy: _usingSecondChance ||
+                                            _launchingStage,
+                                        onRevive: _useSecondChance,
+                                      ),
+                                    ],
                                     const SizedBox(height: 10),
                                     ResultScoreCounter(score: attempt.score),
                                     if (_isUnsavedPreview) ...[
@@ -253,6 +265,16 @@ class _StageResultScreenState extends State<StageResultScreen>
                                       result: submissionResult,
                                       currencyRewardApplied:
                                           currencyRewardApplied,
+                                      onDoubleReward: (submissionResult
+                                                      .rewardCoinsGranted >
+                                                  0 ||
+                                              submissionResult
+                                                      .rewardGemsGranted >
+                                                  0)
+                                          ? _doubleReward
+                                          : null,
+                                      isDoubled: _rewardDoubled,
+                                      isDoubling: _doublingReward,
                                     ),
                                     const SizedBox(height: 6),
                                     TextButton.icon(
@@ -510,6 +532,88 @@ class _StageResultScreenState extends State<StageResultScreen>
         });
       }
     }
+  }
+
+  Future<void> _doubleReward() async {
+    if (_doublingReward || _rewardDoubled) return;
+    final coins = submissionResult.rewardCoinsGranted;
+    final gems = submissionResult.rewardGemsGranted;
+    if (coins <= 0 && gems <= 0) return;
+
+    final adService = context.read<AdService>();
+    final appState = context.read<AppState>();
+    final messenger = ScaffoldMessenger.of(context);
+
+    setState(() => _doublingReward = true);
+    final watched = await adService.showActionRewardedAd();
+    if (!mounted) return;
+    setState(() => _doublingReward = false);
+
+    if (!watched) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text(
+              'تعذر تشغيل الإعلان أو تم إغلاقه قبل اكتماله.',
+              textAlign: TextAlign.right,
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
+        );
+      return;
+    }
+
+    final success = await appState.grantCampaignCurrency(
+      coinsReward: coins,
+      gemsReward: gems,
+    );
+
+    if (!mounted) return;
+    if (success) {
+      setState(() => _rewardDoubled = true);
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text(
+              'مبروك! تمت مضاعفة مكافأة المرحلة 2x بنجاح! 🎉',
+              textAlign: TextAlign.right,
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
+            backgroundColor: Color(0xFF0F766E),
+          ),
+        );
+    }
+  }
+
+  Future<void> _useSecondChance() async {
+    if (_usingSecondChance || _launchingStage) return;
+    final adService = context.read<AdService>();
+    final messenger = ScaffoldMessenger.of(context);
+
+    setState(() => _usingSecondChance = true);
+    final watched = await adService.showActionRewardedAd();
+    if (!mounted) return;
+    setState(() => _usingSecondChance = false);
+
+    if (!watched) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text(
+              'تعذر تشغيل الإعلان أو تم إغلاقه قبل اكتماله.',
+              textAlign: TextAlign.right,
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
+        );
+      return;
+    }
+
+    if (!mounted) return;
+    await _launchStageAgain(context);
   }
 
   String _saveFailureMessage(Object error) {
@@ -1280,3 +1384,283 @@ String _resultTitle({
       return completed ? 'فاز فريقك' : 'خسر فريقك';
   }
 }
+
+class _SecondChanceCard extends StatelessWidget {
+  const _SecondChanceCard({
+    required this.busy,
+    required this.onRevive,
+  });
+
+  final bool busy;
+  final VoidCallback onRevive;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFF2E0916),
+            Color(0xFF19030B),
+            Color(0xFF250612),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border.all(
+          color: const Color(0xFFFF3366).withValues(alpha: 0.65),
+          width: 1.8,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFE11D48).withValues(alpha: 0.35),
+            blurRadius: 22,
+            offset: const Offset(0, 6),
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.60),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18.2),
+        child: Stack(
+          children: [
+            // Top subtle glowing accent line
+            Positioned(
+              top: 0,
+              left: 30,
+              right: 30,
+              height: 2,
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.transparent,
+                      const Color(0xFFFB7185).withValues(alpha: 0.9),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            // Glowing background aura
+            Positioned(
+              top: -30,
+              right: -20,
+              child: Container(
+                width: 110,
+                height: 110,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: const Color(0xFFF43F5E).withValues(alpha: 0.12),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Header badge & Info Row
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // 3D Glowing Heart Avatar
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFFF4D6D), Color(0xFFC9184A)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFFF4D6D).withValues(alpha: 0.45),
+                              blurRadius: 12,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                          border: Border.all(
+                            color: const Color(0xFFFFB3C1),
+                            width: 2,
+                          ),
+                        ),
+                        child: const Center(
+                          child: Icon(
+                            Icons.favorite_rounded,
+                            color: Colors.white,
+                            size: 26,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      // Text content + Tag
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Text(
+                                  'فرصة ثانية للإحياء!',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: -0.2,
+                                  ),
+                                ),
+                                const Spacer(),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      colors: [Color(0xFFE11D48), Color(0xFF9F1239)],
+                                    ),
+                                    borderRadius: BorderRadius.circular(10),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: const Color(0xFFE11D48).withValues(alpha: 0.4),
+                                        blurRadius: 6,
+                                      ),
+                                    ],
+                                  ),
+                                  child: const Text(
+                                    '🔥 إنقاذ فوري',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            const Text(
+                              'لا تخسر تقدمك! شاهد إعلاناً قصيراً لتستعيد حياتك وتكمل التحدي مباشرة ⚡',
+                              style: TextStyle(
+                                color: Color(0xFFFFCCD5),
+                                fontSize: 11.5,
+                                height: 1.35,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  // 3D Tactile Revival Button
+                  Container(
+                    width: double.infinity,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      gradient: const LinearGradient(
+                        colors: [
+                          Color(0xFFFF597B),
+                          Color(0xFFE11D48),
+                          Color(0xFFBE123C),
+                        ],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      ),
+                      boxShadow: [
+                        const BoxShadow(
+                          color: Color(0xFF700A23),
+                          offset: Offset(0, 4),
+                          blurRadius: 0,
+                        ),
+                        BoxShadow(
+                          color: const Color(0xFFE11D48).withValues(alpha: 0.5),
+                          offset: const Offset(0, 6),
+                          blurRadius: 14,
+                        ),
+                      ],
+                      border: Border.all(
+                        color: const Color(0xFFFFB3C6).withValues(alpha: 0.8),
+                        width: 1.2,
+                      ),
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: busy ? null : onRevive,
+                        borderRadius: BorderRadius.circular(14),
+                        splashColor: Colors.white24,
+                        highlightColor: Colors.white12,
+                        child: Center(
+                          child: busy
+                              ? const Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2.2,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                    SizedBox(width: 10),
+                                    Text(
+                                      'جارٍ تجهيز الإعادة...',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : const Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.play_circle_fill_rounded,
+                                      size: 22,
+                                      color: Colors.white,
+                                    ),
+                                    SizedBox(width: 8),
+                                    Text(
+                                      'إحياء ومتابعة اللعب الآن 🎬',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 14.5,
+                                        fontWeight: FontWeight.w900,
+                                        letterSpacing: -0.2,
+                                        shadows: [
+                                          Shadow(
+                                            color: Colors.black45,
+                                            offset: Offset(0, 1),
+                                            blurRadius: 2,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+

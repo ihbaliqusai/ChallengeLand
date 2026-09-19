@@ -29,6 +29,8 @@ import '../../services/native_bridge_service.dart';
 import '../../widgets/friend_challenge_modal.dart';
 import '../../widgets/cross_promo_millionaire_badge.dart';
 import '../../widgets/cross_promo_millionaire_dialog.dart';
+import '../../widgets/special_offer_dialog.dart';
+import '../../widgets/special_offer_badge.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -61,6 +63,9 @@ class _HomeScreenState extends State<HomeScreen>
         context: context,
       );
       _consumeNativeLaunchAction();
+      Future.delayed(const Duration(milliseconds: 1000), () {
+        if (mounted) _checkAndShowSpecialOffer();
+      });
       Future.delayed(const Duration(milliseconds: 600), () {
         if (mounted) _checkClipboardForIncomingInvite();
       });
@@ -92,6 +97,14 @@ class _HomeScreenState extends State<HomeScreen>
       );
       _consumeNativeLaunchAction();
       _checkClipboardForIncomingInvite();
+    }
+  }
+
+  Future<void> _checkAndShowSpecialOffer() async {
+    if (!mounted) return;
+    final shouldShow = await SpecialOfferDialog.shouldShowAuto();
+    if (shouldShow && mounted) {
+      await SpecialOfferDialog.show(context);
     }
   }
 
@@ -586,6 +599,11 @@ class _HomeScreenState extends State<HomeScreen>
               bottom: 12,
               left: 14,
               child: CrossPromoMillionaireBadge(),
+            ),
+            const Positioned(
+              bottom: 12,
+              right: 14,
+              child: SpecialOfferBadge(),
             ),
           ],
         ),

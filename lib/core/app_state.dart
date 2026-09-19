@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
 import '../models/game_character.dart';
+import '../models/game_category.dart';
 import '../services/auth_service.dart';
 import '../services/native_bridge_service.dart';
 import 'player_rank.dart';
@@ -143,6 +144,66 @@ class AppState extends ChangeNotifier {
         SetOptions(merge: true),
       );
     } catch (_) {}
+  }
+
+  // ── Category Unlocks & Rentals ──────────────────────────────────────────────
+  List<String> unlockedCategories = <String>[];
+  Map<String, int> categoryRentals = <String, int>{};
+  bool isVip = false;
+  bool categoryStateLoaded = false;
+
+  bool isCategoryUnlocked(String categoryName) {
+    if (isVip) return true;
+    if (!CategoryCatalog.isCategoryPremium(categoryName)) return true;
+    final norm = GameCategory.normalize(categoryName);
+    for (final item in unlockedCategories) {
+      if (GameCategory.normalize(item) == norm) return true;
+    }
+    final expiry = categoryRentals[norm];
+    if (expiry != null && expiry > DateTime.now().millisecondsSinceEpoch) {
+      return true;
+    }
+    return false;
+  }
+
+  int getCategoryRemainingRentalHours(String categoryName) {
+    final norm = GameCategory.normalize(categoryName);
+    final expiry = categoryRentals[norm];
+    if (expiry == null) return 0;
+    final diffMs = expiry - DateTime.now().millisecondsSinceEpoch;
+    if (diffMs <= 0) return 0;
+    return (diffMs / (3600 * 1000)).ceil();
+  }
+
+  Future<void> loadCategoryState() async {
+    try {
+      final state = await _nativeBridgeService.getCategoryState();
+      unlockedCategories = (state['unlocked'] as List<String>? ?? <String>[]);
+      categoryRentals = (state['rentals'] as Map<String, int>? ?? <String, int>{});
+      isVip = state['isVip'] == true;
+    } catch (_) {
+    } finally {
+      categoryStateLoaded = true;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> unlockCategoryWithGems(String category, {int gemCost = 150}) async {
+    if (gems < gemCost) return false;
+    final ok = await _nativeBridgeService.unlockCategoryPermanently(category, gemCost: gemCost);
+    if (ok) {
+      await loadCurrency();
+      await loadCategoryState();
+    }
+    return ok;
+  }
+
+  Future<bool> rentCategoryWithAd(String category, {int hours = 24}) async {
+    final ok = await _nativeBridgeService.rentCategory(category, hours: hours);
+    if (ok) {
+      await loadCategoryState();
+    }
+    return ok;
   }
 
   /// Connectivity flag fed from the main app shell. Defaults to true so the
@@ -505,6 +566,7 @@ class AppState extends ChangeNotifier {
       if (uid != null) {
         unawaited(_saveCurrencySnapshot(uid));
       }
+      unawaited(loadCategoryState());
       notifyListeners();
     } catch (_) {}
   }
