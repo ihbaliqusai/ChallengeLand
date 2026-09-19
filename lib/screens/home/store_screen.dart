@@ -189,11 +189,36 @@ class StoreScreen extends StatefulWidget {
 
 class _StoreScreenState extends State<StoreScreen> {
   bool _busy = false;
+  void Function(String)? _onProductDelivered;
 
   @override
   void initState() {
     super.initState();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final iap = context.read<InAppPurchaseService>();
+      _onProductDelivered = (productId) {
+        if (!mounted) return;
+        final appState = context.read<AppState>();
+        appState.loadCategoryState();
+        appState.loadCurrency();
+        _showSnack('تم استلام مشترياتك وتحديث رصيدك بنجاح! 🎉');
+      };
+      iap.addDeliveryListener(_onProductDelivered!);
+    });
+  }
+
+  @override
+  void dispose() {
+    if (_onProductDelivered != null) {
+      try {
+        context
+            .read<InAppPurchaseService>()
+            .removeDeliveryListener(_onProductDelivered!);
+      } catch (_) {}
+    }
+    super.dispose();
   }
 
   Future<void> _haptic() async {
@@ -279,22 +304,23 @@ class _StoreScreenState extends State<StoreScreen> {
     if (!ok || !mounted) return;
 
     setState(() => _busy = true);
-    final success = await native.buyCurrency(
-      coinAmount: item.coinAmount,
-      gemCost: item.gemCost,
-    );
-    if (!mounted) return;
-    if (success) {
-      await appState.loadCurrency();
+    try {
+      final success = await native.buyCurrency(
+        coinAmount: item.coinAmount,
+        gemCost: item.gemCost,
+      );
+      if (!mounted) return;
+      if (success) {
+        await appState.loadCurrency();
+        _showSnack('تمت إضافة ${item.label} كوين.');
+      } else {
+        _showSnack('فشلت عملية التحويل.', isError: true);
+      }
+    } catch (e) {
+      if (mounted) _showSnack('حدث خطأ أثناء العملية: $e', isError: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
-    if (!mounted) return;
-    setState(() => _busy = false);
-
-    if (!success) {
-      _showSnack('فشلت عملية التحويل.', isError: true);
-      return;
-    }
-    _showSnack('تمت إضافة ${item.label} كوين.');
   }
 
   Future<void> _rentCategory(GameCategory cat) async {
@@ -304,21 +330,26 @@ class _StoreScreenState extends State<StoreScreen> {
     await _haptic();
 
     setState(() => _busy = true);
-    final watched = await adService.showActionRewardedAd();
-    if (!mounted) return;
-    setState(() => _busy = false);
+    try {
+      final watched = await adService.showActionRewardedAd();
+      if (!mounted) return;
 
-    if (!watched) {
-      _showSnack('تعذر تشغيل الإعلان أو تم إغلاقه قبل اكتماله.', isError: true);
-      return;
-    }
+      if (!watched) {
+        _showSnack('تعذر تشغيل الإعلان أو تم إغلاقه قبل اكتماله.', isError: true);
+        return;
+      }
 
-    final success = await appState.rentCategoryWithAd(cat.name, hours: 24);
-    if (!mounted) return;
-    if (success) {
-      _showSnack('تم فتح فئة "${cat.name}" لمدة 24 ساعة! 🎉');
-    } else {
-      _showSnack('حدث خطأ أثناء تفعيل الفئة.', isError: true);
+      final success = await appState.rentCategoryWithAd(cat.name, hours: 24);
+      if (!mounted) return;
+      if (success) {
+        _showSnack('تم فتح فئة "${cat.name}" لمدة 24 ساعة! 🎉');
+      } else {
+        _showSnack('حدث خطأ أثناء تفعيل الفئة.', isError: true);
+      }
+    } catch (e) {
+      if (mounted) _showSnack('حدث خطأ: $e', isError: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -339,14 +370,18 @@ class _StoreScreenState extends State<StoreScreen> {
     if (!ok || !mounted) return;
 
     setState(() => _busy = true);
-    final success = await appState.unlockCategoryWithGems(cat.name, gemCost: cat.gemCost);
-    if (!mounted) return;
-    setState(() => _busy = false);
-
-    if (success) {
-      _showSnack('تم شراء فئة "${cat.name}" بشكل دائم! 🎉');
-    } else {
-      _showSnack('فشلت عملية الشراء.', isError: true);
+    try {
+      final success = await appState.unlockCategoryWithGems(cat.name, gemCost: cat.gemCost);
+      if (!mounted) return;
+      if (success) {
+        _showSnack('تم شراء فئة "${cat.name}" بشكل دائم! 🎉');
+      } else {
+        _showSnack('فشلت عملية الشراء.', isError: true);
+      }
+    } catch (e) {
+      if (mounted) _showSnack('حدث خطأ: $e', isError: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -363,19 +398,23 @@ class _StoreScreenState extends State<StoreScreen> {
     if (!ok || !mounted) return;
 
     setState(() => _busy = true);
-    final success = await iap.buyProduct(bundle.id);
-    if (!mounted) return;
-    if (success) {
-      await appState.loadCurrency();
+    try {
+      final success = await iap.buyProduct(bundle.id);
+      if (!mounted) return;
+      if (success) {
+        await appState.loadCurrency();
+        _showSnack('مبروك! تم تفعيل ${bundle.title} وإضافة المكافآت بنجاح! 🎉');
+      } else {
+        final exp = iap.getExplanation(bundle.id);
+        _showSnack(exp.isNotEmpty ? exp : 'تعذر إتمام عملية الشراء.', isError: true);
+      }
+    } catch (e) {
+      if (mounted) {
+        _showSnack('حدث خطأ أثناء الاتصال بالمتجر: $e', isError: true);
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
-    if (!mounted) return;
-    setState(() => _busy = false);
-
-    if (!success) {
-      _showSnack('تعذر إتمام عملية الشراء.', isError: true);
-      return;
-    }
-    _showSnack('مبروك! تم تفعيل ${bundle.title} وإضافة المكافآت بنجاح! 🎉');
   }
 
   Future<void> _buyVipPass() async {
@@ -399,20 +438,24 @@ class _StoreScreenState extends State<StoreScreen> {
     final vipId = iap.products.containsKey('vip_monthly')
         ? 'vip_monthly'
         : (iap.products.containsKey('vip_pass') ? 'vip_pass' : 'vip_monthly');
-    final success = await iap.buyProduct(vipId);
-    if (!mounted) return;
-    if (success) {
-      await appState.loadCategoryState();
-      await appState.loadCurrency();
+    try {
+      final success = await iap.buyProduct(vipId);
+      if (!mounted) return;
+      if (success) {
+        await appState.loadCategoryState();
+        await appState.loadCurrency();
+        _showSnack('أهلاً بك في العضوية المميزة VIP! تم فتح جميع المزايا بنجاح! 👑');
+      } else {
+        final exp = iap.getExplanation(vipId);
+        _showSnack(exp.isNotEmpty ? exp : 'تعذر تفعيل العضوية المميزة.', isError: true);
+      }
+    } catch (e) {
+      if (mounted) {
+        _showSnack('حدث خطأ أثناء الاتصال بالمتجر: $e', isError: true);
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
-    if (!mounted) return;
-    setState(() => _busy = false);
-
-    if (!success) {
-      _showSnack('تعذر تفعيل العضوية المميزة.', isError: true);
-      return;
-    }
-    _showSnack('أهلاً بك في العضوية المميزة VIP! تم فتح جميع المزايا بنجاح! 👑');
   }
 
   Future<void> _buyGemItem(_GemStoreItem item) async {
@@ -428,19 +471,23 @@ class _StoreScreenState extends State<StoreScreen> {
     if (!ok || !mounted) return;
 
     setState(() => _busy = true);
-    final success = await iap.buyProduct(item.id);
-    if (!mounted) return;
-    if (success) {
-      await appState.loadCurrency();
+    try {
+      final success = await iap.buyProduct(item.id);
+      if (!mounted) return;
+      if (success) {
+        await appState.loadCurrency();
+        _showSnack('مبروك! تمت إضافة ${item.gems} جوهرة بنجاح! 💎');
+      } else {
+        final exp = iap.getExplanation(item.id);
+        _showSnack(exp.isNotEmpty ? exp : 'تعذر إتمام عملية الشراء.', isError: true);
+      }
+    } catch (e) {
+      if (mounted) {
+        _showSnack('حدث خطأ أثناء الاتصال بالمتجر: $e', isError: true);
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
-    if (!mounted) return;
-    setState(() => _busy = false);
-
-    if (!success) {
-      _showSnack('تعذر إتمام عملية الشراء.', isError: true);
-      return;
-    }
-    _showSnack('مبروك! تمت إضافة ${item.gems} جوهرة بنجاح! 💎');
   }
 
   Future<bool> _confirm(String title, String message) async {

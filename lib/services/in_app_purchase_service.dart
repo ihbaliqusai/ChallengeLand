@@ -17,6 +17,18 @@ class InAppPurchaseService {
   Map<String, ProductDetails> _products = {};
   Map<String, ProductDetails> get products => _products;
 
+  final List<void Function(String productId)> _deliveryListeners = [];
+
+  void addDeliveryListener(void Function(String productId) listener) {
+    if (!_deliveryListeners.contains(listener)) {
+      _deliveryListeners.add(listener);
+    }
+  }
+
+  void removeDeliveryListener(void Function(String productId) listener) {
+    _deliveryListeners.remove(listener);
+  }
+
   VoidCallback? onPurchaseCompleted;
 
   static const Set<String> _consumableProductIds = {
@@ -26,15 +38,11 @@ class InAppPurchaseService {
     'gems_80',
     'gems_500',
     'gems_1200',
-    'gems_2500',
-    'gems_6500',
-    'gems_14000',
   };
 
   static const Set<String> _nonConsumableProductIds = {
-    'vip_pass',
     'vip_monthly',
-    'no_ads',
+    'vip_pass',
   };
 
   static Set<String> get allProductIds => {
@@ -42,10 +50,14 @@ class InAppPurchaseService {
         ..._nonConsumableProductIds,
       };
 
+  bool get hasProducts => _products.isNotEmpty;
+
   /// تهيئة الخدمة والتحقق من توفر متجر Google Play
   Future<void> initialize() async {
     try {
-      _isAvailable = await _iap.isAvailable();
+      _isAvailable = await _iap
+          .isAvailable()
+          .timeout(const Duration(seconds: 4), onTimeout: () => false);
       if (!_isAvailable) {
         debugPrint('[IAP] In-App Purchase store is not available.');
         return;
@@ -67,11 +79,13 @@ class InAppPurchaseService {
     }
   }
 
-  /// تحميل المنتجات من Google Play Console
+  /// تحميل المنتجات من Google Play Console بمهلة زمنية
   Future<void> loadProducts() async {
     if (!_isAvailable) return;
     try {
-      final response = await _iap.queryProductDetails(allProductIds);
+      final response = await _iap
+          .queryProductDetails(allProductIds)
+          .timeout(const Duration(seconds: 5));
       if (response.error != null) {
         debugPrint('[IAP] Query error: ${response.error!.message}');
         return;
@@ -83,50 +97,92 @@ class InAppPurchaseService {
     }
   }
 
+  /// توضيح سبب عدم توفر المنتج للمستخدم
+  String getExplanation(String productId) {
+    if (!_isAvailable) {
+      return 'خدمة متجر Google Play غير متوفرة على هذا الجهاز حالياً.';
+    }
+    if (_products.isEmpty || !_products.containsKey(productId)) {
+      return 'منتجات الدفع قيد الاعتماد من متجر Google Play... يرجى الانتظار حتى اكتمال مراجعة النسخة في Google Play Console.';
+    }
+    return 'تعذر إتمام عملية الشراء، يرجى المحاولة لاحقاً.';
+  }
+
   /// تفعيل أو تعطيل المحاكاة المجانية عند غياب متجر Google Play
   /// مغلقة افتراضياً (false) لضمان أن كل المشتريات تمر عبر نافذة دفع Google Play الرسمية
   static const bool allowMockFallback = false;
 
-  /// تنفيذ عملية الشراء
+  /// تنفيذ عملية الشراء مع مهلة زمنية مانعة للتعليق
   Future<bool> buyProduct(String productId) async {
-    // محاولة إعادة التحقق من المتجر في حال لم يكن جاهزاً
-    if (!_isAvailable) {
-      _isAvailable = await _iap.isAvailable();
-    }
-
-    if (!_isAvailable) {
-      debugPrint('[IAP] Store not available.');
-      if (allowMockFallback) {
-        return await nativeBridge.deliverPurchase(
-          productId,
-          deliveryKey: 'fallback_${DateTime.now().millisecondsSinceEpoch}',
-        );
+    try {
+      // محاولة إعادة التحقق من المتجر في حال لم يكن جاهزاً
+      if (!_isAvailable) {
+        _isAvailable = await _iap
+            .isAvailable()
+            .timeout(const Duration(seconds: 3), onTimeout: () => false);
       }
+
+      if (!_isAvailable) {
+        debugPrint('[IAP] Store not available.');
+        if (allowMockFallback) {
+          final ok = await nativeBridge.deliverPurchase(
+            productId,
+            deliveryKey: 'fallback_${DateTime.now().millisecondsSinceEpoch}',
+          );
+          if (ok) {
+            onPurchaseCompleted?.call();
+            _notifyDelivery(productId);
+          }
+          return ok;
+        }
+        return false;
+      }
+
+      // إذا لم تكن المنتجات محملة، نحاول إعادة جلبها بمهلة محددة
+      if (!_products.containsKey(productId)) {
+        await loadProducts().timeout(const Duration(seconds: 3), onTimeout: () {});
+      }
+
+      final productDetails = _products[productId];
+      if (productDetails == null) {
+        debugPrint('[IAP] Product details not found for $productId in store catalog.');
+        if (allowMockFallback) {
+          final ok = await nativeBridge.deliverPurchase(
+            productId,
+            deliveryKey: 'mock_${DateTime.now().millisecondsSinceEpoch}',
+          );
+          if (ok) {
+            onPurchaseCompleted?.call();
+            _notifyDelivery(productId);
+          }
+          return ok;
+        }
+        return false;
+      }
+
+      final purchaseParam = PurchaseParam(productDetails: productDetails);
+      if (_consumableProductIds.contains(productId)) {
+        return await _iap
+            .buyConsumable(purchaseParam: purchaseParam)
+            .timeout(const Duration(seconds: 4), onTimeout: () => false);
+      } else {
+        return await _iap
+            .buyNonConsumable(purchaseParam: purchaseParam)
+            .timeout(const Duration(seconds: 4), onTimeout: () => false);
+      }
+    } catch (e) {
+      debugPrint('[IAP] buyProduct error: $e');
       return false;
     }
+  }
 
-    // إذا لم تكن المنتجات محملة، نحاول إعادة جلبها فوراً من Google Play
-    if (!_products.containsKey(productId)) {
-      await loadProducts();
-    }
-
-    final productDetails = _products[productId];
-    if (productDetails == null) {
-      debugPrint('[IAP] Product details not found for $productId in store catalog.');
-      if (allowMockFallback) {
-        return await nativeBridge.deliverPurchase(
-          productId,
-          deliveryKey: 'mock_${DateTime.now().millisecondsSinceEpoch}',
-        );
+  void _notifyDelivery(String productId) {
+    for (final listener in List.of(_deliveryListeners)) {
+      try {
+        listener(productId);
+      } catch (e) {
+        debugPrint('[IAP] Listener callback error: $e');
       }
-      return false;
-    }
-
-    final purchaseParam = PurchaseParam(productDetails: productDetails);
-    if (_consumableProductIds.contains(productId)) {
-      return await _iap.buyConsumable(purchaseParam: purchaseParam);
-    } else {
-      return await _iap.buyNonConsumable(purchaseParam: purchaseParam);
     }
   }
 
@@ -146,6 +202,7 @@ class InAppPurchaseService {
           if (delivered) {
             debugPrint('[IAP] Purchase successfully delivered for ${purchase.productID}!');
             onPurchaseCompleted?.call();
+            _notifyDelivery(purchase.productID);
           }
           if (purchase.pendingCompletePurchase) {
             await _iap.completePurchase(purchase);
@@ -173,5 +230,6 @@ class InAppPurchaseService {
 
   void dispose() {
     _subscription?.cancel();
+    _deliveryListeners.clear();
   }
 }

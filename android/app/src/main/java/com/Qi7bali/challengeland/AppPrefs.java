@@ -103,6 +103,14 @@ public final class AppPrefs {
         userPrefs(c).edit().putStringSet("unlockedCharacters", set).apply();
     }
 
+    public static void setUnlockedCharacters(Context c, Set<String> characters) {
+        userPrefs(c).edit().putStringSet("unlockedCharacters", characters != null ? characters : new HashSet<String>()).apply();
+    }
+
+    public static void clearUnlockedCharacters(Context c) {
+        userPrefs(c).edit().remove("unlockedCharacters").apply();
+    }
+
     // ==========================================
     // Category Unlocks & Rewarded Ad Rentals
     // ==========================================
@@ -158,6 +166,14 @@ public final class AppPrefs {
         set.add(category.trim());
         userPrefs(c).edit().putStringSet(KEY_UNLOCKED_CATEGORIES, set).apply();
         return true;
+    }
+
+    public static void setUnlockedCategories(Context c, Set<String> categories) {
+        userPrefs(c).edit().putStringSet(KEY_UNLOCKED_CATEGORIES, categories != null ? categories : new HashSet<String>()).apply();
+    }
+
+    public static void clearUnlockedCategories(Context c) {
+        userPrefs(c).edit().remove(KEY_UNLOCKED_CATEGORIES).remove(KEY_CATEGORY_RENTALS).apply();
     }
 
     public static boolean rentCategoryWithAd(Context c, String category, int durationHours) {

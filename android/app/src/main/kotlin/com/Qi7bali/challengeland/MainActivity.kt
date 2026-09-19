@@ -381,6 +381,12 @@ class MainActivity : FlutterActivity() {
                     }
                     "resetLegacyUser" -> {
                         AppPrefs.setGuestUser(this)
+                        AppPrefs.clearUnlockedCategories(this)
+                        AppPrefs.clearUnlockedCharacters(this)
+                        AppPrefs.setSelectedCharacter(this, -1)
+                        AppPrefs.setVip(this, false)
+                        PlayerProgress.setCurrency(this, 0, 0)
+                        PlayerStats.reset(this)
                         result.success(true)
                     }
                     "getPlayerStats" -> {
@@ -694,6 +700,20 @@ class MainActivity : FlutterActivity() {
                         val hours = call.argument<Int>("hours") ?: CategoryConfig.DEFAULT_AD_RENTAL_HOURS
                         val ok = AppPrefs.rentCategoryWithAd(this, category, hours)
                         result.success(ok)
+                    }
+                    "setCategoryState" -> {
+                        val unlocked = (call.argument<List<String>>("unlocked") ?: emptyList()).toSet()
+                        val isVip = call.argument<Boolean>("isVip") ?: false
+                        AppPrefs.setUnlockedCategories(this, unlocked)
+                        AppPrefs.setVip(this, isVip)
+                        result.success(true)
+                    }
+                    "setCharacterState" -> {
+                        val selected = call.argument<Int>("selected") ?: -1
+                        val unlocked = (call.argument<List<Int>>("unlocked") ?: emptyList()).map { it.toString() }.toSet()
+                        AppPrefs.setSelectedCharacter(this, selected)
+                        AppPrefs.setUnlockedCharacters(this, unlocked)
+                        result.success(true)
                     }
                     else -> result.notImplemented()
             }

@@ -131,6 +131,10 @@ class AppState extends ChangeNotifier {
     if (!ok) return false;
     purchasedCharacters.add(character.index);
     await loadCurrency();
+    final uid = currentUser?.uid;
+    if (uid != null) {
+      unawaited(_saveFullUserSnapshot(uid));
+    }
     notifyListeners();
     return true;
   }
@@ -194,6 +198,10 @@ class AppState extends ChangeNotifier {
     if (ok) {
       await loadCurrency();
       await loadCategoryState();
+      final uid = currentUser?.uid;
+      if (uid != null) {
+        unawaited(_saveFullUserSnapshot(uid));
+      }
     }
     return ok;
   }
@@ -434,21 +442,19 @@ class AppState extends ChangeNotifier {
   Future<void> _onAuthChanged(User? nextUser) async {
     final previousUser = user;
     if (nextUser == null && previousUser != null) {
-      await _saveCurrencySnapshot(previousUser.uid);
+      await _saveFullUserSnapshot(previousUser.uid);
     }
 
     user = nextUser;
 
     if (nextUser != null) {
+      _resetSessionState();
+      await _nativeBridgeService.resetLegacyUser();
+      await _loadAndSyncUserData(nextUser.uid);
       unawaited(_syncPublicProfile());
-      unawaited(
-        _syncLegacyUser().then((_) => _restoreCurrencyForUser(nextUser.uid)),
-      );
-      unawaited(loadLevelData());
-      unawaited(loadCharacterState());
     } else {
       _resetSessionState();
-      unawaited(_nativeBridgeService.resetLegacyUser());
+      await _nativeBridgeService.resetLegacyUser();
     }
     notifyListeners();
   }
@@ -481,10 +487,12 @@ class AppState extends ChangeNotifier {
   Future<void> signOut() async {
     final uid = currentUser?.uid;
     if (uid != null) {
-      await _saveCurrencySnapshot(uid);
+      await _saveFullUserSnapshot(uid);
     }
     await _runBusy(_authService.signOut);
+    _resetSessionState();
     await _nativeBridgeService.resetLegacyUser();
+    notifyListeners();
   }
 
   Future<void> deleteAccount({String? password}) async {
@@ -642,49 +650,105 @@ class AppState extends ChangeNotifier {
     );
   }
 
-  Future<void> _restoreCurrencyForUser(String uid) async {
+  Future<void> _loadAndSyncUserData(String uid) async {
     try {
-      final local = await _nativeBridgeService.getUserCurrency();
-      final localCoins = local['coins'] ?? 0;
-      final localGems = local['gems'] ?? 0;
-
       final doc = await _firestore.collection('users').doc(uid).get();
-      final data = doc.data() ?? const <String, dynamic>{};
-      final remoteCoins = (data['coins'] as num?)?.toInt() ?? 0;
-      final remoteGems = (data['gems'] as num?)?.toInt() ?? 0;
+      final data = doc.data();
 
-      final nextCoins = localCoins > remoteCoins ? localCoins : remoteCoins;
-      final nextGems = localGems > remoteGems ? localGems : remoteGems;
-      final synced = await _nativeBridgeService.setUserCurrency(
-        coins: nextCoins,
-        gems: nextGems,
+      if (data != null && data.isNotEmpty) {
+        coins = (data['coins'] as num?)?.toInt() ?? 0;
+        gems = (data['gems'] as num?)?.toInt() ?? 0;
+
+        final rawCats = data['unlockedCategories'];
+        unlockedCategories = rawCats is List
+            ? rawCats.map((e) => e.toString()).toList()
+            : <String>[];
+
+        isVip = data['isVip'] == true;
+
+        selectedCharacterIndex =
+            (data['characterIndex'] as num?)?.toInt() ?? -1;
+        purchasedCharacters.clear();
+        final rawChars = data['purchasedCharacters'];
+        if (rawChars is List) {
+          for (final c in rawChars) {
+            final val = (c as num?)?.toInt();
+            if (val != null) purchasedCharacters.add(val);
+          }
+        }
+
+        xp = (data['xp'] as num?)?.toInt() ?? 0;
+        level = _computeLevel(xp);
+        xpInCurrentLevel = _computeXpInLevel(xp);
+        xpNeededForLevel = PlayerRank.xpNeededForLevel(level);
+        trophies = (data['trophies'] as num?)?.toInt() ?? 0;
+        _lastKnownGamesPlayed =
+            (data['lastKnownGamesPlayed'] as num?)?.toInt() ?? -1;
+        _lastKnownWins = (data['lastKnownWins'] as num?)?.toInt() ?? -1;
+      } else {
+        // حساب جديد تماماً: قيم افتراضية نظيفة خاصة به
+        coins = 500;
+        gems = 10;
+        unlockedCategories = <String>[];
+        isVip = false;
+        selectedCharacterIndex = -1;
+        purchasedCharacters.clear();
+        xp = 0;
+        level = 1;
+        xpInCurrentLevel = 0;
+        xpNeededForLevel = PlayerRank.xpNeededForLevel(1);
+        trophies = 0;
+        await _saveFullUserSnapshot(uid);
+      }
+
+      await _syncLegacyUser();
+      await _nativeBridgeService.setUserCurrency(coins: coins, gems: gems);
+      await _nativeBridgeService.setCategoryState(
+        unlocked: unlockedCategories,
+        isVip: isVip,
+      );
+      await _nativeBridgeService.setCharacterState(
+        selected: selectedCharacterIndex,
+        unlocked: purchasedCharacters.toList(),
       );
 
-      coins = synced['coins'] ?? nextCoins;
-      gems = synced['gems'] ?? nextGems;
+      categoryStateLoaded = true;
+      characterStateLoaded = true;
       notifyListeners();
-      await _saveCurrencySnapshot(uid);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[AppState] Error loading user data: $e');
       await loadCurrency();
+      await loadCategoryState();
+      await loadCharacterState();
     }
   }
 
-  Future<void> _saveCurrencySnapshot(String uid) async {
+  Future<void> _saveFullUserSnapshot(String uid) async {
     try {
-      final data = await _nativeBridgeService.getUserCurrency();
-      final nextCoins = data['coins'] ?? coins;
-      final nextGems = data['gems'] ?? gems;
-      coins = nextCoins;
-      gems = nextGems;
+      final currentCoins = coins;
+      final currentGems = gems;
       await _firestore.collection('users').doc(uid).set(
         <String, dynamic>{
-          'coins': nextCoins,
-          'gems': nextGems,
+          'coins': currentCoins,
+          'gems': currentGems,
+          'unlockedCategories': unlockedCategories,
+          'isVip': isVip,
+          'characterIndex': selectedCharacterIndex,
+          'purchasedCharacters': purchasedCharacters.toList(),
+          'xp': xp,
+          'level': level,
+          'trophies': trophies,
           'currencyUpdatedAt': FieldValue.serverTimestamp(),
         },
         SetOptions(merge: true),
       );
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[AppState] Failed to save full user snapshot: $e');
+    }
+  }
+
+  Future<void> _saveCurrencySnapshot(String uid) async {
+    await _saveFullUserSnapshot(uid);
   }
 
   Future<void> _syncPublicProfile({
@@ -773,5 +837,9 @@ class AppState extends ChangeNotifier {
     selectedCharacterIndex = -1;
     purchasedCharacters.clear();
     characterStateLoaded = false;
+    unlockedCategories.clear();
+    categoryRentals.clear();
+    isVip = false;
+    categoryStateLoaded = false;
   }
 }

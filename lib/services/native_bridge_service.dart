@@ -639,6 +639,38 @@ class NativeBridgeService {
     }
   }
 
+  /// يُعيّن حالة الفئات المفتوحة والـ VIP للنسخة الأصلية عند تسجيل دخول مستخدم
+  Future<bool> setCategoryState({
+    required List<String> unlocked,
+    required bool isVip,
+  }) async {
+    try {
+      final result = await _channel.invokeMethod<bool>('setCategoryState', {
+        'unlocked': unlocked,
+        'isVip': isVip,
+      });
+      return result ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// يُعيّن الشخصيات المفتوحة والمختارة للنسخة الأصلية عند تسجيل دخول مستخدم
+  Future<bool> setCharacterState({
+    required int selected,
+    required List<int> unlocked,
+  }) async {
+    try {
+      final result = await _channel.invokeMethod<bool>('setCharacterState', {
+        'selected': selected,
+        'unlocked': unlocked,
+      });
+      return result ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Map<String, dynamic>? _decodeCampaignResult(dynamic raw) {
     final decoded = _decodeNativeMap(raw);
     if (decoded == null) return null;

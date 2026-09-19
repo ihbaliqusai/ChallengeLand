@@ -63,6 +63,7 @@ class _SpecialOfferDialogState extends State<SpecialOfferDialog>
     with SingleTickerProviderStateMixin {
   late final AnimationController _animCtrl;
   bool _busy = false;
+  void Function(String)? _onProductDelivered;
 
   @override
   void initState() {
@@ -73,10 +74,30 @@ class _SpecialOfferDialogState extends State<SpecialOfferDialog>
       vsync: this,
       duration: const Duration(seconds: 4),
     )..repeat();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final iap = context.read<InAppPurchaseService>();
+      _onProductDelivered = (productId) {
+        if (!mounted) return;
+        context.read<AppState>().loadCategoryState();
+        context.read<AppState>().loadCurrency();
+        _showSnack('تهانينا! تم تفعيل العضوية الملكية VIP بنجاح! 🎉👑');
+        Navigator.of(context).pop();
+      };
+      iap.addDeliveryListener(_onProductDelivered!);
+    });
   }
 
   @override
   void dispose() {
+    if (_onProductDelivered != null) {
+      try {
+        context
+            .read<InAppPurchaseService>()
+            .removeDeliveryListener(_onProductDelivered!);
+      } catch (_) {}
+    }
     _animCtrl.dispose();
     super.dispose();
   }
@@ -95,22 +116,25 @@ class _SpecialOfferDialogState extends State<SpecialOfferDialog>
     }
 
     setState(() => _busy = true);
-    final vipId = iap.products.containsKey('vip_monthly')
-        ? 'vip_monthly'
-        : (iap.products.containsKey('vip_pass') ? 'vip_pass' : 'vip_monthly');
+    try {
+      final vipId = iap.products.containsKey('vip_monthly')
+          ? 'vip_monthly'
+          : (iap.products.containsKey('vip_pass') ? 'vip_pass' : 'vip_monthly');
 
-    final success = await iap.buyProduct(vipId);
-    if (!mounted) return;
-
-    if (success) {
-      await appState.loadCategoryState();
-      await appState.loadCurrency();
+      final launched = await iap.buyProduct(vipId);
       if (!mounted) return;
-      _showSnack('تهانينا! تم تفعيل العضوية الملكية VIP بنجاح! 🎉👑');
-      Navigator.of(context).pop();
-    } else {
-      setState(() => _busy = false);
-      _showSnack('تعذر إتمام عملية الشراء، يمكنك تجربة المتجر.', isError: true);
+
+      if (!launched) {
+        _showSnack(iap.getExplanation(vipId), isError: true);
+      }
+    } catch (e) {
+      if (mounted) {
+        _showSnack('حدث خطأ غير متوقع أثناء بدء عملية الشراء.', isError: true);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
     }
   }
 
