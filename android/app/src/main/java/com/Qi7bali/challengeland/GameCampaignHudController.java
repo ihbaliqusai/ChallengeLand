@@ -17,13 +17,22 @@ final class GameCampaignHudController {
         this.activity = activity;
     }
 
+    boolean isBossConfrontation() {
+        return activity.campaignBossBattle
+                || "boss".equals(activity.boardCampaignKind)
+                || activity.isCampaignBossMode();
+    }
+
     void configureGameplayHud() {
         if (!activity.campaignMode) {
             return;
         }
         hideMoneyBox();
-        if (activity.campaignBoard && !"boss".equals(activity.boardCampaignKind)) {
-            if (activity.offlineContestants != null) {
+        if (activity.campaignBoard || isBossConfrontation()) {
+            if (activity.campaignHudPanel != null) {
+                activity.campaignHudPanel.setVisibility(View.GONE);
+            }
+            if (activity.campaignBoard && activity.offlineContestants != null) {
                 activity.offlineContestants.refreshScoreBoard();
             }
             return;
@@ -43,6 +52,10 @@ final class GameCampaignHudController {
         if (!activity.campaignMode || activity.campaignHudPanel == null) {
             return;
         }
+        if (activity.campaignBoard || isBossConfrontation()) {
+            activity.campaignHudPanel.setVisibility(View.GONE);
+            return;
+        }
         activity.campaignHudPanel.setVisibility(View.VISIBLE);
     }
 
@@ -50,8 +63,11 @@ final class GameCampaignHudController {
         if (!activity.campaignMode) {
             return;
         }
-        if (activity.campaignBoard && !"boss".equals(activity.boardCampaignKind)) {
-            if (activity.offlineContestants != null) {
+        if (activity.campaignBoard || isBossConfrontation()) {
+            if (activity.campaignHudPanel != null) {
+                activity.campaignHudPanel.setVisibility(View.GONE);
+            }
+            if (activity.campaignBoard && activity.offlineContestants != null) {
                 activity.offlineContestants.refreshScoreBoard();
             }
             return;
@@ -112,7 +128,7 @@ final class GameCampaignHudController {
         if (!activity.campaignMode || activity.campaignHudPanel != null) {
             return;
         }
-        if (activity.campaignBoard && !"boss".equals(activity.boardCampaignKind)) {
+        if (activity.campaignBoard || isBossConfrontation()) {
             return;
         }
         View root = activity.findViewById(android.R.id.content);
