@@ -19,6 +19,7 @@ class MainActivity : FlutterActivity() {
 
     private var pendingLaunchAction: String? = null
     private var campaignMapMusicPlayer: MediaPlayer? = null
+    private var playBillingManager: PlayBillingManager? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
@@ -66,8 +67,9 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "millionaire/native")
-            .setMethodCallHandler { call, result ->
+        val channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "millionaire/native")
+        playBillingManager = PlayBillingManager(this, channel)
+        channel.setMethodCallHandler { call, result ->
                 when (call.method) {
                     "launchOriginal" -> {
                         startActivity(Intent(this, LegacyMainActivity::class.java))
@@ -499,44 +501,25 @@ class MainActivity : FlutterActivity() {
                     "deliverPurchase" -> {
                         val productId = call.argument<String>("productId") ?: ""
                         val deliveryKey = call.argument<String>("deliveryKey") ?: ""
-                        if (deliveryKey.isNotBlank() && AppPrefs.isPurchaseDelivered(this, deliveryKey)) {
-                            result.success(true)
-                            return@setMethodCallHandler
-                        }
-                        var delivered = true
-                        when (productId) {
-                            "gems_80"    -> PlayerProgress.addGems(this, 80)
-                            "gems_500"   -> PlayerProgress.addGems(this, 500)
-                            "gems_1200"  -> PlayerProgress.addGems(this, 1200)
-                            "gems_2500"  -> PlayerProgress.addGems(this, 2500)
-                            "gems_6500"  -> PlayerProgress.addGems(this, 6500)
-                            "gems_14000" -> PlayerProgress.addGems(this, 14000)
-                            "pack_starter" -> {
-                                PlayerProgress.addGems(this, 100)
-                                PlayerProgress.addCoins(this, 10000)
-                            }
-                            "pack_value" -> {
-                                PlayerProgress.addGems(this, 600)
-                                PlayerProgress.addCoins(this, 35000)
-                            }
-                            "pack_champion" -> {
-                                PlayerProgress.addGems(this, 1800)
-                                PlayerProgress.addCoins(this, 100000)
-                            }
-                            "no_ads" -> {
-                                AppPrefs.setVip(this, true)
-                            }
-                            "vip_pass", "vip_monthly" -> {
-                                AppPrefs.setVip(this, true)
-                                PlayerProgress.addGems(this, 500)
-                                PlayerProgress.addCoins(this, 5000)
-                            }
-                            else -> delivered = false
-                        }
-                        if (delivered && deliveryKey.isNotBlank()) {
-                            AppPrefs.markPurchaseDelivered(this, deliveryKey)
-                        }
+                        val delivered = deliverPurchaseDirectly(this, productId, deliveryKey)
                         result.success(delivered)
+                    }
+                    "launchBilling" -> {
+                        val productId = call.argument<String>("productId") ?: ""
+                        if (playBillingManager == null) {
+                            val ch = MethodChannel(flutterEngine?.dartExecutor?.binaryMessenger ?: return@setMethodCallHandler, "millionaire/native")
+                            playBillingManager = PlayBillingManager(this, ch)
+                        }
+                        playBillingManager?.launchBilling(productId) { success, message ->
+                            result.success(mapOf("success" to success, "message" to message))
+                        }
+                    }
+                    "isBillingAvailable" -> {
+                        result.success(playBillingManager?.isAvailable() ?: false)
+                    }
+                    "initBilling" -> {
+                        playBillingManager?.startConnection()
+                        result.success(true)
                     }
                     "buyCurrency" -> {
                         val coinAmount = call.argument<Int>("coinAmount") ?: 0
@@ -841,5 +824,48 @@ class MainActivity : FlutterActivity() {
             if (text.isNotEmpty()) values.add(text)
         }
         return values
+    }
+
+    companion object {
+        fun deliverPurchaseDirectly(context: android.content.Context, productId: String, deliveryKey: String): Boolean {
+            if (deliveryKey.isNotBlank() && AppPrefs.isPurchaseDelivered(context, deliveryKey)) {
+                return true
+            }
+            var delivered = true
+            val cleanId = productId.replace("_", "").lowercase()
+            when (cleanId) {
+                "gems80"    -> PlayerProgress.addGems(context, 80)
+                "gems500"   -> PlayerProgress.addGems(context, 500)
+                "gems1200"  -> PlayerProgress.addGems(context, 1200)
+                "gems2500"  -> PlayerProgress.addGems(context, 2500)
+                "gems6500"  -> PlayerProgress.addGems(context, 6500)
+                "gems14000" -> PlayerProgress.addGems(context, 14000)
+                "packstarter" -> {
+                    PlayerProgress.addGems(context, 100)
+                    PlayerProgress.addCoins(context, 10000)
+                }
+                "packvalue" -> {
+                    PlayerProgress.addGems(context, 600)
+                    PlayerProgress.addCoins(context, 35000)
+                }
+                "packchampion" -> {
+                    PlayerProgress.addGems(context, 1800)
+                    PlayerProgress.addCoins(context, 100000)
+                }
+                "noads" -> {
+                    AppPrefs.setVip(context, true)
+                }
+                "vippass", "vipmonthly", "vip" -> {
+                    AppPrefs.setVip(context, true)
+                    PlayerProgress.addGems(context, 500)
+                    PlayerProgress.addCoins(context, 5000)
+                }
+                else -> delivered = false
+            }
+            if (delivered && deliveryKey.isNotBlank()) {
+                AppPrefs.markPurchaseDelivered(context, deliveryKey)
+            }
+            return delivered
+        }
     }
 }

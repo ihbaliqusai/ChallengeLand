@@ -5,6 +5,41 @@ import 'package:flutter/services.dart';
 class NativeBridgeService {
   static const MethodChannel _channel = MethodChannel('millionaire/native');
 
+  NativeBridgeService() {
+    _initChannelHandler();
+  }
+
+  static final List<void Function(String productId)> _purchaseDeliveredListeners = [];
+
+  static void addPurchaseDeliveredListener(void Function(String productId) listener) {
+    if (!_purchaseDeliveredListeners.contains(listener)) {
+      _purchaseDeliveredListeners.add(listener);
+    }
+  }
+
+  static void removePurchaseDeliveredListener(void Function(String productId) listener) {
+    _purchaseDeliveredListeners.remove(listener);
+  }
+
+  static bool _handlerInitialized = false;
+  static void _initChannelHandler() {
+    if (_handlerInitialized) return;
+    _handlerInitialized = true;
+    _channel.setMethodCallHandler((call) async {
+      if (call.method == 'onPurchaseDelivered') {
+        final productId = (call.arguments as Map?)?['productId']?.toString() ?? '';
+        if (productId.isNotEmpty) {
+          for (final listener in List.of(_purchaseDeliveredListeners)) {
+            try {
+              listener(productId);
+            } catch (_) {}
+          }
+        }
+      }
+      return null;
+    });
+  }
+
   Future<void> launchLegacyGame() async {
     await _channel.invokeMethod('launchOriginal');
   }
@@ -696,5 +731,31 @@ class NativeBridgeService {
       );
     }
     return null;
+  }
+
+  Future<Map<String, dynamic>> launchBilling(String productId) async {
+    try {
+      final res = await _channel.invokeMapMethod<String, dynamic>('launchBilling', {
+        'productId': productId,
+      });
+      return res ?? {'success': false, 'message': 'Unknown response'};
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  Future<bool> isBillingAvailable() async {
+    try {
+      final res = await _channel.invokeMethod<bool>('isBillingAvailable');
+      return res ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> initBilling() async {
+    try {
+      await _channel.invokeMethod('initBilling');
+    } catch (_) {}
   }
 }

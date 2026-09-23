@@ -387,7 +387,6 @@ class _StoreScreenState extends State<StoreScreen> {
 
   Future<void> _buyBundle(_BundleItem bundle) async {
     if (_busy) return;
-    final appState = context.read<AppState>();
     final iap = context.read<InAppPurchaseService>();
     await _haptic();
 
@@ -401,10 +400,7 @@ class _StoreScreenState extends State<StoreScreen> {
     try {
       final success = await iap.buyProduct(bundle.id);
       if (!mounted) return;
-      if (success) {
-        await appState.loadCurrency();
-        _showSnack('مبروك! تم تفعيل ${bundle.title} وإضافة المكافآت بنجاح! 🎉');
-      } else {
+      if (!success) {
         final exp = iap.getExplanation(bundle.id);
         _showSnack(exp.isNotEmpty ? exp : 'تعذر إتمام عملية الشراء.', isError: true);
       }
@@ -441,11 +437,7 @@ class _StoreScreenState extends State<StoreScreen> {
     try {
       final success = await iap.buyProduct(vipId);
       if (!mounted) return;
-      if (success) {
-        await appState.loadCategoryState();
-        await appState.loadCurrency();
-        _showSnack('أهلاً بك في العضوية المميزة VIP! تم فتح جميع المزايا بنجاح! 👑');
-      } else {
+      if (!success) {
         final exp = iap.getExplanation(vipId);
         _showSnack(exp.isNotEmpty ? exp : 'تعذر تفعيل العضوية المميزة.', isError: true);
       }
@@ -460,7 +452,6 @@ class _StoreScreenState extends State<StoreScreen> {
 
   Future<void> _buyGemItem(_GemStoreItem item) async {
     if (_busy) return;
-    final appState = context.read<AppState>();
     final iap = context.read<InAppPurchaseService>();
     await _haptic();
 
@@ -474,10 +465,7 @@ class _StoreScreenState extends State<StoreScreen> {
     try {
       final success = await iap.buyProduct(item.id);
       if (!mounted) return;
-      if (success) {
-        await appState.loadCurrency();
-        _showSnack('مبروك! تمت إضافة ${item.gems} جوهرة بنجاح! 💎');
-      } else {
+      if (!success) {
         final exp = iap.getExplanation(item.id);
         _showSnack(exp.isNotEmpty ? exp : 'تعذر إتمام عملية الشراء.', isError: true);
       }

@@ -1,21 +1,52 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import 'package:in_app_purchase/in_app_purchase.dart';
 import 'native_bridge_service.dart';
 
-/// خدمة إدارة المشتريات والاشتراكات الرسمية عبر Google Play و App Store
+/// كائن تفاصيل المنتج المتوافق مع شاشات اللعبة
+class AppProductDetails {
+  final String id;
+  final String title;
+  final String description;
+  final String price;
+
+  const AppProductDetails({
+    required this.id,
+    this.title = '',
+    this.description = '',
+    this.price = '',
+  });
+}
+
+/// خدمة إدارة المشتريات والاشتراكات الرسمية المباشرة عبر Google Play Billing 8.0.0
 class InAppPurchaseService {
-  InAppPurchaseService({required this.nativeBridge});
+  InAppPurchaseService({required this.nativeBridge}) {
+    NativeBridgeService.addPurchaseDeliveredListener(_onNativePurchaseDelivered);
+  }
 
   final NativeBridgeService nativeBridge;
-  final InAppPurchase _iap = InAppPurchase.instance;
-  StreamSubscription<List<PurchaseDetails>>? _subscription;
 
-  bool _isAvailable = false;
+  bool _isAvailable = true;
   bool get isAvailable => _isAvailable;
 
-  Map<String, ProductDetails> _products = {};
-  Map<String, ProductDetails> get products => _products;
+  final Map<String, AppProductDetails> _products = {
+    'gems_80': const AppProductDetails(id: 'gems_80', title: 'كيس جواهر صغير', price: r'$0.99'),
+    'gems80': const AppProductDetails(id: 'gems80', title: 'كيس جواهر صغير', price: r'$0.99'),
+    'gems_500': const AppProductDetails(id: 'gems_500', title: 'صندوق جواهر متوسط', price: r'$4.99'),
+    'gems500': const AppProductDetails(id: 'gems500', title: 'صندوق جواهر متوسط', price: r'$4.99'),
+    'gems_1200': const AppProductDetails(id: 'gems_1200', title: 'حقيبة جواهر كبيرة', price: r'$9.99'),
+    'gems1200': const AppProductDetails(id: 'gems1200', title: 'حقيبة جواهر كبيرة', price: r'$9.99'),
+    'pack_starter': const AppProductDetails(id: 'pack_starter', title: 'حزمة المبتدئ الحارقة', price: r'$0.99'),
+    'packstarter': const AppProductDetails(id: 'packstarter', title: 'حزمة المبتدئ الحارقة', price: r'$0.99'),
+    'pack_value': const AppProductDetails(id: 'pack_value', title: 'باقة القيمة الذهبية', price: r'$2.99'),
+    'packvalue': const AppProductDetails(id: 'packvalue', title: 'باقة القيمة الذهبية', price: r'$2.99'),
+    'pack_champion': const AppProductDetails(id: 'pack_champion', title: 'باقة الأبطال الملكية', price: r'$9.99'),
+    'packchampion': const AppProductDetails(id: 'packchampion', title: 'باقة الأبطال الملكية', price: r'$9.99'),
+    'vip_monthly': const AppProductDetails(id: 'vip_monthly', title: 'العضوية الملكية VIP', price: r'$4.99'),
+    'vipmonthly': const AppProductDetails(id: 'vipmonthly', title: 'العضوية الملكية VIP', price: r'$4.99'),
+    'vippass': const AppProductDetails(id: 'vippass', title: 'العضوية الملكية VIP', price: r'$4.99'),
+  };
+
+  Map<String, AppProductDetails> get products => _products;
 
   final List<void Function(String productId)> _deliveryListeners = [];
 
@@ -31,205 +62,86 @@ class InAppPurchaseService {
 
   VoidCallback? onPurchaseCompleted;
 
-  static const Set<String> _consumableProductIds = {
-    'pack_starter',
-    'pack_value',
-    'pack_champion',
-    'gems_80',
-    'gems_500',
-    'gems_1200',
-  };
-
-  static const Set<String> _nonConsumableProductIds = {
-    'vip_monthly',
-    'vip_pass',
-  };
-
-  static Set<String> get allProductIds => {
-        ..._consumableProductIds,
-        ..._nonConsumableProductIds,
-      };
+  String _lastError = '';
 
   bool get hasProducts => _products.isNotEmpty;
 
-  /// تهيئة الخدمة والتحقق من توفر متجر Google Play
+  AppProductDetails? getProductDetails(String productId) {
+    if (_products.containsKey(productId)) return _products[productId];
+    final clean = productId.replaceAll('_', '').toLowerCase();
+    for (final entry in _products.entries) {
+      if (entry.key.replaceAll('_', '').toLowerCase() == clean) {
+        return entry.value;
+      }
+    }
+    return null;
+  }
+
   Future<void> initialize() async {
     try {
-      _isAvailable = await _iap
-          .isAvailable()
-          .timeout(const Duration(seconds: 4), onTimeout: () => false);
-      if (!_isAvailable) {
-        debugPrint('[IAP] In-App Purchase store is not available.');
-        return;
-      }
-
-      // الاستماع لأحداث الشراء القادمة من جوجل بلاي
-      _subscription = _iap.purchaseStream.listen(
-        _onPurchaseUpdated,
-        onDone: () => _subscription?.cancel(),
-        onError: (error) {
-          debugPrint('[IAP] Purchase stream error: $error');
-        },
-      );
-
-      // جلب تفاصيل المنتجات المعتمدة
-      await loadProducts();
+      await nativeBridge.initBilling();
+      _isAvailable = await nativeBridge.isBillingAvailable();
     } catch (e) {
-      debugPrint('[IAP] Initialization failed: $e');
+      debugPrint('[Billing 8.0.0] Init error: $e');
     }
   }
 
-  /// تحميل المنتجات من Google Play Console بمهلة زمنية
   Future<void> loadProducts() async {
-    if (!_isAvailable) return;
     try {
-      final response = await _iap
-          .queryProductDetails(allProductIds)
-          .timeout(const Duration(seconds: 5));
-      if (response.error != null) {
-        debugPrint('[IAP] Query error: ${response.error!.message}');
-        return;
-      }
-      _products = {for (final p in response.productDetails) p.id: p};
-      debugPrint('[IAP] Loaded ${_products.length} products from store.');
+      await nativeBridge.initBilling();
+      _isAvailable = await nativeBridge.isBillingAvailable();
     } catch (e) {
-      debugPrint('[IAP] Failed to query product details: $e');
+      debugPrint('[Billing 8.0.0] Load products error: $e');
     }
   }
 
-  /// توضيح سبب عدم توفر المنتج للمستخدم
   String getExplanation(String productId) {
-    if (!_isAvailable) {
-      return 'خدمة متجر Google Play غير متوفرة على هذا الجهاز حالياً.';
+    if (_lastError.isNotEmpty) {
+      return _lastError;
     }
-    if (_products.isEmpty || !_products.containsKey(productId)) {
-      return 'منتجات الدفع قيد الاعتماد من متجر Google Play... يرجى الانتظار حتى اكتمال مراجعة النسخة في Google Play Console.';
-    }
-    return 'تعذر إتمام عملية الشراء، يرجى المحاولة لاحقاً.';
+    return 'تعذر إتمام عملية الشراء عبر متجر Google Play، يرجى التحقق من اتصال الإنترنت.';
   }
 
-  /// تفعيل أو تعطيل المحاكاة المجانية عند غياب متجر Google Play
-  /// مغلقة افتراضياً (false) لضمان أن كل المشتريات تمر عبر نافذة دفع Google Play الرسمية
-  static const bool allowMockFallback = false;
-
-  /// تنفيذ عملية الشراء مع مهلة زمنية مانعة للتعليق
+  /// تنفيذ عملية الشراء عبر نافذة الدفع الرسمية لـ Google Play Billing 8.0.0
   Future<bool> buyProduct(String productId) async {
     try {
-      // محاولة إعادة التحقق من المتجر في حال لم يكن جاهزاً
-      if (!_isAvailable) {
-        _isAvailable = await _iap
-            .isAvailable()
-            .timeout(const Duration(seconds: 3), onTimeout: () => false);
-      }
+      _lastError = '';
+      debugPrint('[Billing 8.0.0] Launching billing flow for: $productId');
 
-      if (!_isAvailable) {
-        debugPrint('[IAP] Store not available.');
-        if (allowMockFallback) {
-          final ok = await nativeBridge.deliverPurchase(
-            productId,
-            deliveryKey: 'fallback_${DateTime.now().millisecondsSinceEpoch}',
-          );
-          if (ok) {
-            onPurchaseCompleted?.call();
-            _notifyDelivery(productId);
-          }
-          return ok;
-        }
-        return false;
+      final result = await nativeBridge.launchBilling(productId);
+      final success = result['success'] == true;
+      if (!success) {
+        _lastError = (result['message'] ?? 'فشلت عملية فتح نافذة الدفع').toString();
+        debugPrint('[Billing 8.0.0] Billing flow error: $_lastError');
       }
-
-      // إذا لم تكن المنتجات محملة، نحاول إعادة جلبها بمهلة محددة
-      if (!_products.containsKey(productId)) {
-        await loadProducts().timeout(const Duration(seconds: 3), onTimeout: () {});
-      }
-
-      final productDetails = _products[productId];
-      if (productDetails == null) {
-        debugPrint('[IAP] Product details not found for $productId in store catalog.');
-        if (allowMockFallback) {
-          final ok = await nativeBridge.deliverPurchase(
-            productId,
-            deliveryKey: 'mock_${DateTime.now().millisecondsSinceEpoch}',
-          );
-          if (ok) {
-            onPurchaseCompleted?.call();
-            _notifyDelivery(productId);
-          }
-          return ok;
-        }
-        return false;
-      }
-
-      final purchaseParam = PurchaseParam(productDetails: productDetails);
-      if (_consumableProductIds.contains(productId)) {
-        return await _iap
-            .buyConsumable(purchaseParam: purchaseParam)
-            .timeout(const Duration(seconds: 4), onTimeout: () => false);
-      } else {
-        return await _iap
-            .buyNonConsumable(purchaseParam: purchaseParam)
-            .timeout(const Duration(seconds: 4), onTimeout: () => false);
-      }
+      return success;
     } catch (e) {
-      debugPrint('[IAP] buyProduct error: $e');
+      _lastError = e.toString();
+      debugPrint('[Billing 8.0.0] buyProduct exception: $e');
       return false;
     }
   }
 
-  void _notifyDelivery(String productId) {
+  void _onNativePurchaseDelivered(String productId) {
+    debugPrint('[Billing 8.0.0] Native purchase delivered event received for: $productId');
+    onPurchaseCompleted?.call();
     for (final listener in List.of(_deliveryListeners)) {
       try {
         listener(productId);
       } catch (e) {
-        debugPrint('[IAP] Listener callback error: $e');
+        debugPrint('[Billing 8.0.0] Listener error: $e');
       }
     }
   }
 
-  /// معالجة أحداث الفواتير الواردة من Google Play
-  Future<void> _onPurchaseUpdated(List<PurchaseDetails> purchaseDetailsList) async {
-    for (final purchase in purchaseDetailsList) {
-      switch (purchase.status) {
-        case PurchaseStatus.pending:
-          debugPrint('[IAP] Purchase pending for ${purchase.productID}...');
-          break;
-        case PurchaseStatus.purchased:
-        case PurchaseStatus.restored:
-          final delivered = await nativeBridge.deliverPurchase(
-            purchase.productID,
-            deliveryKey: purchase.purchaseID,
-          );
-          if (delivered) {
-            debugPrint('[IAP] Purchase successfully delivered for ${purchase.productID}!');
-            onPurchaseCompleted?.call();
-            _notifyDelivery(purchase.productID);
-          }
-          if (purchase.pendingCompletePurchase) {
-            await _iap.completePurchase(purchase);
-          }
-          break;
-        case PurchaseStatus.error:
-          debugPrint('[IAP] Purchase error: ${purchase.error?.message}');
-          break;
-        case PurchaseStatus.canceled:
-          debugPrint('[IAP] Purchase canceled by user.');
-          break;
-      }
-    }
-  }
-
-  /// استرجاع المشتريات السابقة (للاشتراكات والمنتجات الدائمة)
   Future<void> restorePurchases() async {
-    if (!_isAvailable) return;
     try {
-      await _iap.restorePurchases();
-    } catch (e) {
-      debugPrint('[IAP] Restore purchases failed: $e');
-    }
+      await nativeBridge.initBilling();
+    } catch (_) {}
   }
 
   void dispose() {
-    _subscription?.cancel();
+    NativeBridgeService.removePurchaseDeliveredListener(_onNativePurchaseDelivered);
     _deliveryListeners.clear();
   }
 }
