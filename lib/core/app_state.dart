@@ -74,6 +74,7 @@ class AppState extends ChangeNotifier {
   int trophies = 0;
   int streakDay = 0;
   bool claimedToday = false;
+  bool dailyStreakLoaded = false;
   bool _claimingStreak = false;
 
   User? get currentUser => user ?? FirebaseAuth.instance.currentUser;
@@ -288,7 +289,7 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  static const List<Map<String, int>> _kStreakRewards = [
+  static const List<Map<String, int>> streakRewards = [
     {'coins': 100, 'gems': 0},
     {'coins': 150, 'gems': 0},
     {'coins': 200, 'gems': 1},
@@ -321,6 +322,15 @@ class AppState extends ChangeNotifier {
     {'coins': 2000, 'gems': 15},
   ];
 
+  /// Get the streak reward map for a specific day (1-30).
+  static Map<String, int> getRewardForDay(int day) {
+    return streakRewards[(day - 1).clamp(0, streakRewards.length - 1)];
+  }
+
+  /// Today's streak reward map {coins, gems}.
+  Map<String, int> get todayReward =>
+      getRewardForDay(streakDay > 0 ? streakDay : 1);
+
   /// Returns the reward {coins, gems} if claimed, or null if already claimed / error.
   Future<Map<String, int>?> claimDailyStreak() async {
     if (claimedToday || _claimingStreak) return null;
@@ -335,8 +345,7 @@ class AppState extends ChangeNotifier {
     }
 
     final day = streakDay > 0 ? streakDay : 1;
-    final reward =
-        _kStreakRewards[(day - 1).clamp(0, _kStreakRewards.length - 1)];
+    final reward = getRewardForDay(day);
     final rewardCoins = reward['coins'] ?? 0;
     final rewardGems = reward['gems'] ?? 0;
 
@@ -428,11 +437,13 @@ class AppState extends ChangeNotifier {
           claimedToday = false;
         }
       }
+      dailyStreakLoaded = true;
       notifyListeners();
     } catch (e) {
       // Firestore read failed (offline/network). Retain defaults and notify
       // so UI shows day 1 rather than an endless spinner.
       streakDay = streakDay > 0 ? streakDay : 1;
+      dailyStreakLoaded = true;
       notifyListeners();
     }
     unawaited(checkAndAwardXpForGames());
@@ -926,6 +937,7 @@ class AppState extends ChangeNotifier {
     trophies = 0;
     streakDay = 0;
     claimedToday = false;
+    dailyStreakLoaded = false;
     level = 1;
     xp = 0;
     xpInCurrentLevel = 0;

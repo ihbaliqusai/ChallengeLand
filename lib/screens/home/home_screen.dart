@@ -31,6 +31,7 @@ import '../../widgets/cross_promo_millionaire_badge.dart';
 import '../../widgets/cross_promo_millionaire_dialog.dart';
 import '../../widgets/special_offer_dialog.dart';
 import '../../widgets/special_offer_badge.dart';
+import '../../widgets/daily_reward_dialog.dart';
 import '../../services/rate_game_service.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -47,6 +48,7 @@ class _HomeScreenState extends State<HomeScreen>
   late final AnimationController _bgCtrl;
   bool _syncingPendingRoomMatchResult = false;
   bool _handlingNativeLaunchAction = false;
+  bool _hasCheckedDailyRewardThisLaunch = false;
 
   @override
   void initState() {
@@ -64,12 +66,10 @@ class _HomeScreenState extends State<HomeScreen>
         context: context,
       );
       _consumeNativeLaunchAction();
-      Future.delayed(const Duration(milliseconds: 1000), () {
-        if (mounted) _checkAndShowSpecialOffer();
-      });
       Future.delayed(const Duration(milliseconds: 600), () {
         if (mounted) _checkClipboardForIncomingInvite();
       });
+      _checkAndShowDailyReward();
     });
     _idleCtrl = AnimationController(
       vsync: this,
@@ -91,6 +91,7 @@ class _HomeScreenState extends State<HomeScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       context.read<AppState>().loadCurrency();
+      context.read<AppState>().loadLevelData();
       context.read<AppState>().checkAndAwardXpForGames();
       _consumePendingRoomMatchResult();
       CampaignResultHandler.consumeAndHandlePendingCampaignResult(
@@ -98,6 +99,38 @@ class _HomeScreenState extends State<HomeScreen>
       );
       _consumeNativeLaunchAction();
       _checkClipboardForIncomingInvite();
+    }
+  }
+
+  Future<void> _checkAndShowDailyReward() async {
+    if (!mounted || _hasCheckedDailyRewardThisLaunch) return;
+    _hasCheckedDailyRewardThisLaunch = true;
+
+    // مهلة قصيرة لإتاحة استقرار الشاشة وسلاسة الانتقال
+    await Future<void>.delayed(const Duration(milliseconds: 800));
+    if (!mounted) return;
+
+    final appState = context.read<AppState>();
+    // انتظار تحميل بيانات السلسلة من Firestore إذا كانت لا تزال قيد التحميل
+    int waitCount = 0;
+    while (!appState.dailyStreakLoaded && waitCount < 12 && mounted) {
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      waitCount++;
+    }
+    if (!mounted) return;
+
+    final shouldShow = appState.isOnline &&
+        !appState.claimedToday &&
+        appState.user != null;
+
+    if (shouldShow && mounted) {
+      await DailyRewardDialog.show(context);
+    }
+
+    // بعد الانتهاء من فحص/عرض المكافأة اليومية يتم التحقق من العرض الخاص
+    // لضمان عدم ظهور نافذتين فوق بعضهما مطلقاً
+    if (mounted) {
+      _checkAndShowSpecialOffer();
     }
   }
 
@@ -1749,10 +1782,16 @@ class _LeftSidebar extends StatelessWidget {
             ),
             GestureDetector(
               onTap: isOnline
-                  ? () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                            builder: (_) => const DailyStreakScreen()),
-                      )
+                  ? () {
+                      if (!appState.claimedToday) {
+                        DailyRewardDialog.show(context);
+                      } else {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                              builder: (_) => const DailyStreakScreen()),
+                        );
+                      }
+                    }
                   : () => _showOnlineRequiredToast(context),
               child: Opacity(
                 opacity: isOnline ? 1.0 : 0.5,
@@ -2326,6 +2365,7 @@ class _BattleButtonState extends State<_BattleButton> {
   }
 }
 
+// ignore: unused_element
 Future<void> _showChestRewardDialog(BuildContext context, int coins, int gems) {
   return showDialog<void>(
     context: context,
@@ -2445,24 +2485,7 @@ class _RightSidebar extends StatelessWidget {
           );
           final dailyChests = GestureDetector(
             onTap: isOnline
-                ? () async {
-                    final reward =
-                        await context.read<AppState>().claimDailyStreak();
-                    if (reward != null && context.mounted) {
-                      await _showChestRewardDialog(
-                        context,
-                        reward['coins']!,
-                        reward['gems']!,
-                      );
-                      if (context.mounted) {
-                        showCurrencyRewardOverlay(
-                          context,
-                          coins: reward['coins']!,
-                          gems: reward['gems']!,
-                        );
-                      }
-                    }
-                  }
+                ? () => DailyRewardDialog.show(context)
                 : () => _showOnlineRequiredToast(context),
             child: Opacity(
               opacity: isOnline ? 1.0 : 0.5,

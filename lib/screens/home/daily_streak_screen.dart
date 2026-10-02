@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/app_state.dart';
-import '../../widgets/currency_reward_overlay.dart';
+import '../../widgets/daily_reward_dialog.dart';
 
 const _kDayRewards = [
   {'coins': 100, 'gems': 0},
@@ -46,8 +46,6 @@ class DailyStreakScreen extends StatefulWidget {
 }
 
 class _DailyStreakScreenState extends State<DailyStreakScreen> {
-  bool _claiming = false;
-
   @override
   void initState() {
     super.initState();
@@ -56,83 +54,8 @@ class _DailyStreakScreenState extends State<DailyStreakScreen> {
 
   Future<void> _claimReward() async {
     final appState = context.read<AppState>();
-    if (appState.claimedToday || _claiming) return;
-    setState(() => _claiming = true);
-
-    final reward = await appState.claimDailyStreak();
-
-    if (!mounted) return;
-    setState(() => _claiming = false);
-
-    if (reward != null) {
-      await _showRewardDialog(reward['coins']!, reward['gems']!);
-      if (mounted) {
-        showCurrencyRewardOverlay(
-          context,
-          coins: reward['coins']!,
-          gems: reward['gems']!,
-        );
-      }
-    }
-  }
-
-  Future<void> _showRewardDialog(int coins, int gems) {
-    return showDialog<void>(
-      context: context,
-      builder: (_) => Directionality(
-        textDirection: TextDirection.rtl,
-        child: AlertDialog(
-          backgroundColor: const Color(0xFF081328),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          title: const Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.inventory_2_rounded, color: Color(0xFFFACC15)),
-              SizedBox(width: 8),
-              Text(
-                'تم فتح الصندوق',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 18,
-                ),
-              ),
-            ],
-          ),
-          content: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (coins > 0)
-                _RewardChip(
-                  icon: Icons.monetization_on_rounded,
-                  color: const Color(0xFFFACC15),
-                  value: '+$coins',
-                ),
-              if (coins > 0 && gems > 0) const SizedBox(width: 10),
-              if (gems > 0)
-                _RewardChip(
-                  icon: Icons.diamond_rounded,
-                  color: const Color(0xFF38BDF8),
-                  value: '+$gems',
-                ),
-            ],
-          ),
-          actionsAlignment: MainAxisAlignment.center,
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text(
-                'رائع',
-                style: TextStyle(
-                  color: Color(0xFFFACC15),
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    if (appState.claimedToday) return;
+    await DailyRewardDialog.show(context);
   }
 
   @override
@@ -172,7 +95,7 @@ class _DailyStreakScreenState extends State<DailyStreakScreen> {
                     child: _DailyRewardsDashboard(
                       streakDay: streakDay,
                       claimedToday: claimedToday,
-                      claiming: _claiming,
+                      claiming: false,
                       onClaim: _claimReward,
                     ),
                   ),
@@ -930,6 +853,7 @@ class _TileRewardLine extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _RewardChip extends StatelessWidget {
   const _RewardChip({
     required this.icon,
