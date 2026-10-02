@@ -31,6 +31,7 @@ class MainActivity : FlutterActivity() {
     override fun onResume() {
         super.onResume()
         syncDailyReminderSchedule()
+        playBillingManager?.queryActivePurchases()
     }
 
     override fun onPause() {
@@ -386,7 +387,7 @@ class MainActivity : FlutterActivity() {
                         AppPrefs.clearUnlockedCategories(this)
                         AppPrefs.clearUnlockedCharacters(this)
                         AppPrefs.setSelectedCharacter(this, -1)
-                        AppPrefs.setVip(this, false)
+                        // Do NOT wipe VIP status on legacy reset; VIP subscriptions belong to Google Play / device.
                         PlayerProgress.setCurrency(this, 0, 0)
                         PlayerStats.reset(this)
                         result.success(true)
@@ -529,8 +530,22 @@ class MainActivity : FlutterActivity() {
                         result.success(ok)
                     }
                     "restorePurchases" -> {
-                        // Consumable items on Google Play don't need restore.
-                        result.success(false)
+                        if (playBillingManager == null) {
+                            val ch = MethodChannel(flutterEngine?.dartExecutor?.binaryMessenger ?: return@setMethodCallHandler, "millionaire/native")
+                            playBillingManager = PlayBillingManager(this, ch)
+                        }
+                        playBillingManager?.queryActivePurchases { purchases ->
+                            val hasVip = purchases.any { p ->
+                                p.products.any { it.replace("_", "").lowercase().contains("vip") }
+                            }
+                            val vipActive = hasVip || AppPrefs.isVip(this)
+                            if (vipActive) {
+                                AppPrefs.setVip(this, true)
+                            }
+                            result.success(vipActive)
+                        } ?: run {
+                            result.success(AppPrefs.isVip(this))
+                        }
                     }
                     "getAchievements" -> {
                         PlayerProgress.checkMilestoneAchievements(this)
@@ -828,34 +843,41 @@ class MainActivity : FlutterActivity() {
 
     companion object {
         fun deliverPurchaseDirectly(context: android.content.Context, productId: String, deliveryKey: String): Boolean {
+            val cleanId = productId.replace("_", "").lowercase()
+            val isVipProduct = cleanId.contains("vip") || cleanId == "noads"
+
+            // VIP subscription status must ALWAYS be active if a VIP product is purchased/delivered
+            if (isVipProduct) {
+                AppPrefs.setVip(context, true)
+            }
+
             if (deliveryKey.isNotBlank() && AppPrefs.isPurchaseDelivered(context, deliveryKey)) {
                 return true
             }
             var delivered = true
-            val cleanId = productId.replace("_", "").lowercase()
-            when (cleanId) {
-                "gems80"    -> PlayerProgress.addGems(context, 80)
-                "gems500"   -> PlayerProgress.addGems(context, 500)
-                "gems1200"  -> PlayerProgress.addGems(context, 1200)
-                "gems2500"  -> PlayerProgress.addGems(context, 2500)
-                "gems6500"  -> PlayerProgress.addGems(context, 6500)
-                "gems14000" -> PlayerProgress.addGems(context, 14000)
-                "packstarter" -> {
+            when {
+                cleanId == "gems80"    -> PlayerProgress.addGems(context, 80)
+                cleanId == "gems500"   -> PlayerProgress.addGems(context, 500)
+                cleanId == "gems1200"  -> PlayerProgress.addGems(context, 1200)
+                cleanId == "gems2500"  -> PlayerProgress.addGems(context, 2500)
+                cleanId == "gems6500"  -> PlayerProgress.addGems(context, 6500)
+                cleanId == "gems14000" -> PlayerProgress.addGems(context, 14000)
+                cleanId == "packstarter" -> {
                     PlayerProgress.addGems(context, 100)
                     PlayerProgress.addCoins(context, 10000)
                 }
-                "packvalue" -> {
+                cleanId == "packvalue" -> {
                     PlayerProgress.addGems(context, 600)
                     PlayerProgress.addCoins(context, 35000)
                 }
-                "packchampion" -> {
+                cleanId == "packchampion" -> {
                     PlayerProgress.addGems(context, 1800)
                     PlayerProgress.addCoins(context, 100000)
                 }
-                "noads" -> {
+                cleanId == "noads" -> {
                     AppPrefs.setVip(context, true)
                 }
-                "vippass", "vipmonthly", "vip" -> {
+                isVipProduct -> {
                     AppPrefs.setVip(context, true)
                     PlayerProgress.addGems(context, 500)
                     PlayerProgress.addCoins(context, 5000)

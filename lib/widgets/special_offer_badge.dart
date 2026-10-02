@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import '../core/app_state.dart';
 import 'special_offer_dialog.dart';
 
 /// زر/شارة العرض الحصري في صفحة البداية للوصول للعرض في أي وقت
@@ -36,6 +38,9 @@ class _SpecialOfferBadgeState extends State<SpecialOfferBadge>
 
   @override
   Widget build(BuildContext context) {
+    final isVip = context.select<AppState, bool>((s) => s.isVip);
+    if (isVip) return const SizedBox.shrink();
+
     final isCompact = widget.compact;
 
     return AnimatedBuilder(

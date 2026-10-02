@@ -198,11 +198,12 @@ class _StoreScreenState extends State<StoreScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final iap = context.read<InAppPurchaseService>();
-      _onProductDelivered = (productId) {
+      iap.restorePurchases();
+      _onProductDelivered = (productId) async {
         if (!mounted) return;
         final appState = context.read<AppState>();
-        appState.loadCategoryState();
-        appState.loadCurrency();
+        await appState.loadCategoryState();
+        await appState.loadCurrency();
         _showSnack('تم استلام مشترياتك وتحديث رصيدك بنجاح! 🎉');
       };
       iap.addDeliveryListener(_onProductDelivered!);

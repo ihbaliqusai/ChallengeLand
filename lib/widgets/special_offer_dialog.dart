@@ -15,7 +15,35 @@ class SpecialOfferDialog extends StatefulWidget {
   static const String _prefsKeyLastShown = 'special_offer_last_shown_time';
 
   /// إظهار نافذة العرض الترويجي
-  static Future<void> show(BuildContext context) {
+  static Future<void> show(BuildContext context) async {
+    final appState = context.read<AppState>();
+    if (appState.isVip) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('أنت مشترك بالفعل في العضوية الملكية VIP! 👑', textDirection: TextDirection.rtl),
+          backgroundColor: Color(0xFF0F766E),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool('is_vip_subscriber') == true) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('أنت مشترك بالفعل في العضوية الملكية VIP! 👑', textDirection: TextDirection.rtl),
+            backgroundColor: Color(0xFF0F766E),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+    } catch (_) {}
+
+    if (!context.mounted) return;
     return showGeneralDialog<void>(
       context: context,
       barrierDismissible: true,
@@ -33,10 +61,12 @@ class SpecialOfferDialog extends StatefulWidget {
     );
   }
 
-  /// التحقق من وقت الظهور التلقائي (بحد أقصى مرة كل 12 ساعة)
-  static Future<bool> shouldShowAuto() async {
+  /// التحقق من وقت الظهور التلقائي (بحد أقصى مرة كل 12 ساعة، ولا يظهر مطلقاً للمشتركين)
+  static Future<bool> shouldShowAuto({bool isVip = false}) async {
+    if (isVip) return false;
     try {
       final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool('is_vip_subscriber') == true) return false;
       final lastTime = prefs.getInt(_prefsKeyLastShown) ?? 0;
       if (lastTime == 0) return true;
       final lastDate = DateTime.fromMillisecondsSinceEpoch(lastTime);
@@ -77,13 +107,18 @@ class _SpecialOfferDialogState extends State<SpecialOfferDialog>
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final iap = context.read<InAppPurchaseService>();
-      _onProductDelivered = (productId) {
-        if (!mounted) return;
-        context.read<AppState>().loadCategoryState();
-        context.read<AppState>().loadCurrency();
-        _showSnack('تهانينا! تم تفعيل العضوية الملكية VIP بنجاح! 🎉👑');
+      if (context.read<AppState>().isVip) {
         Navigator.of(context).pop();
+        return;
+      }
+      final iap = context.read<InAppPurchaseService>();
+      _onProductDelivered = (productId) async {
+        if (!mounted) return;
+        final appState = context.read<AppState>();
+        await appState.loadCategoryState();
+        await appState.loadCurrency();
+        _showSnack('تهانينا! تم تفعيل العضوية الملكية VIP بنجاح! 🎉👑');
+        if (mounted) Navigator.of(context).pop();
       };
       iap.addDeliveryListener(_onProductDelivered!);
     });

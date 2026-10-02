@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/game_character.dart';
 import '../models/game_category.dart';
@@ -17,7 +18,46 @@ class AppState extends ChangeNotifier {
     required NativeBridgeService nativeBridgeService,
   })  : _authService = authService,
         _nativeBridgeService = nativeBridgeService {
+    NativeBridgeService.addPurchaseDeliveredListener(_onPurchaseDelivered);
+    _initLocalVip();
     _authSubscription = _authService.authStateChanges().listen(_onAuthChanged);
+  }
+
+  Future<void> _initLocalVip() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool('is_vip_subscriber') == true) {
+        isVip = true;
+        notifyListeners();
+      }
+      final catState = await _nativeBridgeService.getCategoryState();
+      if (catState['isVip'] == true) {
+        isVip = true;
+        await prefs.setBool('is_vip_subscriber', true);
+        notifyListeners();
+      }
+    } catch (_) {}
+  }
+
+  void _onPurchaseDelivered(String productId) {
+    final clean = productId.replaceAll('_', '').toLowerCase();
+    final isVipProduct = clean.contains('vip') || clean == 'noads';
+    if (isVipProduct) {
+      isVip = true;
+      SharedPreferences.getInstance().then((prefs) {
+        prefs.setBool('is_vip_subscriber', true);
+      }).catchError((_) {});
+    }
+    loadCurrency();
+    loadCategoryState().then((_) {
+      if (isVipProduct || isVip) {
+        final uid = currentUser?.uid;
+        if (uid != null) {
+          unawaited(_saveFullUserSnapshot(uid));
+        }
+      }
+    });
+    notifyListeners();
   }
 
   final AuthService _authService;
@@ -184,7 +224,22 @@ class AppState extends ChangeNotifier {
       final state = await _nativeBridgeService.getCategoryState();
       unlockedCategories = (state['unlocked'] as List<String>? ?? <String>[]);
       categoryRentals = (state['rentals'] as Map<String, int>? ?? <String, int>{});
-      isVip = state['isVip'] == true;
+      final nativeVip = state['isVip'] == true;
+      final prefs = await SharedPreferences.getInstance();
+      final prefsVip = prefs.getBool('is_vip_subscriber') == true;
+
+      if (nativeVip || prefsVip || isVip) {
+        isVip = true;
+        await prefs.setBool('is_vip_subscriber', true);
+        if (!nativeVip) {
+          await _nativeBridgeService.setCategoryState(
+            unlocked: unlockedCategories,
+            isVip: true,
+          );
+        }
+      } else {
+        isVip = false;
+      }
     } catch (_) {
     } finally {
       categoryStateLoaded = true;
@@ -445,11 +500,14 @@ class AppState extends ChangeNotifier {
       await _saveFullUserSnapshot(previousUser.uid);
     }
 
+    final isDifferentUser = previousUser != null && nextUser != null && previousUser.uid != nextUser.uid;
     user = nextUser;
 
     if (nextUser != null) {
-      _resetSessionState();
-      await _nativeBridgeService.resetLegacyUser();
+      if (isDifferentUser) {
+        _resetSessionState();
+        await _nativeBridgeService.resetLegacyUser();
+      }
       await _loadAndSyncUserData(nextUser.uid);
       unawaited(_syncPublicProfile());
     } else {
@@ -655,6 +713,11 @@ class AppState extends ChangeNotifier {
       final doc = await _firestore.collection('users').doc(uid).get();
       final data = doc.data();
 
+      final nativeCat = await _nativeBridgeService.getCategoryState();
+      final nativeIsVip = nativeCat['isVip'] == true;
+      final prefs = await SharedPreferences.getInstance();
+      final prefsIsVip = prefs.getBool('is_vip_subscriber') == true;
+
       if (data != null && data.isNotEmpty) {
         coins = (data['coins'] as num?)?.toInt() ?? 0;
         gems = (data['gems'] as num?)?.toInt() ?? 0;
@@ -664,7 +727,15 @@ class AppState extends ChangeNotifier {
             ? rawCats.map((e) => e.toString()).toList()
             : <String>[];
 
-        isVip = data['isVip'] == true;
+        final firestoreIsVip = data['isVip'] == true;
+        isVip = firestoreIsVip || nativeIsVip || prefsIsVip || isVip;
+
+        if (isVip) {
+          await prefs.setBool('is_vip_subscriber', true);
+          if (!firestoreIsVip) {
+            unawaited(_saveFullUserSnapshot(uid));
+          }
+        }
 
         selectedCharacterIndex =
             (data['characterIndex'] as num?)?.toInt() ?? -1;
@@ -690,7 +761,10 @@ class AppState extends ChangeNotifier {
         coins = 500;
         gems = 10;
         unlockedCategories = <String>[];
-        isVip = false;
+        isVip = nativeIsVip || prefsIsVip || isVip;
+        if (isVip) {
+          await prefs.setBool('is_vip_subscriber', true);
+        }
         selectedCharacterIndex = -1;
         purchasedCharacters.clear();
         xp = 0;
@@ -794,6 +868,7 @@ class AppState extends ChangeNotifier {
   @override
   void dispose() {
     _authSubscription?.cancel();
+    NativeBridgeService.removePurchaseDeliveredListener(_onPurchaseDelivered);
     super.dispose();
   }
 
@@ -839,7 +914,7 @@ class AppState extends ChangeNotifier {
     characterStateLoaded = false;
     unlockedCategories.clear();
     categoryRentals.clear();
-    isVip = false;
+    // Do NOT wipe isVip if user has active VIP on device
     categoryStateLoaded = false;
   }
 }

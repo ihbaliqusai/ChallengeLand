@@ -31,7 +31,11 @@ class PlayBillingManager(
     )
 
     private val subscriptionProductIds = listOf(
-        "vip_monthly"
+        "vip_monthly",
+        "vip_pass",
+        "vipmonthly",
+        "vippass",
+        "vip"
     )
 
     init {
@@ -67,6 +71,7 @@ class PlayBillingManager(
                     isConnected = true
                     Log.d(TAG, "BillingClient 8.0.0 connected successfully")
                     queryAllProducts(onReady)
+                    queryActivePurchases()
                 } else {
                     Log.e(TAG, "Billing setup failed: ${billingResult.debugMessage} (code: ${billingResult.responseCode})")
                 }
@@ -255,6 +260,63 @@ class PlayBillingManager(
                     .build()
                 billingClient?.acknowledgePurchase(ackParams) { result ->
                     Log.d(TAG, "Subscription purchase acknowledged: ${result.responseCode}")
+                }
+            }
+        }
+    }
+
+    fun queryActivePurchases(onComplete: ((List<Purchase>) -> Unit)? = null) {
+        val client = billingClient ?: run {
+            onComplete?.invoke(emptyList())
+            return
+        }
+        if (!isConnected) {
+            startConnection {
+                queryActivePurchases(onComplete)
+            }
+            return
+        }
+
+        val allPurchases = mutableListOf<Purchase>()
+
+        // 1. Query active subscriptions
+        val subsParams = QueryPurchasesParams.newBuilder()
+            .setProductType(BillingClient.ProductType.SUBS)
+            .build()
+
+        client.queryPurchasesAsync(subsParams) { billingResult, purchasesList ->
+            if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
+                allPurchases.addAll(purchasesList)
+                for (purchase in purchasesList) {
+                    if (purchase.purchaseState == Purchase.PurchaseState.PURCHASED) {
+                        Log.d(TAG, "Found active subscription: ${purchase.products}")
+                        handlePurchase(purchase)
+                    }
+                }
+            } else {
+                Log.e(TAG, "Query active subs failed: ${billingResult.debugMessage} (code: ${billingResult.responseCode})")
+            }
+
+            // 2. Query active INAPP purchases (in case of non-consumable VIP or pending consumables)
+            val inAppParams = QueryPurchasesParams.newBuilder()
+                .setProductType(BillingClient.ProductType.INAPP)
+                .build()
+
+            client.queryPurchasesAsync(inAppParams) { inAppResult, inAppPurchasesList ->
+                if (inAppResult.responseCode == BillingClient.BillingResponseCode.OK) {
+                    allPurchases.addAll(inAppPurchasesList)
+                    for (purchase in inAppPurchasesList) {
+                        if (purchase.purchaseState == Purchase.PurchaseState.PURCHASED) {
+                            Log.d(TAG, "Found active in-app purchase: ${purchase.products}")
+                            handlePurchase(purchase)
+                        }
+                    }
+                } else {
+                    Log.e(TAG, "Query active in-app failed: ${inAppResult.debugMessage} (code: ${inAppResult.responseCode})")
+                }
+
+                mainHandler.post {
+                    onComplete?.invoke(allPurchases)
                 }
             }
         }

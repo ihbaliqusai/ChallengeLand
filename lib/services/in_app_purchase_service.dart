@@ -134,10 +134,13 @@ class InAppPurchaseService {
     }
   }
 
-  Future<void> restorePurchases() async {
+  Future<bool> restorePurchases() async {
     try {
-      await nativeBridge.initBilling();
-    } catch (_) {}
+      final restored = await nativeBridge.restorePurchases();
+      return restored;
+    } catch (_) {
+      return false;
+    }
   }
 
   void dispose() {

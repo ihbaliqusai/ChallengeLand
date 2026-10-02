@@ -102,8 +102,10 @@ class _HomeScreenState extends State<HomeScreen>
 
   Future<void> _checkAndShowSpecialOffer() async {
     if (!mounted) return;
-    final shouldShow = await SpecialOfferDialog.shouldShowAuto();
-    if (shouldShow && mounted) {
+    final appState = context.read<AppState>();
+    if (appState.isVip) return;
+    final shouldShow = await SpecialOfferDialog.shouldShowAuto(isVip: appState.isVip);
+    if (shouldShow && mounted && !appState.isVip) {
       await SpecialOfferDialog.show(context);
     }
   }
@@ -600,10 +602,15 @@ class _HomeScreenState extends State<HomeScreen>
               left: 14,
               child: CrossPromoMillionaireBadge(),
             ),
-            const Positioned(
-              bottom: 12,
-              right: 14,
-              child: SpecialOfferBadge(),
+            Consumer<AppState>(
+              builder: (context, appState, _) {
+                if (appState.isVip) return const SizedBox.shrink();
+                return const Positioned(
+                  bottom: 12,
+                  right: 14,
+                  child: SpecialOfferBadge(),
+                );
+              },
             ),
           ],
         ),
