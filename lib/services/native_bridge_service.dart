@@ -75,6 +75,17 @@ class NativeBridgeService {
     }
   }
 
+  Future<String?> openStoreRating({String? packageName}) async {
+    try {
+      final result = await _channel.invokeMethod<String>('openStoreRating', {
+        'packageName': packageName ?? 'com.qi7bali.landchallengeonline',
+      });
+      return result;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> launchLegacyRoomMatch({
     required List<Map<String, dynamic>> opponents,
     required bool meOwner,

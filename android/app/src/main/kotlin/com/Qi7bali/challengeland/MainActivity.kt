@@ -206,6 +206,55 @@ class MainActivity : FlutterActivity() {
                             result.success("error_no_package")
                         }
                     }
+                    "openStoreRating" -> {
+                        val targetPkg = call.argument<String>("packageName") ?: packageName
+                        var opened = false
+                        try {
+                            val marketIntent = Intent(
+                                Intent.ACTION_VIEW,
+                                Uri.parse("market://details?id=$targetPkg")
+                            ).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                                setPackage("com.android.vending")
+                            }
+                            startActivity(marketIntent)
+                            opened = true
+                            result.success("market_vending")
+                        } catch (e: Exception) {
+                            // Google Play app package not found or failed
+                        }
+
+                        if (!opened) {
+                            try {
+                                val genericMarket = Intent(
+                                    Intent.ACTION_VIEW,
+                                    Uri.parse("market://details?id=$targetPkg")
+                                ).apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                startActivity(genericMarket)
+                                opened = true
+                                result.success("market_generic")
+                            } catch (e2: Exception) {
+                                // Generic market failed
+                            }
+                        }
+
+                        if (!opened) {
+                            try {
+                                val webIntent = Intent(
+                                    Intent.ACTION_VIEW,
+                                    Uri.parse("https://play.google.com/store/apps/details?id=$targetPkg")
+                                ).apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                startActivity(webIntent)
+                                result.success("web_browser")
+                            } catch (e3: Exception) {
+                                result.error("OPEN_STORE_FAILED", e3.message, null)
+                            }
+                        }
+                    }
                     "grantCurrency" -> {
                         val coins = call.argument<Int>("coins") ?: 0
                         val gems = call.argument<Int>("gems") ?: 0

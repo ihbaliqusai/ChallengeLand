@@ -672,6 +672,29 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  Future<bool> grantRewardCurrency({
+    required int coinsReward,
+    required int gemsReward,
+  }) async {
+    if (coinsReward <= 0 && gemsReward <= 0) return true;
+    try {
+      final balances = await _nativeBridgeService.grantCurrency(
+        coins: coinsReward,
+        gems: gemsReward,
+      );
+      coins = balances['coins'] ?? (coins + coinsReward);
+      gems = balances['gems'] ?? (gems + gemsReward);
+      final uid = currentUser?.uid;
+      if (uid != null) {
+        unawaited(_saveCurrencySnapshot(uid));
+      }
+      notifyListeners();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<bool> grantCampaignXp({required int xpReward}) async {
     final uid = currentUser?.uid;
     if (uid == null) return false;

@@ -11,6 +11,7 @@ import '../../services/campaign_mode_engine.dart';
 import '../../services/campaign_result_handler.dart';
 import '../../services/campaign_service.dart';
 import '../../services/native_bridge_service.dart';
+import '../../services/rate_game_service.dart';
 import 'campaign_map_screen.dart';
 import 'stage_leaderboard_screen.dart';
 import 'widgets/animated_result_stars.dart';
@@ -72,6 +73,17 @@ class _StageResultScreenState extends State<StageResultScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final completed = submissionResult.attempt.completed || submissionResult.newStars > 0;
+      if (completed && (submissionResult.newStars >= 3 || _isBossStage)) {
+        RateGameService.instance.recordCampaignVictory(
+          context,
+          stars: submissionResult.newStars,
+          isBoss: _isBossStage,
+        );
+      }
+    });
   }
 
   @override

@@ -31,6 +31,7 @@ import '../../widgets/cross_promo_millionaire_badge.dart';
 import '../../widgets/cross_promo_millionaire_dialog.dart';
 import '../../widgets/special_offer_dialog.dart';
 import '../../widgets/special_offer_badge.dart';
+import '../../services/rate_game_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -482,6 +483,13 @@ class _HomeScreenState extends State<HomeScreen>
         default:
           break;
       }
+
+      final isWinner = (winnerId.isNotEmpty && winnerId == userId) ||
+          (boardWinnerId.isNotEmpty && boardWinnerId == userId);
+      if (isWinner && mounted) {
+        RateGameService.instance.recordRoomMatchVictory(context);
+      }
+
       await nativeBridgeService.clearPendingRoomMatchResult();
     } catch (_) {
       // Leave room sync silent so returning from native feels seamless.
@@ -602,16 +610,12 @@ class _HomeScreenState extends State<HomeScreen>
               left: 14,
               child: CrossPromoMillionaireBadge(),
             ),
-            Consumer<AppState>(
-              builder: (context, appState, _) {
-                if (appState.isVip) return const SizedBox.shrink();
-                return const Positioned(
-                  bottom: 12,
-                  right: 14,
-                  child: SpecialOfferBadge(),
-                );
-              },
-            ),
+            if (!appState.isVip)
+              const Positioned(
+                bottom: 12,
+                right: 14,
+                child: SpecialOfferBadge(),
+              ),
           ],
         ),
       ),
@@ -1144,7 +1148,110 @@ class _HomeMenuSheet extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  FutureBuilder<bool>(
+                    future: RateGameService.instance.hasRated(),
+                    builder: (context, snapshot) {
+                      if (snapshot.data == true) {
+                        return const SizedBox.shrink();
+                      }
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 8, bottom: 6),
+                        child: GestureDetector(
+                          onTap: () {
+                            Navigator.of(context).pop();
+                            RateGameService.instance.showRateDialog(rootContext, isManual: true);
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 7,
+                            ),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  const Color(0xFFF59E0B).withValues(alpha: 0.22),
+                                  const Color(0xFF1E293B).withValues(alpha: 0.70),
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: const Color(0xFFF59E0B).withValues(alpha: 0.45),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 26,
+                                  height: 26,
+                                  padding: const EdgeInsets.all(3),
+                                  decoration: const BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        Color(0xFFFFD54F),
+                                        Color(0xFFFFA000),
+                                      ],
+                                    ),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Image.asset(
+                                    'assets/ui/rate.png',
+                                    fit: BoxFit.contain,
+                                    errorBuilder: (_, __, ___) => const Icon(
+                                      Icons.star_rounded,
+                                      color: Color(0xFF451A03),
+                                      size: 16,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                const Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'تقييم أرض التحدي ⭐',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.w900,
+                                        ),
+                                      ),
+                                      Text(
+                                        'شاركنا رأيك وادعمنا للحصول على 500 كوين + 10 جواهر 🎁',
+                                        style: TextStyle(
+                                          color: Color(0xFFFDE68A),
+                                          fontSize: 9.5,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3.5,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFACC15),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: const Text(
+                                    'قيّم الآن',
+                                    style: TextStyle(
+                                      color: Color(0xFF0F172A),
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                   GestureDetector(
                     onTap: () {
                       Navigator.of(context).pop();

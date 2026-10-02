@@ -6,6 +6,7 @@ import '../../core/app_settings.dart';
 import '../../core/app_state.dart';
 import '../../services/ad_service.dart';
 import '../../widgets/cross_promo_millionaire_dialog.dart';
+import '../../services/rate_game_service.dart';
 import '../legal/privacy_policy_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -114,6 +115,11 @@ class _SettingsScreenState extends State<SettingsScreen>
     await Future<void>.delayed(const Duration(milliseconds: 400));
     if (!mounted) return;
     await settings.refreshNotificationStatus();
+  }
+
+  void _openRateGame() {
+    _feedback();
+    RateGameService.instance.showRateDialog(context, isManual: true);
   }
 
   void _openPrivacyPolicy() {
@@ -428,6 +434,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                                         showAdPrivacy:
                                             adService.privacyOptionsRequired,
                                         compact: compact,
+                                        onRateGame: _openRateGame,
                                         onPrivacy: _openPrivacyPolicy,
                                         onAdPrivacy: _openAdPrivacyOptions,
                                         onSignOut: _signOut,
@@ -773,6 +780,7 @@ class _ActionsPanel extends StatelessWidget {
     required this.appState,
     required this.showAdPrivacy,
     required this.compact,
+    required this.onRateGame,
     required this.onPrivacy,
     required this.onAdPrivacy,
     required this.onSignOut,
@@ -783,6 +791,7 @@ class _ActionsPanel extends StatelessWidget {
   final AppState appState;
   final bool showAdPrivacy;
   final bool compact;
+  final VoidCallback onRateGame;
   final VoidCallback onPrivacy;
   final VoidCallback onAdPrivacy;
   final VoidCallback onSignOut;
@@ -809,6 +818,22 @@ class _ActionsPanel extends StatelessWidget {
               compact: compact,
             ),
             SizedBox(height: compact ? 8 : 10),
+            FutureBuilder<bool>(
+              future: RateGameService.instance.hasRated(),
+              builder: (context, snapshot) {
+                final rated = snapshot.data == true;
+                return _ActionLineButton(
+                  icon: Icons.star_rounded,
+                  label: rated
+                      ? _t('تقييم أرض التحدي ⭐', 'Rate Challenge Land ⭐')
+                      : _t('تقييم أرض التحدي ⭐ (+مكافأة)', 'Rate Challenge Land ⭐ (+Bonus)'),
+                  color: const Color(0xFFFACC15),
+                  onTap: onRateGame,
+                  compact: compact,
+                );
+              },
+            ),
+            SizedBox(height: compact ? 6 : 8),
             _ActionLineButton(
               icon: Icons.emoji_events_rounded,
               label: _t('لعبتنا الأخرى: تحدي المليون 🏆', 'Our Game: Million Challenge 🏆'),
