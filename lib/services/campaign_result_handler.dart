@@ -11,6 +11,7 @@ import '../models/stage_attempt.dart';
 import '../models/stage_progress.dart';
 import '../screens/campaign/stage_result_screen.dart';
 import 'campaign_service.dart';
+import 'campaign_engagement_service.dart';
 import 'native_bridge_service.dart';
 
 class CampaignResultHandler {
@@ -43,6 +44,12 @@ class CampaignResultHandler {
           _showSnack(context, 'نتيجة المرحلة غير مكتملة. حاول مرة أخرى.');
         }
         return true;
+      }
+      // Keep pre-attemptId native results stable while their local result screen
+      // retries a save after a connection failure.
+      if ((payload['attemptId'] ?? '').toString().trim().isEmpty) {
+        payload['attemptId'] =
+            'campaign_local_${DateTime.now().microsecondsSinceEpoch}';
       }
 
       final campaignId =
@@ -135,18 +142,11 @@ class CampaignResultHandler {
         return true;
       }
 
-      var rewardApplied = false;
-      if (result.rewardClaimId != null) {
-        rewardApplied = await _applyRewardClaim(
-          appState: appState,
-          campaignService: campaignService,
-          uid: uid,
-          claimId: result.rewardClaimId!,
-          fallbackCoins: result.rewardCoinsGranted,
-          fallbackGems: result.rewardGemsGranted,
-          fallbackXp: result.rewardXpGranted,
-        );
-      }
+      final rewardApplied = await applySubmissionReward(
+        appState: appState,
+        campaignService: campaignService,
+        result: result,
+      );
 
       await _recordCampaignAchievementProgress(
         nativeBridge: nativeBridge,
@@ -190,6 +190,29 @@ class CampaignResultHandler {
     return route == null || route.isCurrent;
   }
 
+  static Future<bool> applySubmissionReward({
+    required AppState appState,
+    required CampaignService campaignService,
+    required StageSubmissionResult result,
+  }) async {
+    final uid = result.attempt.uid.trim();
+    final claimId = result.rewardClaimId;
+    if (uid.isEmpty ||
+        claimId == null ||
+        appState.currentUser?.uid.trim() != uid) {
+      return false;
+    }
+    return _applyRewardClaim(
+      appState: appState,
+      campaignService: campaignService,
+      uid: uid,
+      claimId: claimId,
+      fallbackCoins: result.rewardCoinsGranted,
+      fallbackGems: result.rewardGemsGranted,
+      fallbackXp: result.rewardXpGranted,
+    );
+  }
+
   static const String _loggedOutSaveMessage =
       'سجّل الدخول لحفظ تقدمك في تحدي المراحل.';
 
@@ -206,7 +229,7 @@ class CampaignResultHandler {
       }
     }
     if (error is ArgumentError) {
-      return _loggedOutSaveMessage;
+      return 'بيانات نتيجة المرحلة غير صالحة للحفظ. أعد فتح المرحلة وحاول مجددًا.';
     }
     return 'تعذر حفظ النتيجة الآن. سيتم عرض نتيجتك الحالية فقط.';
   }
@@ -215,6 +238,13 @@ class CampaignResultHandler {
     for (final stage in stages) {
       if (stage.id == stageId) return stage;
     }
+    final legacyMatch = RegExp(r'^stage_(\d{2})$').firstMatch(stageId);
+    if (legacyMatch != null) {
+      final canonicalId = 'stage_0${legacyMatch.group(1)}';
+      for (final stage in stages) {
+        if (stage.id == canonicalId) return stage;
+      }
+    }
     return null;
   }
 
@@ -222,6 +252,16 @@ class CampaignResultHandler {
     required NativeBridgeService nativeBridge,
     required StageSubmissionResult result,
   }) async {
+    try {
+      final attempt = result.attempt;
+      await CampaignEngagementService().recordAttempt(
+        playerId: attempt.uid.isEmpty ? 'guest' : attempt.uid,
+        campaignId: attempt.campaignId,
+        attempt: attempt,
+      );
+    } catch (_) {
+      // A local journal failure must not interrupt achievements or the result.
+    }
     try {
       final attempt = result.attempt;
       await nativeBridge.recordCampaignAchievementProgress(
@@ -316,6 +356,10 @@ class CampaignResultHandler {
     final loadedClaim = claim ??
         await campaignService.loadRewardClaim(uid: uid, claimId: claimId);
     final effectiveClaim = loadedClaim;
+    if (appState.currentUser?.uid.trim() != uid ||
+        (effectiveClaim != null && effectiveClaim.uid != uid)) {
+      return false;
+    }
     if (effectiveClaim == null || effectiveClaim.isClaimed) {
       return effectiveClaim?.isClaimed ?? false;
     }
@@ -328,10 +372,16 @@ class CampaignResultHandler {
     final xp = effectiveClaim.xp > 0 ? effectiveClaim.xp : fallbackXp;
 
     try {
+      if (currencyClaimed && xpClaimed) {
+        await campaignService.markRewardXpClaimed(uid: uid, claimId: claimId);
+        return true;
+      }
       if (!currencyClaimed) {
+        if (appState.currentUser?.uid.trim() != uid) return false;
         final granted = await appState.grantCampaignCurrency(
           coinsReward: coins,
           gemsReward: gems,
+          claimId: claimId,
         );
         if (!granted) {
           await _markRewardFailedQuietly(
@@ -349,7 +399,9 @@ class CampaignResultHandler {
       }
 
       if (!xpClaimed) {
-        final granted = await appState.grantCampaignXp(xpReward: xp);
+        if (appState.currentUser?.uid.trim() != uid) return false;
+        final granted =
+            await appState.grantCampaignXp(xpReward: xp, claimId: claimId);
         if (!granted) {
           await _markRewardFailedQuietly(
             campaignService: campaignService,
@@ -406,11 +458,10 @@ class CampaignResultHandler {
     required Map<String, dynamic> payload,
     bool saveFailed = false,
   }) {
-    final campaignMode = campaignModeFromString(
-      payload['campaignMode'],
-      fallbackType: stage.type,
-    );
+    final campaignMode = campaignService.campaignModeForResult(
+        stage: stage, nativeResult: payload);
     final isBossStage = campaignMode == CampaignMode.bossBattle ||
+        stage.isBossStage ||
         stage.type == CampaignStageType.boss ||
         (payload['stageType']?.toString() == 'boss');
     final bossDefeated = _readBool(payload['bossDefeated']) ||
@@ -429,17 +480,7 @@ class CampaignResultHandler {
     final usedAudience = _readInt(payload['usedAudience']);
     final usedCall = _readInt(payload['usedCall']);
     final usedLifelines = used5050 + usedAudience + usedCall;
-    final calculatedScore = campaignService.calculateScore(
-      money: money,
-      correctAnswers: correctAnswers,
-      wrongAnswers: wrongAnswers,
-      timeMs: timeMs,
-      used5050: used5050,
-      usedAudience: usedAudience,
-      usedCall: usedCall,
-    );
-    final playerScore = _readInt(payload['playerScore']);
-    final score = playerScore > 0 ? playerScore : calculatedScore;
+    final score = campaignService.scoreFromResult(payload);
     final lives = _readInt(payload['lives']);
     final livesRemaining = _readInt(payload['livesRemaining']);
     final maxWrongAnswers = _readInt(payload['maxWrongAnswers']);
@@ -453,6 +494,7 @@ class CampaignResultHandler {
     final enemyTeamScore = _readInt(payload['enemyTeamScore']);
     final stars = campaignService.calculateStars(
       stage: stage,
+      campaignMode: campaignMode,
       completed: completed,
       score: score,
       correctAnswers: correctAnswers,
@@ -477,7 +519,8 @@ class CampaignResultHandler {
     );
     final now = DateTime.now();
     final attempt = StageAttempt(
-      attemptId: 'local_preview_${now.millisecondsSinceEpoch}',
+      attemptId: _cleanString(payload['attemptId']?.toString()) ??
+          'local_preview_${now.microsecondsSinceEpoch}',
       uid: '',
       campaignId: stage.campaignId,
       stageId: stage.id,
@@ -519,7 +562,7 @@ class CampaignResultHandler {
       allyScore: _readInt(payload['allyScore']),
       teamScore: teamScore,
       enemyTeamScore: enemyTeamScore,
-      createdAt: now,
+      createdAt: campaignService.completionTimeFromResult(payload),
     );
     final progress = StageProgress(
       campaignId: stage.campaignId,

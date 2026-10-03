@@ -15,7 +15,6 @@ final class GameCampaignResultStore {
         if (!activity.campaignMode || activity.campaignResultPersisted) {
             return;
         }
-        activity.campaignResultPersisted = true;
         activity.stopCampaignStageTimer();
         try {
             JSONObject payload = new JSONObject();
@@ -24,14 +23,25 @@ final class GameCampaignResultStore {
             payload.put("mode", "campaign");
             payload.put("campaignId", activity.campaignId);
             payload.put("stageId", activity.campaignStageId);
+            payload.put("attemptId", activity.campaignAttemptId);
+            payload.put("completedAtMs", System.currentTimeMillis());
             payload.put("stageType", activity.campaignStageType);
-            boolean bossDefeated = activity.campaignBossBattle && activity.isCampaignBossDefeated();
-            boolean effectiveCompleted = activity.campaignBossBattle ? bossDefeated : completed;
+            boolean boardBoss = activity.campaignBoard && "boss".equals(activity.boardCampaignKind);
+            boolean bossDefeated = boardBoss ? completed
+                    : activity.campaignBossBattle && activity.isCampaignBossDefeated();
+            boolean effectiveCompleted = activity.campaignBossBattle && !activity.campaignBoard ? bossDefeated : completed;
+            int boardOpponentScore = 0;
+            if (boardBoss && activity.offlineContestants != null) {
+                for (int slot = 1; slot < activity.offlineContestants.contestantCount(); slot++) {
+                    boardOpponentScore = Math.max(boardOpponentScore, activity.offlineContestants.scoreForSlot(slot));
+                }
+            }
             int playerScore = activity.getCampaignPlayerScore();
             payload.put("completed", effectiveCompleted);
             payload.put("score", playerScore);
             payload.put("money", Math.max(0, money));
             payload.put("correctAnswers", answeredCorrect);
+            payload.put("answeredQuestions", Math.max(0, activity.campaignAnsweredQuestions));
             payload.put("wrongAnswers", Math.max(activity.campaignWrongAnswers, Math.max(0, wrongAnswers)));
             payload.put("timeMs", Math.max(0L, System.currentTimeMillis() - activity.campaignStartedAtMs));
             payload.put("used5050", Math.max(0, activity.campaignUsed5050));
@@ -52,13 +62,14 @@ final class GameCampaignResultStore {
             payload.put("playerScore", Math.max(0, playerScore));
             payload.put("opponentName", activity.safeString(activity.campaignOpponentName));
             payload.put("opponentAccuracy", Math.max(0, activity.campaignOpponentAccuracy));
-            payload.put("opponentScore", Math.max(0, activity.campaignOpponentScore));
+            payload.put("opponentScore", boardBoss ? boardOpponentScore : Math.max(0, activity.campaignOpponentScore));
             payload.put("opponentCorrectAnswers", Math.max(0, activity.campaignOpponentCorrectAnswers));
             payload.put("opponentWrongAnswers", Math.max(0, activity.campaignOpponentWrongAnswers));
             payload.put("bossName", activity.campaignBossOpponent != null ? activity.campaignBossOpponent.name : activity.safeString(activity.campaignBossBotName));
             payload.put("bossDefeated", bossDefeated);
             payload.put("bossBattleWon", bossDefeated);
-            payload.put("bossScore", activity.campaignBossOpponent != null ? Math.max(0, activity.campaignBossOpponent.gameScore) : 0);
+            payload.put("bossScore", boardBoss ? boardOpponentScore
+                    : activity.campaignBossOpponent != null ? Math.max(0, activity.campaignBossOpponent.gameScore) : 0);
             payload.put("bossCorrectAnswers", activity.campaignBossOpponent != null ? Math.max(0, activity.campaignBossOpponent.totalCorrectAnswers) : 0);
             payload.put("bossWrongAnswers", activity.campaignBossOpponent != null ? Math.max(0, targetCount - activity.campaignBossOpponent.totalCorrectAnswers) : 0);
             payload.put("seriesRounds", Math.max(0, activity.campaignSeriesRounds));
@@ -81,6 +92,7 @@ final class GameCampaignResultStore {
                 payload.put("bossWrongAnswers", Math.max(0, targetCount - activity.campaignBossOpponent.totalCorrectAnswers));
             }
             AppPrefs.setPendingCampaignStageResult(activity, payload.toString());
+            activity.campaignResultPersisted = true;
             Log.d("CampaignStage", "CAMP_RESULT_SAVED stageId=" + activity.campaignStageId
                     + " completed=" + effectiveCompleted
                     + " correct=" + answeredCorrect

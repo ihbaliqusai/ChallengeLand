@@ -1,0 +1,151 @@
+package com.qi7bali.landchallengeonline;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.Random;
+import java.util.function.Predicate;
+
+/** Campaign-only board rules. Kept independent of Android for regression checks. */
+final class CampaignBoardRules {
+    private static final List<String> DIFFICULTY_ORDER = Arrays.asList("0", "1", "2", "4", "5", "6", "7", "8", "3");
+    private static final int[] BOT_BASE_CHANCES = {90, 78, 62, 40, 34, 28, 24, 20, 18};
+    private CampaignBoardRules() {}
+
+    static int playerTurns(int completedTurns, int playerCount) {
+        int count = Math.max(1, playerCount);
+        int turns = Math.max(0, completedTurns);
+        return turns / count + (turns % count == 0 ? 0 : 1);
+    }
+
+    /** Every category has two cells at each of 200, 400 and 600 points. */
+    static int maximumScore(int columns, int picks) {
+        int cellsPerValue = Math.max(0, columns) * 2;
+        int remaining = Math.max(0, picks);
+        int score = 0;
+        for (int value = 600; value >= 200; value -= 200) {
+            int taken = Math.min(cellsPerValue, remaining);
+            score += taken * value;
+            remaining -= taken;
+        }
+        return score;
+    }
+
+    static int earnedStars(int score, int target, int twoStarScore, int threeStarScore) {
+        if (score < Math.max(1, target)) return 0;
+        if (score >= threeStarScore) return 3;
+        if (score >= twoStarScore) return 2;
+        return 1;
+    }
+
+    static int botAwardValue(int cellValue, boolean campaignBoard, boolean optionsRevealed) {
+        return campaignBoard && optionsRevealed ? cellValue / 2 : cellValue;
+    }
+
+    static int campaignBotCorrectChance(String level, int intelligence) {
+        int rank = DIFFICULTY_ORDER.indexOf(level == null ? "" : level.trim());
+        int base = rank >= 0 ? BOT_BASE_CHANCES[rank] : 60;
+        return Math.max(18, Math.min(97, base + (intelligence - 68) / 2));
+    }
+
+    static LinkedHashMap<String, ArrayList<ArrayList<Question>>> accessiblePool(
+            Map<String, ArrayList<ArrayList<Question>>> eligible, Predicate<String> isUnlocked) {
+        LinkedHashMap<String, ArrayList<ArrayList<Question>>> accessible = new LinkedHashMap<>();
+        if (eligible == null) return accessible;
+        for (Map.Entry<String, ArrayList<ArrayList<Question>>> entry : eligible.entrySet()) {
+            if (isUnlocked.test(entry.getKey())) accessible.put(entry.getKey(), entry.getValue());
+        }
+        return accessible;
+    }
+
+    static ArrayList<String> pickCategories(List<String> unlocked, List<String> themed, int count, Random random) {
+        if (count <= 0) return new ArrayList<>();
+        ArrayList<String> preferred = new ArrayList<>();
+        if (themed != null) {
+            for (String category : themed) {
+                String available = resolveCategory(category, unlocked);
+                if (available != null && !preferred.contains(available)) preferred.add(available);
+            }
+        }
+        Collections.shuffle(preferred, random);
+        ArrayList<String> chosen = new ArrayList<>(preferred.subList(0, Math.min(count, preferred.size())));
+        ArrayList<String> remaining = new ArrayList<>(unlocked);
+        Collections.shuffle(remaining, random);
+        for (String category : remaining) {
+            if (chosen.size() >= count) break;
+            if (!chosen.contains(category)) chosen.add(category);
+        }
+        return chosen;
+    }
+
+    static String resolveCategory(String category, java.util.Collection<String> available) {
+        if (category == null) return null;
+        String trimmed = category.trim();
+        if (available.contains(trimmed)) return trimmed;
+        String normalized = CategoryConfig.normalize(trimmed);
+        for (String candidate : available) {
+            if (CategoryConfig.normalize(candidate).equals(normalized)) return candidate;
+        }
+        return null;
+    }
+
+    static boolean canUseCategories(List<String> selected, int required, Map<String, ?> accessible) {
+        return required > 0 && selected != null && selected.size() == required
+                && new HashSet<>(selected).size() == required && accessible.keySet().containsAll(selected);
+    }
+
+    /** Build stage-relative tiers without mutating the shared question pool. */
+    static LinkedHashMap<String, ArrayList<ArrayList<Question>>> filterPool(
+            Map<String, ArrayList<ArrayList<Question>>> source, List<String> levels) {
+        Set<String> allowed = new HashSet<>();
+        if (levels != null) {
+            for (String level : levels) {
+                if (level != null && !level.trim().isEmpty()) allowed.add(level.trim());
+            }
+        }
+        LinkedHashMap<String, ArrayList<ArrayList<Question>>> filtered = new LinkedHashMap<>();
+        if (source == null) return filtered;
+        // Legacy level 3 is the final millionaire difficulty, above the newer 4..8
+        // bands. Use that semantic order instead of numeric sorting.
+        List<String> levelOrder = new ArrayList<>(allowed);
+        levelOrder.sort(Comparator.comparingInt(level -> {
+            int rank = DIFFICULTY_ORDER.indexOf(level);
+            return rank >= 0 ? rank : DIFFICULTY_ORDER.size();
+        }));
+        for (Map.Entry<String, ArrayList<ArrayList<Question>>> entry : source.entrySet()) {
+            ArrayList<ArrayList<Question>> tiers = new ArrayList<>();
+            for (int tier = 0; tier < 3; tier++) tiers.add(new ArrayList<>());
+            int size = 0;
+            for (int originalTier = 0; originalTier < entry.getValue().size(); originalTier++) {
+                ArrayList<Question> original = entry.getValue().get(originalTier);
+                for (Question question : original) {
+                    if (question == null) continue;
+                    String level = question.getLevel() == null ? "" : question.getLevel().trim();
+                    if (!allowed.isEmpty() && !allowed.contains(level)) continue;
+                    size++;
+                    if (allowed.isEmpty()) {
+                        tiers.get(Math.min(2, originalTier)).add(question);
+                        continue;
+                    }
+                    int rank = levelOrder.indexOf(level);
+                    int relativeTier = levelOrder.size() == 2 ? rank * 2
+                            : Math.min(2, rank * 3 / levelOrder.size());
+                    tiers.get(relativeTier).add(question);
+                    // With two levels, medium cells mix both. Sharing question
+                    // objects keeps the board's used-set from drawing duplicates.
+                    if (levelOrder.size() == 2) tiers.get(1).add(question);
+                }
+            }
+            boolean hasBothEnds = levelOrder.size() < 2
+                    || (tiers.get(0).size() >= 2 && tiers.get(2).size() >= 2);
+            if (size >= 6 && hasBothEnds) filtered.put(entry.getKey(), tiers);
+        }
+        return filtered;
+    }
+}

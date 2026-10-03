@@ -142,6 +142,8 @@ class CampaignModeEngine {
       'campaignBoard': true,
       'boardKind': isBoss ? 'boss' : 'solo',
       'boardTargetScore': stage.boardTargetScore,
+      'boardTwoStarScore': stage.starRules.twoStarsMinScore,
+      'boardThreeStarScore': stage.starRules.threeStarsMinScore,
       'boardSoloPicks': stage.boardSoloPicks,
       'boardSoloCols': stage.boardSoloCols,
       'boardBotCount': stage.botCount,

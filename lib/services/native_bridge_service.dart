@@ -205,6 +205,8 @@ class NativeBridgeService {
     bool campaignBoard = false,
     String boardKind = 'solo',
     int boardTargetScore = 0,
+    int boardTwoStarScore = 0,
+    int boardThreeStarScore = 0,
     int boardSoloPicks = 6,
     int boardSoloCols = 4,
     int boardBotCount = 0,
@@ -240,6 +242,8 @@ class NativeBridgeService {
       'campaignBoard': campaignBoard,
       'boardKind': boardKind,
       'boardTargetScore': boardTargetScore,
+      'boardTwoStarScore': boardTwoStarScore,
+      'boardThreeStarScore': boardThreeStarScore,
       'boardSoloPicks': boardSoloPicks,
       'boardSoloCols': boardSoloCols,
       'boardBotCount': boardBotCount,
@@ -505,12 +509,14 @@ class NativeBridgeService {
   Future<Map<String, int>> grantCurrency({
     int coins = 0,
     int gems = 0,
+    String? claimId,
   }) async {
     final result = await _channel.invokeMapMethod<String, dynamic>(
       'grantCurrency',
       <String, dynamic>{
         'coins': coins,
         'gems': gems,
+        if (claimId != null) 'claimId': claimId,
       },
     );
     if (result == null) return {'coins': 0, 'gems': 0};
@@ -520,15 +526,22 @@ class NativeBridgeService {
   Future<Map<String, int>> setUserCurrency({
     required int coins,
     required int gems,
+    String? expectedUid,
   }) async {
     final result = await _channel.invokeMapMethod<String, dynamic>(
       'setUserCurrency',
       <String, dynamic>{
         'coins': coins,
         'gems': gems,
+        if (expectedUid != null) 'expectedUid': expectedUid,
       },
     );
-    if (result == null) return {'coins': 0, 'gems': 0};
+    if (result == null) {
+      if (expectedUid != null) {
+        throw StateError('Could not sync campaign currency');
+      }
+      return {'coins': 0, 'gems': 0};
+    }
     return result.map((k, v) => MapEntry(k, (v as num).toInt()));
   }
 

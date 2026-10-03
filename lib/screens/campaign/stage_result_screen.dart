@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -7,19 +9,24 @@ import 'package:provider/provider.dart';
 import '../../core/app_state.dart';
 import '../../models/campaign_stage.dart';
 import '../../models/stage_attempt.dart';
+import '../../models/stage_progress.dart';
 import '../../services/ad_service.dart';
 import '../../services/campaign_mode_engine.dart';
+import '../../services/campaign_engagement_service.dart';
+import '../../services/campaign_currency_service.dart';
 import '../../services/campaign_result_handler.dart';
 import '../../services/campaign_service.dart';
 import '../../services/native_bridge_service.dart';
 import '../../services/rate_game_service.dart';
 import '../../widgets/currency_reward_overlay.dart';
 import 'campaign_map_screen.dart';
+import 'stage_intro_screen.dart';
 import 'stage_leaderboard_screen.dart';
 import 'widgets/animated_result_stars.dart';
 import 'widgets/level_complete_background.dart';
 import 'widgets/result_bottom_actions.dart';
 import 'widgets/result_reward_panel.dart';
+import 'widgets/result_replay_goal_card.dart';
 import 'widgets/result_ribbon_header.dart';
 import 'widgets/result_score_counter.dart';
 
@@ -53,7 +60,10 @@ class _StageResultScreenState extends State<StageResultScreen>
   DateTime? _missingResultSince;
   bool _rewardDoubled = false;
   bool _doublingReward = false;
-  bool _usingSecondChance = false;
+  bool _savingResult = false;
+  CampaignStage? _nextStage;
+  StageProgress? _nextProgress;
+  int _nextStarsNeeded = 0;
 
   CampaignStage get stage => widget.stage;
   StageSubmissionResult get submissionResult => widget.submissionResult;
@@ -77,15 +87,142 @@ class _StageResultScreenState extends State<StageResultScreen>
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final completed = submissionResult.attempt.completed || submissionResult.newStars > 0;
-      if (completed && (submissionResult.newStars >= 3 || _isBossStage)) {
+      final completed = submissionResult.attempt.completed;
+      unawaited(_recordDailyAttempt());
+      unawaited(_restoreDoubleReward());
+      if (!_isUnsavedPreview && submissionResult.updatedProgress.stars > 0) {
+        unawaited(_loadNextStage());
+      }
+      if (completed && (submissionResult.attempt.stars >= 3 || _isBossStage)) {
         RateGameService.instance.recordCampaignVictory(
           context,
-          stars: submissionResult.newStars,
+          stars: submissionResult.attempt.stars,
           isBoss: _isBossStage,
         );
       }
     });
+  }
+
+  String get _doubleClaimId =>
+      'double:${submissionResult.rewardClaimId ?? submissionResult.attempt.attemptId}';
+
+  Future<void> _restoreDoubleReward() async {
+    final uid = submissionResult.attempt.uid;
+    if (uid.isEmpty) return;
+    try {
+      final doubled = await CampaignCurrencyService().hasClaimed(
+        uid: uid,
+        claimId: _doubleClaimId,
+      );
+      if (mounted && doubled) setState(() => _rewardDoubled = true);
+    } catch (_) {
+      // The same cloud receipt still protects payout when this read is offline.
+    }
+  }
+
+  Future<void> _recordDailyAttempt() async {
+    try {
+      await CampaignEngagementService().recordAttempt(
+        playerId: submissionResult.attempt.uid.isEmpty
+            ? 'guest'
+            : submissionResult.attempt.uid,
+        campaignId: stage.campaignId,
+        attempt: submissionResult.attempt,
+      );
+    } catch (_) {
+      // A local daily goal must never interrupt the stage result.
+    }
+  }
+
+  Future<void> _loadNextStage() async {
+    final uid = context.read<AppState>().currentUser?.uid;
+    if (uid == null || uid.isEmpty || uid != submissionResult.attempt.uid) {
+      return;
+    }
+    try {
+      final service = CampaignService();
+      final stagesFuture = service.loadStages(campaignId: stage.campaignId);
+      final progressFuture = service.loadUserProgress(
+        uid: uid,
+        campaignId: stage.campaignId,
+      );
+      final stages = await stagesFuture;
+      final progress = <String, StageProgress>{...await progressFuture};
+      if (!mounted) return;
+      progress[stage.id] = submissionResult.updatedProgress;
+      final candidates = stages
+          .where((item) => item.order > stage.order)
+          .toList()
+        ..sort((left, right) => left.order.compareTo(right.order));
+      if (candidates.isEmpty) return;
+      final next = candidates.first;
+      final resolved = service.resolveProgressForStages(
+        stages: stages,
+        savedProgress: progress,
+        debugUnlockAllCampaignStagesOverride: false,
+      );
+      final sortedStages = List<CampaignStage>.from(stages)
+        ..sort((left, right) => left.order.compareTo(right.order));
+      // Existing saves may keep their old stageId; the resolver preserves it.
+      final nextProgress =
+          resolved[sortedStages.indexWhere((item) => item.id == next.id)];
+      final earned = resolved.fold<int>(0, (total, item) => total + item.stars);
+      setState(() {
+        _nextStage = next;
+        _nextProgress = nextProgress;
+        _nextStarsNeeded = (next.unlockRequirementStars - earned).clamp(0, 300);
+      });
+    } catch (_) {
+      // The map remains available when the next stage cannot be loaded.
+    }
+  }
+
+  void _openNextStage() {
+    if (context.read<AppState>().currentUser?.uid !=
+        submissionResult.attempt.uid) {
+      _returnToMap();
+      return;
+    }
+    final next = _nextStage;
+    final progress = _nextProgress;
+    if (next == null ||
+        progress == null ||
+        progress.status == StageProgressStatus.locked) {
+      return;
+    }
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(
+        builder: (_) => StageIntroScreen(stage: next, progress: progress),
+      ),
+    );
+  }
+
+  void _returnToMap() {
+    final navigator = Navigator.of(context);
+    final resultRoute = ModalRoute.of(context);
+    var foundMap = false;
+    var resultIsRoot = false;
+    navigator.popUntil((route) {
+      if (route.settings.name == CampaignMapScreen.routeName) {
+        foundMap = true;
+        return true;
+      }
+      if (route.isFirst) {
+        resultIsRoot = identical(route, resultRoute);
+        return true;
+      }
+      return false;
+    });
+    if (foundMap) return;
+    final mapRoute = MaterialPageRoute<void>(
+      settings: const RouteSettings(name: CampaignMapScreen.routeName),
+      builder: (_) => const CampaignMapScreen(),
+    );
+    if (resultIsRoot) {
+      navigator.pushReplacement(mapRoute);
+    } else {
+      navigator.push(mapRoute);
+    }
   }
 
   @override
@@ -195,14 +332,15 @@ class _StageResultScreenState extends State<StageResultScreen>
             SafeArea(
               child: LayoutBuilder(
                 builder: (context, constraints) {
-                  final contentWidth = constraints.maxWidth - 32;
+                  final contentWidth =
+                      (constraints.maxWidth - 32).clamp(0.0, 580.0);
                   return Padding(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
                     child: Column(
                       children: [
                         _TopHud(
                           coins: hasCoins ? appState.coins : null,
-                          onBack: () => Navigator.of(context).maybePop(),
+                          onBack: _returnToMap,
                         ),
                         Expanded(
                           child: SingleChildScrollView(
@@ -215,7 +353,7 @@ class _StageResultScreenState extends State<StageResultScreen>
                                   children: [
                                     ResultRibbonHeader(
                                       child: AnimatedResultStars(
-                                        stars: submissionResult.newStars,
+                                        stars: attempt.stars,
                                       ),
                                     ),
                                     const SizedBox(height: 8),
@@ -232,16 +370,27 @@ class _StageResultScreenState extends State<StageResultScreen>
                                         bossDefeated: bossDefeated,
                                       ),
                                     ),
-                                    if (!completed) ...[
-                                      const SizedBox(height: 10),
-                                      _SecondChanceCard(
-                                        busy: _usingSecondChance ||
-                                            _launchingStage,
-                                        onRevive: _useSecondChance,
-                                      ),
-                                    ],
                                     const SizedBox(height: 10),
                                     ResultScoreCounter(score: attempt.score),
+                                    const SizedBox(height: 12),
+                                    ResultReplayGoalCard(
+                                      stage: stage,
+                                      result: submissionResult,
+                                      unsaved: _isUnsavedPreview,
+                                    ),
+                                    if (_nextProgress?.status ==
+                                            StageProgressStatus.locked &&
+                                        _nextStarsNeeded > 0) ...[
+                                      const SizedBox(height: 10),
+                                      Text(
+                                        'اجمع $_nextStarsNeeded نجوم إضافية لفتح المرحلة التالية.',
+                                        textAlign: TextAlign.center,
+                                        style: const TextStyle(
+                                          color: Color(0xFFFFD66B),
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                    ],
                                     if (_isUnsavedPreview) ...[
                                       const SizedBox(height: 10),
                                       const _WarningPill(),
@@ -262,7 +411,8 @@ class _StageResultScreenState extends State<StageResultScreen>
                                     ],
                                     if (_isBossStage &&
                                         (attempt.bossScore > 0 ||
-                                            attempt.bossCorrectAnswers > 0)) ...[
+                                            attempt.bossCorrectAnswers >
+                                                0)) ...[
                                       const SizedBox(height: 10),
                                       _BossBattleResultPanel(
                                         bossName: attempt.bossName,
@@ -279,14 +429,14 @@ class _StageResultScreenState extends State<StageResultScreen>
                                       result: submissionResult,
                                       currencyRewardApplied:
                                           currencyRewardApplied,
-                                      onDoubleReward: (submissionResult
-                                                      .rewardCoinsGranted >
-                                                  0 ||
-                                              submissionResult
-                                                      .rewardGemsGranted >
-                                                  0)
-                                          ? _doubleReward
-                                          : null,
+                                      onDoubleReward:
+                                          (submissionResult.rewardCoinsGranted >
+                                                      0 ||
+                                                  submissionResult
+                                                          .rewardGemsGranted >
+                                                      0)
+                                              ? _doubleReward
+                                              : null,
                                       isDoubled: _rewardDoubled,
                                       isDoubling: _doublingReward,
                                     ),
@@ -317,6 +467,7 @@ class _StageResultScreenState extends State<StageResultScreen>
                                     if (_isUnsavedPreview) ...[
                                       const SizedBox(height: 4),
                                       _RetrySaveButton(
+                                        busy: _savingResult,
                                         onPressed: () => _retrySave(context),
                                       ),
                                     ],
@@ -330,12 +481,16 @@ class _StageResultScreenState extends State<StageResultScreen>
                         const SizedBox(height: 8),
                         ResultBottomActions(
                           launching: _launchingStage,
-                          onMap: () => Navigator.of(context).pushReplacement(
-                            MaterialPageRoute<void>(
-                              builder: (_) => const CampaignMapScreen(),
-                            ),
-                          ),
+                          onMap: _returnToMap,
                           onRetry: () => _launchStageAgain(context),
+                          onNext: _nextStage != null &&
+                                  _nextProgress?.status !=
+                                      StageProgressStatus.locked
+                              ? _openNextStage
+                              : null,
+                          nextLabel: _nextStage?.isBossStage == true
+                              ? 'التالي: مواجهة الزعيم'
+                              : 'المرحلة التالية',
                         ),
                       ],
                     ),
@@ -344,8 +499,12 @@ class _StageResultScreenState extends State<StageResultScreen>
               ),
             ),
             if (_launchingStage)
-              const Positioned.fill(
-                child: _BlockingLoadingOverlay(message: 'جاري بدء المرحلة...'),
+              Positioned.fill(
+                child: _BlockingLoadingOverlay(
+                  message: _waitingForResult
+                      ? 'جارٍ استلام نتيجة المرحلة...'
+                      : 'جارٍ بدء المرحلة...',
+                ),
               ),
           ],
         ),
@@ -412,6 +571,7 @@ class _StageResultScreenState extends State<StageResultScreen>
   }
 
   Future<void> _retrySave(BuildContext context) async {
+    if (_savingResult) return;
     final user = context.read<AppState>().currentUser;
     final uid = user?.uid.trim() ?? '';
     final payload = rawNativeResult;
@@ -426,14 +586,22 @@ class _StageResultScreenState extends State<StageResultScreen>
         );
       return;
     }
+    setState(() => _savingResult = true);
     try {
-      final result = await CampaignService().submitStageResult(
+      final appState = context.read<AppState>();
+      final campaignService = CampaignService();
+      final result = await campaignService.submitStageResult(
         uid: uid,
         stage: stage,
         nativeResult: payload,
         displayName:
             (user.displayName ?? user.email?.split('@').first ?? '').trim(),
         photoUrl: user.photoURL,
+      );
+      final rewardApplied = await CampaignResultHandler.applySubmissionReward(
+        appState: appState,
+        campaignService: campaignService,
+        result: result,
       );
       if (!context.mounted) return;
       await Navigator.of(context).pushReplacement(
@@ -442,6 +610,7 @@ class _StageResultScreenState extends State<StageResultScreen>
             stage: stage,
             submissionResult: result,
             rawNativeResult: payload,
+            currencyRewardApplied: rewardApplied,
           ),
         ),
       );
@@ -463,11 +632,19 @@ class _StageResultScreenState extends State<StageResultScreen>
             ),
           ),
         );
+    } finally {
+      if (mounted) setState(() => _savingResult = false);
     }
   }
 
   Future<void> _launchStageAgain(BuildContext context) async {
     if (_launchingStage) return;
+    if (!_isUnsavedPreview &&
+        context.read<AppState>().currentUser?.uid !=
+            submissionResult.attempt.uid) {
+      _returnToMap();
+      return;
+    }
     _resetPendingResultWait();
     setState(() {
       _launchingStage = true;
@@ -515,15 +692,20 @@ class _StageResultScreenState extends State<StageResultScreen>
         campaignBoard: launchConfig['campaignBoard'] as bool? ?? true,
         boardKind: launchConfig['boardKind'] as String? ?? 'solo',
         boardTargetScore: launchConfig['boardTargetScore'] as int? ?? 0,
+        boardTwoStarScore: launchConfig['boardTwoStarScore'] as int? ??
+            stage.starRules.twoStarsMinScore,
+        boardThreeStarScore: launchConfig['boardThreeStarScore'] as int? ??
+            stage.starRules.threeStarsMinScore,
         boardSoloPicks: launchConfig['boardSoloPicks'] as int? ?? 6,
         boardSoloCols: launchConfig['boardSoloCols'] as int? ?? 4,
         boardBotCount: launchConfig['boardBotCount'] as int? ?? 0,
         boardBotIntelligence: launchConfig['boardBotIntelligence'] as int? ?? 0,
-        categoryPolicy: launchConfig['categoryPolicy'] as String? ?? 'playerPick',
-        worldCategories:
-            (launchConfig['worldCategories'] as List<dynamic>? ?? const <dynamic>[])
-                .map((dynamic e) => e.toString())
-                .toList(growable: false),
+        categoryPolicy:
+            launchConfig['categoryPolicy'] as String? ?? 'playerPick',
+        worldCategories: (launchConfig['worldCategories'] as List<dynamic>? ??
+                const <dynamic>[])
+            .map((dynamic e) => e.toString())
+            .toList(growable: false),
       );
       if (mounted) setState(() => _waitingForResult = true);
     } catch (_) {
@@ -557,100 +739,61 @@ class _StageResultScreenState extends State<StageResultScreen>
     final adService = context.read<AdService>();
     final appState = context.read<AppState>();
     final messenger = ScaffoldMessenger.of(context);
-
+    final rewardUid = submissionResult.attempt.uid;
+    if (rewardUid.isEmpty || appState.currentUser?.uid != rewardUid) {
+      _returnToMap();
+      return;
+    }
     setState(() => _doublingReward = true);
-    final watched = await adService.showActionRewardedAd();
-    if (!mounted) return;
-    setState(() => _doublingReward = false);
-
-    if (!watched) {
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(
-            content: Text(
-              'تعذر تشغيل الإعلان أو تم إغلاقه قبل اكتماله.',
-              textAlign: TextAlign.right,
-              style: TextStyle(fontWeight: FontWeight.w800),
-            ),
-          ),
-        );
-      return;
-    }
-
-    final success = await appState.grantCampaignCurrency(
-      coinsReward: coins,
-      gemsReward: gems,
-    );
-
-    if (!mounted) return;
-    if (success) {
-      setState(() => _rewardDoubled = true);
-      HapticFeedback.heavyImpact();
-      showCurrencyRewardOverlay(context, coins: coins, gems: gems);
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(
-            content: Text(
-              'مبروك! تمت مضاعفة مكافأة المرحلة 2x بنجاح! 🎉',
-              textAlign: TextAlign.right,
-              style: TextStyle(fontWeight: FontWeight.w900),
-            ),
-            backgroundColor: Color(0xFF0F766E),
-          ),
-        );
-    }
-  }
-
-  Future<void> _useSecondChance() async {
-    if (_usingSecondChance || _launchingStage) return;
-    final adService = context.read<AdService>();
-    final messenger = ScaffoldMessenger.of(context);
-
-    setState(() => _usingSecondChance = true);
-    final watched = await adService.showActionRewardedAd();
-    if (!mounted) return;
-    setState(() => _usingSecondChance = false);
-
-    if (!watched) {
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(
-            content: Text(
-              'تعذر تشغيل الإعلان أو تم إغلاقه قبل اكتماله.',
-              textAlign: TextAlign.right,
-              style: TextStyle(fontWeight: FontWeight.w800),
-            ),
-          ),
-        );
-      return;
-    }
-
-    if (!mounted) return;
-    HapticFeedback.heavyImpact();
-    messenger
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        const SnackBar(
-          content: Text(
-            'تم الإحياء بنجاح! جاري العودة للمرحلة... ⚡',
-            textAlign: TextAlign.right,
-            style: TextStyle(fontWeight: FontWeight.w900),
-          ),
-          backgroundColor: Color(0xFFBE123C),
-          duration: Duration(seconds: 2),
-        ),
+    try {
+      final watched = await adService.showActionRewardedAd();
+      if (!mounted) return;
+      if (appState.currentUser?.uid != rewardUid) {
+        _returnToMap();
+        return;
+      }
+      if (!watched) {
+        messenger
+          ..hideCurrentSnackBar()
+          ..showSnackBar(const SnackBar(
+            content: Text('لم يكتمل الإعلان. مكافأتك الأساسية محفوظة.'),
+          ));
+        return;
+      }
+      final success = await appState.grantCampaignCurrency(
+        coinsReward: coins,
+        gemsReward: gems,
+        claimId: _doubleClaimId,
       );
-    await _launchStageAgain(context);
+      if (!mounted) return;
+      if (success) {
+        setState(() => _rewardDoubled = true);
+        HapticFeedback.heavyImpact();
+        showCurrencyRewardOverlay(context, coins: coins, gems: gems);
+      } else {
+        messenger
+          ..hideCurrentSnackBar()
+          ..showSnackBar(const SnackBar(
+            content: Text('تعذرت إضافة المكافأة المضاعفة. حاول مرة أخرى.'),
+          ));
+      }
+    } catch (_) {
+      if (!mounted) return;
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(const SnackBar(
+          content: Text('تعذرت مضاعفة المكافأة الآن. حاول لاحقًا.'),
+        ));
+    } finally {
+      if (mounted) setState(() => _doublingReward = false);
+    }
   }
 
   String _saveFailureMessage(Object error) {
     if (error is FirebaseException) {
       switch (error.code) {
         case 'permission-denied':
-          return 'تعذر الحفظ بسبب صلاحيات قاعدة البيانات. تأكد من نشر قواعد Firestore.';
+          return 'تعذر حفظ تقدمك الآن. حاول مرة أخرى بعد قليل.';
         case 'unavailable':
         case 'deadline-exceeded':
           return 'تعذر الاتصال. سيتم عرض نتيجتك الحالية فقط.';
@@ -848,8 +991,6 @@ class _ResultMessage extends StatelessWidget {
         const SizedBox(height: 6),
         Text(
           message,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
           textAlign: TextAlign.center,
           style: TextStyle(
             color: Colors.white.withValues(alpha: 0.82),
@@ -1215,39 +1356,52 @@ class _StatsPanel extends StatelessWidget {
           ),
         ],
       ),
-      child: GridView.count(
-        crossAxisCount: 4,
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        childAspectRatio: 0.98,
-        mainAxisSpacing: 7,
-        crossAxisSpacing: 7,
-        children: [
-          _StatChip(
-            icon: Icons.check_rounded,
-            label: 'صحيحة',
-            value: '$correctAnswers',
-            color: const Color(0xFF40F783),
-          ),
-          _StatChip(
-            icon: Icons.close_rounded,
-            label: 'خاطئة',
-            value: '$wrongAnswers',
-            color: const Color(0xFFFF6B7C),
-          ),
-          _StatChip(
-            icon: Icons.timer_rounded,
-            label: 'الوقت',
-            value: _formatTime(timeMs),
-            color: const Color(0xFF7DD3FC),
-          ),
-          _StatChip(
-            icon: Icons.auto_awesome_rounded,
-            label: 'مساعدات',
-            value: '$usedLifelines',
-            color: const Color(0xFFFFC857),
-          ),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final columns = constraints.maxWidth < 400 ||
+                  MediaQuery.textScalerOf(context).scale(14) > 18
+              ? 2
+              : 4;
+          final chips = <Widget>[
+            _StatChip(
+              icon: Icons.check_rounded,
+              label: 'صحيحة',
+              value: '$correctAnswers',
+              color: const Color(0xFF40F783),
+            ),
+            _StatChip(
+              icon: Icons.close_rounded,
+              label: 'خاطئة',
+              value: '$wrongAnswers',
+              color: const Color(0xFFFF6B7C),
+            ),
+            _StatChip(
+              icon: Icons.timer_rounded,
+              label: 'الوقت',
+              value: timeMs > 0 ? _formatTime(timeMs) : '—',
+              color: const Color(0xFF7DD3FC),
+            ),
+            _StatChip(
+              icon: Icons.track_changes_rounded,
+              label: 'الدقة',
+              value: correctAnswers + wrongAnswers > 0
+                  ? '${(100 * correctAnswers / (correctAnswers + wrongAnswers)).round()}%'
+                  : '—',
+              color: const Color(0xFFFFC857),
+            ),
+          ];
+          return Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final chip in chips)
+                SizedBox(
+                  width: (constraints.maxWidth - (columns - 1) * 8) / columns,
+                  child: chip,
+                ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -1310,16 +1464,17 @@ class _StatChip extends StatelessWidget {
 }
 
 class _RetrySaveButton extends StatelessWidget {
-  const _RetrySaveButton({required this.onPressed});
+  const _RetrySaveButton({required this.onPressed, this.busy = false});
 
   final VoidCallback onPressed;
+  final bool busy;
 
   @override
   Widget build(BuildContext context) {
     return FilledButton.icon(
-      onPressed: onPressed,
+      onPressed: busy ? null : onPressed,
       icon: const Icon(Icons.cloud_upload_rounded, size: 18),
-      label: const Text('إعادة محاولة الحفظ'),
+      label: Text(busy ? 'جارٍ حفظ التقدم...' : 'إعادة محاولة الحفظ'),
       style: FilledButton.styleFrom(
         backgroundColor: const Color(0xFFFFC857),
         foregroundColor: const Color(0xFF311300),
@@ -1414,523 +1569,3 @@ String _resultTitle({
       return completed ? 'فاز فريقك' : 'خسر فريقك';
   }
 }
-
-class _SecondChanceCard extends StatefulWidget {
-  const _SecondChanceCard({
-    required this.busy,
-    required this.onRevive,
-  });
-
-  final bool busy;
-  final VoidCallback onRevive;
-
-  @override
-  State<_SecondChanceCard> createState() => _SecondChanceCardState();
-}
-
-class _SecondChanceCardState extends State<_SecondChanceCard>
-    with TickerProviderStateMixin {
-  late final AnimationController _heartbeatController;
-  late final AnimationController _shimmerController;
-  late final AnimationController _pulseController;
-
-  late final Animation<double> _heartScale;
-  late final Animation<double> _auraScale;
-  late final Animation<double> _auraOpacity;
-  late final Animation<double> _badgePulse;
-  double _buttonPressScale = 1.0;
-
-  @override
-  void initState() {
-    super.initState();
-    // Authentic double-beat heartbeat animation (thump-thump rhythm)
-    _heartbeatController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1300),
-    )..repeat();
-
-    _heartScale = TweenSequence<double>([
-      TweenSequenceItem(
-        tween: Tween<double>(begin: 1.0, end: 1.18)
-            .chain(CurveTween(curve: Curves.easeOutCubic)),
-        weight: 14,
-      ),
-      TweenSequenceItem(
-        tween: Tween<double>(begin: 1.18, end: 1.06)
-            .chain(CurveTween(curve: Curves.easeInCubic)),
-        weight: 12,
-      ),
-      TweenSequenceItem(
-        tween: Tween<double>(begin: 1.06, end: 1.25)
-            .chain(CurveTween(curve: Curves.easeOutCubic)),
-        weight: 16,
-      ),
-      TweenSequenceItem(
-        tween: Tween<double>(begin: 1.25, end: 1.0)
-            .chain(CurveTween(curve: Curves.easeInOutCubic)),
-        weight: 24,
-      ),
-      TweenSequenceItem(
-        tween: ConstantTween<double>(1.0),
-        weight: 34,
-      ),
-    ]).animate(_heartbeatController);
-
-    _auraScale = TweenSequence<double>([
-      TweenSequenceItem(
-        tween: Tween<double>(begin: 1.0, end: 1.70)
-            .chain(CurveTween(curve: Curves.easeOutQuad)),
-        weight: 42,
-      ),
-      TweenSequenceItem(
-        tween: ConstantTween<double>(1.0),
-        weight: 58,
-      ),
-    ]).animate(_heartbeatController);
-
-    _auraOpacity = TweenSequence<double>([
-      TweenSequenceItem(
-        tween: Tween<double>(begin: 0.70, end: 0.0)
-            .chain(CurveTween(curve: Curves.easeOutQuad)),
-        weight: 42,
-      ),
-      TweenSequenceItem(
-        tween: ConstantTween<double>(0.0),
-        weight: 58,
-      ),
-    ]).animate(_heartbeatController);
-
-    // Diagonal sheen sweep for the revival button
-    _shimmerController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2400),
-    )..repeat();
-
-    // Pulse for emergency badge
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1000),
-    )..repeat(reverse: true);
-
-    _badgePulse = Tween<double>(begin: 1.0, end: 1.08).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _heartbeatController.dispose();
-    _shimmerController.dispose();
-    _pulseController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
-        gradient: const LinearGradient(
-          colors: [
-            Color(0xFF2C0A19),
-            Color(0xFF14020B),
-            Color(0xFF230514),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        border: Border.all(
-          color: const Color(0xFFFF2A6D).withValues(alpha: 0.75),
-          width: 1.8,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFFE11D48).withValues(alpha: 0.40),
-            blurRadius: 24,
-            offset: const Offset(0, 6),
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.65),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(20.2),
-        child: Stack(
-          children: [
-            // Top subtle glowing accent line
-            Positioned(
-              top: 0,
-              left: 24,
-              right: 24,
-              height: 2.2,
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Colors.transparent,
-                      const Color(0xFFFB7185).withValues(alpha: 0.95),
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-            // Glowing background ambient aura
-            Positioned(
-              top: -30,
-              right: -20,
-              child: Container(
-                width: 120,
-                height: 120,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: const Color(0xFFF43F5E).withValues(alpha: 0.15),
-                ),
-              ),
-            ),
-
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Header badge & Info Row
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // 3D Beating Heart with Animated Shockwave Aura
-                      SizedBox(
-                        width: 52,
-                        height: 52,
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            // Expanding Shockwave Aura
-                            AnimatedBuilder(
-                              animation: _heartbeatController,
-                              builder: (context, _) {
-                                return Transform.scale(
-                                  scale: _auraScale.value,
-                                  child: Container(
-                                    width: 48,
-                                    height: 48,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: const Color(0xFFFF4D6D)
-                                            .withValues(alpha: _auraOpacity.value),
-                                        width: 2.0,
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-
-                            // Main Pulsing Heart Avatar
-                            AnimatedBuilder(
-                              animation: _heartbeatController,
-                              builder: (context, child) {
-                                return Transform.scale(
-                                  scale: _heartScale.value,
-                                  child: child,
-                                );
-                              },
-                              child: Container(
-                                width: 48,
-                                height: 48,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  gradient: const LinearGradient(
-                                    colors: [Color(0xFFFF4D6D), Color(0xFFC9184A)],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: const Color(0xFFFF4D6D)
-                                          .withValues(alpha: 0.50),
-                                      blurRadius: 14,
-                                      offset: const Offset(0, 3),
-                                    ),
-                                  ],
-                                  border: Border.all(
-                                    color: const Color(0xFFFFB3C1),
-                                    width: 2.2,
-                                  ),
-                                ),
-                                child: const Center(
-                                  child: Icon(
-                                    Icons.favorite_rounded,
-                                    color: Colors.white,
-                                    size: 26,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-
-                      // Text content + Tag
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                const Text(
-                                  'فرصة ثانية لإنقاذ التقدم!',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16.5,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: -0.2,
-                                  ),
-                                ),
-                                const Spacer(),
-                                ScaleTransition(
-                                  scale: _badgePulse,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 3),
-                                    decoration: BoxDecoration(
-                                      gradient: const LinearGradient(
-                                        colors: [Color(0xFFE11D48), Color(0xFF9F1239)],
-                                      ),
-                                      borderRadius: BorderRadius.circular(10),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: const Color(0xFFE11D48)
-                                              .withValues(alpha: 0.50),
-                                          blurRadius: 8,
-                                        ),
-                                      ],
-                                    ),
-                                    child: const Text(
-                                      '🔥 إنقاذ فوري',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 10.5,
-                                        fontWeight: FontWeight.w900,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 5),
-                            const Text(
-                              'لا تخسر جهدك ومرحلتك! شاهد إعلاناً قصيراً لتستعيد طاقتك وتكمل التحدي مباشرة ⚡',
-                              style: TextStyle(
-                                color: Color(0xFFFFCCD5),
-                                fontSize: 12,
-                                height: 1.35,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-
-                  // 3D Tactile Revival Button with Shimmer Sweep
-                  GestureDetector(
-                    onTapDown: widget.busy
-                        ? null
-                        : (_) => setState(() => _buttonPressScale = 0.97),
-                    onTapUp: widget.busy
-                        ? null
-                        : (_) {
-                            setState(() => _buttonPressScale = 1.0);
-                            HapticFeedback.lightImpact();
-                            widget.onRevive();
-                          },
-                    onTapCancel: () => setState(() => _buttonPressScale = 1.0),
-                    child: AnimatedScale(
-                      scale: _buttonPressScale,
-                      duration: const Duration(milliseconds: 100),
-                      curve: Curves.easeOutQuad,
-                      child: Container(
-                        width: double.infinity,
-                        height: 50,
-                        clipBehavior: Clip.antiAlias,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(16),
-                          gradient: const LinearGradient(
-                            colors: [
-                              Color(0xFFFF597B),
-                              Color(0xFFE11D48),
-                              Color(0xFFBE123C),
-                            ],
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                          ),
-                          boxShadow: [
-                            const BoxShadow(
-                              color: Color(0xFF700A23),
-                              offset: Offset(0, 4),
-                              blurRadius: 0,
-                            ),
-                            BoxShadow(
-                              color: const Color(0xFFE11D48).withValues(alpha: 0.55),
-                              offset: const Offset(0, 6),
-                              blurRadius: 16,
-                            ),
-                          ],
-                          border: Border.all(
-                            color: const Color(0xFFFFB3C6).withValues(alpha: 0.85),
-                            width: 1.4,
-                          ),
-                        ),
-                        child: Stack(
-                          children: [
-                            // Diagonal Shimmer Sheen
-                            Positioned.fill(
-                              child: AnimatedBuilder(
-                                animation: _shimmerController,
-                                builder: (context, _) {
-                                  return CustomPaint(
-                                    painter: _RevivalShimmerPainter(
-                                      progress: _shimmerController.value,
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-
-                            // Button Content
-                            Center(
-                              child: widget.busy
-                                  ? const Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        SizedBox(
-                                          width: 20,
-                                          height: 20,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2.4,
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                        SizedBox(width: 12),
-                                        Text(
-                                          'جارٍ تجهيز الإعادة...',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 14.5,
-                                            fontWeight: FontWeight.w900,
-                                          ),
-                                        ),
-                                      ],
-                                    )
-                                  : Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Container(
-                                          width: 26,
-                                          height: 26,
-                                          decoration: BoxDecoration(
-                                            shape: BoxShape.circle,
-                                            color: Colors.white.withValues(alpha: 0.20),
-                                          ),
-                                          child: const Icon(
-                                            Icons.play_arrow_rounded,
-                                            size: 20,
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 10),
-                                        const Text(
-                                          'إحياء ومتابعة اللعب الآن 🎬',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 15,
-                                            fontWeight: FontWeight.w900,
-                                            letterSpacing: -0.2,
-                                            shadows: [
-                                              Shadow(
-                                                color: Colors.black45,
-                                                offset: Offset(0, 1),
-                                                blurRadius: 2,
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 6, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: Colors.black.withValues(alpha: 0.25),
-                                            borderRadius: BorderRadius.circular(6),
-                                          ),
-                                          child: const Text(
-                                            'مجاناً',
-                                            style: TextStyle(
-                                              color: Color(0xFFFFD1DC),
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.w900,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _RevivalShimmerPainter extends CustomPainter {
-  _RevivalShimmerPainter({required this.progress});
-
-  final double progress;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (progress <= 0.05 || progress >= 0.95) return;
-    final width = size.width;
-    final height = size.height;
-    final t = (progress - 0.05) / 0.90;
-    final currentX = (width + 200) * t - 100;
-
-    final paint = Paint()
-      ..shader = LinearGradient(
-        colors: [
-          Colors.white.withValues(alpha: 0.0),
-          Colors.white.withValues(alpha: 0.40),
-          Colors.white.withValues(alpha: 0.0),
-        ],
-        stops: const [0.0, 0.5, 1.0],
-      ).createShader(Rect.fromLTWH(currentX - 50, 0, 100, height));
-
-    canvas.save();
-    canvas.skew(-0.35, 0);
-    canvas.drawRect(Rect.fromLTWH(currentX - 50, 0, 100, height), paint);
-    canvas.restore();
-  }
-
-  @override
-  bool shouldRepaint(covariant _RevivalShimmerPainter oldDelegate) =>
-      oldDelegate.progress != progress;
-}
-

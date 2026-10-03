@@ -134,15 +134,18 @@ class _FirstRunChallengeScreenState extends State<FirstRunChallengeScreen>
         campaignBoard: launchConfig['campaignBoard'] as bool? ?? true,
         boardKind: launchConfig['boardKind'] as String? ?? 'solo',
         boardTargetScore: launchConfig['boardTargetScore'] as int? ?? 0,
+        boardTwoStarScore: launchConfig['boardTwoStarScore'] as int? ?? 0,
+        boardThreeStarScore: launchConfig['boardThreeStarScore'] as int? ?? 0,
         boardSoloPicks: launchConfig['boardSoloPicks'] as int? ?? 6,
         boardSoloCols: launchConfig['boardSoloCols'] as int? ?? 4,
         boardBotCount: launchConfig['boardBotCount'] as int? ?? 0,
         boardBotIntelligence: launchConfig['boardBotIntelligence'] as int? ?? 0,
-        categoryPolicy: launchConfig['categoryPolicy'] as String? ?? 'playerPick',
-        worldCategories:
-            (launchConfig['worldCategories'] as List<dynamic>? ?? const <dynamic>[])
-                .map((dynamic e) => e.toString())
-                .toList(growable: false),
+        categoryPolicy:
+            launchConfig['categoryPolicy'] as String? ?? 'playerPick',
+        worldCategories: (launchConfig['worldCategories'] as List<dynamic>? ??
+                const <dynamic>[])
+            .map((dynamic e) => e.toString())
+            .toList(growable: false),
       );
       if (mounted) setState(() => _waitingForResult = true);
     } catch (_) {

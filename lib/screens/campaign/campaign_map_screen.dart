@@ -5,34 +5,42 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/app_state.dart';
+import '../../core/campaign_navigation.dart';
 import '../../models/campaign_stage.dart';
+import '../../models/campaign_daily_progress.dart';
 import '../../models/stage_progress.dart';
 import '../../models/campaign_world.dart';
 import '../../services/campaign_result_handler.dart';
 import '../../services/campaign_service.dart';
+import '../../services/campaign_engagement_service.dart';
 import '../../services/native_bridge_service.dart';
 import 'stage_intro_screen.dart';
 import 'widgets/stage_node.dart';
+import 'widgets/campaign_journey_panel.dart';
 
 class CampaignMapScreen extends StatefulWidget {
   const CampaignMapScreen({super.key});
+
+  static const routeName = '/campaign';
 
   @override
   State<CampaignMapScreen> createState() => _CampaignMapScreenState();
 }
 
 class _CampaignMapScreenState extends State<CampaignMapScreen>
-    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver, RouteAware {
   final CampaignService _campaignService = CampaignService();
   late final AnimationController _pulseController;
   late final NativeBridgeService _nativeBridgeService;
   late Future<_CampaignMapData> _future;
+  String? _loadedPlayerId;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _nativeBridgeService = context.read<NativeBridgeService>();
+    _loadedPlayerId = context.read<AppState>().currentUser?.uid;
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1400),
@@ -45,11 +53,40 @@ class _CampaignMapScreenState extends State<CampaignMapScreen>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route is PageRoute<dynamic>) {
+      campaignRouteObserver.subscribe(this, route);
+    }
+    final playerId = context.watch<AppState>().currentUser?.uid;
+    if (playerId != _loadedPlayerId) {
+      _loadedPlayerId = playerId;
+      _future = _load();
+    }
+  }
+
+  @override
   void dispose() {
+    campaignRouteObserver.unsubscribe(this);
     WidgetsBinding.instance.removeObserver(this);
     unawaited(_stopCampaignMapMusic());
     _pulseController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didPushNext() {
+    _pulseController.stop();
+    unawaited(_stopCampaignMapMusic());
+  }
+
+  @override
+  void didPopNext() {
+    if (!mounted) return;
+    _pulseController.repeat(reverse: true);
+    unawaited(_reload());
+    unawaited(_playCampaignMapMusic());
   }
 
   @override
@@ -80,6 +117,7 @@ class _CampaignMapScreenState extends State<CampaignMapScreen>
 
   Future<void> _consumePendingCampaignResult() async {
     if (!mounted) return;
+    if (ModalRoute.of(context)?.isCurrent == false) return;
     await CampaignResultHandler.consumeAndHandlePendingCampaignResult(
       context: context,
     );
@@ -90,6 +128,13 @@ class _CampaignMapScreenState extends State<CampaignMapScreen>
 
   Future<_CampaignMapData> _load() async {
     final uid = context.read<AppState>().currentUser?.uid.trim();
+    final dailyFuture = CampaignEngagementService()
+        .load(
+          playerId: uid == null || uid.isEmpty ? 'guest' : uid,
+          campaignId: 'main_campaign',
+        )
+        .catchError((Object _) => CampaignDailyProgress(
+            dayKey: CampaignEngagementService.dayKey(DateTime.now())));
     final stages = await _campaignService.loadStages();
     final savedProgress = uid == null || uid.isEmpty
         ? const <String, StageProgress>{}
@@ -98,7 +143,8 @@ class _CampaignMapScreenState extends State<CampaignMapScreen>
       stages: stages,
       savedProgress: savedProgress,
     );
-    return _CampaignMapData(stages: stages, progress: progress);
+    final daily = await dailyFuture;
+    return _CampaignMapData(stages: stages, progress: progress, daily: daily);
   }
 
   Future<void> _reload() async {
@@ -169,9 +215,6 @@ class _CampaignMapScreenState extends State<CampaignMapScreen>
         builder: (_) => StageIntroScreen(stage: stage, progress: progress),
       ),
     );
-    if (mounted) {
-      await _playCampaignMapMusic();
-    }
   }
 }
 
@@ -228,29 +271,62 @@ class _CampaignMapContentState extends State<_CampaignMapContent> {
     final worlds = _worldStageBundles();
     final selectedWorld =
         campaignWorlds[_selectedWorldIndex.clamp(0, campaignWorlds.length - 1)];
+    final continueStage = _continueStage();
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    final textScale = MediaQuery.textScalerOf(context).scale(14) / 14;
+    final wide = MediaQuery.sizeOf(context).width >= 700 && textScale < 1.4;
+    final footerHeight =
+        (wide ? 74.0 : 124.0) + math.max(0, textScale - 1) * 60;
+    final journeyBar = CampaignJourneyBar(
+      compact: true,
+      daily: widget.data.daily,
+      onDailyTap: () => _showJourney(worlds[_selectedWorldIndex]),
+      continueStage: continueStage,
+      onContinue:
+          continueStage == null ? null : () => _openStage(continueStage),
+    );
+    final worldControls = _WorldPagerControls(
+      world: selectedWorld,
+      selectedIndex: _selectedWorldIndex,
+      completedStages: worlds[_selectedWorldIndex].completedStages,
+      totalStages: worlds[_selectedWorldIndex].stages.length,
+      stars: worlds[_selectedWorldIndex]
+          .progress
+          .fold<int>(0, (sum, p) => sum + p.stars),
+      onPrevious: _selectedWorldIndex == 0
+          ? null
+          : () => _goToWorld(_selectedWorldIndex - 1),
+      onNext: _selectedWorldIndex == campaignWorlds.length - 1
+          ? null
+          : () => _goToWorld(_selectedWorldIndex + 1),
+      onDotTap: _goToWorld,
+    );
 
     return Stack(
       children: [
-        PageView.builder(
-          controller: _pageController,
-          physics: const BouncingScrollPhysics(),
-          itemCount: worlds.length,
-          onPageChanged: (index) {
-            setState(() {
-              _selectedWorldIndex = index;
-            });
-            _precacheWorld(index);
-          },
-          itemBuilder: (context, index) {
-            return _WorldMapPage(
-              bundle: worlds[index],
-              campaignService: widget.campaignService,
-              pulseAnimation: widget.pulseAnimation,
-              onLockedTap: widget.onLockedTap,
-              onStageTap: widget.onStageTap,
-              onRefresh: widget.onRefresh,
-            );
-          },
+        Positioned.fill(
+          child: PageView.builder(
+            controller: _pageController,
+            physics: const BouncingScrollPhysics(),
+            itemCount: worlds.length,
+            onPageChanged: (index) {
+              setState(() {
+                _selectedWorldIndex = index;
+              });
+              _precacheWorld(index);
+            },
+            itemBuilder: (context, index) {
+              return _WorldMapPage(
+                bundle: worlds[index],
+                campaignService: widget.campaignService,
+                pulseAnimation: widget.pulseAnimation,
+                onLockedTap: widget.onLockedTap,
+                onStageTap: widget.onStageTap,
+                onRefresh: widget.onRefresh,
+                bottomOverlaySpace: bottomInset + footerHeight,
+              );
+            },
+          ),
         ),
         Positioned(
           top: 0,
@@ -265,25 +341,71 @@ class _CampaignMapContentState extends State<_CampaignMapContent> {
         Positioned(
           left: 14,
           right: 14,
-          bottom: 16,
+          bottom: 10,
           child: SafeArea(
             top: false,
-            child: _WorldPagerControls(
-              world: selectedWorld,
-              selectedIndex: _selectedWorldIndex,
-              completedStages: worlds[_selectedWorldIndex].completedStages,
-              totalStages: worlds[_selectedWorldIndex].stages.length,
-              onPrevious: _selectedWorldIndex == 0
-                  ? null
-                  : () => _goToWorld(_selectedWorldIndex - 1),
-              onNext: _selectedWorldIndex == campaignWorlds.length - 1
-                  ? null
-                  : () => _goToWorld(_selectedWorldIndex + 1),
-              onDotTap: _goToWorld,
-            ),
+            child: wide
+                ? Row(children: [
+                    Expanded(flex: 5, child: journeyBar),
+                    const SizedBox(width: 12),
+                    Expanded(flex: 4, child: worldControls),
+                  ])
+                : Column(mainAxisSize: MainAxisSize.min, children: [
+                    journeyBar,
+                    const SizedBox(height: 6),
+                    worldControls,
+                  ]),
           ),
         ),
       ],
+    );
+  }
+
+  CampaignStage? _continueStage() {
+    for (var index = 0; index < widget.data.stages.length; index++) {
+      if (widget.data.progress[index].status == StageProgressStatus.unlocked) {
+        return widget.data.stages[index];
+      }
+    }
+    return CampaignEngagementService().recommendedStage(
+      stages: widget.data.stages,
+      progress: widget.data.progress,
+    );
+  }
+
+  void _openStage(CampaignStage stage) {
+    final index = widget.data.stages.indexWhere((item) => item.id == stage.id);
+    if (index < 0) return;
+    widget.onStageTap(stage, widget.data.progress[index]);
+  }
+
+  Future<void> _showJourney(_WorldStageBundle bundle) async {
+    final recommended = CampaignEngagementService().recommendedStage(
+      stages: widget.data.stages,
+      progress: widget.data.progress,
+    );
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF10283E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      constraints:
+          BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.88),
+      builder: (sheetContext) => CampaignJourneySheet(
+        daily: widget.data.daily,
+        worldName: bundle.world.name,
+        worldStars: bundle.progress.fold<int>(0, (sum, p) => sum + p.stars),
+        worldMaxStars: bundle.stages.length * 3,
+        recommendedStage: recommended,
+        onRecommendedTap: recommended == null
+            ? null
+            : () {
+                Navigator.pop(sheetContext);
+                _openStage(recommended);
+              },
+      ),
     );
   }
 
@@ -362,6 +484,7 @@ class _WorldMapPage extends StatefulWidget {
     required this.onLockedTap,
     required this.onStageTap,
     required this.onRefresh,
+    required this.bottomOverlaySpace,
   });
 
   final _WorldStageBundle bundle;
@@ -370,6 +493,7 @@ class _WorldMapPage extends StatefulWidget {
   final void Function(CampaignStage stage) onLockedTap;
   final void Function(CampaignStage stage, StageProgress progress) onStageTap;
   final Future<void> Function() onRefresh;
+  final double bottomOverlaySpace;
 
   static const Size _backgroundSourceSize = Size(1672, 941);
 
@@ -395,9 +519,18 @@ class _WorldMapPageState extends State<_WorldMapPage> {
         builder: (context, constraints) {
           final width = constraints.maxWidth;
           final height = constraints.maxHeight;
-          final contentHeight = _mapContentHeight(Size(width, height));
-          final initialScrollExtent = math.max(0.0, contentHeight - height);
-          _jumpToBottomAfterLayout(initialScrollExtent);
+          final mapHeight = _mapContentHeight(Size(width, height));
+          final contentHeight = mapHeight + widget.bottomOverlaySpace;
+          final currentIndex = widget.bundle.stages
+              .indexWhere((stage) => stage.id == widget.bundle.currentStageId);
+          final focusY = currentIndex >= 0
+              ? widget.bundle.world.nodePositions[currentIndex].dy * mapHeight
+              : contentHeight;
+          final usableHeight =
+              math.max(0.0, height - widget.bottomOverlaySpace);
+          final initialScrollExtent = (focusY - usableHeight * 0.55)
+              .clamp(0.0, math.max(0.0, contentHeight - height));
+          _jumpToBottomAfterLayout(initialScrollExtent.toDouble());
           return SingleChildScrollView(
             controller: _scrollController,
             physics: const AlwaysScrollableScrollPhysics(
@@ -409,24 +542,38 @@ class _WorldMapPageState extends State<_WorldMapPage> {
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  Positioned.fill(
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: mapHeight,
                     child: Image.asset(
                       widget.bundle.world.backgroundAsset,
                       fit: BoxFit.fill,
                       filterQuality: FilterQuality.high,
                     ),
                   ),
-                  Positioned.fill(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.black.withValues(alpha: 0.10),
-                            Colors.transparent,
-                            Colors.black.withValues(alpha: 0.16),
-                          ],
+                  // Continue the bottom edge behind the floating controls
+                  // without stretching the map away from its stage positions.
+                  Positioned(
+                    top: mapHeight,
+                    left: 0,
+                    right: 0,
+                    height: widget.bottomOverlaySpace,
+                    child: ClipRect(
+                      child: Transform.flip(
+                        flipY: true,
+                        child: OverflowBox(
+                          alignment: Alignment.bottomCenter,
+                          minHeight: mapHeight,
+                          maxHeight: mapHeight,
+                          child: Image.asset(
+                            widget.bundle.world.backgroundAsset,
+                            width: width,
+                            height: mapHeight,
+                            fit: BoxFit.fill,
+                            filterQuality: FilterQuality.high,
+                          ),
                         ),
                       ),
                     ),
@@ -435,7 +582,7 @@ class _WorldMapPageState extends State<_WorldMapPage> {
                       index < widget.bundle.stages.length;
                       index += 1)
                     _buildStageNode(
-                      size: Size(width, contentHeight),
+                      size: Size(width, mapHeight),
                       index: index,
                     ),
                 ],
@@ -558,6 +705,7 @@ class _WorldPagerControls extends StatelessWidget {
     required this.selectedIndex,
     required this.completedStages,
     required this.totalStages,
+    required this.stars,
     required this.onPrevious,
     required this.onNext,
     required this.onDotTap,
@@ -567,6 +715,7 @@ class _WorldPagerControls extends StatelessWidget {
   final int selectedIndex;
   final int completedStages;
   final int totalStages;
+  final int stars;
   final VoidCallback? onPrevious;
   final VoidCallback? onNext;
   final ValueChanged<int> onDotTap;
@@ -580,7 +729,7 @@ class _WorldPagerControls extends StatelessWidget {
           height: 44,
           padding: const EdgeInsets.symmetric(horizontal: 8),
           decoration: BoxDecoration(
-            color: const Color(0xFF0C3B25).withValues(alpha: 0.58),
+            color: const Color(0xFFF4F9E8).withValues(alpha: 0.88),
             borderRadius: BorderRadius.circular(999),
             border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
             boxShadow: [
@@ -599,12 +748,12 @@ class _WorldPagerControls extends StatelessWidget {
               ),
               Expanded(
                 child: Text(
-                  'العالم ${world.worldIndex + 1}  •  ${world.name}  •  $completedStages/$totalStages',
+                  '${world.name}  •  $completedStages/$totalStages  •  $stars/${totalStages * 3} ★',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: Color(0xFF173B2B),
                     fontSize: 13,
                     fontWeight: FontWeight.w900,
                   ),
@@ -660,7 +809,8 @@ class _WorldArrowButton extends StatelessWidget {
       onPressed: onTap,
       icon: Icon(
         icon,
-        color: onTap == null ? Colors.white38 : Colors.white,
+        color:
+            onTap == null ? const Color(0x66173B2B) : const Color(0xFF173B2B),
         size: 26,
       ),
     );
@@ -710,7 +860,22 @@ class _MapTopOverlay extends StatelessWidget {
               icon: Icons.arrow_forward_rounded,
               onTap: () => Navigator.of(context).maybePop(),
             ),
-            const Spacer(),
+            const SizedBox(width: 8),
+            const Expanded(
+                child: Text('تحدي المراحل',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 14,
+                        shadows: [
+                          Shadow(
+                            color: Color(0x99000000),
+                            blurRadius: 6,
+                            offset: Offset(0, 1),
+                          ),
+                        ]))),
             _OverlayChip(
               icon: Icons.flag_rounded,
               label: '$completedStages/$totalStages',
@@ -819,10 +984,12 @@ class _CampaignMapData {
   const _CampaignMapData({
     required this.stages,
     required this.progress,
+    required this.daily,
   });
 
   final List<CampaignStage> stages;
   final List<StageProgress> progress;
+  final CampaignDailyProgress daily;
 }
 
 class _LoadingState extends StatelessWidget {

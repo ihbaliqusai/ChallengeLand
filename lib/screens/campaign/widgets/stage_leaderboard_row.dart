@@ -35,102 +35,175 @@ class StageLeaderboardRow extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: medalColor.withValues(alpha: 0.26)),
       ),
-      child: Row(
-        children: [
-          SizedBox(
-            width: compact ? 28 : 34,
-            child: Text(
-              '#$rank',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: medalColor,
-                fontSize: compact ? 14 : 16,
-                fontWeight: FontWeight.w900,
+      child: LayoutBuilder(builder: (context, constraints) {
+        final largeText = MediaQuery.textScalerOf(context).scale(1) > 1.3;
+        if (constraints.maxWidth < 340 || largeText) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(children: [
+                Text('#$rank',
+                    style: TextStyle(
+                        color: medalColor,
+                        fontSize: compact ? 14 : 16,
+                        fontWeight: FontWeight.w900)),
+                const SizedBox(width: 8),
+                _Avatar(entry: entry, size: compact ? 30 : 38),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Text(displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: compact ? 13 : 15,
+                          fontWeight: FontWeight.w900)),
+                ),
+              ]),
+              if (!compact) ...[
+                const SizedBox(height: 6),
+                Text(
+                    '${entry.correctAnswers} صحيحة • ${_formatTime(entry.timeMs)}',
+                    style: const TextStyle(
+                        color: Colors.white60,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700)),
+              ],
+              const SizedBox(height: 8),
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 12,
+                runSpacing: 7,
+                children: [
+                  Text('${entry.score}',
+                      style: TextStyle(
+                          color: const Color(0xFFFACC15),
+                          fontSize: compact ? 14 : 17,
+                          fontWeight: FontWeight.w900)),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: List.generate(
+                        3,
+                        (index) => Icon(
+                              index < entry.stars
+                                  ? Icons.star_rounded
+                                  : Icons.star_border_rounded,
+                              size: compact ? 13 : 15,
+                              color: index < entry.stars
+                                  ? const Color(0xFFFACC15)
+                                  : Colors.white.withValues(alpha: 0.35),
+                            )),
+                  ),
+                  if (entry.assisted)
+                    const Text('مساعدة',
+                        style: TextStyle(
+                            color: Color(0xFFF97316),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900)),
+                ],
+              ),
+            ],
+          );
+        }
+        return Row(
+          children: [
+            SizedBox(
+              width: compact ? 28 : 34,
+              child: Text(
+                '#$rank',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: medalColor,
+                  fontSize: compact ? 14 : 16,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 8),
-          _Avatar(entry: entry, size: compact ? 30 : 38),
-          const SizedBox(width: 9),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  displayName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+            const SizedBox(width: 8),
+            _Avatar(entry: entry, size: compact ? 30 : 38),
+            const SizedBox(width: 9),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    displayName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: compact ? 13 : 15,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  if (!compact)
+                    Text(
+                      '${entry.correctAnswers} صحيحة • ${_formatTime(entry.timeMs)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white60,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            if (entry.assisted)
+              Container(
+                margin: const EdgeInsetsDirectional.only(end: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF97316).withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(
+                    color: const Color(0xFFF97316).withValues(alpha: 0.42),
+                  ),
+                ),
+                child: const Text(
+                  'مساعدة',
                   style: TextStyle(
-                    color: Colors.white,
-                    fontSize: compact ? 13 : 15,
+                    color: Color(0xFFF97316),
+                    fontSize: 10,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-                if (!compact)
-                  Text(
-                    '${entry.correctAnswers} صحيحة • ${_formatTime(entry.timeMs)}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white60,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                    ),
+              ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '${entry.score}',
+                  style: TextStyle(
+                    color: const Color(0xFFFACC15),
+                    fontSize: compact ? 14 : 17,
+                    fontWeight: FontWeight.w900,
                   ),
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: List.generate(3, (index) {
+                    return Icon(
+                      index < entry.stars
+                          ? Icons.star_rounded
+                          : Icons.star_border_rounded,
+                      size: compact ? 13 : 15,
+                      color: index < entry.stars
+                          ? const Color(0xFFFACC15)
+                          : Colors.white.withValues(alpha: 0.35),
+                    );
+                  }),
+                ),
               ],
             ),
-          ),
-          if (entry.assisted)
-            Container(
-              margin: const EdgeInsetsDirectional.only(end: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF97316).withValues(alpha: 0.16),
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(
-                  color: const Color(0xFFF97316).withValues(alpha: 0.42),
-                ),
-              ),
-              child: const Text(
-                'مساعدة',
-                style: TextStyle(
-                  color: Color(0xFFF97316),
-                  fontSize: 10,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                '${entry.score}',
-                style: TextStyle(
-                  color: const Color(0xFFFACC15),
-                  fontSize: compact ? 14 : 17,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: List.generate(3, (index) {
-                  return Icon(
-                    index < entry.stars
-                        ? Icons.star_rounded
-                        : Icons.star_border_rounded,
-                    size: compact ? 13 : 15,
-                    color: index < entry.stars
-                        ? const Color(0xFFFACC15)
-                        : Colors.white.withValues(alpha: 0.35),
-                  );
-                }),
-              ),
-            ],
-          ),
-        ],
-      ),
+          ],
+        );
+      }),
     );
   }
 }

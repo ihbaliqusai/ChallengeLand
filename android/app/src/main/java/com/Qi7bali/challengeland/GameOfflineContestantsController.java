@@ -611,6 +611,9 @@ final class GameOfflineContestantsController {
     /** Rolls whether a specific bot answers a board question correctly. */
     boolean rollCorrectForSlot(int slot, String level) {
         if (intelligence == null || slot < 0 || slot >= count) return false;
+        if (activity.boardCampaignMatch) {
+            return random.nextInt(100) < CampaignBoardRules.campaignBotCorrectChance(level, intelligence[slot]);
+        }
         return rollCorrect(level, intelligence[slot]);
     }
 
@@ -1161,10 +1164,7 @@ final class GameOfflineContestantsController {
             soloStageQuestions.setText("📝 الأسئلة: " + currentPick + " / " + totalPicks);
         }
 
-        int earnedStars = 0;
-        if (currentScore >= Math.round(target * 1.55f)) earnedStars = 3;
-        else if (currentScore >= Math.round(target * 1.25f)) earnedStars = 2;
-        else if (currentScore >= target) earnedStars = 1;
+        int earnedStars = activity.getCampaignBoardEarnedStars(currentScore);
 
         for (int i = 0; i < 3; i++) {
             if (soloStageStars[i] != null) {
@@ -1185,7 +1185,7 @@ final class GameOfflineContestantsController {
 
         if (soloStageProgressTrack != null && soloStageProgressFill != null) {
             final int scoreForProgress = currentScore;
-            final int maxGoal = Math.max(1, Math.round(target * 1.55f));
+            final int maxGoal = Math.max(1, activity.boardThreeStarScore);
             soloStageProgressTrack.post(new Runnable() {
                 @Override
                 public void run() {

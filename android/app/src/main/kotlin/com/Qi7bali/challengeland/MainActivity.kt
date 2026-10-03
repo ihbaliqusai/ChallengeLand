@@ -281,29 +281,50 @@ class MainActivity : FlutterActivity() {
                     "grantCurrency" -> {
                         val coins = call.argument<Int>("coins") ?: 0
                         val gems = call.argument<Int>("gems") ?: 0
-                        if (coins != 0) {
-                            PlayerProgress.addCoins(this, coins)
-                        }
-                        if (gems != 0) {
-                            PlayerProgress.addGems(this, gems)
-                        }
-                        result.success(
-                            mapOf(
-                                "coins" to PlayerProgress.getCoins(this),
-                                "gems" to PlayerProgress.getGems(this)
+                        val claimId = call.argument<String>("claimId")
+                        try {
+                            if (!claimId.isNullOrBlank()) {
+                                val currentUid = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
+                                check(!currentUid.isNullOrBlank() && claimId.startsWith("$currentUid:")) {
+                                    "The reward account changed. Retry after signing in."
+                                }
+                                check(VerifiedCommerceStore.isWalletHydrated(this)) {
+                                    "Your account wallet is syncing. Retry the reward after sync."
+                                }
+                            }
+                            val granted = PlayerProgress.grantCurrencyOnce(this, claimId, coins, gems)
+                            result.success(
+                                mapOf(
+                                    "coins" to PlayerProgress.getCoins(this),
+                                    "gems" to PlayerProgress.getGems(this),
+                                    "granted" to granted
+                                )
                             )
-                        )
+                        } catch (e: Exception) {
+                            result.error("CURRENCY_GRANT_FAILED", e.message, null)
+                        }
                     }
                     "setUserCurrency" -> {
                         val coins = call.argument<Int>("coins") ?: 0
                         val gems = call.argument<Int>("gems") ?: 0
-                        PlayerProgress.setCurrency(this, coins, gems)
-                        result.success(
-                            mapOf(
-                                "coins" to PlayerProgress.getCoins(this),
-                                "gems" to PlayerProgress.getGems(this)
+                        val expectedUid = call.argument<String>("expectedUid")
+                        try {
+                            if (!expectedUid.isNullOrBlank()) {
+                                val currentUid = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
+                                check(currentUid == expectedUid && VerifiedCommerceStore.isWalletHydrated(this)) {
+                                    "The reward account changed or its wallet is syncing. Retry after signing in."
+                                }
+                            }
+                            PlayerProgress.setCurrency(this, coins, gems)
+                            result.success(
+                                mapOf(
+                                    "coins" to PlayerProgress.getCoins(this),
+                                    "gems" to PlayerProgress.getGems(this)
+                                )
                             )
-                        )
+                        } catch (e: Exception) {
+                            result.error("CURRENCY_SET_FAILED", e.message, null)
+                        }
                     }
                     "launchRoomMatch" -> {
                         val matchMode = call.argument<String>("matchMode") ?: "battle"
@@ -383,6 +404,8 @@ class MainActivity : FlutterActivity() {
                                 putExtra("boardTargetScore", intArg(call.argument<Any>("boardTargetScore"), 0))
                                 putExtra("boardSoloPicks", intArg(call.argument<Any>("boardSoloPicks"), 6))
                                 putExtra("boardSoloCols", intArg(call.argument<Any>("boardSoloCols"), 4))
+                                putExtra("boardTwoStarScore", intArg(call.argument<Any>("boardTwoStarScore"), 0))
+                                putExtra("boardThreeStarScore", intArg(call.argument<Any>("boardThreeStarScore"), 0))
                                 putExtra("boardBotCount", intArg(call.argument<Any>("boardBotCount"), 0))
                                 putExtra("boardBotIntelligence", intArg(call.argument<Any>("boardBotIntelligence"), 0))
                                 putExtra("categoryPolicy", stringArg(call.argument<Any>("categoryPolicy"), "playerPick"))

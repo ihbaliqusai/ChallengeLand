@@ -11,6 +11,7 @@ import 'package:provider/provider.dart';
 
 import 'core/app_state.dart';
 import 'core/app_settings.dart';
+import 'core/campaign_navigation.dart';
 import 'screens/splash/splash_screen.dart';
 import 'services/auth_service.dart';
 import 'services/native_bridge_service.dart';
@@ -130,6 +131,7 @@ class _ChallengeLandAppState extends State<ChallengeLandApp> {
       child: Consumer<AppSettings>(
         builder: (context, settings, _) => MaterialApp(
           title: 'ChallengeLand',
+          navigatorObservers: [campaignRouteObserver],
           debugShowCheckedModeBanner: false,
           locale: settings.locale,
           supportedLocales: const <Locale>[Locale('ar'), Locale('en')],

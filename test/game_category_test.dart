@@ -1,0 +1,96 @@
+import 'package:challenge_land/models/game_category.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  const aliases = ['أنمي', 'الأنمي', 'انمي', 'الانمي'];
+
+  test('anime store and question labels share the same canonical category', () {
+    for (final label in aliases) {
+      expect(GameCategory.normalize(' $label '), 'انمي');
+      expect(CategoryCatalog.isCategoryPremium(label), isTrue);
+    }
+    expect(GameCategory.normalize(' الأفلام العربية '), 'الافلام العربيه');
+    expect(GameCategory.normalize('أفلام عربية'), 'افلام عربيه');
+    expect(CategoryCatalog.isCategoryPremium('معلومات عامة'), isFalse);
+  });
+
+  for (final label in ['أنمي', 'الأنمي']) {
+    final category = GameCategory(
+      name: label,
+      isPremium: CategoryCatalog.isCategoryPremium(label),
+    );
+
+    test('$label remains locked without an account purchase or active rental',
+        () {
+      expect(category.isUnlocked(permanentlyUnlocked: [], activeRentals: {}),
+          isFalse);
+      expect(
+          category.isUnlocked(
+            permanentlyUnlocked: ['سيارات'],
+            activeRentals: {
+              'سيارات': DateTime.now()
+                  .add(const Duration(days: 1))
+                  .millisecondsSinceEpoch
+            },
+          ),
+          isFalse);
+    });
+
+    test('$label honours purchases saved under any existing anime spelling',
+        () {
+      for (final savedLabel in aliases) {
+        expect(
+            category.isUnlocked(
+              permanentlyUnlocked: [savedLabel],
+              activeRentals: {},
+            ),
+            isTrue,
+            reason: savedLabel);
+      }
+    });
+
+    test('$label honours rentals saved under raw and legacy normalized keys',
+        () {
+      final expiry =
+          DateTime.now().add(const Duration(hours: 2)).millisecondsSinceEpoch;
+      for (final savedKey in aliases) {
+        final rentals = {savedKey: expiry};
+        expect(
+            category.isUnlocked(
+              permanentlyUnlocked: [],
+              activeRentals: rentals,
+            ),
+            isTrue,
+            reason: savedKey);
+        expect(category.remainingRentalHours(rentals), 2, reason: savedKey);
+        expect(GameCategory.rentalExpiryMillis(label, rentals), expiry);
+      }
+    });
+
+    test('$label expired rentals do not grant access', () {
+      final expired = DateTime.now()
+          .subtract(const Duration(hours: 1))
+          .millisecondsSinceEpoch;
+      expect(
+          category.isUnlocked(
+            permanentlyUnlocked: [],
+            activeRentals: {'الانمي': expired},
+          ),
+          isFalse);
+      expect(category.remainingRentalHours({'الانمي': expired}), 0);
+    });
+  }
+
+  test('duplicate saved aliases preserve the longest valid rental', () {
+    final shortExpiry =
+        DateTime.now().add(const Duration(hours: 1)).millisecondsSinceEpoch;
+    final longExpiry =
+        DateTime.now().add(const Duration(hours: 4)).millisecondsSinceEpoch;
+    expect(
+        GameCategory.rentalExpiryMillis('الأنمي', {
+          'انمي': shortExpiry,
+          'الانمي': longExpiry,
+        }),
+        longExpiry);
+  });
+}

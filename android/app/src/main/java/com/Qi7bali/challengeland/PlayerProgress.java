@@ -241,7 +241,7 @@ public class PlayerProgress {
         checkLevelAchievements(c);
     }
 
-    public static void addCoins(Context c, int amount) {
+    public static synchronized void addCoins(Context c, int amount) {
         if (amount == 0) return;
         SharedPreferences p = prefs(c);
         int newCoins = Math.max(0, p.getInt("coins", 0) + amount);
@@ -249,12 +249,37 @@ public class PlayerProgress {
         checkCurrencyAchievements(c);
     }
 
-    public static void setCurrency(Context c, int coins, int gems) {
+    public static synchronized void setCurrency(Context c, int coins, int gems) {
         prefs(c).edit()
                 .putInt("coins", Math.max(0, coins))
                 .putInt("gems", Math.max(0, gems))
                 .apply();
         checkCurrencyAchievements(c);
+    }
+
+    /** A retried campaign payout commits its claim and both balances together. */
+    public static synchronized boolean grantCurrencyOnce(Context c, String claimId, int coins, int gems) {
+        if (claimId == null || claimId.trim().isEmpty()) {
+            addCoins(c, coins);
+            addGems(c, gems);
+            return true;
+        }
+        SharedPreferences p = prefs(c);
+        String claimKey = "currencyClaim:" + claimId.trim();
+        if (p.getBoolean(claimKey, false)) return false;
+        int previousCoins = getCoins(c);
+        int previousGems = getGems(c);
+        int nextCoins = (int) Math.max(0L, Math.min(Integer.MAX_VALUE, (long) previousCoins + coins));
+        int nextGems = (int) Math.max(0L, Math.min(Integer.MAX_VALUE, (long) previousGems + gems));
+        if (!p.edit().putInt("coins", nextCoins).putInt("gems", nextGems)
+                .putBoolean(claimKey, true).commit()) {
+            // SharedPreferences changes its memory cache even when the disk commit
+            // fails. Roll that cache back so a retry can deliver the same claim.
+            p.edit().putInt("coins", previousCoins).putInt("gems", previousGems).remove(claimKey).apply();
+            throw new IllegalStateException("Currency claim could not be saved");
+        }
+        checkCurrencyAchievements(c);
+        return true;
     }
 
     public static boolean spendCoins(Context c, int amount) {
@@ -263,7 +288,7 @@ public class PlayerProgress {
         return true;
     }
 
-    public static void addGems(Context c, int amount) {
+    public static synchronized void addGems(Context c, int amount) {
         if (amount == 0) return;
         SharedPreferences p = prefs(c);
         int newGems = Math.max(0, p.getInt("gems", 0) + amount);

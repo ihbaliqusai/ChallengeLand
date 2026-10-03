@@ -14,18 +14,34 @@ class GameCategory {
   String get assetPath {
     final clean = name.trim();
     if (clean == 'كأس العالم') return 'assets/categories/كأس العالم.png';
-    if (clean == 'أنمي' || clean == 'انمي') return 'assets/categories/الأنمي.png';
+    if (clean == 'أنمي' || clean == 'انمي') {
+      return 'assets/categories/الأنمي.png';
+    }
     return 'assets/categories/$clean.png';
   }
 
   static String normalize(String s) {
-    return s
+    final normalized = s
         .trim()
         .replaceAll('أ', 'ا')
         .replaceAll('إ', 'ا')
         .replaceAll('آ', 'ا')
         .replaceAll('ة', 'ه')
         .replaceAll('ى', 'ي');
+    // The store uses "أنمي" while the question pool uses "الأنمي".
+    return normalized == 'الانمي' ? 'انمي' : normalized;
+  }
+
+  static int? rentalExpiryMillis(String category, Map<String, int> rentals) {
+    final normalized = normalize(category);
+    int? latestExpiry;
+    for (final rental in rentals.entries) {
+      if (normalize(rental.key) == normalized &&
+          (latestExpiry == null || rental.value > latestExpiry)) {
+        latestExpiry = rental.value;
+      }
+    }
+    return latestExpiry;
   }
 
   bool isUnlocked({
@@ -38,7 +54,7 @@ class GameCategory {
     for (final item in permanentlyUnlocked) {
       if (normalize(item) == norm) return true;
     }
-    final expiry = activeRentals[norm];
+    final expiry = rentalExpiryMillis(name, activeRentals);
     if (expiry != null && expiry > DateTime.now().millisecondsSinceEpoch) {
       return true;
     }
@@ -46,8 +62,7 @@ class GameCategory {
   }
 
   int remainingRentalHours(Map<String, int> activeRentals) {
-    final norm = normalize(name);
-    final expiry = activeRentals[norm];
+    final expiry = rentalExpiryMillis(name, activeRentals);
     if (expiry == null) return 0;
     final diffMs = expiry - DateTime.now().millisecondsSinceEpoch;
     if (diffMs <= 0) return 0;
@@ -70,7 +85,8 @@ class CategoryCatalog {
     GameCategory(name: 'خمن الأغنية', isPremium: true, tag: 'صوتي'),
     GameCategory(name: 'خمن الأكلة', isPremium: true, tag: 'بصري'),
     GameCategory(name: 'خمن الاسم', isPremium: true, tag: 'تحدي'),
-    GameCategory(name: 'خمن المدينة او الدولة', isPremium: true, tag: 'جغرافيا'),
+    GameCategory(
+        name: 'خمن المدينة او الدولة', isPremium: true, tag: 'جغرافيا'),
     GameCategory(name: 'زووم', isPremium: true, tag: 'دقة'),
     GameCategory(name: 'ركز شوي', isPremium: true, tag: 'ذكاء'),
     GameCategory(name: 'وضح شوي', isPremium: true, tag: 'ذكاء'),

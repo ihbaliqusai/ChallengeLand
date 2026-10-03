@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import '../models/game_character.dart';
 import '../models/game_category.dart';
 import '../services/auth_service.dart';
+import '../services/campaign_currency_service.dart';
 import '../services/native_bridge_service.dart';
 import 'player_rank.dart';
 import 'trophy_league.dart';
@@ -191,7 +192,8 @@ class AppState extends ChangeNotifier {
     for (final item in unlockedCategories) {
       if (GameCategory.normalize(item) == norm) return true;
     }
-    final expiry = categoryRentals[norm];
+    final expiry =
+        GameCategory.rentalExpiryMillis(categoryName, categoryRentals);
     if (expiry != null && expiry > DateTime.now().millisecondsSinceEpoch) {
       return true;
     }
@@ -199,8 +201,8 @@ class AppState extends ChangeNotifier {
   }
 
   int getCategoryRemainingRentalHours(String categoryName) {
-    final norm = GameCategory.normalize(categoryName);
-    final expiry = categoryRentals[norm];
+    final expiry =
+        GameCategory.rentalExpiryMillis(categoryName, categoryRentals);
     if (expiry == null) return 0;
     final diffMs = expiry - DateTime.now().millisecondsSinceEpoch;
     if (diffMs <= 0) return 0;
@@ -677,18 +679,45 @@ class AppState extends ChangeNotifier {
   Future<bool> grantCampaignCurrency({
     required int coinsReward,
     required int gemsReward,
+    String? claimId,
   }) async {
     final uid = currentUser?.uid;
+    final generation = _authGeneration;
     if (uid == null) return false;
     if (coinsReward <= 0 && gemsReward <= 0) return true;
     try {
-      final balances = await _nativeBridgeService.grantCurrency(
-        coins: coinsReward,
-        gems: gemsReward,
-      );
+      late final Map<String, int> balances;
+      if (claimId != null) {
+        if (_commerceHydratedUid != uid) return false;
+        final cloudBalance =
+            await CampaignCurrencyService(firestore: _firestore).grant(
+          uid: uid,
+          claimId: claimId,
+          coins: coinsReward,
+          gems: gemsReward,
+          fallbackCoins: coins,
+          fallbackGems: gems,
+        );
+        if (generation != _authGeneration || currentUser?.uid != uid) {
+          return false;
+        }
+        balances = await _nativeBridgeService.setUserCurrency(
+          coins: cloudBalance['coins']!,
+          gems: cloudBalance['gems']!,
+          expectedUid: uid,
+        );
+      } else {
+        balances = await _nativeBridgeService.grantCurrency(
+          coins: coinsReward,
+          gems: gemsReward,
+        );
+      }
+      if (generation != _authGeneration || currentUser?.uid != uid) {
+        return false;
+      }
       coins = balances['coins'] ?? (coins + coinsReward);
       gems = balances['gems'] ?? (gems + gemsReward);
-      unawaited(_saveCurrencySnapshot(uid));
+      if (claimId == null) unawaited(_saveCurrencySnapshot(uid));
       notifyListeners();
       return true;
     } catch (_) {
@@ -719,24 +748,56 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  Future<bool> grantCampaignXp({required int xpReward}) async {
+  Future<bool> grantCampaignXp({required int xpReward, String? claimId}) async {
     final uid = currentUser?.uid;
+    final generation = _authGeneration;
+    final initialXp = xp;
     if (uid == null) return false;
     if (xpReward <= 0) return true;
     try {
-      final nextXp = xp + xpReward;
+      final userRef = _firestore.collection('users').doc(uid);
+      final nextXp = await _firestore.runTransaction<int>((transaction) async {
+        final userSnapshot = await transaction.get(userRef);
+        final claimRef = claimId == null
+            ? null
+            : userRef.collection('campaignRewardClaims').doc(claimId);
+        final claimSnapshot =
+            claimRef == null ? null : await transaction.get(claimRef);
+        final storedXp =
+            (userSnapshot.data()?['xp'] as num?)?.toInt() ?? initialXp;
+        if (claimRef != null) {
+          if (claimSnapshot?.exists != true) {
+            throw StateError('Campaign reward claim is missing');
+          }
+          if (claimSnapshot!.data()?['xpClaimed'] == true) return storedXp;
+        }
+        final earnedXp = claimRef == null
+            ? xpReward
+            : (claimSnapshot!.data()?['xp'] as num?)?.toInt() ?? 0;
+        final totalXp = storedXp + earnedXp;
+        transaction.set(
+            userRef,
+            {
+              'xp': totalXp,
+              'level': _computeLevel(totalXp),
+            },
+            SetOptions(merge: true));
+        if (claimRef != null) {
+          transaction.update(claimRef, {
+            'xpClaimed': true,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+        }
+        return totalXp;
+      });
+      if (generation != _authGeneration || currentUser?.uid != uid) {
+        return false;
+      }
       final nextLevel = _computeLevel(nextXp);
       xp = nextXp;
       level = nextLevel;
       xpInCurrentLevel = _computeXpInLevel(nextXp);
       xpNeededForLevel = PlayerRank.xpNeededForLevel(nextLevel);
-      await _firestore.collection('users').doc(uid).set(
-        {
-          'xp': nextXp,
-          'level': nextLevel,
-        },
-        SetOptions(merge: true),
-      );
       notifyListeners();
       return true;
     } catch (_) {

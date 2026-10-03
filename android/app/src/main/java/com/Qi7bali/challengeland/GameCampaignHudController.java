@@ -111,12 +111,8 @@ final class GameCampaignHudController {
 
     int getEarnedStars() {
         if (activity.campaignBoard) {
-            int target = activity.boardTargetScore > 0 ? activity.boardTargetScore : 500;
             int score = activity.offlineContestants != null ? activity.offlineContestants.playerScore() : activity.myScore;
-            if (score >= Math.round(target * 1.55f)) return 3;
-            if (score >= Math.round(target * 1.25f)) return 2;
-            if (score >= target) return 1;
-            return 0;
+            return activity.getCampaignBoardEarnedStars(score);
         }
         if (activity.campaignCorrectAnswers >= 9) return 3;
         if (activity.campaignCorrectAnswers >= 7) return 2;

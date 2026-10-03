@@ -213,6 +213,7 @@ public class GameActivity extends AppCompatActivity {
     // The question pool is bucketed into 3 difficulty tiers (200=easy/400=medium/600=hard).
     static final int BOARD_POOL_TIERS = 3;
     private LinkedHashMap<String, ArrayList<ArrayList<Question>>> boardPool;
+    private LinkedHashMap<String, ArrayList<ArrayList<Question>>> campaignEligibleQuestionPool;
     private final ArrayList<String> boardAllCategories = new ArrayList<>();
     private final ArrayList<String> boardSelectedCategories = new ArrayList<>();
     private Question[][] boardCellQuestion;     // [col][row]
@@ -344,11 +345,14 @@ public class GameActivity extends AppCompatActivity {
     // (persistPendingCampaignStageResult -> Flutter stars/rewards/progress).
     // These are package-private so GameCampaignLaunchConfig can populate them.
     boolean campaignBoard = false;
+    String campaignAttemptId = "";
     boolean boardCampaignMatch = false;
     String boardCampaignKind = "solo";          // "solo" | "boss"
     int boardTargetScore = 0;
     int boardSoloPicks = 6;
     int boardSoloCols = 4;
+    int boardTwoStarScore = 0;
+    int boardThreeStarScore = 0;
     int boardBotCount = 0;
     int boardBotIntelligence = 0;
     String boardCategoryPolicy = "playerPick";  // playerPick | curated | random | worldThemed
@@ -1130,6 +1134,8 @@ public class GameActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         ACTIVITY_PAUSED = false;
+        if (boardCampaignMatch && !campaignResultPersisted && !boardSelectedCategories.isEmpty()
+                && !ensureCampaignBoardCategoryAccess()) return;
         if (offlineContestants != null) offlineContestants.setVideosPaused(false);
         for (ChromaVideoView video : resultVideoViews) video.setPaused(false);
         if (backgroundVideoController != null) backgroundVideoController.start();
@@ -1848,7 +1854,7 @@ public class GameActivity extends AppCompatActivity {
                             person.like(1000);
                             person.raiseEyeBrowsUp(1000, false, true);
                             playSound(R.raw.correct_answer, false, false);
-                            showDialog("إجابة صحيحة!", "", 1000, 2000, R.drawable.mouth_01, false);
+                            showDialog("إجابة صحيحة!", "", 1000, boardCampaignMatch ? 1000 : 2000, R.drawable.mouth_01, false);
                         } else {
                             PlayerStats.recordWrongAnswer(GameActivity.this);
                             playSound(R.raw.wrong_answer, false, false);
@@ -1858,7 +1864,7 @@ public class GameActivity extends AppCompatActivity {
                             }
                             if (imgRight != null) imgRight.setImageResource(R.drawable.frame_right);
                             showDialog(timeout ? "انتهى الوقت للأسف" : "إجابة خاطئة للأسف",
-                                    "", 1000, 2000, R.drawable.mouth_05, false);
+                                    "", 1000, boardCampaignMatch ? 1000 : 2000, R.drawable.mouth_05, false);
                         }
                         if (boardMode && boardLocalTeams && !playerCorrect) {
                             showBoardRefereePanel(true);
@@ -1870,7 +1876,7 @@ public class GameActivity extends AppCompatActivity {
                         CAN_HOME = true;
                         boardRevealHandler = handler;
                         boardRevealRunnable = this;
-                        handler.postDelayed(this, boardMode ? BOARD_REVEAL_HOLD_MS : 3000);
+                        handler.postDelayed(this, boardCampaignMatch ? 2500 : (boardMode ? BOARD_REVEAL_HOLD_MS : 3000));
                         break;
                     case 2:
                         cancelPendingBoardReveal();
@@ -2130,6 +2136,7 @@ public class GameActivity extends AppCompatActivity {
     /** تحدي المراحل stage end: solo (reach boardTargetScore) or boss (beat every bot).
      *  Bridges into the campaign pipeline so Flutter awards stars/rewards/progress. */
     private void finishCampaignBoardMatch() {
+        if (campaignResultPersisted) return;
         stopTimer(false);
         CAN_PLAY = false;
         CAN_HOME = false;
@@ -2163,9 +2170,11 @@ public class GameActivity extends AppCompatActivity {
         }
 
         // Feed the campaign result pipeline (score/correct counts -> stars in Flutter).
-        campaignCorrectAnswers = Math.max(0, boardMyCorrectCount);
-        campaignAnsweredQuestions = Math.max(0, boardTurnIndex);
-        campaignWrongAnswers = Math.max(0, boardTurnIndex - boardMyCorrectCount);
+        campaignAnsweredQuestions = CampaignBoardRules.playerTurns(boardTurnIndex, count);
+        campaignCorrectAnswers = Math.max(0, Math.min(campaignAnsweredQuestions, boardMyCorrectCount));
+        campaignWrongAnswers = Math.max(0, campaignAnsweredQuestions - campaignCorrectAnswers);
+        campaignFailureReason = completed ? "" : ("boss".equals(boardCampaignKind)
+                ? "boss_not_defeated" : "target_score_not_reached");
         persistPendingCampaignStageResult(completed, myScore, campaignWrongAnswers);
 
         try {
@@ -2762,6 +2771,9 @@ public class GameActivity extends AppCompatActivity {
             if (!campaignStageId.equals(record.optString("stageId", ""))) {
                 return;
             }
+            if (!campaignId.equals(record.optString("campaignId", campaignId))) return;
+            if (campaignBoard != record.optBoolean("campaignBoard", false)) return;
+            campaignAttemptId = record.optString("attemptId", campaignAttemptId);
 
             campaignCorrectAnswers = record.optInt("correctAnswers", campaignCorrectAnswers);
             campaignWrongAnswers = record.optInt("wrongAnswers", campaignWrongAnswers);
@@ -2815,6 +2827,7 @@ public class GameActivity extends AppCompatActivity {
             long now = System.currentTimeMillis();
             record.put("stageId", campaignStageId);
             record.put("campaignId", campaignId);
+            record.put("attemptId", campaignAttemptId);
             record.put("mode", "campaign");
             record.put("campaignBoard", true);
             record.put("boardKind", boardCampaignKind);
@@ -2905,6 +2918,7 @@ public class GameActivity extends AppCompatActivity {
             JSONObject record = new JSONObject();
             record.put("stageId", campaignStageId);
             record.put("campaignId", campaignId);
+            record.put("attemptId", campaignAttemptId);
             record.put("mode", "campaign");
             record.put("campaignBoard", false);
             record.put("currentQuestion", currentQuestion);
@@ -2940,10 +2954,23 @@ public class GameActivity extends AppCompatActivity {
             String phase = state.optString("phase", record.optString("phase", ""));
             if (OfflineBoardGameStore.PHASE_CATEGORY_SELECT.equals(phase) && "playerPick".equals(boardCategoryPolicy)) {
                 campaignBoardRestoreConsumed = true;
-                showCategorySelect();
+                startCampaignBoardMode();
                 return true;
             }
             return false;
+        }
+
+        refreshCampaignCategoryAccess();
+        ArrayList<String> savedCategories = new ArrayList<>();
+        for (int index = 0; index < categories.length(); index++) {
+            String category = categories.optString(index, "").trim();
+            String accessibleCategory = CampaignBoardRules.resolveCategory(category, boardPool.keySet());
+            if (accessibleCategory != null) savedCategories.add(accessibleCategory);
+        }
+        int savedColumns = state.optInt("boardCols", categories.length());
+        if (!CampaignBoardRules.canUseCategories(savedCategories, savedColumns, boardPool)) {
+            pauseCampaignForLockedCategories();
+            return true;
         }
 
         campaignBoardRestoreConsumed = true;
@@ -2959,12 +2986,10 @@ public class GameActivity extends AppCompatActivity {
         }
 
         boardSelectedCategories.clear();
-        for (int i = 0; i < categories.length(); i++) {
-            String category = categories.optString(i, "");
-            if (!category.trim().isEmpty()) boardSelectedCategories.add(category);
-        }
+        boardSelectedCategories.addAll(savedCategories);
         boardCols = Math.max(1, Math.min(boardSelectedCategories.size(),
                 state.optInt("boardCols", boardSelectedCategories.size())));
+        configureCampaignBoardStarThresholds();
         boardCellQuestion = new Question[boardCols][BOARD_ROWS];
         boardCellConsumed = new boolean[boardCols][BOARD_ROWS];
 
@@ -2984,6 +3009,11 @@ public class GameActivity extends AppCompatActivity {
                 if (boardCellQuestion[col][row] == null) {
                     String category = boardSelectedCategories.get(Math.min(col, boardSelectedCategories.size() - 1));
                     boardCellQuestion[col][row] = drawBoardQuestion(category, boardTierForRow(row), used);
+                }
+                Question savedQuestion = boardCellQuestion[col][row];
+                if (savedQuestion != null && !AppPrefs.isCategoryUnlocked(this, savedQuestion.getCategory())) {
+                    pauseCampaignForLockedCategories();
+                    return true;
                 }
             }
         }
@@ -3208,7 +3238,8 @@ public class GameActivity extends AppCompatActivity {
     private void setupCampaignBoardMatch(int characterIndex) {
         boardMode = true;
         boardCampaignMatch = true;
-        boardPool = LocalQuestions.loadBoardPool(this);
+        campaignEligibleQuestionPool = CampaignBoardRules.filterPool(LocalQuestions.loadBoardPool(this), campaignAllowedLevels);
+        refreshCampaignCategoryAccess();
         buildBoardCategoryList();
         if ("boss".equals(boardCampaignKind)) {
             int players = Math.max(2, Math.min(8, 1 + Math.max(1, boardBotCount)));
@@ -3227,13 +3258,22 @@ public class GameActivity extends AppCompatActivity {
 
     /** Campaign board start: pick the board width + categories per the stage policy. */
     private void startCampaignBoardMode() {
-        if ("boss".equals(boardCampaignKind)) {
-            int players = offlineContestants.contestantCount();
-            boardCols = Math.max(2, Math.min(players, boardAllCategories.size()));
-        } else {
-            boardCols = Math.max(2, Math.min(boardSoloCols, boardAllCategories.size()));
+        refreshCampaignCategoryAccess();
+        int requiredColumns = "boss".equals(boardCampaignKind)
+                ? offlineContestants.contestantCount() : boardSoloCols;
+        if (boardAllCategories.size() < requiredColumns) {
+            campaignFailureReason = "question_pool_unavailable";
+            persistPendingCampaignStageResult(false, 0, 0);
+            Toast.makeText(this, "أسئلة هذه المرحلة غير متاحة الآن، جرّب مرحلة أخرى", Toast.LENGTH_LONG).show();
+            finishCampaignAndReturnToFlutter();
+            return;
         }
-        if ("playerPick".equals(boardCategoryPolicy)) {
+        boardCols = requiredColumns;
+        configureCampaignBoardStarThresholds();
+        if ("playerPick".equals(boardCategoryPolicy) || boardPool.size() < requiredColumns) {
+            if (boardPool.size() < requiredColumns) {
+                Toast.makeText(this, "تحتاج " + requiredColumns + " فئات مفتوحة لهذه المرحلة. اختر من فئاتك أو افتح فئات إضافية", Toast.LENGTH_LONG).show();
+            }
             saveCampaignProgress(OfflineBoardGameStore.PHASE_CATEGORY_SELECT);
             showCategorySelect();
         } else {
@@ -3241,31 +3281,55 @@ public class GameActivity extends AppCompatActivity {
         }
     }
 
+    private void configureCampaignBoardStarThresholds() {
+        int picks = "boss".equals(boardCampaignKind) ? BOARD_ROWS : boardSoloPicks;
+        int maximum = CampaignBoardRules.maximumScore(boardCols, picks);
+        if (boardTwoStarScore <= 0) {
+            boardTwoStarScore = Math.min(Math.round(boardTargetScore * 1.25f), Math.max(1, maximum - 600));
+        }
+        if (boardThreeStarScore <= 0) {
+            boardThreeStarScore = Math.min(Math.round(boardTargetScore * 1.55f), Math.max(1, maximum - 200));
+        }
+    }
+
+    int getCampaignBoardEarnedStars(int score) {
+        return CampaignBoardRules.earnedStars(score, boardTargetScore, boardTwoStarScore, boardThreeStarScore);
+    }
+
     /** Auto-picks {@code n} categories for a campaign stage. worldThemed/curated prefer
-     *  boardWorldCategories (the world's themed set) and top up with random categories;
-     *  random uses the whole pool. */
+     *  boardWorldCategories (the world's themed set) and top up with unlocked categories;
+     *  random uses the unlocked eligible pool. */
     private ArrayList<String> pickCampaignCategories(int n) {
-        ArrayList<String> pool = new ArrayList<>();
-        if (!"random".equals(boardCategoryPolicy)) {
-            for (String c : boardWorldCategories) {
-                if (c != null && boardAllCategories.contains(c) && !pool.contains(c)) {
-                    pool.add(c);
-                }
-            }
+        refreshCampaignCategoryAccess();
+        return CampaignBoardRules.pickCategories(new ArrayList<>(boardPool.keySet()),
+                "random".equals(boardCategoryPolicy) ? null : boardWorldCategories, n, boardRandom);
+    }
+
+    private void refreshCampaignCategoryAccess() {
+        boardPool = CampaignBoardRules.accessiblePool(campaignEligibleQuestionPool,
+                category -> AppPrefs.isCategoryUnlocked(this, category));
+    }
+
+    private void pauseCampaignForLockedCategories() {
+        // Keep the saved attempt intact: closing an access-blocked resume is not a
+        // failed stage and must not overwrite its state during onPause.
+        EXITING = true;
+        CAN_PLAY = false;
+        stopTimer(false);
+        cancelPendingBoardReveal();
+        cancelBoardSelectTimer();
+        Toast.makeText(this, "توقفت المحاولة لأن بعض تصنيفاتها مقفلة الآن. افتحها مجددًا ثم عد لإكمال محاولتك", Toast.LENGTH_LONG).show();
+        finish();
+    }
+
+    private boolean ensureCampaignBoardCategoryAccess() {
+        if (!boardCampaignMatch || campaignResultPersisted) return true;
+        refreshCampaignCategoryAccess();
+        if (!CampaignBoardRules.canUseCategories(boardSelectedCategories, boardCols, boardPool)) {
+            pauseCampaignForLockedCategories();
+            return false;
         }
-        Collections.shuffle(pool, boardRandom);
-        if (pool.size() > n) {
-            pool = new ArrayList<>(pool.subList(0, n));
-        }
-        if (pool.size() < n) {
-            ArrayList<String> rest = new ArrayList<>(boardAllCategories);
-            Collections.shuffle(rest, boardRandom);
-            for (String c : rest) {
-                if (pool.size() >= n) break;
-                if (!pool.contains(c)) pool.add(c);
-            }
-        }
-        return pool;
+        return true;
     }
 
     /** Hides the millionaire-style chrome that has no place on the board.
@@ -3290,8 +3354,9 @@ public class GameActivity extends AppCompatActivity {
 
     private void buildBoardCategoryList() {
         boardAllCategories.clear();
-        if (boardPool != null) {
-            for (String cat : boardPool.keySet()) {
+        Map<String, ?> categories = boardCampaignMatch ? campaignEligibleQuestionPool : boardPool;
+        if (categories != null) {
+            for (String cat : categories.keySet()) {
                 if (LocalQuestions.isCategoryHidden(cat)) continue;
                 boardAllCategories.add(cat);
             }
@@ -3603,6 +3668,14 @@ public class GameActivity extends AppCompatActivity {
     }
 
     private void onCategoriesChosen(ArrayList<String> chosen) {
+        if (boardCampaignMatch) {
+            refreshCampaignCategoryAccess();
+            if (!CampaignBoardRules.canUseCategories(chosen, boardCols, boardPool)) {
+                Toast.makeText(this, "اختر " + boardCols + " فئات مفتوحة. ربما انتهت مدة فتح إحدى الفئات", Toast.LENGTH_LONG).show();
+                showCategorySelect();
+                return;
+            }
+        }
         stopCategorySelectMusicIfPlaying();
         boardSelectedCategories.clear();
         boardSelectedCategories.addAll(chosen);
@@ -3611,7 +3684,10 @@ public class GameActivity extends AppCompatActivity {
         Set<Question> used = new HashSet<>();
         for (int col = 0; col < boardCols; col++) {
             String cat = boardSelectedCategories.get(col);
-            for (int row = 0; row < BOARD_ROWS; row++) {
+            // Reserve the two low and high questions before drawing medium cells
+            // from the mixed tier, otherwise a medium pick can consume their pool.
+            int[] rowOrder = boardCampaignMatch ? new int[]{0, 3, 2, 5, 1, 4} : new int[]{0, 1, 2, 3, 4, 5};
+            for (int row : rowOrder) {
                 boardCellQuestion[col][row] = drawBoardQuestion(cat, boardTierForRow(row), used);
             }
         }
@@ -3721,6 +3797,7 @@ public class GameActivity extends AppCompatActivity {
     // ---- Turn loop -------------------------------------------------------
 
     private void beginBoardTurn() {
+        if (boardCampaignMatch && !ensureCampaignBoardCategoryAccess()) return;
         boardStealActive = false;
         boardRefereeOverrideApplied = false;
         showBoardRefereePanel(false);
@@ -3749,7 +3826,7 @@ public class GameActivity extends AppCompatActivity {
                 public void run() {
                     if (!EXITING && boardMode) runBotTurn();
                 }
-            }, 1500);
+            }, boardCampaignMatch ? 500 : 1500);
         }
     }
 
@@ -3783,6 +3860,7 @@ public class GameActivity extends AppCompatActivity {
     }
 
     private void onCellPicked(int col, int row) {
+        if (boardCampaignMatch && !ensureCampaignBoardCategoryAccess()) return;
         boardPickedCol = col;
         boardPickedRow = row;
         boardCurrentQuestion = boardCellQuestion[col][row];
@@ -5535,6 +5613,11 @@ public class GameActivity extends AppCompatActivity {
      */
     private void showBoardQuestion(final Question question, final boolean humanTurn) {
         if (EXITING || question == null) return;
+        if (boardCampaignMatch && (!ensureCampaignBoardCategoryAccess()
+                || !AppPrefs.isCategoryUnlocked(this, question.getCategory()))) {
+            if (!EXITING) pauseCampaignForLockedCategories();
+            return;
+        }
         if (boardLocalTeams && offlineContestants != null) {
             offlineContestants.setLocalTeamsActiveQuestionSlot(boardPickerSlot);
         }
@@ -5597,6 +5680,19 @@ public class GameActivity extends AppCompatActivity {
         // Bot turn: ensure the text box is gone and the four options are visible.
         showBoardTypedPanel(false);
         setBoardAnswerOptionsVisible(true);
+        if (boardCampaignMatch) {
+            // A late-world boss can contain 42 AI turns; keep their results readable
+            // without repeating the long television-style reveal on every turn.
+            for (int option = 0; option < 4; option++) {
+                bindBoardAnswerView(option, answerOrder.get(option), answerDisplayTexts.get(option));
+            }
+            // Normalize to one reveal on fresh and restored bot questions. Campaign
+            // bosses use choices, so they pay the same half-value cost as the player.
+            boardRevealCount = 1;
+            boardOptionsRevealed = true;
+            scheduleBotBoardAnswer();
+            return;
+        }
         final Handler handler = new Handler();
         Runnable runnable = new Runnable() {
             int i = -1;
@@ -6381,7 +6477,7 @@ public class GameActivity extends AppCompatActivity {
                 if (EXITING || q != boardCurrentQuestion) return;
                 resolveBotBoardAnswer(slot);
             }
-        }, 1800);
+        }, boardCampaignMatch ? 900 : 1800);
     }
 
     private void resolveBotBoardAnswer(final int slot) {
@@ -6398,7 +6494,8 @@ public class GameActivity extends AppCompatActivity {
                 if (EXITING) return;
                 if (correct) {
                     if (imgPick != null) imgPick.setImageResource(R.drawable.frame_right);
-                    offlineContestants.awardCell(slot, currentBoardCellValue());
+                    offlineContestants.awardCell(slot, CampaignBoardRules.botAwardValue(
+                            currentBoardCellValue(), boardCampaignMatch, boardOptionsRevealed));
                     playSound(R.raw.correct_answer, false, false);
                 } else {
                     if (imgPick != null) imgPick.setImageResource(R.drawable.frame_wrong);
@@ -6412,15 +6509,15 @@ public class GameActivity extends AppCompatActivity {
                 }
                 String name = offlineContestants.nameForSlot(slot);
                 showDialog(name + (correct ? " أجاب إجابة صحيحة" : " أجاب إجابة خاطئة"),
-                        "", 700, 2000, correct ? R.drawable.mouth_01 : R.drawable.mouth_05, false);
+                        "", 700, boardCampaignMatch ? 500 : 2000, correct ? R.drawable.mouth_01 : R.drawable.mouth_05, false);
                 new Handler().postDelayed(new Runnable() {
                     @Override
                     public void run() {
                         if (!EXITING) endBoardTurn();
                     }
-                }, BOARD_REVEAL_HOLD_MS);
+                }, boardCampaignMatch ? 1700 : BOARD_REVEAL_HOLD_MS);
             }
-        }, 1300);
+        }, boardCampaignMatch ? 600 : 1300);
     }
 
     private int currentBoardCellValue() {
@@ -6431,6 +6528,7 @@ public class GameActivity extends AppCompatActivity {
     }
 
     private int getAnswerRevealDrumDelayMs() {
+        if (boardCampaignMatch) return 900;
         if (!boardMode) return 1200;
         switch (currentBoardCellValue()) {
             case 200:
@@ -9904,8 +10002,8 @@ public class GameActivity extends AppCompatActivity {
         }
     }
     private void persistPendingCampaignStageResult(boolean completed, int money, int wrongAnswers) {
-        clearCampaignProgress();
         campaignResultStore.persistPendingStageResult(completed, money, wrongAnswers);
+        if (campaignResultPersisted) clearCampaignProgress();
     }
 
     private void updateInventoryBadges() {
@@ -9913,7 +10011,3 @@ public class GameActivity extends AppCompatActivity {
     }
 
 }
-
-
-
-

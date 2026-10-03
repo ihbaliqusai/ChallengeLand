@@ -422,6 +422,7 @@ class _HomeScreenState extends State<HomeScreen>
     if (!mounted) return;
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
+        settings: const RouteSettings(name: CampaignMapScreen.routeName),
         builder: (_) => const CampaignMapScreen(),
       ),
     );

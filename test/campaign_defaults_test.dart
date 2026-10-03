@@ -45,12 +45,12 @@ void main() {
 
     test('every stage is a board stage with valid required data', () {
       for (final stage in CampaignDefaults.stages()) {
-        expect(stage.questionCount, 6, reason: stage.id);
+        expect(stage.questionCount, stage.boardSoloPicks, reason: stage.id);
         expect(stage.type, CampaignStageType.classic, reason: stage.id);
         expect(stage.campaignMode, CampaignMode.classic, reason: stage.id);
         expect(stage.allowedLevels, isNotEmpty, reason: stage.id);
         expect(stage.categories, isNotEmpty, reason: stage.id);
-        expect(stage.boardSoloPicks, 6, reason: stage.id);
+        expect(stage.boardSoloPicks, inInclusiveRange(5, 7), reason: stage.id);
         expect(stage.boardSoloCols, 4, reason: stage.id);
         expect(stage.boardTargetScore, greaterThan(0), reason: stage.id);
         expect(stage.rewardCoins, greaterThan(0), reason: stage.id);
@@ -109,6 +109,37 @@ void main() {
         stages.first.boardTargetScore,
         lessThan(stages.last.boardTargetScore),
       );
+    });
+
+    test('all star targets are ordered and reachable without reusing cells',
+        () {
+      for (final stage in CampaignDefaults.stages()) {
+        final maximum = CampaignDefaults.maxScoreForBoard(
+          columns: stage.isBossStage ? stage.botCount + 1 : stage.boardSoloCols,
+          picks: stage.boardSoloPicks,
+        );
+        expect(stage.boardTargetScore, lessThan(maximum), reason: stage.id);
+        expect(stage.starRules.twoStarsMinScore,
+            greaterThan(stage.boardTargetScore),
+            reason: stage.id);
+        expect(stage.starRules.threeStarsMinScore,
+            greaterThan(stage.starRules.twoStarsMinScore),
+            reason: stage.id);
+        expect(stage.starRules.threeStarsMinScore, lessThanOrEqualTo(maximum),
+            reason: stage.id);
+        expect(stage.unlockRequirementStars, 0, reason: stage.id);
+      }
+      expect(CampaignDefaults.maxScoreForBoard(columns: 2, picks: 6), 3200);
+      expect(CampaignDefaults.maxScoreForBoard(columns: 4, picks: 7), 4200);
+    });
+
+    test('worlds alternate short tactical and longer exploration rounds', () {
+      final stages = CampaignDefaults.stages();
+      for (var world = 0; world < 10; world++) {
+        final chapter = stages.skip(world * 10).take(10);
+        expect(chapter.map((stage) => stage.boardSoloPicks).toSet(), {5, 6, 7});
+        expect(chapter.last.boardSoloPicks, 6);
+      }
     });
 
     test('stage levels match the per-world distribution', () {
@@ -310,7 +341,8 @@ void main() {
       final firestore = FakeFirebaseFirestore();
       final campaignService = CampaignService(firestore: firestore);
       final stage = byOrder[31]!;
-      final oneStarScore = stage.boardTargetScore; // exactly the target -> 1 star
+      final oneStarScore =
+          stage.boardTargetScore; // exactly the target -> 1 star
       final threeStarScore = (stage.boardTargetScore * 1.7).round();
 
       final failed = await campaignService.submitStageResult(

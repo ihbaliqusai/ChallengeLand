@@ -10,9 +10,11 @@ class StageLeaderboardPreview extends StatefulWidget {
   const StageLeaderboardPreview({
     super.key,
     required this.stage,
+    this.campaignService,
   });
 
   final CampaignStage stage;
+  final CampaignService? campaignService;
 
   @override
   State<StageLeaderboardPreview> createState() =>
@@ -20,17 +22,38 @@ class StageLeaderboardPreview extends StatefulWidget {
 }
 
 class _StageLeaderboardPreviewState extends State<StageLeaderboardPreview> {
-  final CampaignService _campaignService = CampaignService();
-  late final Future<List<StageLeaderboardEntry>> _future;
+  late final CampaignService _campaignService;
+  late Future<List<StageLeaderboardEntry>> _future;
 
   @override
   void initState() {
     super.initState();
-    _future = _campaignService.loadStageLeaderboard(
+    _campaignService = widget.campaignService ?? CampaignService();
+    _future = _load();
+  }
+
+  @override
+  void didUpdateWidget(StageLeaderboardPreview oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.stage.id != widget.stage.id ||
+        oldWidget.stage.campaignId != widget.stage.campaignId) {
+      _future = _load();
+    }
+  }
+
+  Future<List<StageLeaderboardEntry>> _load() {
+    return _campaignService.loadStageLeaderboard(
       campaignId: widget.stage.campaignId,
       stageId: widget.stage.id,
       limit: 3,
+      propagateErrors: true,
     );
+  }
+
+  void _retry() {
+    setState(() {
+      _future = _load();
+    });
   }
 
   @override
@@ -65,7 +88,10 @@ class _StageLeaderboardPreviewState extends State<StageLeaderboardPreview> {
               TextButton(
                 onPressed: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
-                    builder: (_) => StageLeaderboardScreen(stage: widget.stage),
+                    builder: (_) => StageLeaderboardScreen(
+                      stage: widget.stage,
+                      campaignService: _campaignService,
+                    ),
                   ),
                 ),
                 child: const Text(
@@ -88,6 +114,20 @@ class _StageLeaderboardPreviewState extends State<StageLeaderboardPreview> {
                       color: Color(0xFFFACC15),
                     ),
                   ),
+                );
+              }
+              if (snapshot.hasError) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('تعذر تحميل الترتيب.',
+                        style: TextStyle(color: Colors.white70)),
+                    TextButton.icon(
+                      onPressed: _retry,
+                      icon: const Icon(Icons.refresh_rounded),
+                      label: const Text('إعادة المحاولة'),
+                    ),
+                  ],
                 );
               }
               final entries = snapshot.data ?? const <StageLeaderboardEntry>[];

@@ -29,7 +29,15 @@ class ResultRibbonHeader extends StatelessWidget {
             top: 0,
             left: 0,
             right: 0,
-            child: child,
+            child: LayoutBuilder(
+              builder: (context, constraints) => MediaQuery(
+                data: MediaQuery.of(context).copyWith(
+                  size: Size(
+                      constraints.maxWidth, MediaQuery.sizeOf(context).height),
+                ),
+                child: child,
+              ),
+            ),
           ),
         ],
       ),

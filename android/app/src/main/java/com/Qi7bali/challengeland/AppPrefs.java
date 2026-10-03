@@ -142,7 +142,13 @@ public final class AppPrefs {
         try {
             String jsonStr = userPrefs(c).getString(KEY_CATEGORY_RENTALS, "{}");
             org.json.JSONObject obj = new org.json.JSONObject(jsonStr);
-            return obj.optLong(norm, 0L);
+            long expiry = obj.optLong(norm, 0L);
+            java.util.Iterator<String> keys = obj.keys();
+            while (keys.hasNext()) {
+                String key = keys.next();
+                if (CategoryConfig.normalize(key).equals(norm)) expiry = Math.max(expiry, obj.optLong(key, 0L));
+            }
+            return expiry;
         } catch (Exception e) {
             return 0L;
         }
@@ -183,7 +189,7 @@ public final class AppPrefs {
         try {
             String jsonStr = userPrefs(c).getString(KEY_CATEGORY_RENTALS, "{}");
             org.json.JSONObject obj = new org.json.JSONObject(jsonStr);
-            long currentExpiry = obj.optLong(norm, 0L);
+            long currentExpiry = getCategoryRentalExpiry(c, category);
             long baseTime = Math.max(System.currentTimeMillis(), currentExpiry);
             long newExpiry = baseTime + (durationHours * 3600L * 1000L);
             obj.put(norm, newExpiry);
@@ -305,7 +311,9 @@ public final class AppPrefs {
     }
 
     public static void setPendingCampaignStageResult(Context c, String payload) {
-        roomPrefs(c).edit().putString(KEY_PENDING_CAMPAIGN_STAGE_RESULT, payload).apply();
+        if (!roomPrefs(c).edit().putString(KEY_PENDING_CAMPAIGN_STAGE_RESULT, payload).commit()) {
+            throw new IllegalStateException("Campaign result could not be saved");
+        }
     }
 
     public static String consumePendingCampaignStageResult(Context c) {

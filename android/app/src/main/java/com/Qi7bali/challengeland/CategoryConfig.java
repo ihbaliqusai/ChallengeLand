@@ -60,12 +60,13 @@ public final class CategoryConfig {
 
     public static String normalize(String s) {
         if (s == null) return "";
-        return s.trim()
+        String normalized = s.trim()
                 .replace("أ", "ا")
                 .replace("إ", "ا")
                 .replace("آ", "ا")
                 .replace("ة", "ه")
                 .replace("ى", "ي");
+        return normalized.equals("الانمي") ? "انمي" : normalized;
     }
 
     public static Set<String> getPremiumCategories() {

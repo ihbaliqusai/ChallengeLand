@@ -9,22 +9,25 @@ class StageLeaderboardScreen extends StatefulWidget {
   const StageLeaderboardScreen({
     super.key,
     required this.stage,
+    this.campaignService,
   });
 
   final CampaignStage stage;
+  final CampaignService? campaignService;
 
   @override
   State<StageLeaderboardScreen> createState() => _StageLeaderboardScreenState();
 }
 
 class _StageLeaderboardScreenState extends State<StageLeaderboardScreen> {
-  final CampaignService _campaignService = CampaignService();
+  late final CampaignService _campaignService;
   bool _pureOnly = false;
   late Future<List<StageLeaderboardEntry>> _future;
 
   @override
   void initState() {
     super.initState();
+    _campaignService = widget.campaignService ?? CampaignService();
     _future = _load();
   }
 
@@ -34,6 +37,7 @@ class _StageLeaderboardScreenState extends State<StageLeaderboardScreen> {
       stageId: widget.stage.id,
       pureOnly: _pureOnly,
       limit: 50,
+      propagateErrors: true,
     );
   }
 
@@ -97,7 +101,16 @@ class _StageLeaderboardScreenState extends State<StageLeaderboardScreen> {
                         );
                       }
                       if (snapshot.hasError) {
-                        return const _ErrorState();
+                        return RefreshIndicator(
+                          onRefresh: _refresh,
+                          child: ListView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            children: [
+                              const SizedBox(height: 80),
+                              _ErrorState(onRetry: _refresh),
+                            ],
+                          ),
+                        );
                       }
                       final entries =
                           snapshot.data ?? const <StageLeaderboardEntry>[];
@@ -226,19 +239,30 @@ class _EmptyState extends StatelessWidget {
 }
 
 class _ErrorState extends StatelessWidget {
-  const _ErrorState();
+  const _ErrorState({required this.onRetry});
+
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: Text(
-        'تعذر تحميل الترتيب.',
-        style: TextStyle(
-          color: Colors.white70,
-          fontSize: 16,
-          fontWeight: FontWeight.w900,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Text(
+          'تعذر تحميل الترتيب.',
+          style: TextStyle(
+            color: Colors.white70,
+            fontSize: 16,
+            fontWeight: FontWeight.w900,
+          ),
         ),
-      ),
+        const SizedBox(height: 12),
+        FilledButton.icon(
+          onPressed: onRetry,
+          icon: const Icon(Icons.refresh_rounded),
+          label: const Text('إعادة المحاولة'),
+        )
+      ],
     );
   }
 }

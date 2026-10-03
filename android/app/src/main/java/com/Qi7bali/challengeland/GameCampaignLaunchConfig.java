@@ -10,6 +10,7 @@ final class GameCampaignLaunchConfig {
 
     static void load(GameActivity activity, String modeExtra, String matchModeExtra) {
         activity.campaignMode = "campaign".equals(modeExtra);
+        activity.campaignAttemptId = java.util.UUID.randomUUID().toString();
         activity.campaignStartedAtMs = System.currentTimeMillis();
         activity.campaignId = activity.safeIntentString("campaignId", "main_campaign");
         activity.campaignStageId = activity.safeIntentString("stageId", "");
@@ -53,6 +54,8 @@ final class GameCampaignLaunchConfig {
         activity.boardTargetScore = Math.max(0, activity.getIntent().getIntExtra("boardTargetScore", 0));
         activity.boardSoloPicks = Math.max(1, activity.getIntent().getIntExtra("boardSoloPicks", 6));
         activity.boardSoloCols = Math.max(2, activity.getIntent().getIntExtra("boardSoloCols", 4));
+        activity.boardTwoStarScore = Math.max(0, activity.getIntent().getIntExtra("boardTwoStarScore", 0));
+        activity.boardThreeStarScore = Math.max(0, activity.getIntent().getIntExtra("boardThreeStarScore", 0));
         activity.boardBotCount = Math.max(0, Math.min(7, activity.getIntent().getIntExtra("boardBotCount", 0)));
         activity.boardBotIntelligence = Math.max(0, Math.min(99, activity.getIntent().getIntExtra("boardBotIntelligence", 0)));
         activity.boardCategoryPolicy = activity.safeIntentString("categoryPolicy", "playerPick");

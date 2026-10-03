@@ -243,18 +243,25 @@ class CampaignService {
   }) async {
     if (uid.trim().isEmpty) return const <String, StageProgress>{};
     try {
-      final snapshot = await _userProgress(uid).get();
-      return <String, StageProgress>{
-        for (final doc in snapshot.docs)
-          doc.id: StageProgress.fromMap(<String, dynamic>{
-            ...doc.data(),
-            'campaignId': _readString(
-              doc.data()['campaignId'],
-              defaultValue: campaignId,
-            ),
-            'stageId': _readString(doc.data()['stageId'], defaultValue: doc.id),
-          }),
-      };
+      final snapshot = await _userProgress(uid.trim()).get();
+      final progress = <String, StageProgress>{};
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        if (_readString(data['campaignId'], defaultValue: campaignId) !=
+            campaignId) {
+          continue;
+        }
+        final stageId = _readString(data['stageId'], defaultValue: doc.id);
+        if (!progress.containsKey(stageId) ||
+            doc.id == _progressId(campaignId, stageId)) {
+          progress[stageId] = StageProgress.fromMap(<String, dynamic>{
+            ...data,
+            'campaignId': campaignId,
+            'stageId': stageId,
+          });
+        }
+      }
+      return progress;
     } catch (_) {
       return const <String, StageProgress>{};
     }
@@ -275,12 +282,17 @@ class CampaignService {
 
     for (var index = 0; index < sortedStages.length; index += 1) {
       final stage = sortedStages[index];
-      final saved =
+      final candidate =
           savedProgress[stage.id] ?? savedProgress[_legacyStageId(stage.id)];
+      final saved = candidate != null &&
+              (candidate.campaignId.isEmpty ||
+                  candidate.campaignId == stage.campaignId)
+          ? candidate
+          : null;
       final previousStageCompleted =
           index > 0 && completedStageIds.contains(sortedStages[index - 1].id);
       final previousStageIsBoss =
-          index > 0 && sortedStages[index - 1].type == CampaignStageType.boss;
+          index > 0 && sortedStages[index - 1].isBossStage;
       final completed = saved != null && isStageCompleted(saved);
       final unlocked = previousStageIsBoss && !previousStageCompleted
           ? false
@@ -296,12 +308,10 @@ class CampaignService {
               : StageProgressStatus.unlocked
           : StageProgressStatus.locked;
       final progress = StageProgress(
-        campaignId: saved?.campaignId.isNotEmpty == true
-            ? saved!.campaignId
-            : stage.campaignId,
-        stageId: saved?.stageId.isNotEmpty == true ? saved!.stageId : stage.id,
+        campaignId: stage.campaignId,
+        stageId: stage.id,
         status: status,
-        stars: saved?.stars ?? 0,
+        stars: (saved?.stars ?? 0).clamp(0, 3),
         bestScore: saved?.bestScore ?? 0,
         bestMoney: saved?.bestMoney ?? 0,
         bestCorrectAnswers: saved?.bestCorrectAnswers ?? 0,
@@ -350,8 +360,58 @@ class CampaignService {
     return math.max(0, score);
   }
 
+  CampaignMode campaignModeForResult({
+    required CampaignStage stage,
+    required Map<String, dynamic> nativeResult,
+  }) {
+    // The board has its own native victory rules, including board bosses.
+    // Legacy stage types must not route it through the old boss battle rules.
+    if (_isBoardResult(nativeResult)) return CampaignMode.classic;
+    return campaignModeFromString(
+      nativeResult['campaignMode'] ?? stage.campaignMode.value,
+      fallbackType: stage.type,
+    );
+  }
+
+  int scoreFromResult(Map<String, dynamic> nativeResult) {
+    if (nativeResult['playerScore'] != null) {
+      return math.max(0, _readInt(nativeResult['playerScore']));
+    }
+    if (_isBoardResult(nativeResult)) {
+      return math.max(
+        0,
+        _readInt(nativeResult['score'],
+            defaultValue: _readInt(nativeResult['money'])),
+      );
+    }
+    return calculateScore(
+      money: _readInt(nativeResult['money']),
+      correctAnswers: _readInt(nativeResult['correctAnswers']),
+      wrongAnswers: _readInt(nativeResult['wrongAnswers']),
+      timeMs: _readInt(nativeResult['timeMs']),
+      used5050: _readInt(nativeResult['used5050']),
+      usedAudience: _readInt(nativeResult['usedAudience']),
+      usedCall: _readInt(nativeResult['usedCall']),
+    );
+  }
+
+  DateTime completionTimeFromResult(Map<String, dynamic> nativeResult) {
+    final completedAtMs = _readInt(nativeResult['completedAtMs']);
+    return completedAtMs > 0
+        ? DateTime.fromMillisecondsSinceEpoch(completedAtMs)
+        : DateTime.now();
+  }
+
+  bool _isBoardResult(Map<String, dynamic> nativeResult) {
+    return _readBool(nativeResult['campaignBoard']) ||
+        _readString(nativeResult['campaignMode']).trim().toLowerCase() ==
+            'board' ||
+        _readString(nativeResult['stageType']).trim().toLowerCase() == 'board';
+  }
+
   int calculateStars({
     required CampaignStage stage,
+    CampaignMode? campaignMode,
     required bool completed,
     required int score,
     required int correctAnswers,
@@ -377,7 +437,7 @@ class CampaignService {
     final rules = stage.starRules;
     if (!completed) return 0;
 
-    final mode = stage.campaignMode;
+    final mode = campaignMode ?? stage.campaignMode;
     final effectiveAnswered = answeredQuestions > 0
         ? answeredQuestions
         : correctAnswers + wrongAnswers;
@@ -467,10 +527,8 @@ class CampaignService {
     final nativeCompleted = _readBool(nativeResult['completed']);
     if (!nativeCompleted) return false;
 
-    final mode = campaignModeFromString(
-      nativeResult['campaignMode'],
-      fallbackType: stage.type,
-    );
+    final mode =
+        campaignModeForResult(stage: stage, nativeResult: nativeResult);
     final failureReason = _readString(nativeResult['failureReason']);
     final playerScore = _readInt(
       nativeResult['playerScore'],
@@ -531,26 +589,31 @@ class CampaignService {
       throw ArgumentError.value(uid, 'uid', 'uid must not be empty');
     }
 
-    final campaignId = _readString(
-      nativeResult['campaignId'],
-      defaultValue: stage.campaignId,
-    );
-    final stageId =
-        _readString(nativeResult['stageId'], defaultValue: stage.id);
+    final campaignId = stage.campaignId;
+    final stageId = stage.id;
+    final resultCampaignId =
+        _readString(nativeResult['campaignId'], defaultValue: campaignId)
+            .trim();
+    final resultStageId =
+        _readString(nativeResult['stageId'], defaultValue: stageId).trim();
+    if (resultCampaignId != campaignId ||
+        (resultStageId != stageId &&
+            resultStageId != _legacyStageId(stageId))) {
+      throw ArgumentError('The result does not belong to the supplied stage.');
+    }
     final stageType = _readString(
       nativeResult['stageType'],
       defaultValue: stage.type.value,
     );
-    final campaignMode = campaignModeFromString(
-      nativeResult['campaignMode'],
-      fallbackType: stage.type,
-    );
+    final campaignMode =
+        campaignModeForResult(stage: stage, nativeResult: nativeResult);
     final winCondition = _readString(
       nativeResult['winCondition'],
       defaultValue: stage.winCondition.value,
     );
     final failureReason = _readString(nativeResult['failureReason']);
     final isBossStage = campaignMode == CampaignMode.bossBattle ||
+        stage.isBossStage ||
         stage.type == CampaignStageType.boss ||
         stageType == 'boss';
     final bossDefeated = _readBool(nativeResult['bossDefeated'],
@@ -601,18 +664,10 @@ class CampaignService {
       correctAnswers: correctAnswers,
       wrongAnswers: wrongAnswers,
     );
-    final calculatedScore = calculateScore(
-      money: money,
-      correctAnswers: correctAnswers,
-      wrongAnswers: wrongAnswers,
-      timeMs: timeMs,
-      used5050: used5050,
-      usedAudience: usedAudience,
-      usedCall: usedCall,
-    );
-    final score = playerScore > 0 ? playerScore : calculatedScore;
+    final score = scoreFromResult(nativeResult);
     final stars = calculateStars(
       stage: stage,
+      campaignMode: campaignMode,
       completed: completed,
       score: score,
       correctAnswers: correctAnswers,
@@ -636,8 +691,16 @@ class CampaignService {
       enemyTeamScore: enemyTeamScore,
     );
 
-    final attemptRef = _userAttempts(normalizedUid).doc();
-    final progressRef = _userProgress(normalizedUid).doc(stageId);
+    final nativeAttemptId = _readString(nativeResult['attemptId']).trim();
+    if (nativeAttemptId.isNotEmpty &&
+        !RegExp(r'^[A-Za-z0-9_-]{1,128}$').hasMatch(nativeAttemptId)) {
+      throw ArgumentError.value(
+          nativeAttemptId, 'attemptId', 'Invalid attempt');
+    }
+    final attemptRef = _userAttempts(normalizedUid)
+        .doc(nativeAttemptId.isEmpty ? null : nativeAttemptId);
+    final progressRef =
+        _userProgress(normalizedUid).doc(_progressDocumentId(stage));
     final attempt = StageAttempt(
       attemptId: attemptRef.id,
       uid: normalizedUid,
@@ -680,42 +743,95 @@ class CampaignService {
       allyScore: allyScore,
       teamScore: teamScore,
       enemyTeamScore: enemyTeamScore,
-      createdAt: DateTime.now(),
+      createdAt: completionTimeFromResult(nativeResult),
     );
-    final leaderboardEntry = StageLeaderboardEntry(
-      uid: normalizedUid,
-      displayName: displayName.trim(),
-      photoUrl: _cleanString(photoUrl),
-      campaignId: campaignId,
-      stageId: stageId,
-      score: score,
-      stars: stars,
-      money: money,
-      correctAnswers: correctAnswers,
-      timeMs: timeMs,
-      usedLifelines: usedLifelines,
-      assisted: usedLifelines > 0,
-      updatedAt: DateTime.now(),
-    );
-
-    final pendingReward = _PendingReward.empty();
     final result = await _firestore
         .runTransaction<StageSubmissionResult>((transaction) async {
-      final progressSnapshot = await transaction.get(progressRef);
-      final previousProgress = progressSnapshot.exists
-          ? StageProgress.fromMap(<String, dynamic>{
-              ...?progressSnapshot.data(),
-              'campaignId': _readString(
-                progressSnapshot.data()?['campaignId'],
-                defaultValue: campaignId,
-              ),
-              'stageId': _readString(
-                progressSnapshot.data()?['stageId'],
-                defaultValue: stageId,
-              ),
-            })
-          : null;
-      final previousStars = previousProgress?.stars ?? 0;
+      final existingAttempt = await transaction.get(attemptRef);
+      var progressSnapshot = await transaction.get(progressRef);
+      // Read old identifiers before migrating to the canonical stage document.
+      // Otherwise replaying a saved stage would pay its first reward again.
+      if (!progressSnapshot.exists) {
+        final legacyDocumentIds = <String>{
+          if (progressRef.id != stageId) stageId,
+          if (_legacyStageId(stageId) != stageId) _legacyStageId(stageId),
+        };
+        for (final legacyDocumentId in legacyDocumentIds) {
+          final legacySnapshot = await transaction
+              .get(_userProgress(normalizedUid).doc(legacyDocumentId));
+          if (legacySnapshot.exists &&
+              _readString(legacySnapshot.data()?['campaignId'],
+                      defaultValue: campaignId) ==
+                  campaignId) {
+            progressSnapshot = legacySnapshot;
+            break;
+          }
+        }
+      }
+      final savedCampaignId = _readString(
+        progressSnapshot.data()?['campaignId'],
+        defaultValue: campaignId,
+      );
+      final previousProgress =
+          progressSnapshot.exists && savedCampaignId == campaignId
+              ? StageProgress.fromMap(<String, dynamic>{
+                  ...?progressSnapshot.data(),
+                  'campaignId': campaignId,
+                  'stageId': stageId,
+                })
+              : null;
+      if (existingAttempt.exists) {
+        final savedAttemptData = existingAttempt.data()!;
+        final savedAttempt = StageAttempt.fromMap(<String, dynamic>{
+          ...savedAttemptData,
+          'createdAt':
+              savedAttemptData['completedAt'] ?? savedAttemptData['createdAt'],
+        });
+        if (savedAttempt.campaignId != campaignId ||
+            savedAttempt.stageId != stageId) {
+          throw ArgumentError('The attempt was already used by another stage.');
+        }
+        final claimId = _cleanString(
+          _readString(existingAttempt.data()?['rewardClaimId']),
+        );
+        final claimSnapshot = claimId == null
+            ? null
+            : await transaction
+                .get(_userRewardClaims(normalizedUid).doc(claimId));
+        final claim = claimSnapshot?.exists == true
+            ? CampaignRewardClaim.fromMap(claimSnapshot!.data()!,
+                claimId: claimId!)
+            : null;
+        final rewardPending = claim != null && !claim.isClaimed;
+        final savedProgress = previousProgress ??
+            StageProgress.empty().copyWith(
+              campaignId: campaignId,
+              stageId: stageId,
+              stars: savedAttempt.stars,
+              status: savedAttempt.stars > 0
+                  ? StageProgressStatus.completed
+                  : StageProgressStatus.unlocked,
+            );
+        return StageSubmissionResult(
+          attempt: savedAttempt,
+          previousProgress: savedProgress,
+          updatedProgress: savedProgress,
+          previousStars: savedProgress.stars,
+          newStars: savedProgress.stars,
+          isFirstCompletion: false,
+          improvedBestScore: false,
+          improvedStars: false,
+          leaderboardUpdated: false,
+          rewardGranted: rewardPending,
+          rewardCoinsGranted: rewardPending ? claim.coins : 0,
+          rewardGemsGranted: rewardPending ? claim.gems : 0,
+          rewardXpGranted: rewardPending ? claim.xp : 0,
+          rewardClaimId: claimId,
+          rewardClaimStatus: claim?.status,
+          motivationalMessage: 'تم حفظ هذه المحاولة بالفعل.',
+        );
+      }
+      final previousStars = (previousProgress?.stars ?? 0).clamp(0, 3);
       final previousCompleted =
           previousProgress != null && isStageCompleted(previousProgress);
       final newStars = math.max(previousStars, stars);
@@ -736,10 +852,12 @@ class CampaignService {
           previousProgress?.bestCorrectAnswers ?? 0,
           correctAnswers,
         ),
-        bestTimeMs: _bestTime(previousProgress?.bestTimeMs ?? 0, timeMs),
+        bestTimeMs: completed && stars > 0
+            ? _bestTime(previousProgress?.bestTimeMs ?? 0, timeMs)
+            : previousProgress?.bestTimeMs ?? 0,
         attempts: (previousProgress?.attempts ?? 0) + 1,
         firstCompletedAt: previousProgress?.firstCompletedAt ??
-            (completedNow ? DateTime.now() : null),
+            (completedNow ? attempt.createdAt : null),
         lastPlayedAt: DateTime.now(),
       );
 
@@ -758,16 +876,45 @@ class CampaignService {
               isFirstCompletion: isFirstCompletion,
             )
           : null;
-      pendingReward
-        ..claimId = rewardClaimId
-        ..previousStars = previousStars
-        ..newStars = newStars
-        ..coins = reward.coins
-        ..gems = reward.gems
-        ..xp = reward.xp;
+      final claimRef = rewardClaimId == null
+          ? null
+          : _userRewardClaims(normalizedUid).doc(rewardClaimId);
+      final claimSnapshot =
+          claimRef == null ? null : await transaction.get(claimRef);
+      final claimAlreadyPaid = claimSnapshot?.exists == true &&
+          campaignRewardClaimStatusFromString(
+                _readString(claimSnapshot?.data()?['status']),
+              ) ==
+              CampaignRewardClaimStatus.claimed;
+      final rewardReserved = reward.granted && !claimAlreadyPaid;
+
+      // The reward entitlement and progress must commit together. A connection
+      // loss must never leave completed stars without a recoverable reward.
+      if (claimRef != null && claimSnapshot?.exists == false) {
+        transaction.set(claimRef, <String, dynamic>{
+          'uid': normalizedUid,
+          'campaignId': campaignId,
+          'stageId': stageId,
+          'previousStars': previousStars,
+          'newStars': newStars,
+          'coins': reward.coins,
+          'gems': reward.gems,
+          'xp': reward.xp,
+          'status': CampaignRewardClaimStatus.pending.value,
+          'attemptId': attemptRef.id,
+          'currencyClaimed': reward.coins <= 0 && reward.gems <= 0,
+          'xpClaimed': reward.xp <= 0,
+          'retryCount': 0,
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+          'claimedAt': null,
+        });
+      }
 
       transaction.set(attemptRef, <String, dynamic>{
         ...attempt.toMap(),
+        if (rewardClaimId != null) 'rewardClaimId': rewardClaimId,
+        'completedAt': Timestamp.fromDate(attempt.createdAt!),
         'createdAt': FieldValue.serverTimestamp(),
       });
       transaction.set(
@@ -791,10 +938,16 @@ class CampaignService {
         improvedBestScore: improvedBestScore,
         improvedStars: improvedStars,
         leaderboardUpdated: false,
-        rewardGranted: false,
-        rewardCoinsGranted: 0,
-        rewardGemsGranted: 0,
-        rewardXpGranted: 0,
+        rewardGranted: rewardReserved,
+        rewardCoinsGranted: rewardReserved ? reward.coins : 0,
+        rewardGemsGranted: rewardReserved ? reward.gems : 0,
+        rewardXpGranted: rewardReserved ? reward.xp : 0,
+        rewardClaimId: rewardReserved ? rewardClaimId : null,
+        rewardClaimStatus: claimAlreadyPaid
+            ? CampaignRewardClaimStatus.claimed.value
+            : rewardReserved
+                ? CampaignRewardClaimStatus.pending.value
+                : null,
         motivationalMessage: _motivationalMessage(
           isFirstCompletion: isFirstCompletion,
           improvedStars: improvedStars,
@@ -804,7 +957,28 @@ class CampaignService {
         ),
       );
     });
-    final leaderboardUpdated = !completed
+    // A replay may recover a leaderboard write lost after the progress commit.
+    // Always use the stored attempt so a changed replay payload cannot improve it.
+    final submittedAttempt = result.attempt;
+    final submittedLifelines = submittedAttempt.used5050 +
+        submittedAttempt.usedAudience +
+        submittedAttempt.usedCall;
+    final leaderboardEntry = StageLeaderboardEntry(
+      uid: normalizedUid,
+      displayName: displayName.trim(),
+      photoUrl: _cleanString(photoUrl),
+      campaignId: campaignId,
+      stageId: stageId,
+      score: submittedAttempt.score,
+      stars: submittedAttempt.stars,
+      money: submittedAttempt.money,
+      correctAnswers: submittedAttempt.correctAnswers,
+      timeMs: submittedAttempt.timeMs,
+      usedLifelines: submittedLifelines,
+      assisted: submittedLifelines > 0,
+      updatedAt: DateTime.now(),
+    );
+    final leaderboardUpdated = !submittedAttempt.completed
         ? false
         : await _tryUpdateStageLeaderboard(
             campaignId: campaignId,
@@ -812,21 +986,8 @@ class CampaignService {
             uid: normalizedUid,
             entry: leaderboardEntry,
           );
-    final rewardResult = await _tryCreateRewardClaim(
-      uid: normalizedUid,
-      campaignId: campaignId,
-      stageId: stageId,
-      attemptId: attemptRef.id,
-      pendingReward: pendingReward,
-    );
     return result.copyWith(
       leaderboardUpdated: leaderboardUpdated,
-      rewardGranted: rewardResult.created,
-      rewardCoinsGranted: rewardResult.created ? pendingReward.coins : 0,
-      rewardGemsGranted: rewardResult.created ? pendingReward.gems : 0,
-      rewardXpGranted: rewardResult.created ? pendingReward.xp : 0,
-      rewardClaimId: rewardResult.created ? pendingReward.claimId : null,
-      rewardClaimStatus: rewardResult.status,
     );
   }
 
@@ -858,6 +1019,7 @@ class CampaignService {
     required String stageId,
     bool pureOnly = false,
     int limit = 50,
+    bool propagateErrors = false,
   }) async {
     try {
       Query<Map<String, dynamic>> query = _firestore
@@ -886,6 +1048,7 @@ class CampaignService {
         });
       }).toList(growable: false);
     } catch (_) {
+      if (propagateErrors) rethrow;
       return const <StageLeaderboardEntry>[];
     }
   }
@@ -979,92 +1142,24 @@ class CampaignService {
     required String claimId,
   }) async {
     final ref = _userRewardClaims(uid.trim()).doc(claimId);
-    await ref.set(
-      <String, dynamic>{
-        'status': CampaignRewardClaimStatus.failed.value,
-        'retryCount': FieldValue.increment(1),
+    await _firestore.runTransaction<void>((transaction) async {
+      final snapshot = await transaction.get(ref);
+      if (!snapshot.exists ||
+          _readString(snapshot.data()?['status']) ==
+              CampaignRewardClaimStatus.claimed.value) {
+        return;
+      }
+      final fullyGranted = _readBool(snapshot.data()?['currencyClaimed']) &&
+          _readBool(snapshot.data()?['xpClaimed']);
+      transaction.update(ref, <String, dynamic>{
+        'status': fullyGranted
+            ? CampaignRewardClaimStatus.claimed.value
+            : CampaignRewardClaimStatus.failed.value,
+        if (!fullyGranted) 'retryCount': FieldValue.increment(1),
+        if (fullyGranted) 'claimedAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
-      },
-      SetOptions(merge: true),
-    );
-  }
-
-  Future<_RewardClaimCreateResult> _tryCreateRewardClaim({
-    required String uid,
-    required String campaignId,
-    required String stageId,
-    required String attemptId,
-    required _PendingReward pendingReward,
-  }) async {
-    final claimId = pendingReward.claimId;
-    if (claimId == null || !pendingReward.granted) {
-      return const _RewardClaimCreateResult(
-        created: false,
-        status: null,
-      );
-    }
-    final ref = _userRewardClaims(uid).doc(claimId);
-    try {
-      return await _firestore.runTransaction<_RewardClaimCreateResult>(
-        (transaction) async {
-          final snapshot = await transaction.get(ref);
-          final status = snapshot.exists
-              ? campaignRewardClaimStatusFromString(
-                  _readString(snapshot.data()?['status']),
-                )
-              : null;
-          if (status == CampaignRewardClaimStatus.claimed) {
-            return _RewardClaimCreateResult(
-              created: false,
-              status: CampaignRewardClaimStatus.claimed.value,
-            );
-          }
-          if (!snapshot.exists) {
-            transaction.set(ref, <String, dynamic>{
-              'uid': uid,
-              'campaignId': campaignId,
-              'stageId': stageId,
-              'previousStars': pendingReward.previousStars,
-              'newStars': pendingReward.newStars,
-              'coins': pendingReward.coins,
-              'gems': pendingReward.gems,
-              'xp': pendingReward.xp,
-              'status': CampaignRewardClaimStatus.pending.value,
-              'attemptId': attemptId,
-              'currencyClaimed':
-                  pendingReward.coins <= 0 && pendingReward.gems <= 0,
-              'xpClaimed': pendingReward.xp <= 0,
-              'retryCount': 0,
-              'createdAt': FieldValue.serverTimestamp(),
-              'updatedAt': FieldValue.serverTimestamp(),
-              'claimedAt': null,
-            });
-          } else if (status == CampaignRewardClaimStatus.failed) {
-            transaction.update(ref, <String, dynamic>{
-              'status': CampaignRewardClaimStatus.pending.value,
-              'updatedAt': FieldValue.serverTimestamp(),
-            });
-          }
-          return const _RewardClaimCreateResult(
-            created: true,
-            status: 'pending',
-          );
-        },
-      );
-    } catch (error, stackTrace) {
-      _logCampaignFailure(
-        marker: 'CAMPAIGN_REWARD_CLAIM_SAVE_FAILED',
-        error: error,
-        stackTrace: stackTrace,
-        campaignId: campaignId,
-        stageId: stageId,
-        uid: uid,
-      );
-      return const _RewardClaimCreateResult(
-        created: false,
-        status: null,
-      );
-    }
+      });
+    });
   }
 
   Future<bool> _tryUpdateStageLeaderboard({
@@ -1114,6 +1209,15 @@ class CampaignService {
     return _firestore.collection('users').doc(uid).collection(
           'campaignProgress',
         );
+  }
+
+  String _progressDocumentId(CampaignStage stage) {
+    return _progressId(stage.campaignId, stage.id);
+  }
+
+  String _progressId(String campaignId, String stageId) {
+    if (campaignId == CampaignDefaults.mainCampaignId) return stageId;
+    return '${Uri.encodeComponent(campaignId)}__$stageId';
   }
 
   CollectionReference<Map<String, dynamic>> _userAttempts(String uid) {
@@ -1277,29 +1381,6 @@ class _RewardGrant {
   final int xp;
 
   bool get granted => coins > 0 || gems > 0 || xp > 0;
-}
-
-class _PendingReward {
-  _PendingReward.empty();
-
-  String? claimId;
-  int previousStars = 0;
-  int newStars = 0;
-  int coins = 0;
-  int gems = 0;
-  int xp = 0;
-
-  bool get granted => claimId != null && (coins > 0 || gems > 0 || xp > 0);
-}
-
-class _RewardClaimCreateResult {
-  const _RewardClaimCreateResult({
-    required this.created,
-    required this.status,
-  });
-
-  final bool created;
-  final String? status;
 }
 
 bool _readBool(dynamic value, {bool defaultValue = false}) {

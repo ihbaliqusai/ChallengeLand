@@ -192,15 +192,20 @@ class _StageIntroScreenState extends State<StageIntroScreen>
         campaignBoard: launchConfig['campaignBoard'] as bool? ?? true,
         boardKind: launchConfig['boardKind'] as String? ?? 'solo',
         boardTargetScore: launchConfig['boardTargetScore'] as int? ?? 0,
+        boardTwoStarScore: launchConfig['boardTwoStarScore'] as int? ??
+            stage.starRules.twoStarsMinScore,
+        boardThreeStarScore: launchConfig['boardThreeStarScore'] as int? ??
+            stage.starRules.threeStarsMinScore,
         boardSoloPicks: launchConfig['boardSoloPicks'] as int? ?? 6,
         boardSoloCols: launchConfig['boardSoloCols'] as int? ?? 4,
         boardBotCount: launchConfig['boardBotCount'] as int? ?? 0,
         boardBotIntelligence: launchConfig['boardBotIntelligence'] as int? ?? 0,
-        categoryPolicy: launchConfig['categoryPolicy'] as String? ?? 'playerPick',
-        worldCategories:
-            (launchConfig['worldCategories'] as List<dynamic>? ?? const <dynamic>[])
-                .map((dynamic e) => e.toString())
-                .toList(growable: false),
+        categoryPolicy:
+            launchConfig['categoryPolicy'] as String? ?? 'playerPick',
+        worldCategories: (launchConfig['worldCategories'] as List<dynamic>? ??
+                const <dynamic>[])
+            .map((dynamic e) => e.toString())
+            .toList(growable: false),
       );
       if (mounted) setState(() => _waitingForResult = true);
     } catch (_) {
@@ -231,7 +236,8 @@ class _StageIntroScreenState extends State<StageIntroScreen>
     final progress = widget.progress;
     final isBoss = stage.isBossStage;
     final accent = isBoss ? const Color(0xFFFF3366) : const Color(0xFF38BDF8);
-    final worldIndex = ((stage.order - 1) ~/ 10).clamp(0, CampaignDefaults.worldNames.length - 1);
+    final worldIndex = ((stage.order - 1) ~/ 10)
+        .clamp(0, CampaignDefaults.worldNames.length - 1);
     final worldName = CampaignDefaults.worldNames[worldIndex];
 
     return Directionality(
@@ -315,9 +321,11 @@ class _StageIntroScreenState extends State<StageIntroScreen>
               ),
             ),
             if (_launching)
-              const Positioned.fill(
+              Positioned.fill(
                 child: _BlockingLoadingOverlay(
-                  message: 'جاري تجهيز المرحلة...',
+                  message: _waitingForResult
+                      ? 'جارٍ استلام نتيجة المرحلة...'
+                      : 'جارٍ تجهيز المرحلة...',
                 ),
               ),
           ],
@@ -337,6 +345,8 @@ class _TopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final compact = MediaQuery.sizeOf(context).width < 370 ||
+        MediaQuery.textScalerOf(context).scale(13.5) > 18;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
       child: Row(
@@ -369,7 +379,8 @@ class _TopBar extends StatelessWidget {
               borderRadius: BorderRadius.circular(20),
               onTap: onLeaderboard,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
@@ -389,23 +400,24 @@ class _TopBar extends StatelessWidget {
                     ),
                   ],
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.emoji_events_rounded,
                       color: Color(0xFFFFD700),
                       size: 17,
                     ),
-                    SizedBox(width: 6),
-                    Text(
-                      'المتصدرون',
-                      style: TextStyle(
-                        color: Color(0xFFFFE082),
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w900,
+                    if (!compact) const SizedBox(width: 6),
+                    if (!compact)
+                      const Text(
+                        'المتصدرون',
+                        style: TextStyle(
+                          color: Color(0xFFFFE082),
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),
@@ -469,17 +481,24 @@ class _StageHeroCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          _StageCrestBadge(order: stage.order, isBoss: isBoss),
+          _StageCrestBadge(
+            order: stage.order,
+            isBoss: isBoss,
+            size: MediaQuery.sizeOf(context).width < 370 ? 60 : 76,
+          ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Row(
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(12),
@@ -492,31 +511,39 @@ class _StageHeroCard extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            isBoss ? Icons.local_fire_department_rounded : Icons.explore_rounded,
-                            color: isBoss ? const Color(0xFFFF7A00) : const Color(0xFF7DD3FC),
+                            isBoss
+                                ? Icons.local_fire_department_rounded
+                                : Icons.explore_rounded,
+                            color: isBoss
+                                ? const Color(0xFFFF7A00)
+                                : const Color(0xFF7DD3FC),
                             size: 14,
                           ),
                           const SizedBox(width: 4),
-                          Text(
-                            worldName,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w900,
+                          Flexible(
+                            child: Text(
+                              worldName,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w900,
+                              ),
                             ),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(width: 8),
                     if (isBoss)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFF2A55).withValues(alpha: 0.25),
+                          color:
+                              const Color(0xFFFF2A55).withValues(alpha: 0.25),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: const Color(0xFFFF2A55).withValues(alpha: 0.6),
+                            color:
+                                const Color(0xFFFF2A55).withValues(alpha: 0.6),
                             width: 1,
                           ),
                         ),
@@ -534,7 +561,7 @@ class _StageHeroCard extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   stage.title,
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: Colors.white,
@@ -551,10 +578,12 @@ class _StageHeroCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 // 3D Star Rating Display
-                Row(
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  runSpacing: 5,
                   children: [
                     StarRatingView(stars: earnedStars, size: 24),
-                    const SizedBox(width: 8),
                     Text(
                       earnedStars == 3
                           ? 'مكتملة بالكامل 👑'
@@ -562,7 +591,9 @@ class _StageHeroCard extends StatelessWidget {
                               ? '$earnedStars من 3 نجوم'
                               : 'غير مكتملة بعد',
                       style: TextStyle(
-                        color: earnedStars > 0 ? const Color(0xFFFFD54F) : Colors.white60,
+                        color: earnedStars > 0
+                            ? const Color(0xFFFFD54F)
+                            : Colors.white60,
                         fontSize: 12.5,
                         fontWeight: FontWeight.w800,
                       ),
@@ -581,16 +612,18 @@ class _StageHeroCard extends StatelessWidget {
 // ── Stage 3D Crest Badge ─────────────────────────────────────────────────────
 
 class _StageCrestBadge extends StatelessWidget {
-  const _StageCrestBadge({required this.order, required this.isBoss});
+  const _StageCrestBadge(
+      {required this.order, required this.isBoss, this.size = 76});
 
   final int order;
   final bool isBoss;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 76,
-      height: 76,
+      width: size,
+      height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: LinearGradient(
@@ -628,20 +661,22 @@ class _StageCrestBadge extends StatelessWidget {
                 color: Colors.white,
                 size: 18,
               ),
-            Text(
-              '$order',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: isBoss ? 24 : 28,
-                fontWeight: FontWeight.w900,
-                height: 1,
-                shadows: const [
-                  Shadow(
-                    color: Colors.black54,
-                    blurRadius: 6,
-                    offset: Offset(0, 2),
-                  ),
-                ],
+            FittedBox(
+              child: Text(
+                '$order',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: isBoss ? 24 : 28,
+                  fontWeight: FontWeight.w900,
+                  height: 1,
+                  shadows: const [
+                    Shadow(
+                      color: Colors.black54,
+                      blurRadius: 6,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -669,7 +704,6 @@ class _MissionAndStarsCard extends StatelessWidget {
     final isBoss = stage.isBossStage;
     final target = stage.boardTargetScore;
     final starRules = stage.starRules;
-    final bestScore = progress.bestScore;
 
     return Container(
       width: double.infinity,
@@ -693,7 +727,10 @@ class _MissionAndStarsCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Section Title
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Container(
                 padding: const EdgeInsets.all(6),
@@ -707,7 +744,6 @@ class _MissionAndStarsCard extends StatelessWidget {
                   size: 18,
                 ),
               ),
-              const SizedBox(width: 8),
               const Text(
                 'هدف المرحلة والنجوم',
                 style: TextStyle(
@@ -716,7 +752,6 @@ class _MissionAndStarsCard extends StatelessWidget {
                   fontWeight: FontWeight.w900,
                 ),
               ),
-              const Spacer(),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
                 decoration: BoxDecoration(
@@ -804,7 +839,7 @@ class _MissionAndStarsCard extends StatelessWidget {
                   starCount: 1,
                   label: isBoss ? 'الفوز' : '$target',
                   unit: isBoss ? 'بالمركز 1' : 'نقطة',
-                  isAchieved: progress.stars >= 1 || (bestScore >= target && target > 0),
+                  isAchieved: progress.stars >= 1,
                 ),
               ),
               const SizedBox(width: 8),
@@ -813,7 +848,7 @@ class _MissionAndStarsCard extends StatelessWidget {
                   starCount: 2,
                   label: '${starRules.twoStarsMinScore}',
                   unit: 'نقطة',
-                  isAchieved: progress.stars >= 2 || (bestScore >= starRules.twoStarsMinScore && starRules.twoStarsMinScore > 0),
+                  isAchieved: progress.stars >= 2,
                 ),
               ),
               const SizedBox(width: 8),
@@ -822,11 +857,27 @@ class _MissionAndStarsCard extends StatelessWidget {
                   starCount: 3,
                   label: '${starRules.threeStarsMinScore}',
                   unit: 'نقطة',
-                  isAchieved: progress.stars >= 3 || (bestScore >= starRules.threeStarsMinScore && starRules.threeStarsMinScore > 0),
+                  isAchieved: progress.stars >= 3,
                 ),
               ),
             ],
           ),
+          const SizedBox(height: 12),
+          Text(
+            isBoss
+                ? 'كل النجوم تتطلب الفوز بالمركز الأول؛ ثم تُحسب حسب نقاطك.'
+                : 'كل النجوم تتطلب إكمال هدف المرحلة؛ ثم تُحسب حسب نقاطك.',
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 12,
+              height: 1.4,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          if (progress.attempts > 0 && progress.stars < 3) ...[
+            const SizedBox(height: 10),
+            _ReplayGoal(stage: stage, progress: progress, accent: accent),
+          ],
         ],
       ),
     );
@@ -926,114 +977,158 @@ class _DualStatsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    final rewards = _detailCard(
+      title: 'مكافآت الإتقان',
+      icon: Icons.card_giftcard_rounded,
+      color: const Color(0xFFFFD700),
       children: [
-        // Rewards Card (Right)
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              color: const Color(0xFF06143A).withValues(alpha: 0.88),
-              border: Border.all(
-                color: const Color(0xFFFFD700).withValues(alpha: 0.28),
-                width: 1.1,
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Row(
-                  children: [
-                    Icon(Icons.card_giftcard_rounded, color: Color(0xFFFFD700), size: 16),
-                    SizedBox(width: 6),
-                    Text(
-                      'المكافآت',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                _RewardMiniBadge(
-                  icon: Icons.monetization_on_rounded,
-                  label: '+${stage.rewardCoins} ذهب',
-                  color: const Color(0xFFFFD700),
-                ),
-                const SizedBox(height: 6),
-                _RewardMiniBadge(
-                  icon: Icons.diamond_rounded,
-                  label: '+${stage.rewardGems} جوهرة',
-                  color: const Color(0xFF38BDF8),
-                ),
-                const SizedBox(height: 6),
-                _RewardMiniBadge(
-                  icon: Icons.bolt_rounded,
-                  label: '+${stage.rewardXp} خبرة',
-                  color: const Color(0xFF10B981),
-                ),
-              ],
-            ),
+        if (stage.rewardCoins > 0)
+          _RewardMiniBadge(
+            icon: Icons.monetization_on_rounded,
+            label: 'حتى ${stage.rewardCoins} ذهب',
+            color: const Color(0xFFFFD700),
           ),
-        ),
-        const SizedBox(width: 12),
-
-        // Personal Record Card (Left)
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              color: const Color(0xFF06143A).withValues(alpha: 0.88),
-              border: Border.all(
-                color: const Color(0xFF38BDF8).withValues(alpha: 0.28),
-                width: 1.1,
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Row(
-                  children: [
-                    Icon(Icons.history_rounded, color: Color(0xFF38BDF8), size: 16),
-                    SizedBox(width: 6),
-                    Text(
-                      'سجلك بالمرحلة',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                _RecordMiniRow(
-                  label: 'أفضل نتيجة',
-                  value: progress.bestScore > 0 ? '${progress.bestScore}' : '—',
-                  color: const Color(0xFF38BDF8),
-                ),
-                const SizedBox(height: 6),
-                _RecordMiniRow(
-                  label: 'النجوم',
-                  value: '${progress.stars} / 3',
-                  color: const Color(0xFFFFD700),
-                ),
-                const SizedBox(height: 6),
-                _RecordMiniRow(
-                  label: 'المحاولات',
-                  value: '${progress.attempts}',
-                  color: const Color(0xFF10B981),
-                ),
-              ],
-            ),
+        if (stage.rewardGems > 0)
+          _RewardMiniBadge(
+            icon: Icons.diamond_rounded,
+            label: 'حتى ${stage.rewardGems} جوهرة',
+            color: const Color(0xFF38BDF8),
           ),
+        if (stage.rewardXp > 0)
+          _RewardMiniBadge(
+            icon: Icons.bolt_rounded,
+            label: 'حتى ${stage.rewardXp} خبرة',
+            color: const Color(0xFF10B981),
+          ),
+        const Text(
+          'تُمنح عند أول فوز وتحسين النجوم، حتى اكتمال 3 نجوم.',
+          style: TextStyle(color: Colors.white60, fontSize: 11, height: 1.4),
         ),
       ],
+    );
+    final record = _detailCard(
+      title: 'سجلك بالمرحلة',
+      icon: Icons.history_rounded,
+      color: accent,
+      children: [
+        _RecordMiniRow(
+          label: 'أفضل نتيجة',
+          value: progress.attempts > 0 ? '${progress.bestScore}' : '—',
+          color: accent,
+        ),
+        _RecordMiniRow(
+          label: 'النجوم',
+          value: '${progress.stars} / 3',
+          color: const Color(0xFFFFD700),
+        ),
+        _RecordMiniRow(
+          label: 'المحاولات',
+          value: '${progress.attempts}',
+          color: const Color(0xFF10B981),
+        ),
+      ],
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 360 ||
+            MediaQuery.textScalerOf(context).scale(14) > 19;
+        if (compact) {
+          return Column(
+            children: [rewards, const SizedBox(height: 12), record],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: rewards),
+            const SizedBox(width: 12),
+            Expanded(child: record),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _detailCard({
+    required String title,
+    required IconData icon,
+    required Color color,
+    required List<Widget> children,
+  }) =>
+      Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          color: const Color(0xFF06143A).withValues(alpha: 0.88),
+          border: Border.all(color: color.withValues(alpha: 0.28)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, color: color, size: 16),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            for (final child in children) ...[
+              const SizedBox(height: 8),
+              child,
+            ],
+          ],
+        ),
+      );
+}
+
+class _ReplayGoal extends StatelessWidget {
+  const _ReplayGoal({
+    required this.stage,
+    required this.progress,
+    required this.accent,
+  });
+
+  final CampaignStage stage;
+  final StageProgress progress;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final nextStars = progress.stars + 1;
+    final target = progress.stars == 0
+        ? stage.boardTargetScore
+        : progress.stars == 1
+            ? stage.starRules.twoStarsMinScore
+            : stage.starRules.threeStarsMinScore;
+    final message = progress.stars == 0 && stage.isBossStage
+        ? 'مهمتك التالية: تفوّق على جميع الزعماء واحصل على أول نجمة.'
+        : 'مهمتك التالية: $target نقطة في محاولة ناجحة للوصول إلى $nextStars نجوم.';
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Text(
+        message,
+        style: TextStyle(
+          color: accent,
+          fontSize: 12.5,
+          fontWeight: FontWeight.w800,
+          height: 1.4,
+        ),
+      ),
     );
   }
 }
@@ -1100,14 +1195,17 @@ class _RecordMiniRow extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white60,
-              fontSize: 11.5,
-              fontWeight: FontWeight.w700,
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white60,
+                fontSize: 11.5,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
+          const SizedBox(width: 6),
           Text(
             value,
             style: TextStyle(
@@ -1147,13 +1245,12 @@ class _QuickGuideBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.lightbulb_rounded, color: Color(0xFFFFD700), size: 19),
+          const Icon(Icons.lightbulb_rounded,
+              color: Color(0xFFFFD700), size: 19),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              isBoss
-                  ? '💡 الزعماء يتنافسون معك على نفس اللوحة — سرقة الأسئلة تمنحك الأفضلية!'
-                  : '💡 الإجابة كتابةً تمنحك النقاط كاملة، بينما كشف الخيارات (أ، ب، ج، د) يُنصفها.',
+              '${isBoss ? 'الكتابة: النقاط كاملة • كشف الخيارات: نصف النقاط، لك وللزعماء. راقب رصيد الخصوم واختر فئاتك الأقوى.' : 'الكتابة: النقاط كاملة • كشف الخيارات: نصف النقاط. اختر الأسئلة بحسب ثقتك بالإجابة وقيمتها.'} تستخدم المرحلة التصنيفات المفتوحة في حسابك.',
               style: const TextStyle(
                 color: Colors.white70,
                 fontSize: 12,
@@ -1184,127 +1281,71 @@ class _BottomBar extends StatelessWidget {
   final VoidCallback onMap;
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.bottomCenter,
-          end: Alignment.topCenter,
-          colors: [
-            const Color(0xFF020718).withValues(alpha: 0.98),
-            const Color(0xFF020718).withValues(alpha: 0.5),
-            Colors.transparent,
-          ],
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.bottomCenter,
+            end: Alignment.topCenter,
+            colors: [
+              const Color(0xFF020718),
+              const Color(0xFF020718).withValues(alpha: 0.8),
+              Colors.transparent
+            ],
+          ),
         ),
-      ),
-      child: Row(
-        children: [
-          // Main Launch Button (CTA)
-          Expanded(
-            flex: 3,
-            child: Container(
-              height: 56,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(18),
-                gradient: const LinearGradient(
-                  colors: [
-                    Color(0xFFFFC107),
-                    Color(0xFFFF9800),
-                    Color(0xFFF57C00),
-                  ],
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFFFF9800).withValues(alpha: 0.45),
-                    blurRadius: 20,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxWidth < 360 ||
+                MediaQuery.textScalerOf(context).scale(16) > 22;
+            final start = FilledButton.icon(
+              onPressed: launching ? null : onStart,
+              icon: launching
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2.5))
+                  : const Icon(Icons.play_arrow_rounded, size: 26),
+              label: Text(launching ? 'جارٍ التجهيز...' : 'ابدأ المرحلة'),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFFFC107),
+                foregroundColor: const Color(0xFF331600),
+                disabledBackgroundColor: const Color(0xFF536178),
+                minimumSize: const Size(0, 54),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18)),
+                textStyle:
+                    const TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
               ),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(18),
-                  onTap: launching ? null : onStart,
-                  child: Center(
-                    child: launching
-                        ? const SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.6,
-                              color: Color(0xFF331600),
-                            ),
-                          )
-                        : const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.play_arrow_rounded,
-                                color: Color(0xFF331600),
-                                size: 28,
-                              ),
-                              SizedBox(width: 6),
-                              Text(
-                                'ابدأ المرحلة',
-                                style: TextStyle(
-                                  color: Color(0xFF331600),
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                            ],
-                          ),
-                  ),
-                ),
+            );
+            final map = TextButton.icon(
+              onPressed: launching ? null : onMap,
+              icon: const Icon(Icons.map_rounded, size: 20),
+              label: const Text('الخريطة'),
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFFBDEBFF),
+                minimumSize: const Size(48, 44),
+                textStyle:
+                    const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
               ),
-            ),
-          ),
-          const SizedBox(width: 12),
-
-          // Secondary Map Button
-          Container(
-            height: 56,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
-              color: const Color(0xFF061642).withValues(alpha: 0.8),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.25),
-                width: 1.2,
-              ),
-            ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(18),
-                onTap: launching ? null : onMap,
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    children: [
-                      Icon(Icons.map_rounded, color: Colors.white, size: 20),
-                      SizedBox(width: 6),
-                      Text(
-                        'الخريطة',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+            );
+            if (compact) {
+              return Column(mainAxisSize: MainAxisSize.min, children: [
+                SizedBox(width: double.infinity, child: start),
+                map
+              ]);
+            }
+            return Row(children: [
+              Expanded(child: start),
+              const SizedBox(width: 12),
+              map
+            ]);
+          },
+        ),
+      );
 }
-
 // ── Shared Glass Circle Button ────────────────────────────────────────────────
 
 class _GlassCircleButton extends StatelessWidget {
