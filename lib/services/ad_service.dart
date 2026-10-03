@@ -1,14 +1,20 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AdService extends ChangeNotifier {
   // ── Production AdMob ad unit IDs (publisher ca-app-pub-2427194500639575) ─────
-  static const String _rewardedId = 'ca-app-pub-2427194500639575/8907631037';
-  static const String _interstitialId =
-      'ca-app-pub-2427194500639575/5886891033';
+  static const bool _useDemoUnits =
+      kDebugMode && bool.fromEnvironment('ADMOB_USE_DEMO_UNITS');
+  static const String _rewardedId = _useDemoUnits
+      ? 'ca-app-pub-3940256099942544/5224354917'
+      : 'ca-app-pub-2427194500639575/9695234568';
+  static const String _interstitialId = _useDemoUnits
+      ? 'ca-app-pub-3940256099942544/1033173712'
+      : 'ca-app-pub-2427194500639575/4367895424';
 
   // ── Reward config ────────────────────────────────────────────────────────────
   static const int rewardCoins = 100;
@@ -26,6 +32,13 @@ class AdService extends ChangeNotifier {
 
   bool _rewardedLoading = false;
   bool _interstitialLoading = false;
+  bool _rewardedShowing = false;
+  bool _adsAllowed = false;
+  bool _disposed = false;
+  Future<void>? _initialization;
+  Completer<bool>? _rewardedLoad;
+  Timer? _rewardedRetry;
+  Timer? _interstitialRetry;
   SharedPreferences? _prefs;
   bool _privacyOptionsRequired = false;
 
@@ -85,10 +98,38 @@ class AdService extends ChangeNotifier {
     return true;
   }
 
-  Future<void> initialize() async {
+  Future<void> initialize() {
+    if (_disposed) return Future<void>.value();
+    return _initialization ??=
+        _initialize().catchError((Object error, StackTrace stack) {
+      _initialization = null;
+      Error.throwWithStackTrace(error, stack);
+    });
+  }
+
+  bool get _foreground {
+    final state = WidgetsBinding.instance.lifecycleState;
+    return state == null || state == AppLifecycleState.resumed;
+  }
+
+  Future<void> _initialize() async {
     _prefs = await SharedPreferences.getInstance();
+    if (_disposed) return;
     _restoreState();
+    // Opt-in diagnostics for local debug builds; release builds ignore this.
+    if (kDebugMode) {
+      const testDeviceIds = String.fromEnvironment('ADMOB_TEST_DEVICE_IDS');
+      if (testDeviceIds.isNotEmpty) {
+        await MobileAds.instance.updateRequestConfiguration(
+          RequestConfiguration(
+            testDeviceIds:
+                testDeviceIds.split(',').map((id) => id.trim()).toList(),
+          ),
+        );
+      }
+    }
     await MobileAds.instance.initialize();
+    if (_disposed) return;
     await _refreshConsent();
     await _loadAdsIfAllowed();
   }
@@ -106,24 +147,44 @@ class AdService extends ChangeNotifier {
     return completer.future;
   }
 
-  void _loadRewarded() {
-    if (_rewardedLoading) return;
+  Future<bool> _loadRewarded() async {
+    if (_disposed || !_adsAllowed) return false;
+    if (_rewardedAd != null) return true;
+    if (_rewardedLoading) return _rewardedLoad!.future;
+    _rewardedRetry?.cancel();
     _rewardedLoading = true;
-    RewardedAd.load(
-      adUnitId: _rewardedId,
-      request: const AdRequest(),
-      rewardedAdLoadCallback: RewardedAdLoadCallback(
-        onAdLoaded: (ad) {
-          _rewardedAd = ad;
-          _rewardedLoading = false;
-          notifyListeners();
-        },
-        onAdFailedToLoad: (error) {
-          _rewardedLoading = false;
-          Future.delayed(const Duration(seconds: 30), _loadRewarded);
-        },
-      ),
-    );
+    final pending = _rewardedLoad = Completer<bool>();
+    try {
+      await RewardedAd.load(
+        adUnitId: _rewardedId,
+        request: const AdRequest(),
+        rewardedAdLoadCallback: RewardedAdLoadCallback(
+          onAdLoaded: (ad) {
+            if (_disposed) {
+              ad.dispose();
+              return;
+            }
+            _rewardedAd = ad;
+            _rewardedLoading = false;
+            if (kDebugMode) debugPrint('[AdMob] Rewarded loaded: $_rewardedId');
+            if (!pending.isCompleted) pending.complete(true);
+            notifyListeners();
+          },
+          onAdFailedToLoad: (error) {
+            if (_disposed) return;
+            debugPrint('[AdMob] Rewarded load failed: $error');
+            _rewardedLoading = false;
+            if (!pending.isCompleted) pending.complete(false);
+            _rewardedRetry = Timer(const Duration(seconds: 30), _loadRewarded);
+          },
+        ),
+      );
+    } catch (error) {
+      debugPrint('[AdMob] Rewarded request failed: $error');
+      _rewardedLoading = false;
+      if (!pending.isCompleted) pending.complete(false);
+    }
+    return pending.future;
   }
 
   Future<void> _refreshConsent() async {
@@ -131,13 +192,20 @@ class AdService extends ChangeNotifier {
     ConsentInformation.instance.requestConsentInfoUpdate(
       ConsentRequestParameters(),
       () async {
-        await ConsentForm.loadAndShowConsentFormIfRequired((FormError? _) {});
+        await ConsentForm.loadAndShowConsentFormIfRequired((error) {
+          if (error != null) {
+            debugPrint(
+                '[AdMob] Consent form: ${error.errorCode}: ${error.message}');
+          }
+        });
         _privacyOptionsRequired = await _resolvePrivacyOptionsRequirement();
         if (!completer.isCompleted) {
           completer.complete();
         }
       },
-      (FormError _) async {
+      (FormError error) async {
+        debugPrint(
+            '[AdMob] Consent update: ${error.errorCode}: ${error.message}');
         _privacyOptionsRequired = await _resolvePrivacyOptionsRequirement();
         if (!completer.isCompleted) {
           completer.complete();
@@ -145,31 +213,52 @@ class AdService extends ChangeNotifier {
       },
     );
     await completer.future;
-    notifyListeners();
+    if (!_disposed) notifyListeners();
   }
 
   Future<void> _loadAdsIfAllowed() async {
-    if (await ConsentInformation.instance.canRequestAds()) {
-      _loadRewarded();
+    if (_disposed) return;
+    _adsAllowed = await ConsentInformation.instance.canRequestAds();
+    if (_disposed) return;
+    if (_adsAllowed) {
+      unawaited(_loadRewarded());
       _loadInterstitial();
+    } else {
+      debugPrint('[AdMob] Ad requests blocked by consent status.');
     }
   }
 
   void _loadInterstitial() {
-    if (_interstitialLoading) return;
+    if (_disposed ||
+        !_adsAllowed ||
+        _interstitialLoading ||
+        _interstitialAd != null) {
+      return;
+    }
+    _interstitialRetry?.cancel();
     _interstitialLoading = true;
     InterstitialAd.load(
       adUnitId: _interstitialId,
       request: const AdRequest(),
       adLoadCallback: InterstitialAdLoadCallback(
         onAdLoaded: (ad) {
+          if (_disposed) {
+            ad.dispose();
+            return;
+          }
           _interstitialAd = ad;
           _interstitialLoading = false;
+          if (kDebugMode) {
+            debugPrint('[AdMob] Interstitial loaded: $_interstitialId');
+          }
           notifyListeners();
         },
         onAdFailedToLoad: (error) {
+          if (_disposed) return;
+          debugPrint('[AdMob] Interstitial load failed: $error');
           _interstitialLoading = false;
-          Future.delayed(const Duration(seconds: 30), _loadInterstitial);
+          _interstitialRetry =
+              Timer(const Duration(seconds: 30), _loadInterstitial);
         },
       ),
     );
@@ -178,75 +267,79 @@ class AdService extends ChangeNotifier {
   /// Shows a rewarded ad. Returns {coins, gems} on success, null if cancelled/unavailable.
   Future<Map<String, int>?> showRewardedAd() async {
     if (!canWatchAd) return null;
-    final ad = _rewardedAd;
-    if (ad == null) return null;
-
-    final completer = Completer<Map<String, int>?>();
-    _rewardedAd = null;
-
-    ad.fullScreenContentCallback = FullScreenContentCallback(
-      onAdDismissedFullScreenContent: (a) {
-        a.dispose();
-        _loadRewarded();
-        if (!completer.isCompleted) completer.complete(null);
-      },
-      onAdFailedToShowFullScreenContent: (a, _) {
-        a.dispose();
-        _loadRewarded();
-        if (!completer.isCompleted) completer.complete(null);
-      },
-    );
-
-    ad.show(
-      onUserEarnedReward: (_, __) {
-        _recordWatch();
-        if (!completer.isCompleted) {
-          completer.complete({'coins': rewardCoins, 'gems': rewardGems});
-        }
-      },
-    );
-
-    return completer.future;
+    final earned = await _showRewarded(recordWatch: true);
+    return earned ? {'coins': rewardCoins, 'gems': rewardGems} : null;
   }
 
   /// Shows a rewarded ad for specific actions (such as renting a category or revival)
   /// without being constrained by the daily coin claim faucet cooldown.
-  Future<bool> showActionRewardedAd() async {
-    final ad = _rewardedAd;
-    if (ad == null) {
-      _loadRewarded();
+  Future<bool> showActionRewardedAd() => _showRewarded(recordWatch: false);
+
+  Future<bool> _showRewarded({required bool recordWatch}) async {
+    if (_disposed || _rewardedShowing) return false;
+    _rewardedShowing = true;
+    try {
+      await initialize().timeout(const Duration(seconds: 20));
+      if (_disposed) return false;
+      await _loadAdsIfAllowed();
+      // Share an in-flight preload and wait for it instead of failing on tap.
+      final loaded = await _loadRewarded()
+          .timeout(const Duration(seconds: 20), onTimeout: () => false);
+      final ad = _rewardedAd;
+      if (!loaded ||
+          ad == null ||
+          _disposed ||
+          !_foreground ||
+          (recordWatch && !canWatchAd)) {
+        return false;
+      }
+
+      final completer = Completer<bool>();
+      var earned = false;
+      _rewardedAd = null;
+
+      ad.fullScreenContentCallback = FullScreenContentCallback(
+        onAdDismissedFullScreenContent: (a) {
+          a.dispose();
+          unawaited(_loadRewarded());
+          if (!completer.isCompleted) completer.complete(earned);
+        },
+        onAdFailedToShowFullScreenContent: (a, error) {
+          debugPrint('[AdMob] Rewarded show failed: $error');
+          a.dispose();
+          unawaited(_loadRewarded());
+          if (!completer.isCompleted) completer.complete(false);
+        },
+      );
+
+      try {
+        await ad.show(
+          onUserEarnedReward: (_, __) {
+            if (earned || _disposed) return;
+            earned = true;
+            if (recordWatch) _recordWatch();
+          },
+        );
+      } catch (error) {
+        debugPrint('[AdMob] Rewarded presentation failed: $error');
+        ad.dispose();
+        unawaited(_loadRewarded());
+        if (!completer.isCompleted) completer.complete(false);
+      }
+      return await completer.future;
+    } on TimeoutException {
       return false;
+    } catch (error) {
+      debugPrint('[AdMob] Rewarded initialization failed: $error');
+      return false;
+    } finally {
+      _rewardedShowing = false;
     }
-
-    final completer = Completer<bool>();
-    _rewardedAd = null;
-
-    ad.fullScreenContentCallback = FullScreenContentCallback(
-      onAdDismissedFullScreenContent: (a) {
-        a.dispose();
-        _loadRewarded();
-        if (!completer.isCompleted) completer.complete(false);
-      },
-      onAdFailedToShowFullScreenContent: (a, _) {
-        a.dispose();
-        _loadRewarded();
-        if (!completer.isCompleted) completer.complete(false);
-      },
-    );
-
-    ad.show(
-      onUserEarnedReward: (_, __) {
-        if (!completer.isCompleted) {
-          completer.complete(true);
-        }
-      },
-    );
-
-    return completer.future;
   }
 
   /// Shows an interstitial ad (no reward). Fire-and-forget.
   void showInterstitialAd() {
+    if (_disposed || !_foreground) return;
     final ad = _interstitialAd;
     if (ad == null) return;
     _interstitialAd = null;
@@ -357,6 +450,11 @@ class AdService extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
+    _rewardedRetry?.cancel();
+    _interstitialRetry?.cancel();
+    final pending = _rewardedLoad;
+    if (pending != null && !pending.isCompleted) pending.complete(false);
     _rewardedAd?.dispose();
     _interstitialAd?.dispose();
     super.dispose();

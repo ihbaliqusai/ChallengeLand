@@ -5,8 +5,6 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import android.content.Intent;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.media.MediaPlayer;
@@ -43,7 +41,7 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.ValueEventListener;
 
-import java.io.InputStream;
+import com.squareup.picasso.Picasso;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -233,7 +231,6 @@ public class GameActivity extends AppCompatActivity {
     private final Random boardRandom = new Random();
     private Typeface boardFont;
     private HashMap<String, String> categoryAssetIndex;   // normalized name -> asset path
-    private final HashMap<String, Bitmap> categoryBitmapCache = new HashMap<>();
     static final int BOARD_SELECT_SECONDS = 30;
     // How long to linger on the answer reveal (status icon + reaction clip) before the
     // board overlay covers it again for the next turn. Kept generous so the reaction
@@ -1133,6 +1130,8 @@ public class GameActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         ACTIVITY_PAUSED = false;
+        if (offlineContestants != null) offlineContestants.setVideosPaused(false);
+        for (ChromaVideoView video : resultVideoViews) video.setPaused(false);
         if (backgroundVideoController != null) backgroundVideoController.start();
         SOUND_ON = AppPrefs.isSoundEnabled(this);
         MUSIC_ON = AppPrefs.isMusicEnabled(this);
@@ -3432,10 +3431,10 @@ public class GameActivity extends AppCompatActivity {
         tile.setLayoutParams(lp);
         tile.setTag(category);
         tile.setBackground(categoryTileBg(false, !isUnlocked));
-        Bitmap art = categoryBitmap(category);
+        String art = categoryAssetPath(category);
         if (art != null) {
             ImageView img = new ImageView(this);
-            img.setImageBitmap(art);
+            loadCategoryArtwork(img, art);
             img.setScaleType(ImageView.ScaleType.FIT_CENTER);
             img.setPadding(dpx(6), dpx(4), dpx(6), dpx(24));
             if (!isUnlocked) {
@@ -3493,9 +3492,9 @@ public class GameActivity extends AppCompatActivity {
 
         ImageView imgCategoryArt = dialog.findViewById(R.id.imgCategoryArt);
         if (imgCategoryArt != null) {
-            Bitmap art = categoryBitmap(category);
+            String art = categoryAssetPath(category);
             if (art != null) {
-                imgCategoryArt.setImageBitmap(art);
+                loadCategoryArtwork(imgCategoryArt, art);
             }
         }
 
@@ -3567,10 +3566,10 @@ public class GameActivity extends AppCompatActivity {
                                      ArrayList<String> selected, TextView counter, Button confirm) {
         tile.setBackground(categoryTileBg(true, false));
         tile.removeAllViews();
-        Bitmap art = categoryBitmap(category);
+        String art = categoryAssetPath(category);
         if (art != null) {
             ImageView img = new ImageView(this);
-            img.setImageBitmap(art);
+            loadCategoryArtwork(img, art);
             img.setScaleType(ImageView.ScaleType.FIT_CENTER);
             img.setPadding(dpx(6), dpx(4), dpx(6), dpx(24));
             img.setLayoutParams(new FrameLayout.LayoutParams(
@@ -5498,10 +5497,10 @@ public class GameActivity extends AppCompatActivity {
         card.setLayoutParams(lp);
         card.setBackground(categoryCardBg());
         String category = boardSelectedCategories.get(col);
-        Bitmap art = categoryBitmap(category);
+        String art = categoryAssetPath(category);
         if (art != null) {
             ImageView img = new ImageView(this);
-            img.setImageBitmap(art);
+            loadCategoryArtwork(img, art);
             img.setScaleType(ImageView.ScaleType.FIT_CENTER);
             img.setPadding(dpx(4), dpx(4), dpx(4), dpx(24));
             img.setLayoutParams(new FrameLayout.LayoutParams(
@@ -6522,25 +6521,11 @@ public class GameActivity extends AppCompatActivity {
         return best;
     }
 
-    private Bitmap categoryBitmap(String category) {
-        String path = categoryAssetPath(category);
-        if (path == null) return null;
-        Bitmap cached = categoryBitmapCache.get(path);
-        if (cached != null) return cached;
-        InputStream in = null;
-        try {
-            in = getAssets().open(path);
-            Bitmap bmp = BitmapFactory.decodeStream(in);
-            if (bmp != null) categoryBitmapCache.put(path, bmp);
-            return bmp;
-        } catch (Exception e) {
-            return null;
-        } finally {
-            try {
-                if (in != null) in.close();
-            } catch (Exception ignored) {
-            }
-        }
+    private void loadCategoryArtwork(ImageView image, String path) {
+        // Decode on Picasso workers, bound the texture size, and share its LRU cache.
+        Picasso.with(this).load("file:///android_asset/" + path)
+                .resize(dpx(160), dpx(160))
+                .centerInside().onlyScaleDown().into(image);
     }
 
     /** Strips tashkeel and unifies alef/teh-marbuta variants for tolerant matching. */
@@ -9760,6 +9745,8 @@ public class GameActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         ACTIVITY_PAUSED = true;
+        if (offlineContestants != null) offlineContestants.setVideosPaused(true);
+        for (ChromaVideoView video : resultVideoViews) video.setPaused(true);
         if (isQuestionTimerRunning && cdtProgress != null) {
             wasTimerRunningBeforePause = true;
             timerPauseElapsedRealtime = SystemClock.elapsedRealtime();
@@ -9926,7 +9913,6 @@ public class GameActivity extends AppCompatActivity {
     }
 
 }
-
 
 
 

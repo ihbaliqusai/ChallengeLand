@@ -16,6 +16,21 @@ import java.util.Random;
 import io.flutter.FlutterInjector;
 
 public class LocalQuestions {
+    private static volatile ArrayList<Question> cachedQuestions;
+    private static final java.util.concurrent.ExecutorService LOADER =
+            java.util.concurrent.Executors.newSingleThreadExecutor();
+
+    public static void preload(Context context, Runnable ready) {
+        Context app = context.getApplicationContext();
+        LOADER.execute(() -> {
+            long started = android.os.SystemClock.elapsedRealtime();
+            int count = loadAll(app).size();
+            android.util.Log.d("LocalQuestions", "Preloaded " + count + " questions in "
+                    + (android.os.SystemClock.elapsedRealtime() - started) + "ms off the UI thread");
+            new android.os.Handler(android.os.Looper.getMainLooper()).post(ready);
+        });
+    }
+
 
     /** Category used for questions that have no (or an empty) Category field.
      *  Must match a file name under assets/categories (منوعات.png). */
@@ -37,20 +52,7 @@ public class LocalQuestions {
         final ArrayList<Question> allQuestions2 = new ArrayList<>();
         final ArrayList<Question> allQuestions3 = new ArrayList<>();
         try {
-            AssetManager assets = context.getAssets();
-            InputStream inputStream = openQuestionsStream(assets);
-            ByteArrayOutputStream output = new ByteArrayOutputStream();
-            byte[] buffer = new byte[4096];
-            int n;
-            while ((n = inputStream.read(buffer)) >= 0) {
-                output.write(buffer, 0, n);
-            }
-            inputStream.close();
-
-            JSONArray array = new JSONArray(output.toString(StandardCharsets.UTF_8.name()));
-            for (int i = 0; i < array.length(); i++) {
-                JSONObject item = array.getJSONObject(i);
-                Question q = parseQuestion(item);
+            for (Question q : loadAll(context)) {
                 if (isCategoryHidden(q.getCategory())) {
                     continue;
                 }
@@ -79,6 +81,8 @@ public class LocalQuestions {
     }
 
     public static ArrayList<Question> loadAll(Context context) {
+        ArrayList<Question> cached = cachedQuestions;
+        if (cached != null) return new ArrayList<>(cached);
         final ArrayList<Question> questions = new ArrayList<>();
         try {
             AssetManager assets = context.getAssets();
@@ -102,6 +106,7 @@ public class LocalQuestions {
             }
         } catch (Exception ignored) {
         }
+        if (!questions.isEmpty()) cachedQuestions = new ArrayList<>(questions);
         return questions;
     }
 
@@ -161,19 +166,7 @@ public class LocalQuestions {
     public static LinkedHashMap<String, ArrayList<ArrayList<Question>>> loadBoardPool(Context context) {
         final LinkedHashMap<String, ArrayList<ArrayList<Question>>> pool = new LinkedHashMap<>();
         try {
-            AssetManager assets = context.getAssets();
-            InputStream inputStream = openQuestionsStream(assets);
-            ByteArrayOutputStream output = new ByteArrayOutputStream();
-            byte[] buffer = new byte[4096];
-            int n;
-            while ((n = inputStream.read(buffer)) >= 0) {
-                output.write(buffer, 0, n);
-            }
-            inputStream.close();
-
-            JSONArray array = new JSONArray(output.toString(StandardCharsets.UTF_8.name()));
-            for (int i = 0; i < array.length(); i++) {
-                Question q = parseQuestion(array.getJSONObject(i));
+            for (Question q : loadAll(context)) {
                 if (isCategoryHidden(q.getCategory())) {
                     continue;
                 }

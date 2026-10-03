@@ -21,10 +21,8 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.google.android.gms.ads.AdRequest;
 import com.google.android.gms.ads.FullScreenContentCallback;
 import com.google.android.gms.ads.LoadAdError;
-import com.google.android.gms.ads.MobileAds;
 import com.google.android.gms.ads.interstitial.InterstitialAd;
 import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback;
 
@@ -303,11 +301,18 @@ public class ResultActivity extends AppCompatActivity {
     }
 
     private void showInterstitialThenHome() {
+        if (!NativeAdRuntime.isForeground(this)) return;
         homeNavigationRequested = true;
         AppPrefs.recordInterstitialOpportunity(this);
         if (interstitialAd != null && AppPrefs.canShowInterstitialNow(this)) {
             AppPrefs.markInterstitialShown(this);
-            interstitialAd.show(this);
+            InterstitialAd ad = interstitialAd;
+            interstitialAd = null;
+            try {
+                ad.show(this);
+            } catch (Exception error) {
+                navigateToHome();
+            }
         } else {
             navigateToHome();
         }
@@ -340,11 +345,8 @@ public class ResultActivity extends AppCompatActivity {
             if (interstitialAd != null) {
                 return;
             }
-            MobileAds.initialize(this, initializationStatus -> {});
-            InterstitialAd.load(
-                    this,
+            NativeAdRuntime.loadInterstitial(this,
                     getResources().getString(R.string.interstitial_ad_id),
-                    new AdRequest.Builder().build(),
                     new InterstitialAdLoadCallback() {
                         @Override
                         public void onAdLoaded(InterstitialAd ad) {

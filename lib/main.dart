@@ -5,6 +5,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter/foundation.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart' show MobileAds;
 import 'package:provider/provider.dart';
 
 import 'core/app_state.dart';
@@ -18,9 +20,23 @@ import 'services/ad_service.dart';
 import 'services/cross_promo_service.dart';
 import 'services/invite_service.dart';
 import 'services/in_app_purchase_service.dart';
+import 'widgets/startup_gate.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  final adService = AdService();
+  runApp(StartupGate(
+    initialize: _initializeApp,
+    loading: const MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: SplashScreen(autoNavigate: false),
+    ),
+    ready: ChallengeLandApp(adService: adService),
+  ));
+  // Ads and consent must not delay the first frame or app startup.
+}
+
+Future<void> _initializeApp() async {
   await SystemChrome.setPreferredOrientations(const <DeviceOrientation>[
     DeviceOrientation.landscapeLeft,
     DeviceOrientation.landscapeRight,
@@ -34,23 +50,50 @@ Future<void> main() async {
   } catch (_) {
     // يسمح بفتح الواجهة حتى قبل تهيئة Firebase الكاملة.
   }
-
-  final adService = AdService();
-  await adService.initialize();
-
-  runApp(ChallengeLandApp(adService: adService));
+  if (defaultTargetPlatform == TargetPlatform.android) {
+    try {
+      await const MethodChannel('millionaire/native')
+          .invokeMethod<bool>('preloadLocalQuestions');
+    } catch (error) {
+      debugPrint('[Startup] Question preload unavailable: $error');
+    }
+  }
 }
 
-class ChallengeLandApp extends StatelessWidget {
+class ChallengeLandApp extends StatefulWidget {
   const ChallengeLandApp({super.key, required this.adService});
 
   final AdService adService;
 
   @override
+  State<ChallengeLandApp> createState() => _ChallengeLandAppState();
+}
+
+class _ChallengeLandAppState extends State<ChallengeLandApp> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      try {
+        await widget.adService.initialize();
+        if (!mounted) return;
+        if (kDebugMode && const bool.fromEnvironment('ADMOB_OPEN_INSPECTOR')) {
+          MobileAds.instance.openAdInspector((error) {
+            if (error != null) debugPrint('[AdMob] Inspector failed: $error');
+          });
+        }
+      } catch (error) {
+        debugPrint('[AdMob] Initialization failed: $error');
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider<AdService>.value(value: adService),
+        ChangeNotifierProvider<AdService>.value(value: widget.adService),
         Provider<AuthService>(create: (_) => AuthService()),
         Provider<ProfileService>(create: (_) => ProfileService()),
         Provider<NativeBridgeService>(create: (_) => NativeBridgeService()),

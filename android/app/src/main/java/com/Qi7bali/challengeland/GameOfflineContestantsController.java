@@ -786,6 +786,10 @@ final class GameOfflineContestantsController {
         videoViews.clear();
     }
 
+    void setVideosPaused(boolean paused) {
+        for (ChromaVideoView video : videoViews) video.setPaused(paused);
+    }
+
     private void setStatusIcon(int slot, int resId) {
         if (statusViews != null && slot < statusViews.length && statusViews[slot] != null) {
             statusViews[slot].setImageResource(resId);

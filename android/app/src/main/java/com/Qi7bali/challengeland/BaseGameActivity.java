@@ -36,7 +36,6 @@ import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.VideoView;
-import com.google.android.gms.ads.AdRequest;
 import com.google.android.gms.ads.LoadAdError;
 import com.google.android.gms.ads.FullScreenContentCallback;
 import com.google.android.gms.ads.interstitial.InterstitialAd;
@@ -54,7 +53,6 @@ import java.util.Random;
 
 import de.hdodenhof.circleimageview.CircleImageView;
 import io.netopen.hotbitmapgg.library.view.RingProgressBar;
-import com.google.android.gms.ads.MobileAds;
 import com.google.android.gms.ads.initialization.InitializationStatus;
 import com.google.android.gms.ads.initialization.OnInitializationCompleteListener;
 import com.google.firebase.database.FirebaseDatabase;
@@ -5113,11 +5111,18 @@ public abstract class BaseGameActivity extends AppCompatActivity {
     }
 
     private void showInterstitialAd() {
+        if (!NativeAdRuntime.isForeground(this)) return;
         AppPrefs.recordInterstitialOpportunity(this);
         if (mInterstitialAd != null && AppPrefs.canShowInterstitialNow(this)) {
             Log.d("TestAdmob", "Ad loaded");
             AppPrefs.markInterstitialShown(this);
-            mInterstitialAd.show(this);
+            InterstitialAd ad = mInterstitialAd;
+            mInterstitialAd = null;
+            try {
+                ad.show(this);
+            } catch (Exception error) {
+                navigateToHome();
+            }
         } else {
             Log.d("TestAdmob", "Ad not loaded");
             navigateToHome();
@@ -6421,10 +6426,8 @@ public abstract class BaseGameActivity extends AppCompatActivity {
     private void initAdsIfNeeded() {
         try {
             if (mInterstitialAd == null) {
-                MobileAds.initialize(this, initializationStatus -> {});
-                InterstitialAd.load(this,
+                NativeAdRuntime.loadInterstitial(this,
                     getResources().getString(R.string.interstitial_ad_id),
-                    new AdRequest.Builder().build(),
                     new InterstitialAdLoadCallback() {
                         @Override
                         public void onAdLoaded(InterstitialAd ad) {
@@ -6434,6 +6437,11 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                                 public void onAdDismissedFullScreenContent() {
                                     mInterstitialAd = null;
                                     navigateToHome();
+                                }
+
+                                @Override
+                                public void onAdFailedToShowFullScreenContent(com.google.android.gms.ads.AdError error) {
+                                    onAdDismissedFullScreenContent();
                                 }
                             });
                         }

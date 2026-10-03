@@ -5,7 +5,9 @@ import 'package:flutter/material.dart';
 import '../auth/auth_gate.dart';
 
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key});
+  const SplashScreen({super.key, this.autoNavigate = true});
+
+  final bool autoNavigate;
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
@@ -18,7 +20,7 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    _timer = Timer(_splashDuration, _goToApp);
+    if (widget.autoNavigate) _timer = Timer(_splashDuration, _goToApp);
   }
 
   void _goToApp() {
@@ -52,6 +54,10 @@ class _SplashScreenState extends State<SplashScreen> {
           child: Image.asset(
             'assets/ui/splash_transparent.webp',
             fit: BoxFit.contain,
+            cacheWidth:
+                (logoSize * MediaQuery.devicePixelRatioOf(context))
+                    .ceil()
+                    .clamp(1, 2048),
             gaplessPlayback: true,
           ),
         ),

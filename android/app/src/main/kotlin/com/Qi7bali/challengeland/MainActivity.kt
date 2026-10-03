@@ -78,6 +78,9 @@ class MainActivity : FlutterActivity() {
         playBillingManager = PlayBillingManager(this, channel)
         channel.setMethodCallHandler { call, result ->
                 when (call.method) {
+                    "preloadLocalQuestions" -> {
+                        LocalQuestions.preload(applicationContext) { result.success(true) }
+                    }
                     "launchOriginal" -> {
                         startActivity(Intent(this, LegacyMainActivity::class.java))
                         result.success(true)

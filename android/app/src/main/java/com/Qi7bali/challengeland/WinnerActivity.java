@@ -18,7 +18,6 @@ import android.view.animation.TranslateAnimation;
 import android.widget.ImageView;
 import android.widget.RelativeLayout;
 
-import com.google.android.gms.ads.AdRequest;
 import com.google.android.gms.ads.LoadAdError;
 import com.google.android.gms.ads.FullScreenContentCallback;
 import com.google.android.gms.ads.interstitial.InterstitialAd;
@@ -87,7 +86,7 @@ public class WinnerActivity extends AppCompatActivity {
 
     private void loadInterstitialAd() {
         String adUnitId = getResources().getString(R.string.interstitial_ad_id);
-        InterstitialAd.load(this, adUnitId, new AdRequest.Builder().build(),
+        NativeAdRuntime.loadInterstitial(this, adUnitId,
             new InterstitialAdLoadCallback() {
                 @Override
                 public void onAdLoaded(InterstitialAd ad) {
@@ -97,6 +96,11 @@ public class WinnerActivity extends AppCompatActivity {
                         public void onAdDismissedFullScreenContent() {
                             mInterstitialAd = null;
                             navigateToHome();
+                        }
+
+                        @Override
+                        public void onAdFailedToShowFullScreenContent(com.google.android.gms.ads.AdError error) {
+                            onAdDismissedFullScreenContent();
                         }
                     });
                 }
@@ -108,10 +112,17 @@ public class WinnerActivity extends AppCompatActivity {
     }
 
     private void showInterstitialAd() {
+        if (!NativeAdRuntime.isForeground(this)) return;
         AppPrefs.recordInterstitialOpportunity(this);
         if (mInterstitialAd != null && AppPrefs.canShowInterstitialNow(this)) {
             AppPrefs.markInterstitialShown(this);
-            mInterstitialAd.show(this);
+            InterstitialAd ad = mInterstitialAd;
+            mInterstitialAd = null;
+            try {
+                ad.show(this);
+            } catch (Exception error) {
+                navigateToHome();
+            }
         } else {
             navigateToHome();
         }
