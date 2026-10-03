@@ -1,4 +1,11 @@
 {
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "commerce",
+      "ignore": ["node_modules", ".git", "*-debug.log", "test"]
+    }
+  ],
   "database": {
     "rules": "database.rules.json"
   },

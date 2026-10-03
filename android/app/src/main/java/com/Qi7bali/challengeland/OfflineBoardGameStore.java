@@ -96,6 +96,46 @@ final class OfflineBoardGameStore {
         writeArray(context, prune(next));
     }
 
+    static boolean delete(Context context, String id) {
+        if (id == null || id.trim().isEmpty()) return false;
+        String targetId = id.trim();
+        JSONArray current = readArray(context);
+        JSONArray next = new JSONArray();
+        boolean removed = false;
+        for (int i = 0; i < current.length(); i++) {
+            JSONObject item = current.optJSONObject(i);
+            if (item == null) continue;
+            if (targetId.equals(item.optString("id"))) {
+                removed = true;
+            } else {
+                next.put(item);
+            }
+        }
+        if (removed) {
+            writeArray(context, next);
+        }
+        return removed;
+    }
+
+    static int clearFinished(Context context) {
+        JSONArray current = readArray(context);
+        JSONArray next = new JSONArray();
+        int removedCount = 0;
+        for (int i = 0; i < current.length(); i++) {
+            JSONObject item = current.optJSONObject(i);
+            if (item == null) continue;
+            if (STATUS_FINISHED.equals(item.optString("status"))) {
+                removedCount++;
+            } else {
+                next.put(item);
+            }
+        }
+        if (removedCount > 0) {
+            writeArray(context, next);
+        }
+        return removedCount;
+    }
+
     static JSONObject baseRecord(String id) {
         long now = System.currentTimeMillis();
         JSONObject record = new JSONObject();

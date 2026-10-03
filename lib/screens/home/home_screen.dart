@@ -33,6 +33,7 @@ import '../../widgets/special_offer_dialog.dart';
 import '../../widgets/special_offer_badge.dart';
 import '../../widgets/daily_reward_dialog.dart';
 import '../../services/rate_game_service.dart';
+import '../../services/cross_promo_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -91,6 +92,7 @@ class _HomeScreenState extends State<HomeScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       context.read<AppState>().loadCurrency();
+      context.read<AppState>().refreshCommerce();
       context.read<AppState>().loadLevelData();
       context.read<AppState>().checkAndAwardXpForGames();
       _consumePendingRoomMatchResult();
@@ -99,6 +101,10 @@ class _HomeScreenState extends State<HomeScreen>
       );
       _consumeNativeLaunchAction();
       _checkClipboardForIncomingInvite();
+      final promo = context.read<CrossPromoService>();
+      final uid = context.read<AppState>().currentUser?.uid;
+      promo.checkInstallation();
+      promo.checkRewardClaimed(uid: uid);
     }
   }
 
@@ -119,9 +125,8 @@ class _HomeScreenState extends State<HomeScreen>
     }
     if (!mounted) return;
 
-    final shouldShow = appState.isOnline &&
-        !appState.claimedToday &&
-        appState.user != null;
+    final shouldShow =
+        appState.isOnline && !appState.claimedToday && appState.user != null;
 
     if (shouldShow && mounted) {
       await DailyRewardDialog.show(context);
@@ -138,7 +143,8 @@ class _HomeScreenState extends State<HomeScreen>
     if (!mounted) return;
     final appState = context.read<AppState>();
     if (appState.isVip) return;
-    final shouldShow = await SpecialOfferDialog.shouldShowAuto(isVip: appState.isVip);
+    final shouldShow =
+        await SpecialOfferDialog.shouldShowAuto(isVip: appState.isVip);
     if (shouldShow && mounted && !appState.isVip) {
       await SpecialOfferDialog.show(context);
     }
@@ -165,7 +171,8 @@ class _HomeScreenState extends State<HomeScreen>
 
   void _showIncomingInviteDialog(InviteCandidate candidate) {
     final isFriend = candidate.type == InviteType.friendChallenge;
-    final primaryColor = isFriend ? const Color(0xFFFFD700) : const Color(0xFF38BDF8);
+    final primaryColor =
+        isFriend ? const Color(0xFFFFD700) : const Color(0xFF38BDF8);
 
     showDialog<void>(
       context: context,
@@ -207,7 +214,9 @@ class _HomeScreenState extends State<HomeScreen>
                   ),
                 ),
                 child: Icon(
-                  isFriend ? Icons.sports_esports_rounded : Icons.groups_rounded,
+                  isFriend
+                      ? Icons.sports_esports_rounded
+                      : Icons.groups_rounded,
                   color: isFriend ? const Color(0xFF0B1437) : Colors.white,
                   size: 28,
                 ),
@@ -233,7 +242,8 @@ class _HomeScreenState extends State<HomeScreen>
               ),
               const SizedBox(height: 12),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
                   color: const Color(0xFF070F28),
                   borderRadius: BorderRadius.circular(10),
@@ -282,8 +292,14 @@ class _HomeScreenState extends State<HomeScreen>
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: isFriend
-                              ? [const Color(0xFFFFD700), const Color(0xFFF59E0B)]
-                              : [const Color(0xFF38BDF8), const Color(0xFF0284C7)],
+                              ? [
+                                  const Color(0xFFFFD700),
+                                  const Color(0xFFF59E0B)
+                                ]
+                              : [
+                                  const Color(0xFF38BDF8),
+                                  const Color(0xFF0284C7)
+                                ],
                         ),
                         borderRadius: BorderRadius.circular(10),
                       ),
@@ -292,7 +308,8 @@ class _HomeScreenState extends State<HomeScreen>
                           Navigator.of(ctx).pop();
                           final inviteService = context.read<InviteService>();
                           await inviteService.dismissInviteCode(candidate.code);
-                          await inviteService.dismissInviteCode(candidate.rawText);
+                          await inviteService
+                              .dismissInviteCode(candidate.rawText);
 
                           if (!mounted) return;
 
@@ -305,18 +322,18 @@ class _HomeScreenState extends State<HomeScreen>
                             final userId = context.read<AppState>().user?.uid;
                             if (userId != null) {
                               try {
-                                final joinResult = await context
-                                    .read<RoomService>()
-                                    .joinRoom(
-                                      roomId: candidate.code,
-                                      userId: userId,
-                                    );
+                                final joinResult =
+                                    await context.read<RoomService>().joinRoom(
+                                          roomId: candidate.code,
+                                          userId: userId,
+                                        );
                                 if (!mounted) return;
                                 await Navigator.of(context).push(
                                   MaterialPageRoute<void>(
                                     builder: (_) => RoomLobbyScreen(
                                       roomId: candidate.code,
-                                      isJoiningMidGame: joinResult.joinedMidGame,
+                                      isJoiningMidGame:
+                                          joinResult.joinedMidGame,
                                     ),
                                   ),
                                 );
@@ -326,8 +343,8 @@ class _HomeScreenState extends State<HomeScreen>
                             if (!mounted) return;
                             Navigator.of(context).push(
                               MaterialPageRoute<void>(
-                                builder: (_) =>
-                                    RoomsScreen(initialRoomCode: candidate.code),
+                                builder: (_) => RoomsScreen(
+                                    initialRoomCode: candidate.code),
                               ),
                             );
                           }
@@ -335,9 +352,8 @@ class _HomeScreenState extends State<HomeScreen>
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.transparent,
                           shadowColor: Colors.transparent,
-                          foregroundColor: isFriend
-                              ? const Color(0xFF0B1437)
-                              : Colors.white,
+                          foregroundColor:
+                              isFriend ? const Color(0xFF0B1437) : Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 10),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10),
@@ -373,6 +389,10 @@ class _HomeScreenState extends State<HomeScreen>
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute<void>(builder: (_) => const RoomsScreen()),
           (route) => route.isFirst,
+        );
+      } else if (action == 'open_store') {
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => const StoreScreen()),
         );
       } else if (action.startsWith('challenge:')) {
         final code = action.substring('challenge:'.length).trim();
@@ -751,104 +771,107 @@ class _GameModesSheet extends StatelessWidget {
               ),
               child: SingleChildScrollView(
                 child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.sports_esports_rounded,
-                        color: Color(0xFF38BDF8),
-                        size: 22,
-                      ),
-                      const SizedBox(width: 8),
-                      const Expanded(
-                        child: Text(
-                          'أوضاع اللعب',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.sports_esports_rounded,
+                          color: Color(0xFF38BDF8),
+                          size: 22,
+                        ),
+                        const SizedBox(width: 8),
+                        const Expanded(
+                          child: Text(
+                            'أوضاع اللعب',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                            ),
                           ),
                         ),
-                      ),
-                      IconButton(
-                        tooltip: 'إغلاق',
-                        onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(Icons.close_rounded),
-                        color: Colors.white70,
-                        style: IconButton.styleFrom(
-                          backgroundColor: Colors.white.withValues(alpha: 0.06),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                        IconButton(
+                          tooltip: 'إغلاق',
+                          onPressed: () => Navigator.of(context).pop(),
+                          icon: const Icon(Icons.close_rounded),
+                          color: Colors.white70,
+                          style: IconButton.styleFrom(
+                            backgroundColor:
+                                Colors.white.withValues(alpha: 0.06),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _GameModeTile(
-                          icon: Icons.emoji_events_rounded,
-                          color: const Color(0xFFFFD761),
-                          title: 'التحدي الرئيسي',
-                          subtitle: 'فريقان على جهاز واحد',
-                          onTap: () => _runMode(
-                            context,
-                            () =>
-                                rootContext.read<AppState>().openMainChallenge(),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _GameModeTile(
+                            icon: Icons.emoji_events_rounded,
+                            color: const Color(0xFFFFD761),
+                            title: 'التحدي الرئيسي',
+                            subtitle: 'فريقان على جهاز واحد',
+                            onTap: () => _runMode(
+                              context,
+                              () => rootContext
+                                  .read<AppState>()
+                                  .openMainChallenge(),
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _GameModeTile(
-                          icon: Icons.groups_rounded,
-                          color: const Color(0xFFFACC15),
-                          title: 'تحدي جماعي',
-                          subtitle: 'غرف ومنافسة أونلاين',
-                          enabled: isOnline,
-                          onTap: () => _openOnlineRoute(
-                            context,
-                            const RoomsScreen(),
-                            isOnline,
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _GameModeTile(
+                            icon: Icons.groups_rounded,
+                            color: const Color(0xFFFACC15),
+                            title: 'تحدي جماعي',
+                            subtitle: 'غرف ومنافسة أونلاين',
+                            enabled: isOnline,
+                            onTap: () => _openOnlineRoute(
+                              context,
+                              const RoomsScreen(),
+                              isOnline,
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _GameModeTile(
-                          icon: Icons.people_alt_rounded,
-                          color: const Color(0xFF38BDF8),
-                          title: 'تحدي صديق',
-                          subtitle: '1 ضد 1 أو منافس عشوائي',
-                          enabled: isOnline,
-                          onTap: () => FriendChallengeModal.show(context),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _GameModeTile(
-                          icon: Icons.sports_esports_rounded,
-                          color: const Color(0xFF34D399),
-                          title: 'أوفلاين',
-                          subtitle: 'العب بدون اتصال',
-                          onTap: () => _runMode(
-                            context,
-                            () =>
-                                rootContext.read<AppState>().openOfflineGame(),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _GameModeTile(
+                            icon: Icons.people_alt_rounded,
+                            color: const Color(0xFF38BDF8),
+                            title: 'تحدي صديق',
+                            subtitle: '1 ضد 1 أو منافس عشوائي',
+                            enabled: isOnline,
+                            onTap: () => FriendChallengeModal.show(context),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _GameModeTile(
+                            icon: Icons.sports_esports_rounded,
+                            color: const Color(0xFF34D399),
+                            title: 'أوفلاين',
+                            subtitle: 'العب بدون اتصال',
+                            onTap: () => _runMode(
+                              context,
+                              () => rootContext
+                                  .read<AppState>()
+                                  .openOfflineGame(),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -1192,7 +1215,8 @@ class _HomeMenuSheet extends StatelessWidget {
                         child: GestureDetector(
                           onTap: () {
                             Navigator.of(context).pop();
-                            RateGameService.instance.showRateDialog(rootContext, isManual: true);
+                            RateGameService.instance
+                                .showRateDialog(rootContext, isManual: true);
                           },
                           child: Container(
                             padding: const EdgeInsets.symmetric(
@@ -1202,13 +1226,16 @@ class _HomeMenuSheet extends StatelessWidget {
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
                                 colors: [
-                                  const Color(0xFFF59E0B).withValues(alpha: 0.22),
-                                  const Color(0xFF1E293B).withValues(alpha: 0.70),
+                                  const Color(0xFFF59E0B)
+                                      .withValues(alpha: 0.22),
+                                  const Color(0xFF1E293B)
+                                      .withValues(alpha: 0.70),
                                 ],
                               ),
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(
-                                color: const Color(0xFFF59E0B).withValues(alpha: 0.45),
+                                color: const Color(0xFFF59E0B)
+                                    .withValues(alpha: 0.45),
                               ),
                             ),
                             child: Row(
@@ -1239,7 +1266,8 @@ class _HomeMenuSheet extends StatelessWidget {
                                 const SizedBox(width: 8),
                                 const Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         'تقييم أرض التحدي ⭐',
@@ -1329,11 +1357,11 @@ class _HomeMenuSheet extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 10),
-                          const Expanded(
+                          Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
+                                const Text(
                                   'لعبة تحدي المليون 🏆',
                                   style: TextStyle(
                                     color: Colors.white,
@@ -1341,34 +1369,47 @@ class _HomeMenuSheet extends StatelessWidget {
                                     fontWeight: FontWeight.w900,
                                   ),
                                 ),
-                                Text(
-                                  'المسابقة الثقافية الشهيرة بأكثر من 50,000 سؤال',
-                                  style: TextStyle(
-                                    color: Color(0xFFFDE68A),
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                                Consumer<CrossPromoService>(
+                                  builder: (context, promo, _) {
+                                    return Text(
+                                      promo.isRewardClaimed
+                                          ? 'المسابقة الثقافية الشهيرة بأكثر من 50,000 سؤال'
+                                          : 'حمّل اللعبة واحصل على 80 جوهرة مجاناً!',
+                                      style: const TextStyle(
+                                        color: Color(0xFFFDE68A),
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    );
+                                  },
                                 ),
                               ],
                             ),
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF59E0B),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: const Text(
-                              'عرض اللعبة',
-                              style: TextStyle(
-                                color: Color(0xFF0F172A),
-                                fontSize: 11,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
+                          Consumer<CrossPromoService>(
+                            builder: (context, promo, _) {
+                              final claimed = promo.isRewardClaimed;
+                              return Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: claimed
+                                      ? const Color(0xFFF59E0B)
+                                      : const Color(0xFF10B981),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  claimed ? 'عرض اللعبة' : '+80 💎 هدية',
+                                  style: const TextStyle(
+                                    color: Color(0xFF0F172A),
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              );
+                            },
                           ),
                         ],
                       ),

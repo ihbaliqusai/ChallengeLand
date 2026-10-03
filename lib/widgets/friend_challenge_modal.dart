@@ -10,16 +10,28 @@ import '../models/player_profile.dart';
 import '../services/invite_service.dart';
 
 class FriendChallengeModal extends StatefulWidget {
-  const FriendChallengeModal({super.key, this.initialFriendCode});
+  const FriendChallengeModal({
+    super.key,
+    this.initialFriendCode,
+    this.initialTab = 0,
+  });
 
   final String? initialFriendCode;
+  final int initialTab;
 
-  static Future<void> show(BuildContext context, {String? initialFriendCode}) {
+  static Future<void> show(
+    BuildContext context, {
+    String? initialFriendCode,
+    int initialTab = 0,
+  }) {
     return showDialog<void>(
       context: context,
       barrierDismissible: true,
       barrierColor: Colors.black.withValues(alpha: 0.82),
-      builder: (context) => FriendChallengeModal(initialFriendCode: initialFriendCode),
+      builder: (context) => FriendChallengeModal(
+        initialFriendCode: initialFriendCode,
+        initialTab: initialTab,
+      ),
     );
   }
 
@@ -45,14 +57,17 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     if (widget.initialFriendCode != null && widget.initialFriendCode!.isNotEmpty) {
       _friendCodeController.text = widget.initialFriendCode!.toUpperCase();
-      _tabController.index = 1; // switch to enter code tab
+      _tabController.index = 2; // switch to enter code tab
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _verifyEnteredCode(_friendCodeController.text);
       });
     } else {
+      if (widget.initialTab >= 0 && widget.initialTab < 4) {
+        _tabController.index = widget.initialTab;
+      }
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _checkClipboardAutoFill();
         _loadRecentOpponents();
@@ -279,6 +294,35 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
     }
   }
 
+  Future<void> _startRandomMatch() async {
+    final appState = context.read<AppState>();
+    if (!appState.isOnline) {
+      setState(() {
+        _errorMessage = 'يجب توفر اتصال بالإنترنت للعب ضد منافس عشوائي';
+      });
+      return;
+    }
+
+    setState(() {
+      _isLaunching = true;
+      _errorMessage = null;
+    });
+
+    try {
+      HapticFeedback.mediumImpact();
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      await appState.openRandomMatch();
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLaunching = false;
+          _errorMessage = 'تعذر بدء البحث: $e';
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final appState = context.watch<AppState>();
@@ -343,6 +387,7 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
                   child: TabBarView(
                     controller: _tabController,
                     children: [
+                      _buildRandomMatchTab(),
                       _buildMyCardTab(myCode, playerName, userLevel),
                       _buildEnterCodeTab(),
                       _buildRecentOpponentsTab(),
@@ -400,7 +445,7 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'مركز تحدي الأصدقاء (1 ضد 1)',
+                  'مركز التحدي والمواجهة (1 ضد 1)',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 16,
@@ -408,7 +453,7 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
                   ),
                 ),
                 Text(
-                  'شارك كودك، امسح رمز QR، أو نافس خصوماً سابقين',
+                  'منافس عشوائي أونلاين، كود الصديق، أو رمز QR',
                   style: TextStyle(
                     color: Color(0xFF94A3B8),
                     fontSize: 11,
@@ -457,23 +502,292 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
         dividerColor: Colors.transparent,
         labelColor: Colors.white,
         unselectedLabelColor: const Color(0xFF94A3B8),
-        labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-        unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal, fontSize: 12),
+        labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+        unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal, fontSize: 11),
+        labelPadding: const EdgeInsets.symmetric(horizontal: 4),
         tabs: const [
           Tab(
             iconMargin: EdgeInsets.only(bottom: 2),
+            icon: Icon(Icons.flash_on_rounded, size: 18),
+            text: 'منافس عشوائي',
+          ),
+          Tab(
+            iconMargin: EdgeInsets.only(bottom: 2),
             icon: Icon(Icons.badge_rounded, size: 18),
-            text: 'بطاقة التحدي',
+            text: 'بطاقة كودي',
           ),
           Tab(
             iconMargin: EdgeInsets.only(bottom: 2),
             icon: Icon(Icons.vpn_key_rounded, size: 18),
-            text: 'إدخال الكود',
+            text: 'إدخال كود',
           ),
           Tab(
             iconMargin: EdgeInsets.only(bottom: 2),
             icon: Icon(Icons.history_rounded, size: 18),
-            text: 'خصوم أخيرون',
+            text: 'سجل الخصوم',
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Tab 0: Random Opponent Matchmaking ──────────────────────────────────────
+
+  Widget _buildRandomMatchTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Hero Glowing Matchmaking Radar Box
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  const Color(0xFF0284C7).withValues(alpha: 0.15),
+                  const Color(0xFF1E1B4B).withValues(alpha: 0.4),
+                  const Color(0xFF0F172A).withValues(alpha: 0.9),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: const Color(0xFF38BDF8).withValues(alpha: 0.4),
+                width: 1.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF0284C7).withValues(alpha: 0.18),
+                  blurRadius: 20,
+                  spreadRadius: 1,
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                // Glowing Animated Radar/Lightning Icon
+                Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Container(
+                      width: 86,
+                      height: 86,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: const Color(0xFF0284C7).withValues(alpha: 0.15),
+                        border: Border.all(
+                          color: const Color(0xFF38BDF8).withValues(alpha: 0.3),
+                          width: 2,
+                        ),
+                      ),
+                    ),
+                    Container(
+                      width: 68,
+                      height: 68,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF0284C7), Color(0xFF2563EB), Color(0xFF7C3AED)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF38BDF8).withValues(alpha: 0.5),
+                            blurRadius: 18,
+                            spreadRadius: 2,
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.bolt_rounded,
+                        color: Color(0xFFFFD700),
+                        size: 38,
+                      ),
+                    ),
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF10B981),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.wifi_rounded,
+                          color: Colors.white,
+                          size: 14,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                const Text(
+                  'المواجهة المباشرة (1 ضد 1)',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'تحدَّ أي لاعب متصل بالإنترنت الآن في جولة سريعة ومثيرة!\nنظام ذكي للبحث الفوري لتفادي الانتظار.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Color(0xFF94A3B8),
+                    fontSize: 12,
+                    height: 1.45,
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Feature Highlights Row
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _buildFeatureChip(Icons.flash_on_rounded, 'بحث فوري', const Color(0xFFFFD700)),
+                    const SizedBox(width: 8),
+                    _buildFeatureChip(Icons.military_tech_rounded, 'نقاط وتصنيف', const Color(0xFF38BDF8)),
+                    const SizedBox(width: 8),
+                    _buildFeatureChip(Icons.smart_toy_rounded, 'خصم متكافئ', const Color(0xFF34D399)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Error indicator if any
+          if (_errorMessage != null) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEF4444).withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.5)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.error_outline_rounded, color: Color(0xFFEF4444), size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _errorMessage!,
+                      style: const TextStyle(
+                        color: Color(0xFFFCA5A5),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          // Big Launch Button
+          Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF0284C7), Color(0xFF2563EB), Color(0xFF7C3AED)],
+              ),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF2563EB).withValues(alpha: 0.45),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: ElevatedButton.icon(
+              onPressed: _isLaunching ? null : _startRandomMatch,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                shadowColor: Colors.transparent,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              icon: _isLaunching
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.play_arrow_rounded, size: 24, color: Color(0xFFFFD700)),
+              label: Text(
+                _isLaunching ? 'جاري بدء البحث...' : 'ابدأ البحث عن منافس الآن ⚡',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Shortcut to friend challenge
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text(
+                'تريد تحدي صديق محدد؟',
+                style: TextStyle(color: Color(0xFF64748B), fontSize: 12),
+              ),
+              TextButton(
+                onPressed: () => _tabController.animateTo(2),
+                child: const Text(
+                  'أدخل كود صديقك 🔑',
+                  style: TextStyle(
+                    color: Color(0xFFFFD700),
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFeatureChip(IconData icon, String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ],
       ),
@@ -750,6 +1064,72 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
               ),
             ],
           ),
+          const SizedBox(height: 14),
+          // Quick Match against random opponent banner
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0F1E3A).withValues(alpha: 0.7),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: const Color(0xFF38BDF8).withValues(alpha: 0.3),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: const Color(0xFF38BDF8).withValues(alpha: 0.15),
+                  ),
+                  child: const Icon(
+                    Icons.bolt_rounded,
+                    color: Color(0xFF38BDF8),
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'لا تملك كود صديق؟',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        'العب فوراً ضد منافس عشوائي أونلاين',
+                        style: TextStyle(
+                          color: Color(0xFF94A3B8),
+                          fontSize: 10,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: _startRandomMatch,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0284C7),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: const Text(
+                    'بحث عشوائي ⚡',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -995,6 +1375,29 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
               ),
             ),
           ),
+          const SizedBox(height: 12),
+          // Or quick match against random opponent
+          OutlinedButton.icon(
+            onPressed: _isLaunching ? null : _startRandomMatch,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFF38BDF8),
+              side: BorderSide(
+                color: const Color(0xFF38BDF8).withValues(alpha: 0.5),
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 11),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            icon: const Icon(Icons.shuffle_rounded, size: 18),
+            label: const Text(
+              'أو ابحث عن منافس عشوائي أونلاين ⚡',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -1104,7 +1507,7 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
               ElevatedButton.icon(
                 onPressed: () {
                   _friendCodeController.text = displayCode;
-                  _tabController.index = 1;
+                  _tabController.index = 2;
                   _verifyEnteredCode(displayCode);
                 },
                 style: ElevatedButton.styleFrom(

@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/game_character.dart';
 import '../models/game_category.dart';
@@ -19,45 +18,19 @@ class AppState extends ChangeNotifier {
   })  : _authService = authService,
         _nativeBridgeService = nativeBridgeService {
     NativeBridgeService.addPurchaseDeliveredListener(_onPurchaseDelivered);
-    _initLocalVip();
+    unawaited(loadCategoryState());
     _authSubscription = _authService.authStateChanges().listen(_onAuthChanged);
   }
 
-  Future<void> _initLocalVip() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      if (prefs.getBool('is_vip_subscriber') == true) {
-        isVip = true;
-        notifyListeners();
-      }
-      final catState = await _nativeBridgeService.getCategoryState();
-      if (catState['isVip'] == true) {
-        isVip = true;
-        await prefs.setBool('is_vip_subscriber', true);
-        notifyListeners();
-      }
-    } catch (_) {}
+  void _onPurchaseDelivered(String productId) {
+    unawaited(_refreshDeliveredPurchase());
   }
 
-  void _onPurchaseDelivered(String productId) {
-    final clean = productId.replaceAll('_', '').toLowerCase();
-    final isVipProduct = clean.contains('vip') || clean == 'noads';
-    if (isVipProduct) {
-      isVip = true;
-      SharedPreferences.getInstance().then((prefs) {
-        prefs.setBool('is_vip_subscriber', true);
-      }).catchError((_) {});
-    }
-    loadCurrency();
-    loadCategoryState().then((_) {
-      if (isVipProduct || isVip) {
-        final uid = currentUser?.uid;
-        if (uid != null) {
-          unawaited(_saveFullUserSnapshot(uid));
-        }
-      }
-    });
-    notifyListeners();
+  Future<void> _refreshDeliveredPurchase() async {
+    await loadCurrency();
+    await loadCategoryState();
+    final uid = currentUser?.uid;
+    if (uid != null) await _saveFullUserSnapshot(uid);
   }
 
   final AuthService _authService;
@@ -195,10 +168,24 @@ class AppState extends ChangeNotifier {
   List<String> unlockedCategories = <String>[];
   Map<String, int> categoryRentals = <String, int>{};
   bool isVip = false;
+  bool hasPermanentCategoryPass = false;
+  bool hasAdFreeEntitlement = false;
+  int vipExpiresAtMillis = 0;
+  final Set<String> ownedStoreProducts = <String>{};
+  Timer? _vipExpiryTimer;
+  String? _commerceHydratedUid;
+  bool get isCommerceReady =>
+      currentUser != null && _commerceHydratedUid == currentUser!.uid;
+  bool _restoringCommerce = false;
+  Future<void> _snapshotTail = Future<void>.value();
+  int _authGeneration = 0;
   bool categoryStateLoaded = false;
 
   bool isCategoryUnlocked(String categoryName) {
-    if (isVip) return true;
+    if (hasPermanentCategoryPass ||
+        (isVip && vipExpiresAtMillis > DateTime.now().millisecondsSinceEpoch)) {
+      return true;
+    }
     if (!CategoryCatalog.isCategoryPremium(categoryName)) return true;
     final norm = GameCategory.normalize(categoryName);
     for (final item in unlockedCategories) {
@@ -224,23 +211,10 @@ class AppState extends ChangeNotifier {
     try {
       final state = await _nativeBridgeService.getCategoryState();
       unlockedCategories = (state['unlocked'] as List<String>? ?? <String>[]);
-      categoryRentals = (state['rentals'] as Map<String, int>? ?? <String, int>{});
-      final nativeVip = state['isVip'] == true;
-      final prefs = await SharedPreferences.getInstance();
-      final prefsVip = prefs.getBool('is_vip_subscriber') == true;
-
-      if (nativeVip || prefsVip || isVip) {
-        isVip = true;
-        await prefs.setBool('is_vip_subscriber', true);
-        if (!nativeVip) {
-          await _nativeBridgeService.setCategoryState(
-            unlocked: unlockedCategories,
-            isVip: true,
-          );
-        }
-      } else {
-        isVip = false;
-      }
+      categoryRentals =
+          (state['rentals'] as Map<String, int>? ?? <String, int>{});
+      final commerce = await _nativeBridgeService.getCommerceState();
+      _applyCommerceState(commerce);
     } catch (_) {
     } finally {
       categoryStateLoaded = true;
@@ -248,9 +222,34 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  Future<bool> unlockCategoryWithGems(String category, {int gemCost = 150}) async {
+  void _applyCommerceState(Map<String, dynamic> commerce) {
+    _vipExpiryTimer?.cancel();
+    vipExpiresAtMillis = (commerce['expiresAtMillis'] as num?)?.toInt() ?? 0;
+    isVip = commerce['isVip'] == true &&
+        vipExpiresAtMillis > DateTime.now().millisecondsSinceEpoch;
+    hasPermanentCategoryPass = commerce['allCategories'] == true;
+    hasAdFreeEntitlement = commerce['removeAds'] == true || isVip;
+    final rawOwned = commerce['purchasedOneTime'];
+    ownedStoreProducts
+      ..clear()
+      ..addAll(
+          rawOwned is List ? rawOwned.map((id) => id.toString()) : <String>[]);
+    if (hasPermanentCategoryPass) ownedStoreProducts.add('category_all_access');
+    if (isVip) {
+      _vipExpiryTimer = Timer(
+        Duration(
+            milliseconds:
+                vipExpiresAtMillis - DateTime.now().millisecondsSinceEpoch),
+        () => unawaited(loadCategoryState()),
+      );
+    }
+  }
+
+  Future<bool> unlockCategoryWithGems(String category,
+      {int gemCost = 150}) async {
     if (gems < gemCost) return false;
-    final ok = await _nativeBridgeService.unlockCategoryPermanently(category, gemCost: gemCost);
+    final ok = await _nativeBridgeService.unlockCategoryPermanently(category,
+        gemCost: gemCost);
     if (ok) {
       await loadCurrency();
       await loadCategoryState();
@@ -286,6 +285,12 @@ class AppState extends ChangeNotifier {
     if (online && wasOffline && user != null) {
       unawaited(loadCurrency());
       unawaited(loadLevelData());
+      final uid = user!.uid;
+      if (_commerceHydratedUid != uid) {
+        unawaited(_loadAndSyncUserData(uid, _authGeneration));
+      } else {
+        unawaited(refreshCommerce());
+      }
     }
   }
 
@@ -506,12 +511,12 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> _onAuthChanged(User? nextUser) async {
+    final generation = ++_authGeneration;
     final previousUser = user;
-    if (nextUser == null && previousUser != null) {
-      await _saveFullUserSnapshot(previousUser.uid);
-    }
 
-    final isDifferentUser = previousUser != null && nextUser != null && previousUser.uid != nextUser.uid;
+    final isDifferentUser = previousUser != null &&
+        nextUser != null &&
+        previousUser.uid != nextUser.uid;
     user = nextUser;
 
     if (nextUser != null) {
@@ -519,7 +524,9 @@ class AppState extends ChangeNotifier {
         _resetSessionState();
         await _nativeBridgeService.resetLegacyUser();
       }
-      await _loadAndSyncUserData(nextUser.uid);
+      if (generation != _authGeneration) return;
+      await _loadAndSyncUserData(nextUser.uid, generation);
+      if (generation != _authGeneration) return;
       unawaited(_syncPublicProfile());
     } else {
       _resetSessionState();
@@ -616,7 +623,8 @@ class AppState extends ChangeNotifier {
   String get friendCode {
     final uid = currentUser?.uid;
     if (uid == null || uid.isEmpty) return '';
-    final normalized = uid.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').toUpperCase();
+    final normalized =
+        uid.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').toUpperCase();
     if (normalized.isEmpty) return '';
     return normalized.length > 10 ? normalized.substring(0, 10) : normalized;
   }
@@ -627,6 +635,11 @@ class AppState extends ChangeNotifier {
       matchMode: matchMode,
       friendCode: friendCode,
     );
+  }
+
+  Future<void> openRandomMatch() async {
+    await _syncLegacyUser();
+    await _nativeBridgeService.launchRandomMatch();
   }
 
   Future<void> openFriendChallenge(String friendCode) async {
@@ -742,15 +755,23 @@ class AppState extends ChangeNotifier {
     );
   }
 
-  Future<void> _loadAndSyncUserData(String uid) async {
+  Future<void> _loadAndSyncUserData(String uid, int generation) async {
+    bool isActive() => generation == _authGeneration && currentUser?.uid == uid;
     try {
       final doc = await _firestore.collection('users').doc(uid).get();
       final data = doc.data();
+      if (!isActive()) return;
 
-      final nativeCat = await _nativeBridgeService.getCategoryState();
-      final nativeIsVip = nativeCat['isVip'] == true;
-      final prefs = await SharedPreferences.getInstance();
-      final prefsIsVip = prefs.getBool('is_vip_subscriber') == true;
+      // Bind the native account before reading its verified entitlements.
+      await _syncLegacyUser();
+      if (!isActive()) return;
+      final commerce = await _nativeBridgeService.getCommerceState();
+      if (!isActive()) return;
+      _applyCommerceState(commerce);
+      final rawRemoteIds = data?['appliedCommerceDeliveryIds'];
+      final remoteDeliveryIds = rawRemoteIds is List
+          ? rawRemoteIds.whereType<String>().toSet()
+          : <String>{};
 
       if (data != null && data.isNotEmpty) {
         coins = (data['coins'] as num?)?.toInt() ?? 0;
@@ -760,16 +781,6 @@ class AppState extends ChangeNotifier {
         unlockedCategories = rawCats is List
             ? rawCats.map((e) => e.toString()).toList()
             : <String>[];
-
-        final firestoreIsVip = data['isVip'] == true;
-        isVip = firestoreIsVip || nativeIsVip || prefsIsVip || isVip;
-
-        if (isVip) {
-          await prefs.setBool('is_vip_subscriber', true);
-          if (!firestoreIsVip) {
-            unawaited(_saveFullUserSnapshot(uid));
-          }
-        }
 
         selectedCharacterIndex =
             (data['characterIndex'] as num?)?.toInt() ?? -1;
@@ -795,10 +806,6 @@ class AppState extends ChangeNotifier {
         coins = 500;
         gems = 10;
         unlockedCategories = <String>[];
-        isVip = nativeIsVip || prefsIsVip || isVip;
-        if (isVip) {
-          await prefs.setBool('is_vip_subscriber', true);
-        }
         selectedCharacterIndex = -1;
         purchasedCharacters.clear();
         xp = 0;
@@ -806,11 +813,33 @@ class AppState extends ChangeNotifier {
         xpInCurrentLevel = 0;
         xpNeededForLevel = PlayerRank.xpNeededForLevel(1);
         trophies = 0;
-        await _saveFullUserSnapshot(uid);
+      }
+
+      // Reconcile native grants committed just before an interrupted cloud save.
+      final pendingGrants = commerce['pendingSnapshotGrants'];
+      if (pendingGrants is List) {
+        final recovered = <String>{};
+        for (final pending in pendingGrants.whereType<Map>()) {
+          final deliveryId = pending['deliveryId']?.toString() ?? '';
+          if (deliveryId.isEmpty ||
+              remoteDeliveryIds.contains(deliveryId) ||
+              !recovered.add(deliveryId)) {
+            continue;
+          }
+          coins += (pending['coins'] as num?)?.toInt() ?? 0;
+          gems += (pending['gems'] as num?)?.toInt() ?? 0;
+        }
       }
 
       await _syncLegacyUser();
-      await _nativeBridgeService.setUserCurrency(coins: coins, gems: gems);
+      if (!isActive()) return;
+      final hydrated = await _nativeBridgeService.hydrateCommerceWallet(
+        accountUid: uid,
+        coins: coins,
+        gems: gems,
+        deliveryIds: remoteDeliveryIds.toList(),
+      );
+      if (!isActive() || !hydrated) return;
       await _nativeBridgeService.setCategoryState(
         unlocked: unlockedCategories,
         isVip: isVip,
@@ -820,10 +849,19 @@ class AppState extends ChangeNotifier {
         unlocked: purchasedCharacters.toList(),
       );
 
+      if (!isActive()) return;
+      _commerceHydratedUid = uid;
+      await _saveFullUserSnapshot(uid);
+
+      // Restore only after the account wallet and delivery ledger are hydrated.
+      // An already-used receipt must never credit a restored wallet again.
+      unawaited(_restoreAccountCommerce(uid));
+
       categoryStateLoaded = true;
       characterStateLoaded = true;
       notifyListeners();
     } catch (e) {
+      if (!isActive()) return;
       debugPrint('[AppState] Error loading user data: $e');
       await loadCurrency();
       await loadCategoryState();
@@ -831,25 +869,73 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  Future<void> _saveFullUserSnapshot(String uid) async {
+  Future<void> _restoreAccountCommerce(String uid) async {
+    if (_restoringCommerce || _commerceHydratedUid != uid) return;
+    _restoringCommerce = true;
     try {
-      final currentCoins = coins;
-      final currentGems = gems;
+      if (currentUser?.uid != uid) return;
+      final restored = await _nativeBridgeService.restorePurchases();
+      if (currentUser?.uid != uid) return;
+      if (restored) {
+        await loadCategoryState();
+        await loadCurrency();
+        await _saveFullUserSnapshot(uid);
+      }
+    } catch (_) {
+      // Keep the verified, expiry-bound local entitlement while offline.
+    } finally {
+      _restoringCommerce = false;
+    }
+  }
+
+  Future<void> refreshCommerce() async {
+    final uid = currentUser?.uid;
+    await loadCategoryState();
+    if (uid != null && _commerceHydratedUid == uid) {
+      await _restoreAccountCommerce(uid);
+    }
+  }
+
+  Future<void> _saveFullUserSnapshot(String uid) {
+    _snapshotTail = _snapshotTail.then((_) => _writeFullUserSnapshot(uid));
+    return _snapshotTail;
+  }
+
+  Future<void> _writeFullUserSnapshot(String uid) async {
+    try {
+      if (currentUser?.uid != uid || _commerceHydratedUid != uid) return;
+      final commerce = await _nativeBridgeService.getCommerceState();
+      if (currentUser?.uid != uid ||
+          _commerceHydratedUid != uid ||
+          commerce['accountUid'] != uid ||
+          commerce['walletAccountUid'] != uid) {
+        return;
+      }
+      final rawDeliveryIds = commerce['appliedDeliveryIds'];
+      final deliveryIds = rawDeliveryIds is List
+          ? rawDeliveryIds.whereType<String>().toList()
+          : <String>[];
+      final currentCoins = (commerce['walletCoins'] as num?)?.toInt() ?? coins;
+      final currentGems = (commerce['walletGems'] as num?)?.toInt() ?? gems;
       await _firestore.collection('users').doc(uid).set(
         <String, dynamic>{
           'coins': currentCoins,
           'gems': currentGems,
           'unlockedCategories': unlockedCategories,
-          'isVip': isVip,
           'characterIndex': selectedCharacterIndex,
           'purchasedCharacters': purchasedCharacters.toList(),
           'xp': xp,
           'level': level,
           'trophies': trophies,
           'currencyUpdatedAt': FieldValue.serverTimestamp(),
+          'appliedCommerceDeliveryIds': deliveryIds,
         },
         SetOptions(merge: true),
       );
+      if (currentUser?.uid == uid && deliveryIds.isNotEmpty) {
+        await _nativeBridgeService.confirmCommerceSnapshot(deliveryIds,
+            accountUid: uid);
+      }
     } catch (e) {
       debugPrint('[AppState] Failed to save full user snapshot: $e');
     }
@@ -902,6 +988,7 @@ class AppState extends ChangeNotifier {
   @override
   void dispose() {
     _authSubscription?.cancel();
+    _vipExpiryTimer?.cancel();
     NativeBridgeService.removePurchaseDeliveredListener(_onPurchaseDelivered);
     super.dispose();
   }
@@ -949,7 +1036,13 @@ class AppState extends ChangeNotifier {
     characterStateLoaded = false;
     unlockedCategories.clear();
     categoryRentals.clear();
-    // Do NOT wipe isVip if user has active VIP on device
+    _vipExpiryTimer?.cancel();
+    _commerceHydratedUid = null;
+    isVip = false;
+    vipExpiresAtMillis = 0;
+    hasPermanentCategoryPass = false;
+    hasAdFreeEntitlement = false;
+    ownedStoreProducts.clear();
     categoryStateLoaded = false;
   }
 }

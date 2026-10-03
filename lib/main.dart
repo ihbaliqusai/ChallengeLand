@@ -54,11 +54,10 @@ class ChallengeLandApp extends StatelessWidget {
         Provider<AuthService>(create: (_) => AuthService()),
         Provider<ProfileService>(create: (_) => ProfileService()),
         Provider<NativeBridgeService>(create: (_) => NativeBridgeService()),
-        Provider<InAppPurchaseService>(
+        ChangeNotifierProvider<InAppPurchaseService>(
           create: (context) => InAppPurchaseService(
             nativeBridge: context.read<NativeBridgeService>(),
           )..initialize(),
-          dispose: (_, service) => service.dispose(),
         ),
         ChangeNotifierProvider<CrossPromoService>(
           create: (context) =>
@@ -112,6 +111,7 @@ class ChallengeLandApp extends StatelessWidget {
             useMaterial3: true,
             brightness: Brightness.dark,
             fontFamily: 'Baloo',
+            fontFamilyFallback: const ['NotoSansArabic'],
             scaffoldBackgroundColor: const Color(0xFF030712),
             colorScheme: const ColorScheme.dark(
               primary: Color(0xFF7C3AED),

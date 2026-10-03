@@ -6,6 +6,7 @@ import '../../core/app_settings.dart';
 import '../../core/app_state.dart';
 import '../../services/ad_service.dart';
 import '../../widgets/cross_promo_millionaire_dialog.dart';
+import '../../services/cross_promo_service.dart';
 import '../../services/rate_game_service.dart';
 import '../legal/privacy_policy_screen.dart';
 
@@ -826,7 +827,8 @@ class _ActionsPanel extends StatelessWidget {
                   icon: Icons.star_rounded,
                   label: rated
                       ? _t('تقييم أرض التحدي ⭐', 'Rate Challenge Land ⭐')
-                      : _t('تقييم أرض التحدي ⭐ (+مكافأة)', 'Rate Challenge Land ⭐ (+Bonus)'),
+                      : _t('تقييم أرض التحدي ⭐ (+مكافأة)',
+                          'Rate Challenge Land ⭐ (+Bonus)'),
                   color: const Color(0xFFFACC15),
                   onTap: onRateGame,
                   compact: compact,
@@ -834,12 +836,23 @@ class _ActionsPanel extends StatelessWidget {
               },
             ),
             SizedBox(height: compact ? 6 : 8),
-            _ActionLineButton(
-              icon: Icons.emoji_events_rounded,
-              label: _t('لعبتنا الأخرى: تحدي المليون 🏆', 'Our Game: Million Challenge 🏆'),
-              color: const Color(0xFFFBBF24),
-              onTap: () => CrossPromoMillionaireDialog.show(context),
-              compact: compact,
+            Consumer<CrossPromoService>(
+              builder: (context, promo, _) {
+                final claimed = promo.isRewardClaimed;
+                return _ActionLineButton(
+                  icon: Icons.emoji_events_rounded,
+                  label: claimed
+                      ? _t('لعبتنا الأخرى: تحدي المليون 🏆',
+                          'Our Game: Million Challenge 🏆')
+                      : _t('تحميل تحدي المليون (+80 💎 هدية)',
+                          'Download Million Challenge (+80 💎)'),
+                  color: claimed
+                      ? const Color(0xFFFBBF24)
+                      : const Color(0xFF10B981),
+                  onTap: () => CrossPromoMillionaireDialog.show(context),
+                  compact: compact,
+                );
+              },
             ),
             SizedBox(height: compact ? 6 : 8),
             _ActionLineButton(

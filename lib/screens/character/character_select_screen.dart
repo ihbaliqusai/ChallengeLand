@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 
 import '../../core/app_state.dart';
 import '../../models/game_character.dart';
+import '../../models/store_catalog.dart';
+import '../home/store_screen.dart';
 
 /// Character picker. Shown forced on first entry (no back, must choose) and as a
 /// normal editable route from the profile (with a back button).
@@ -61,13 +63,34 @@ class _CharacterSelectScreenState extends State<CharacterSelectScreen> {
     // Locked by level — cannot be chosen yet.
     if (!appState.isCharacterUnlocked(character) &&
         character.unlock.isLevelGated) {
-      _showSnack('تُفتح ${character.nameAr} عند المستوى ${character.unlock.value}',
+      _showSnack(
+          'تُفتح ${character.nameAr} عند المستوى ${character.unlock.value}',
           isError: true);
       return;
     }
 
     // Locked by purchase — buy first, then select.
     if (!appState.isCharacterUnlocked(character)) {
+      final isCoins = character.unlock.kind == CharacterUnlockKind.coins;
+      final balance = isCoins ? appState.coins : appState.gems;
+      if (balance < character.unlock.value) {
+        final shortfall = character.unlock.value - balance;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(
+              'تحتاج إلى $shortfall ${isCoins ? 'عملة' : 'جوهرة'} إضافية لفتح ${character.nameAr}.'),
+          action: SnackBarAction(
+              label: 'زيارة المتجر',
+              onPressed: () {
+                Navigator.of(context).push(MaterialPageRoute<void>(
+                  builder: (_) => StoreScreen(
+                      initialKind: isCoins
+                          ? StoreProductKind.coins
+                          : StoreProductKind.gems),
+                ));
+              }),
+        ));
+        return;
+      }
       final confirmed = await _confirmPurchase(character);
       if (confirmed != true || !mounted) return;
       setState(() => _busy = true);
@@ -162,7 +185,8 @@ class _CharacterSelectScreenState extends State<CharacterSelectScreen> {
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFFFACC15),
                 foregroundColor: const Color(0xFF111827),
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12)),
               ),
@@ -227,7 +251,8 @@ class _CharacterSelectScreenState extends State<CharacterSelectScreen> {
                             children: [
                               const _ScreenTitle(),
                               Padding(
-                                padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                                padding:
+                                    const EdgeInsets.fromLTRB(16, 4, 16, 0),
                                 child: Center(
                                   child: ConstrainedBox(
                                     constraints:
@@ -799,7 +824,8 @@ class _CharacterRailState extends State<_CharacterRail> {
     if (!_controller.hasClients) return;
     final position = _railPosition(widget.focused);
     final viewport = _controller.position.viewportDimension;
-    final target = (position * _itemExtent) - (viewport / 2) + (_itemExtent / 2);
+    final target =
+        (position * _itemExtent) - (viewport / 2) + (_itemExtent / 2);
     final clamped =
         target.clamp(0.0, _controller.position.maxScrollExtent).toDouble();
     if (animate) {
@@ -905,7 +931,8 @@ class _RailItem extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: const Color(0xFF0A1326).withValues(alpha: 0.9),
-              border: Border.all(color: ringColor, width: isFocused ? 2.4 : 1.2),
+              border:
+                  Border.all(color: ringColor, width: isFocused ? 2.4 : 1.2),
               boxShadow: isFocused
                   ? [
                       BoxShadow(
@@ -973,7 +1000,8 @@ class _SelectedTick extends StatelessWidget {
         border: Border.all(color: const Color(0xFF34D399), width: 1.5),
       ),
       padding: const EdgeInsets.all(1),
-      child: const Icon(Icons.check_rounded, color: Color(0xFF34D399), size: 13),
+      child:
+          const Icon(Icons.check_rounded, color: Color(0xFF34D399), size: 13),
     );
   }
 }
@@ -1066,10 +1094,26 @@ class _CharacterImage extends StatelessWidget {
     // Android renderer — which made the locked faces look colour-inverted.
     return ColorFiltered(
       colorFilter: const ColorFilter.matrix(<double>[
-        0.2126, 0.7152, 0.0722, 0, 0,
-        0.2126, 0.7152, 0.0722, 0, 0,
-        0.2126, 0.7152, 0.0722, 0, 0,
-        0, 0, 0, 1, 0,
+        0.2126,
+        0.7152,
+        0.0722,
+        0,
+        0,
+        0.2126,
+        0.7152,
+        0.0722,
+        0,
+        0,
+        0.2126,
+        0.7152,
+        0.0722,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
       ]),
       child: Opacity(opacity: 0.55, child: image),
     );

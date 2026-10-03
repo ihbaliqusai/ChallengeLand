@@ -6,9 +6,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class AdService extends ChangeNotifier {
   // ── Production AdMob ad unit IDs (publisher ca-app-pub-2427194500639575) ─────
-  static const String _rewardedId = 'ca-app-pub-2427194500639575/4290411051';
+  static const String _rewardedId = 'ca-app-pub-2427194500639575/8907631037';
   static const String _interstitialId =
-      'ca-app-pub-2427194500639575/3315194558';
+      'ca-app-pub-2427194500639575/5886891033';
 
   // ── Reward config ────────────────────────────────────────────────────────────
   static const int rewardCoins = 100;

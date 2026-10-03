@@ -9,6 +9,28 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == uid;
     }
 
+    // Paid grants and rights have a separate server-only authority. Client
+    // snapshots under /users must never be accepted as proof of payment.
+    match /commerce_accounts/{uid} {
+      allow read: if isOwner(uid);
+      allow create, update, delete: if false;
+
+      match /transactions/{deliveryId} {
+        allow read: if isOwner(uid);
+        allow create, update, delete: if false;
+      }
+
+      match /entitlements/{entitlementId} {
+        allow read: if isOwner(uid);
+        allow create, update, delete: if false;
+      }
+    }
+
+    // Tokens are credentials used only by the backend verifier and RTDN worker.
+    match /commerce_purchase_tokens/{deliveryId} {
+      allow read, write: if false;
+    }
+
     function publicProfileFieldsAreSafe() {
       return request.resource.data.keys().hasOnly([
         'uid',

@@ -9,15 +9,32 @@ class NativeBridgeService {
     _initChannelHandler();
   }
 
-  static final List<void Function(String productId)> _purchaseDeliveredListeners = [];
+  static final List<void Function(String productId)>
+      _purchaseDeliveredListeners = [];
+  static final List<void Function(Map<String, dynamic>)>
+      _purchaseStatusListeners = [];
 
-  static void addPurchaseDeliveredListener(void Function(String productId) listener) {
+  static void addPurchaseStatusListener(
+      void Function(Map<String, dynamic>) listener) {
+    if (!_purchaseStatusListeners.contains(listener)) {
+      _purchaseStatusListeners.add(listener);
+    }
+  }
+
+  static void removePurchaseStatusListener(
+      void Function(Map<String, dynamic>) listener) {
+    _purchaseStatusListeners.remove(listener);
+  }
+
+  static void addPurchaseDeliveredListener(
+      void Function(String productId) listener) {
     if (!_purchaseDeliveredListeners.contains(listener)) {
       _purchaseDeliveredListeners.add(listener);
     }
   }
 
-  static void removePurchaseDeliveredListener(void Function(String productId) listener) {
+  static void removePurchaseDeliveredListener(
+      void Function(String productId) listener) {
     _purchaseDeliveredListeners.remove(listener);
   }
 
@@ -26,8 +43,17 @@ class NativeBridgeService {
     if (_handlerInitialized) return;
     _handlerInitialized = true;
     _channel.setMethodCallHandler((call) async {
+      if (call.method == 'onPurchaseStatus' && call.arguments is Map) {
+        final status = Map<String, dynamic>.from(call.arguments as Map);
+        for (final listener in List.of(_purchaseStatusListeners)) {
+          try {
+            listener(status);
+          } catch (_) {}
+        }
+      }
       if (call.method == 'onPurchaseDelivered') {
-        final productId = (call.arguments as Map?)?['productId']?.toString() ?? '';
+        final productId =
+            (call.arguments as Map?)?['productId']?.toString() ?? '';
         if (productId.isNotEmpty) {
           for (final listener in List.of(_purchaseDeliveredListeners)) {
             try {
@@ -65,9 +91,11 @@ class NativeBridgeService {
     String? playStoreUrl,
   }) async {
     try {
-      final result = await _channel.invokeMethod<String>('launchAppOrPlayStore', {
+      final result =
+          await _channel.invokeMethod<String>('launchAppOrPlayStore', {
         'packageName': packageName,
-        'playStoreUrl': playStoreUrl ?? 'https://play.google.com/store/apps/details?id=$packageName',
+        'playStoreUrl': playStoreUrl ??
+            'https://play.google.com/store/apps/details?id=$packageName',
       });
       return result;
     } catch (_) {
@@ -361,11 +389,16 @@ class NativeBridgeService {
     await _channel.invokeMethod('launchSettings');
   }
 
-  Future<void> launchSpeedBattle({String? matchMode, String? friendCode}) async {
+  Future<void> launchSpeedBattle(
+      {String? matchMode, String? friendCode}) async {
     await _channel.invokeMethod('launchSpeedBattle', <String, dynamic>{
       'matchMode': matchMode ?? '',
       'friendCode': friendCode ?? '',
     });
+  }
+
+  Future<void> launchRandomMatch() async {
+    await _channel.invokeMethod('launchRandomMatch');
   }
 
   Future<void> launchFriendChallenge({required String friendCode}) async {
@@ -426,6 +459,28 @@ class NativeBridgeService {
     if (result == null) {
       return <String, int>{
         'success': 0,
+        'coins': 0,
+        'xp': 0,
+        'totalCoins': 0,
+        'totalGems': 0,
+        'totalXp': 0,
+        'unclaimedAchievements': 0,
+      };
+    }
+    return result.map((k, v) {
+      if (v is bool) return MapEntry(k, v ? 1 : 0);
+      return MapEntry(k, (v as num?)?.toInt() ?? 0);
+    });
+  }
+
+  Future<Map<String, int>> claimAllAchievementRewards() async {
+    final result = await _channel.invokeMapMethod<String, dynamic>(
+      'claimAllAchievementRewards',
+    );
+    if (result == null) {
+      return <String, int>{
+        'success': 0,
+        'claimedCount': 0,
         'coins': 0,
         'xp': 0,
         'totalCoins': 0,
@@ -540,23 +595,13 @@ class NativeBridgeService {
   }
 
   Future<bool> restorePurchases() async {
-    final result = await _channel.invokeMethod<bool>('restorePurchases');
-    return result ?? false;
+    return (await restorePurchaseState())['success'] == true;
   }
 
-  /// يُسلّم منتج IAP للاعب (يُستدعى بعد نجاح عملية الدفع عبر Google Play).
-  Future<bool> deliverPurchase(
-    String productId, {
-    String? deliveryKey,
-  }) async {
-    final result = await _channel.invokeMethod<bool>(
-      'deliverPurchase',
-      {
-        'productId': productId,
-        'deliveryKey': deliveryKey ?? '',
-      },
-    );
-    return result ?? false;
+  Future<Map<String, dynamic>> restorePurchaseState() async {
+    final result = await _channel.invokeMethod<dynamic>('restorePurchases');
+    if (result is Map) return Map<String, dynamic>.from(result);
+    return {'success': result == true};
   }
 
   /// يشتري عملات (كوينز) بخصم جواهر من الرصيد المحلي.
@@ -649,14 +694,23 @@ class NativeBridgeService {
         'isVip': isVip,
       };
     } on MissingPluginException {
-      return {'unlocked': <String>[], 'rentals': <String, int>{}, 'isVip': false};
+      return {
+        'unlocked': <String>[],
+        'rentals': <String, int>{},
+        'isVip': false
+      };
     } catch (_) {
-      return {'unlocked': <String>[], 'rentals': <String, int>{}, 'isVip': false};
+      return {
+        'unlocked': <String>[],
+        'rentals': <String, int>{},
+        'isVip': false
+      };
     }
   }
 
   /// يفتح فئة مقفلة بشكل دائم بخصم الجواهر من رصيد اللاعب
-  Future<bool> unlockCategoryPermanently(String category, {int gemCost = 150}) async {
+  Future<bool> unlockCategoryPermanently(String category,
+      {int gemCost = 150}) async {
     try {
       final result = await _channel.invokeMethod<bool>('unlockCategory', {
         'category': category,
@@ -746,13 +800,63 @@ class NativeBridgeService {
 
   Future<Map<String, dynamic>> launchBilling(String productId) async {
     try {
-      final res = await _channel.invokeMapMethod<String, dynamic>('launchBilling', {
+      final res =
+          await _channel.invokeMapMethod<String, dynamic>('launchBilling', {
         'productId': productId,
       });
       return res ?? {'success': false, 'message': 'Unknown response'};
     } catch (e) {
       return {'success': false, 'message': e.toString()};
     }
+  }
+
+  Future<Map<String, dynamic>> getBillingProducts() async {
+    final result =
+        await _channel.invokeMapMethod<String, dynamic>('getBillingProducts');
+    return result ?? {'available': false, 'products': <dynamic>[]};
+  }
+
+  Future<Map<String, dynamic>> getCommerceState() async {
+    try {
+      return await _channel
+              .invokeMapMethod<String, dynamic>('getCommerceState') ??
+          <String, dynamic>{};
+    } on MissingPluginException {
+      return <String, dynamic>{};
+    }
+  }
+
+  Future<bool> manageSubscriptions() async {
+    try {
+      return await _channel.invokeMethod<bool>('manageSubscriptions') ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> syncCommerceDeliveryIds(List<String> deliveryIds) async {
+    await _channel.invokeMethod<void>(
+        'syncCommerceDeliveryIds', {'appliedDeliveryIds': deliveryIds});
+  }
+
+  Future<void> confirmCommerceSnapshot(List<String> deliveryIds,
+      {required String accountUid}) async {
+    await _channel.invokeMethod<dynamic>('confirmCommerceSnapshot',
+        {'appliedDeliveryIds': deliveryIds, 'accountUid': accountUid});
+  }
+
+  Future<bool> hydrateCommerceWallet(
+      {required String accountUid,
+      required int coins,
+      required int gems,
+      required List<String> deliveryIds}) async {
+    return await _channel.invokeMethod<bool>('hydrateCommerceWallet', {
+          'accountUid': accountUid,
+          'coins': coins,
+          'gems': gems,
+          'appliedDeliveryIds': deliveryIds,
+        }) ??
+        false;
   }
 
   Future<bool> isBillingAvailable() async {

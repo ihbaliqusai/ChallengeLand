@@ -5,6 +5,9 @@ build/
 .flutter-plugins
 .flutter-plugins-dependencies
 .melos_tool/
+functions/node_modules/
+functions/.env*
+!functions/.env.example
 .idea/
 *.iml
 android/.gradle/

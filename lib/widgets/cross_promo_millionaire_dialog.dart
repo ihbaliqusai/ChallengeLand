@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../core/app_state.dart';
 import '../services/cross_promo_service.dart';
 
 class CrossPromoMillionaireDialog extends StatefulWidget {
@@ -21,7 +22,7 @@ class CrossPromoMillionaireDialog extends StatefulWidget {
 
 class _CrossPromoMillionaireDialogState
     extends State<CrossPromoMillionaireDialog>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late final AnimationController _pulseCtrl;
   final ScrollController _scrollController = ScrollController();
   bool _loadingStatus = true;
@@ -30,6 +31,7 @@ class _CrossPromoMillionaireDialogState
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _pulseCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1300),
@@ -38,9 +40,18 @@ class _CrossPromoMillionaireDialogState
     _checkInstall();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkInstall();
+    }
+  }
+
   Future<void> _checkInstall() async {
     final promoService = context.read<CrossPromoService>();
+    final uid = context.read<AppState>().currentUser?.uid;
     final installed = await promoService.checkInstallation();
+    await promoService.checkRewardClaimed(uid: uid);
     if (mounted) {
       setState(() {
         _isInstalled = installed;
@@ -51,6 +62,7 @@ class _CrossPromoMillionaireDialogState
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _pulseCtrl.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -227,6 +239,11 @@ class _CrossPromoMillionaireDialogState
                             children: [
                               // ── Game Info Banner ─────────────────────────
                               _buildGameInfoBanner(),
+
+                              const SizedBox(height: 14),
+
+                              // ── 80 Gems Reward Banner ─────────────────────
+                              _buildRewardCard(promoService),
 
                               const SizedBox(height: 14),
 
@@ -719,6 +736,176 @@ class _CrossPromoMillionaireDialogState
     );
   }
 
+  // ── 80 Gems Reward Banner ──────────────────────────────────────────────────
+  Widget _buildRewardCard(CrossPromoService promoService) {
+    final bool claimed = promoService.isRewardClaimed;
+    final bool installed = _isInstalled;
+
+    final Color borderColor = claimed
+        ? const Color(0xFF10B981).withValues(alpha: 0.6)
+        : installed
+            ? const Color(0xFFF59E0B)
+            : const Color(0xFF38BDF8).withValues(alpha: 0.7);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: claimed
+              ? [
+                  const Color(0xFF064E3B).withValues(alpha: 0.45),
+                  const Color(0xFF0F172A).withValues(alpha: 0.85),
+                ]
+              : installed
+                  ? [
+                      const Color(0xFF78350F).withValues(alpha: 0.45),
+                      const Color(0xFF1E1B4B).withValues(alpha: 0.75),
+                      const Color(0xFF0F172A),
+                    ]
+                  : [
+                      const Color(0xFF0369A1).withValues(alpha: 0.25),
+                      const Color(0xFF1E293B).withValues(alpha: 0.85),
+                      const Color(0xFF0F172A),
+                    ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor, width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: (claimed
+                    ? const Color(0xFF10B981)
+                    : installed
+                        ? const Color(0xFFF59E0B)
+                        : const Color(0xFF38BDF8))
+                .withValues(alpha: 0.15),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              // Diamond Badge Icon
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: claimed
+                        ? [const Color(0xFF34D399), const Color(0xFF059669)]
+                        : [const Color(0xFF38BDF8), const Color(0xFF2563EB)],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: (claimed
+                              ? const Color(0xFF10B981)
+                              : const Color(0xFF38BDF8))
+                          .withValues(alpha: 0.4),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: Icon(
+                    claimed
+                        ? Icons.check_circle_rounded
+                        : Icons.diamond_rounded,
+                    color: Colors.white,
+                    size: 26,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          claimed
+                              ? 'تم استلام الجائزة ✓'
+                              : 'هدية خاصة: 80 جوهرة 💎',
+                          style: TextStyle(
+                            color: claimed
+                                ? const Color(0xFF34D399)
+                                : const Color(0xFFFBBF24),
+                            fontSize: 14.5,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                        const Spacer(),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: (claimed
+                                    ? const Color(0xFF10B981)
+                                    : installed
+                                        ? const Color(0xFFF59E0B)
+                                        : const Color(0xFF38BDF8))
+                                .withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: (claimed
+                                      ? const Color(0xFF10B981)
+                                      : installed
+                                          ? const Color(0xFFF59E0B)
+                                          : const Color(0xFF38BDF8))
+                                  .withValues(alpha: 0.6),
+                              width: 1,
+                            ),
+                          ),
+                          child: Text(
+                            claimed
+                                ? 'مكتمل'
+                                : installed
+                                    ? 'جاهز للاستلام 🎁'
+                                    : '+80 💎 مجاناً',
+                            style: TextStyle(
+                              color: claimed
+                                  ? const Color(0xFF6EE7B7)
+                                  : installed
+                                      ? const Color(0xFFFDE68A)
+                                      : const Color(0xFF7DD3FC),
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      claimed
+                          ? 'أضيفت 80 جوهرة إلى رصيدك. شكراً لتحميلك تحدي المليون!'
+                          : installed
+                              ? 'تهانينا! اللعبة مثبتة على هاتفك. استلم الآن 80 جوهرة تضاف إلى رصيدك فوراً!'
+                              : 'قم بتحميل لعبة «تحدي المليون» وارجع لتستلم 80 جوهرة مجانية تضاف لحسابك فوراً.',
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 11.5,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   // ── Glowing Call To Action Button ──────────────────────────────────────────
   Widget _buildCtaButton(CrossPromoService promoService) {
     return AnimatedBuilder(
@@ -726,9 +913,28 @@ class _CrossPromoMillionaireDialogState
       builder: (context, _) {
         final glowValue = 0.30 + _pulseCtrl.value * 0.45;
         final isInst = _isInstalled;
+        final isClaimed = promoService.isRewardClaimed;
+        final isClaiming = promoService.isClaiming;
 
-        final Color primaryGlow =
-            isInst ? const Color(0xFF22C55E) : const Color(0xFFF59E0B);
+        final bool isClaimAction = isInst && !isClaimed;
+
+        final Color primaryGlow = isClaimAction
+            ? const Color(0xFFF59E0B)
+            : isInst
+                ? const Color(0xFF22C55E)
+                : const Color(0xFF38BDF8);
+
+        final Color btnBg = isClaimAction
+            ? const Color(0xFFD97706)
+            : isInst
+                ? const Color(0xFF16A34A)
+                : const Color(0xFF0284C7);
+
+        final Color btnBorder = isClaimAction
+            ? const Color(0xFFFDE68A)
+            : isInst
+                ? const Color(0xFF86EFAC)
+                : const Color(0xFF7DD3FC);
 
         return Container(
           decoration: BoxDecoration(
@@ -743,23 +949,50 @@ class _CrossPromoMillionaireDialogState
             ],
           ),
           child: ElevatedButton(
-            onPressed: () async {
-              await promoService.openMillionaireApp();
-              if (context.mounted) {
-                Navigator.of(context).pop();
-              }
-            },
+            onPressed: isClaiming || _loadingStatus
+                ? null
+                : () async {
+                    if (isClaimAction) {
+                      final res = await promoService.claimDownloadReward(context);
+                      if (res == CrossPromoClaimResult.success && context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: const Row(
+                              children: [
+                                Icon(Icons.diamond_rounded, color: Color(0xFF38BDF8)),
+                                SizedBox(width: 10),
+                                Text(
+                                  'مبروك! تمت إضافة 80 جوهرة إلى رصيدك بنجاح 🎉',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            backgroundColor: const Color(0xFF065F46),
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        );
+                      }
+                    } else {
+                      await promoService.openMillionaireApp();
+                      if (context.mounted && isInst) {
+                        Navigator.of(context).pop();
+                      }
+                    }
+                  },
             style: ElevatedButton.styleFrom(
-              backgroundColor:
-                  isInst ? const Color(0xFF16A34A) : const Color(0xFFD97706),
+              backgroundColor: btnBg,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 14),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
                 side: BorderSide(
-                  color: isInst
-                      ? const Color(0xFF86EFAC)
-                      : const Color(0xFFFDE68A),
+                  color: btnBorder,
                   width: 1.6,
                 ),
               ),
@@ -768,25 +1001,48 @@ class _CrossPromoMillionaireDialogState
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  isInst
-                      ? Icons.sports_esports_rounded
-                      : Icons.file_download_outlined,
-                  size: 22,
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  _loadingStatus
-                      ? 'جاري التحقق...'
-                      : (isInst
-                          ? 'فتح اللعبة واللعب الآن 🎮'
-                          : 'تثبيت مجاناً من Google Play 🚀'),
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 0.3,
+                if (isClaiming) ...[
+                  const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: Colors.white,
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 10),
+                  const Text(
+                    'جاري استلام الجواهر...',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ] else ...[
+                  Icon(
+                    isClaimAction
+                        ? Icons.card_giftcard_rounded
+                        : isInst
+                            ? Icons.sports_esports_rounded
+                            : Icons.file_download_outlined,
+                    size: 22,
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    _loadingStatus
+                        ? 'جاري التحقق...'
+                        : isClaimAction
+                            ? 'استلام 80 جوهرة الآن! 💎✨'
+                            : isInst
+                                ? 'فتح اللعبة واللعب الآن 🎮'
+                                : 'تحميل اللعبة واحصل على 80 💎',
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

@@ -136,7 +136,7 @@ class _SpecialOfferBadgeState extends State<SpecialOfferBadge>
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           const Text(
-                            'صفقة اليوم',
+                            'نادي الأبطال',
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 12.5,
@@ -159,7 +159,7 @@ class _SpecialOfferBadgeState extends State<SpecialOfferBadge>
                               ),
                             ),
                             child: const Text(
-                              '80% 🔥',
+                              'VIP',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 8.5,
@@ -171,7 +171,7 @@ class _SpecialOfferBadgeState extends State<SpecialOfferBadge>
                       ),
                       const SizedBox(height: 1),
                       Text(
-                        'العضوية الملكية VIP 👑',
+                        'استكشف مزايا العضوية',
                         style: TextStyle(
                           color: const Color(0xFFFFDF73).withValues(alpha: 0.9),
                           fontSize: 9.5,

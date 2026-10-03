@@ -1,3248 +1,2021 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/app_settings.dart';
 import '../../core/app_state.dart';
 import '../../models/game_character.dart';
 import '../../models/game_category.dart';
+import '../../models/store_catalog.dart';
 import '../../services/ad_service.dart';
-import '../../services/native_bridge_service.dart';
+import '../../services/cross_promo_service.dart';
 import '../../services/in_app_purchase_service.dart';
+import '../../services/native_bridge_service.dart';
+import '../../widgets/cross_promo_millionaire_dialog.dart';
 import '../../widgets/currency_reward_overlay.dart';
 import '../character/character_select_screen.dart';
+import '../legal/privacy_policy_screen.dart';
 
-class _CoinItem {
-  const _CoinItem({
-    required this.label,
-    required this.coinAmount,
-    required this.gemCost,
-    required this.tag,
-  });
+const _background = Color(0xFF080D1B);
+const _surface = Color(0xFF121A2E);
+const _muted = Color(0xFF9EABC5);
+const _purple = Color(0xFFA78BFA);
+const _gold = Color(0xFFFFD166);
+const _cyan = Color(0xFF64DEF5);
+const _green = Color(0xFF76E0B2);
 
-  final String label;
-  final int coinAmount;
-  final int gemCost;
-  final String tag;
-}
-
-const List<_CoinItem> _kCoinItems = <_CoinItem>[
-  _CoinItem(label: '1,500', coinAmount: 1500, gemCost: 15, tag: 'سريع'),
-  _CoinItem(label: '6,000', coinAmount: 6000, gemCost: 55, tag: 'شائع'),
-  _CoinItem(label: '14,000', coinAmount: 14000, gemCost: 120, tag: 'شخصية'),
-  _CoinItem(label: '35,000', coinAmount: 35000, gemCost: 290, tag: 'قيمة'),
-  _CoinItem(label: '90,000', coinAmount: 90000, gemCost: 700, tag: 'كبير'),
-];
-
-class _BundleItem {
-  const _BundleItem({
-    required this.id,
-    required this.title,
-    required this.coins,
-    required this.gems,
-    required this.price,
-    required this.originalPrice,
-    required this.tag,
-    required this.tagColor,
-    required this.colors,
-    required this.icon,
-    this.multiplier = '',
-    this.subtitle = '',
-    this.ctaColors = const [Color(0xFF22C55E), Color(0xFF16A34A)],
-    this.ctaShadowColor = const Color(0xFF14532D),
-    this.ctaTextColor = Colors.white,
-  });
-
-  final String id;
-  final String title;
-  final int coins;
-  final int gems;
-  final String price;
-  final String originalPrice;
-  final String tag;
-  final Color tagColor;
-  final List<Color> colors;
-  final IconData icon;
-  final String multiplier;
-  final String subtitle;
-  final List<Color> ctaColors;
-  final Color ctaShadowColor;
-  final Color ctaTextColor;
-}
-
-const List<_BundleItem> _kSpecialBundles = <_BundleItem>[
-  _BundleItem(
-    id: 'pack_starter',
-    title: 'حزمة المبتدئ الخارقة',
-    subtitle: 'عرض الترحيب الحصري لمرة واحدة',
-    multiplier: 'قيمة 5X ⚡',
-    coins: 10000,
-    gems: 100,
-    price: r'$0.99',
-    originalPrice: r'$4.99',
-    tag: 'خصم 80% 🔥',
-    tagColor: Color(0xFFEF4444),
-    colors: [Color(0xFF3B0764), Color(0xFF1E1035)],
-    icon: Icons.bolt_rounded,
-    ctaColors: [Color(0xFF22C55E), Color(0xFF16A34A), Color(0xFF15803D)],
-    ctaShadowColor: Color(0xFF14532D),
-    ctaTextColor: Colors.white,
-  ),
-  _BundleItem(
-    id: 'pack_value',
-    title: 'باقة القيمة الذهبية',
-    subtitle: 'الخيار الأكثر شعبية وتفضيلاً',
-    multiplier: 'قيمة 4X ⭐',
-    coins: 35000,
-    gems: 600,
-    price: r'$2.99',
-    originalPrice: r'$9.99',
-    tag: 'الأكثر طلباً 🏆',
-    tagColor: Color(0xFF38BDF8),
-    colors: [Color(0xFF0C2A4A), Color(0xFF041525)],
-    icon: Icons.auto_awesome_rounded,
-    ctaColors: [Color(0xFFFFDF73), Color(0xFFF59E0B), Color(0xFFD97706)],
-    ctaShadowColor: Color(0xFF78350F),
-    ctaTextColor: Color(0xFF451A03),
-  ),
-  _BundleItem(
-    id: 'pack_champion',
-    title: 'باقة الأبطال الملكية',
-    subtitle: 'أعلى قيمة وسيطرة لنجوم الصدارة',
-    multiplier: 'أعلى توفير 💎',
-    coins: 100000,
-    gems: 1800,
-    price: r'$9.99',
-    originalPrice: r'$24.99',
-    tag: 'الباقة الملكية 👑',
-    tagColor: Color(0xFFF59E0B),
-    colors: [Color(0xFF381A02), Color(0xFF1A0A00)],
-    icon: Icons.workspace_premium_rounded,
-    ctaColors: [Color(0xFFFFE082), Color(0xFFF59E0B), Color(0xFFB45309)],
-    ctaShadowColor: Color(0xFF78350F),
-    ctaTextColor: Color(0xFF451A03),
-  ),
-];
-
-class _GemStoreItem {
-  const _GemStoreItem({
-    required this.id,
-    required this.title,
-    required this.gems,
-    required this.price,
-    required this.tag,
-    required this.tagColor,
-    required this.colors,
-    required this.icon,
-  });
-
-  final String id;
-  final String title;
-  final int gems;
-  final String price;
-  final String tag;
-  final Color tagColor;
-  final List<Color> colors;
-  final IconData icon;
-}
-
-const List<_GemStoreItem> _kGemStoreItems = <_GemStoreItem>[
-  _GemStoreItem(
-    id: 'gems_80',
-    title: 'كيس جواهر صغير',
-    gems: 80,
-    price: r'$0.99',
-    tag: 'شحن سريع 💎',
-    tagColor: Color(0xFF38BDF8),
-    colors: [Color(0xFF0C2A4A), Color(0xFF041525)],
-    icon: Icons.diamond_outlined,
-  ),
-  _GemStoreItem(
-    id: 'gems_500',
-    title: 'صندوق جواهر متوسط',
-    gems: 500,
-    price: r'$4.99',
-    tag: 'الأكثر طلباً ⭐',
-    tagColor: Color(0xFFF59E0B),
-    colors: [Color(0xFF1E1B4B), Color(0xFF0F0E2A)],
-    icon: Icons.diamond_rounded,
-  ),
-  _GemStoreItem(
-    id: 'gems_1200',
-    title: 'حقيبة جواهر كبيرة',
-    gems: 1200,
-    price: r'$9.99',
-    tag: 'أعلى توفير 🔥',
-    tagColor: Color(0xFF10B981),
-    colors: [Color(0xFF064E3B), Color(0xFF022C22)],
-    icon: Icons.all_inclusive_rounded,
-  ),
-];
-
+enum _StoreSection { featured, gems, coins, membership, collection }
 
 class StoreScreen extends StatefulWidget {
-  const StoreScreen({super.key});
+  const StoreScreen({super.key, this.initialKind});
+  final StoreProductKind? initialKind;
 
   @override
   State<StoreScreen> createState() => _StoreScreenState();
 }
 
 class _StoreScreenState extends State<StoreScreen> {
+  _StoreSection _section = _StoreSection.featured;
+  final ScrollController _scrollController = ScrollController();
+  final TextEditingController _searchController = TextEditingController();
+  InAppPurchaseService? _purchaseService;
+  Timer? _refreshTimer;
   bool _busy = false;
-  void Function(String)? _onProductDelivered;
+  bool _onlyUnowned = false;
+
+  bool get _arabic => context.read<AppSettings>().isArabic;
+  String _tr(String ar, String en) => _arabic ? ar : en;
 
   @override
   void initState() {
     super.initState();
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    _section = switch (widget.initialKind) {
+      StoreProductKind.gems => _StoreSection.gems,
+      StoreProductKind.coins => _StoreSection.coins,
+      StoreProductKind.subscription => _StoreSection.membership,
+      StoreProductKind.categoryPass => _StoreSection.collection,
+      _ => _StoreSection.featured,
+    };
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final iap = context.read<InAppPurchaseService>();
-      iap.restorePurchases();
-      _onProductDelivered = (productId) async {
-        if (!mounted) return;
-        final appState = context.read<AppState>();
-        await appState.loadCategoryState();
-        await appState.loadCurrency();
-        _showSnack('تم استلام مشترياتك وتحديث رصيدك بنجاح! 🎉');
-      };
-      iap.addDeliveryListener(_onProductDelivered!);
+      _purchaseService = context.read<InAppPurchaseService>();
+      _purchaseService!.addDeliveryListener(_onDelivered);
+      unawaited(_refresh());
+    });
+    _refreshTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) setState(() {});
     });
   }
 
   @override
   void dispose() {
-    if (_onProductDelivered != null) {
-      try {
-        context
-            .read<InAppPurchaseService>()
-            .removeDeliveryListener(_onProductDelivered!);
-      } catch (_) {}
-    }
+    _purchaseService?.removeDeliveryListener(_onDelivered);
+    _refreshTimer?.cancel();
+    _scrollController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
-  Future<void> _haptic() async {
-    await context.read<AppSettings>().playHaptic();
+  Future<void> _refresh() async {
+    final app = context.read<AppState>();
+    CrossPromoService? promo;
+    try {
+      promo = context.read<CrossPromoService>();
+    } catch (_) {}
+    String? uid;
+    try {
+      uid = app.user?.uid;
+    } catch (_) {}
+    await Future.wait([
+      context.read<InAppPurchaseService>().loadProducts(),
+      app.loadCurrency(),
+      app.loadCategoryState(),
+      app.loadCharacterState(),
+      app.loadLevelData(),
+      if (promo != null) promo.checkInstallation(),
+      if (promo != null) promo.checkRewardClaimed(uid: uid),
+    ]);
   }
 
-  Future<void> _openCharacters() async {
-    final appState = context.read<AppState>();
-    final navigator = Navigator.of(context);
-    await _haptic();
+  void _onDelivered(String id) => unawaited(_showDelivered(id));
+
+  Future<void> _showDelivered(String id) async {
     if (!mounted) return;
-    await navigator.push(
-      MaterialPageRoute<void>(builder: (_) => const CharacterSelectScreen()),
-    );
+    final app = context.read<AppState>();
+    await Future.wait([app.loadCurrency(), app.loadCategoryState()]);
     if (!mounted) return;
-    await appState.loadCharacterState();
-    await appState.loadCurrency();
+    _snack(_tr('تم تسليم مشترياتك وتحديث حسابك.',
+        'Your purchase was delivered and your account updated.'));
+    final product = StoreCatalog.byId(id);
+    if (product != null && (product.coins > 0 || product.gems > 0)) {
+      showCurrencyRewardOverlay(context,
+          coins: product.coins, gems: product.gems);
+    }
   }
 
-  Future<void> _watchRewardedAd() async {
-    if (_busy) return;
-    final adService = context.read<AdService>();
-    final native = context.read<NativeBridgeService>();
-    final appState = context.read<AppState>();
-    await _haptic();
+  void _selectSection(_StoreSection section) {
+    if (_section == section) return;
+    setState(() => _section = section);
+    if (_scrollController.hasClients) _scrollController.jumpTo(0);
+    unawaited(context.read<AppSettings>().playHaptic());
+  }
 
-    if (!adService.canWatchAd) {
-      final remaining = adService.cooldownRemaining;
-      _showSnack(
-        adService.watchesLeft == 0
-            ? 'وصلت إلى الحد اليومي للإعلانات المكافأة.'
-            : 'الإعلان التالي بعد ${_formatDuration(remaining)}.',
-        isError: true,
-      );
-      return;
-    }
-
-    setState(() => _busy = true);
-    final reward = await adService.showRewardedAd();
+  void _snack(String message, {bool error = false}) {
     if (!mounted) return;
-    setState(() => _busy = false);
-
-    if (reward == null) {
-      _showSnack('تعذر تشغيل الإعلان أو تم إغلاقه قبل اكتماله.', isError: true);
-      return;
-    }
-
-    try {
-      await native.grantCurrency(
-        coins: reward['coins'] ?? 0,
-        gems: reward['gems'] ?? 0,
-      );
-      await appState.loadCurrency();
-    } catch (_) {
-      if (!mounted) return;
-      _showSnack('اكتمل الإعلان، لكن تعذر تسليم المكافأة الآن.', isError: true);
-      return;
-    }
-
-    if (!mounted) return;
-    showCurrencyRewardOverlay(
-      context,
-      coins: reward['coins'] ?? 0,
-      gems: reward['gems'] ?? 0,
-    );
-  }
-
-  Future<void> _buyCoins(_CoinItem item) async {
-    if (_busy) return;
-    final appState = context.read<AppState>();
-    final native = context.read<NativeBridgeService>();
-    await _haptic();
-
-    if (appState.gems < item.gemCost) {
-      _showSnack('رصيد الجواهر غير كاف لهذه الحزمة.', isError: true);
-      return;
-    }
-
-    final ok = await _confirm(
-      'تأكيد التحويل',
-      'تحويل ${_compactNumber(item.gemCost)} جوهرة إلى ${item.label} كوين؟',
-    );
-    if (!ok || !mounted) return;
-
-    setState(() => _busy = true);
-    try {
-      final success = await native.buyCurrency(
-        coinAmount: item.coinAmount,
-        gemCost: item.gemCost,
-      );
-      if (!mounted) return;
-      if (success) {
-        await appState.loadCurrency();
-        _showSnack('تمت إضافة ${item.label} كوين.');
-      } else {
-        _showSnack('فشلت عملية التحويل.', isError: true);
-      }
-    } catch (e) {
-      if (mounted) _showSnack('حدث خطأ أثناء العملية: $e', isError: true);
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Future<void> _rentCategory(GameCategory cat) async {
-    if (_busy) return;
-    final adService = context.read<AdService>();
-    final appState = context.read<AppState>();
-    await _haptic();
-
-    setState(() => _busy = true);
-    try {
-      final watched = await adService.showActionRewardedAd();
-      if (!mounted) return;
-
-      if (!watched) {
-        _showSnack('تعذر تشغيل الإعلان أو تم إغلاقه قبل اكتماله.', isError: true);
-        return;
-      }
-
-      final success = await appState.rentCategoryWithAd(cat.name, hours: 24);
-      if (!mounted) return;
-      if (success) {
-        _showSnack('تم فتح فئة "${cat.name}" لمدة 24 ساعة! 🎉');
-      } else {
-        _showSnack('حدث خطأ أثناء تفعيل الفئة.', isError: true);
-      }
-    } catch (e) {
-      if (mounted) _showSnack('حدث خطأ: $e', isError: true);
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Future<void> _unlockCategory(GameCategory cat) async {
-    if (_busy) return;
-    final appState = context.read<AppState>();
-    await _haptic();
-
-    if (appState.gems < cat.gemCost) {
-      _showSnack('رصيد الجواهر غير كافٍ (تحتاج ${cat.gemCost} جوهرة).', isError: true);
-      return;
-    }
-
-    final ok = await _confirm(
-      'امتلاك الفئة للأبد',
-      'فتح فئة "${cat.name}" بشكل دائم مقابل ${cat.gemCost} جوهرة؟',
-    );
-    if (!ok || !mounted) return;
-
-    setState(() => _busy = true);
-    try {
-      final success = await appState.unlockCategoryWithGems(cat.name, gemCost: cat.gemCost);
-      if (!mounted) return;
-      if (success) {
-        _showSnack('تم شراء فئة "${cat.name}" بشكل دائم! 🎉');
-      } else {
-        _showSnack('فشلت عملية الشراء.', isError: true);
-      }
-    } catch (e) {
-      if (mounted) _showSnack('حدث خطأ: $e', isError: true);
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Future<void> _buyBundle(_BundleItem bundle) async {
-    if (_busy) return;
-    final iap = context.read<InAppPurchaseService>();
-    await _haptic();
-
-    final ok = await _confirm(
-      bundle.title,
-      'تأكيد الحصول على ${bundle.title} (${bundle.coins} كوين + ${bundle.gems} جوهرة) مقابل ${bundle.price}؟',
-    );
-    if (!ok || !mounted) return;
-
-    setState(() => _busy = true);
-    try {
-      final success = await iap.buyProduct(bundle.id);
-      if (!mounted) return;
-      if (!success) {
-        final exp = iap.getExplanation(bundle.id);
-        _showSnack(exp.isNotEmpty ? exp : 'تعذر إتمام عملية الشراء.', isError: true);
-      }
-    } catch (e) {
-      if (mounted) {
-        _showSnack('حدث خطأ أثناء الاتصال بالمتجر: $e', isError: true);
-      }
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Future<void> _buyVipPass() async {
-    if (_busy) return;
-    final appState = context.read<AppState>();
-    final iap = context.read<InAppPurchaseService>();
-    await _haptic();
-
-    if (appState.isVip) {
-      _showSnack('العضوية المميزة VIP مفعلة بالفعل على حسابك! 👑');
-      return;
-    }
-
-    final ok = await _confirm(
-      'اشتراك VIP المميز',
-      'تفعيل اشتراك VIP (فتح جميع الفئات الـ 45 + بدون إعلانات + 5,000 كوين + 500 جوهرة) مقابل 4.99\$ شهرياً؟',
-    );
-    if (!ok || !mounted) return;
-
-    setState(() => _busy = true);
-    final vipId = iap.products.containsKey('vip_monthly')
-        ? 'vip_monthly'
-        : (iap.products.containsKey('vip_pass') ? 'vip_pass' : 'vip_monthly');
-    try {
-      final success = await iap.buyProduct(vipId);
-      if (!mounted) return;
-      if (!success) {
-        final exp = iap.getExplanation(vipId);
-        _showSnack(exp.isNotEmpty ? exp : 'تعذر تفعيل العضوية المميزة.', isError: true);
-      }
-    } catch (e) {
-      if (mounted) {
-        _showSnack('حدث خطأ أثناء الاتصال بالمتجر: $e', isError: true);
-      }
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Future<void> _buyGemItem(_GemStoreItem item) async {
-    if (_busy) return;
-    final iap = context.read<InAppPurchaseService>();
-    await _haptic();
-
-    final ok = await _confirm(
-      item.title,
-      'تأكيد شراء ${item.title} (${item.gems} جوهرة) مقابل ${item.price}؟',
-    );
-    if (!ok || !mounted) return;
-
-    setState(() => _busy = true);
-    try {
-      final success = await iap.buyProduct(item.id);
-      if (!mounted) return;
-      if (!success) {
-        final exp = iap.getExplanation(item.id);
-        _showSnack(exp.isNotEmpty ? exp : 'تعذر إتمام عملية الشراء.', isError: true);
-      }
-    } catch (e) {
-      if (mounted) {
-        _showSnack('حدث خطأ أثناء الاتصال بالمتجر: $e', isError: true);
-      }
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Future<bool> _confirm(String title, String message) async {
-    return await showDialog<bool>(
-          context: context,
-          builder: (BuildContext ctx) => Directionality(
-            textDirection: TextDirection.rtl,
-            child: AlertDialog(
-              backgroundColor: const Color(0xFF081328),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              title: Text(
-                title,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 17,
-                ),
-              ),
-              content: Text(
-                message,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.76),
-                  height: 1.45,
-                  fontWeight: FontWeight.w700,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              actionsAlignment: MainAxisAlignment.center,
-              actions: <Widget>[
-                TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(false),
-                  child: const Text('إلغاء'),
-                ),
-                FilledButton(
-                  onPressed: () => Navigator.of(ctx).pop(true),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFFFACC15),
-                    foregroundColor: const Color(0xFF111827),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child: const Text(
-                    'تأكيد',
-                    style: TextStyle(fontWeight: FontWeight.w900),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ) ??
-        false;
-  }
-
-  void _showSnack(String message, {bool isError = false}) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message, textDirection: TextDirection.rtl),
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text(message,
+            textDirection: _arabic ? TextDirection.rtl : TextDirection.ltr),
         backgroundColor:
-            isError ? const Color(0xFFB91C1C) : const Color(0xFF0F766E),
+            error ? const Color(0xFF863548) : const Color(0xFF17645B),
         behavior: SnackBarBehavior.floating,
-      ),
-    );
+      ));
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final appState = context.watch<AppState>();
-    final adService = context.watch<AdService>();
+  bool _owned(StoreProduct product, AppState app) =>
+      product.kind == StoreProductKind.subscription
+          ? app.isVip
+          : product.kind == StoreProductKind.categoryPass
+              ? app.hasPermanentCategoryPass ||
+                  app.ownedStoreProducts.contains(product.id)
+              : product.oneTime && app.ownedStoreProducts.contains(product.id);
 
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        backgroundColor: const Color(0xFF071126),
-        resizeToAvoidBottomInset: false,
-        body: Stack(
-          children: <Widget>[
-            Positioned.fill(
-              child: Image.asset('assets/ui/bg_main.png', fit: BoxFit.cover),
-            ),
-            Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: <Color>[
-                      const Color(0xFF030712).withValues(alpha: 0.56),
-                      const Color(0xFF071126).withValues(alpha: 0.95),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            SafeArea(
-              child: Column(
-                children: <Widget>[
-                  _Header(onBack: () => Navigator.of(context).pop()),
-                  Expanded(
-                    child: _StoreDashboard(
-                      coins: appState.coins,
-                      gems: appState.gems,
-                      adService: adService,
-                      selectedCharacter: appState.selectedCharacter,
-                      unlockedCharacters: CharacterCatalog.all
-                          .where(appState.isCharacterUnlocked)
-                          .length,
-                      busy: _busy,
-                      appState: appState,
-                      onOpenCharacters: _openCharacters,
-                      onWatchAd: _watchRewardedAd,
-                      onBuyCoins: _buyCoins,
-                      onRentCategory: _rentCategory,
-                      onUnlockCategory: _unlockCategory,
-                      onBuyBundle: _buyBundle,
-                      onBuyGem: _buyGemItem,
-                      onBuyVip: _buyVipPass,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (_busy)
-              Positioned.fill(
-                child: AbsorbPointer(
-                  child: ColoredBox(
-                    color: Colors.black.withValues(alpha: 0.16),
-                    child: const Center(
-                      child: SizedBox(
-                        width: 34,
-                        height: 34,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 3,
-                          color: Color(0xFFFACC15),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+  String _title(StoreProduct product) {
+    if (_arabic) return product.title;
+    return switch (product.id) {
+      'gems_80' => 'Pocket of gems',
+      'gems_500' => 'Gem chest',
+      'gems_1200' => 'Gem vault',
+      'coins_5000' => 'Coin pouch',
+      'coins_25000' => 'Coin chest',
+      'coins_100000' => 'Coin vault',
+      'pack_starter' => 'Starter bundle',
+      'pack_value' => 'Explorer bundle',
+      'pack_champion' => 'Champion bundle',
+      'vip_monthly' => 'Champions Club',
+      'category_all_access' => 'All categories pass',
+      _ => product.title,
+    };
+  }
+
+  String _subtitle(StoreProduct product) => _arabic
+      ? product.subtitle
+      : switch (product.kind) {
+          StoreProductKind.gems =>
+            'Unlock categories and grow your collection.',
+          StoreProductKind.coins =>
+            'More coins for characters and in-game items.',
+          StoreProductKind.bundle => 'Coins and gems together in one purchase.',
+          StoreProductKind.subscription =>
+            'Premium categories and no forced ads while your membership is active.',
+          StoreProductKind.categoryPass =>
+            'Own every current premium category with one purchase.',
+        };
+
+  Color _accent(StoreProduct product) => switch (product.kind) {
+        StoreProductKind.coins => _gold,
+        StoreProductKind.gems => _cyan,
+        StoreProductKind.bundle => _purple,
+        StoreProductKind.subscription => _gold,
+        StoreProductKind.categoryPass => _green,
+      };
+
+  IconData _icon(StoreProduct product) => switch (product.kind) {
+        StoreProductKind.coins => Icons.monetization_on_rounded,
+        StoreProductKind.gems => Icons.diamond_rounded,
+        StoreProductKind.bundle => Icons.inventory_2_rounded,
+        StoreProductKind.subscription => Icons.workspace_premium_rounded,
+        StoreProductKind.categoryPass => Icons.auto_awesome_motion_rounded,
+      };
+
+  Future<void> _buyProduct(StoreProduct product) async {
+    final iap = context.read<InAppPurchaseService>();
+    final app = context.read<AppState>();
+    if (_busy ||
+        iap.isPurchasing ||
+        _owned(product, app) ||
+        !app.isCommerceReady) {
+      return;
+    }
+    final details = iap.getProductDetails(product.id);
+    if (!iap.isAvailable || details == null || details.price.isEmpty) return;
+    setState(() => _busy = true);
+    try {
+      await context.read<AppSettings>().playHaptic();
+      if (!mounted) return;
+      final confirmed = await _confirmProduct(product, details.price);
+      if (!confirmed || !mounted) return;
+      // Only the delivery event may report success; opening billing is not delivery.
+      final launched = await iap.buyProduct(product.id);
+      if (!launched && mounted) {
+        await app.loadCategoryState();
+        if (!mounted) return;
+        _snack(iap.getExplanation(product.id), error: true);
+      }
+    } catch (_) {
+      _snack(
+          _tr('تعذر فتح عملية الشراء. حاول مجدداً.',
+              'Could not start your purchase. Please try again.'),
+          error: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<bool> _confirmProduct(StoreProduct product, String price) =>
+      _confirmSheet(
+        title: _title(product),
+        subtitle: _subtitle(product),
+        icon: _icon(product),
+        accent: _accent(product),
+        body: [
+          if (product.coins > 0 || product.gems > 0)
+            _rewardSummary(product.coins, product.gems),
+          if (product.kind == StoreProductKind.categoryPass)
+            _benefit(
+                Icons.lock_open_rounded,
+                _tr('فتح دائم لجميع الفئات المميزة الحالية',
+                    'Permanent access to all current premium categories')),
+          if (product.kind == StoreProductKind.subscription) ...[
+            _benefit(
+                Icons.category_rounded,
+                _tr('جميع الفئات المميزة طوال صلاحية الاشتراك',
+                    'All premium categories while your membership is active')),
+            _benefit(
+                Icons.block_rounded,
+                _tr('بدون إعلانات إجبارية؛ إعلانات المكافآت اختيارية',
+                    'No forced ads; reward ads remain optional')),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _StoreDashboard extends StatelessWidget {
-  const _StoreDashboard({
-    required this.coins,
-    required this.gems,
-    required this.adService,
-    required this.selectedCharacter,
-    required this.unlockedCharacters,
-    required this.busy,
-    required this.appState,
-    required this.onOpenCharacters,
-    required this.onWatchAd,
-    required this.onBuyCoins,
-    required this.onRentCategory,
-    required this.onUnlockCategory,
-    required this.onBuyBundle,
-    required this.onBuyGem,
-    required this.onBuyVip,
-  });
-
-  final int coins;
-  final int gems;
-  final AdService adService;
-  final GameCharacter selectedCharacter;
-  final int unlockedCharacters;
-  final bool busy;
-  final AppState appState;
-  final VoidCallback onOpenCharacters;
-  final VoidCallback onWatchAd;
-  final void Function(_CoinItem item) onBuyCoins;
-  final void Function(GameCategory cat) onRentCategory;
-  final void Function(GameCategory cat) onUnlockCategory;
-  final void Function(_BundleItem bundle) onBuyBundle;
-  final void Function(_GemStoreItem item) onBuyGem;
-  final VoidCallback onBuyVip;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final horizontalPadding = constraints.maxWidth < 760 ? 12.0 : 16.0;
-        final gap = constraints.maxWidth < 760 ? 10.0 : 12.0;
-        final bundleColumns = constraints.maxWidth >= 760
-            ? 3
-            : constraints.maxWidth >= 500
-                ? 2
-                : 1;
-        final coinColumns = constraints.maxWidth >= 1120
-            ? 5
-            : constraints.maxWidth >= 820
-                ? 3
-                : constraints.maxWidth >= 560
-                    ? 2
-                    : 1;
-        final categoryColumns = constraints.maxWidth >= 1100
-            ? 5
-            : constraints.maxWidth >= 760
-                ? 4
-                : constraints.maxWidth >= 520
-                    ? 3
-                    : constraints.maxWidth >= 330
-                        ? 2
-                        : 1;
-
-        return CustomScrollView(
-          physics: const BouncingScrollPhysics(),
-          slivers: <Widget>[
-            SliverPadding(
-              padding: EdgeInsets.fromLTRB(
-                horizontalPadding,
-                2,
-                horizontalPadding,
-                14,
-              ),
-              sliver: SliverToBoxAdapter(
-                child: _StoreOverview(
-                  coins: coins,
-                  gems: gems,
-                  adService: adService,
-                  selectedCharacter: selectedCharacter,
-                  unlockedCharacters: unlockedCharacters,
-                  busy: busy,
-                  onOpenCharacters: onOpenCharacters,
-                  onWatchAd: onWatchAd,
-                ),
-              ),
-            ),
-            SliverPadding(
-              padding: EdgeInsets.fromLTRB(
-                horizontalPadding,
-                0,
-                horizontalPadding,
-                14,
-              ),
-              sliver: SliverToBoxAdapter(
-                child: _VipPassCard(
-                  isVip: appState.isVip,
-                  busy: busy,
-                  onTap: onBuyVip,
-                ),
-              ),
-            ),
-            SliverPadding(
-              padding: EdgeInsets.fromLTRB(
-                horizontalPadding,
-                0,
-                horizontalPadding,
-                10,
-              ),
-              sliver: const SliverToBoxAdapter(
-                child: _SectionHeader(
-                  icon: Icons.local_fire_department_rounded,
-                  title: 'العروض الحصرية والباقات',
-                  subtitle: 'أفضل قيمة لتعزيز رصيدك فوراً وشراء ما تريد',
-                  color: Color(0xFFEF4444),
-                ),
-              ),
-            ),
-            SliverPadding(
-              padding: EdgeInsets.fromLTRB(
-                horizontalPadding,
-                0,
-                horizontalPadding,
-                18,
-              ),
-              sliver: SliverGrid(
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: bundleColumns,
-                  crossAxisSpacing: gap,
-                  mainAxisSpacing: gap,
-                  mainAxisExtent: bundleColumns == 1
-                      ? 126
-                      : bundleColumns == 2
-                          ? 190
-                          : 200,
-                ),
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final bundle = _kSpecialBundles[index];
-                    return _BundleCard(
-                      bundle: bundle,
-                      busy: busy,
-                      onTap: () => onBuyBundle(bundle),
-                    );
-                  },
-                  childCount: _kSpecialBundles.length,
-                ),
-              ),
-            ),
-            SliverPadding(
-              padding: EdgeInsets.fromLTRB(
-                horizontalPadding,
-                0,
-                horizontalPadding,
-                10,
-              ),
-              sliver: const SliverToBoxAdapter(
-                child: _SectionHeader(
-                  icon: Icons.diamond_rounded,
-                  title: 'باقات الجواهر',
-                  subtitle: 'اشحن الجواهر مباشرة لفتح الفئات وتطوير حسابك',
-                  color: Color(0xFF38BDF8),
-                ),
-              ),
-            ),
-            SliverPadding(
-              padding: EdgeInsets.fromLTRB(
-                horizontalPadding,
-                0,
-                horizontalPadding,
-                18,
-              ),
-              sliver: SliverGrid(
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: bundleColumns,
-                  crossAxisSpacing: gap,
-                  mainAxisSpacing: gap,
-                  mainAxisExtent: bundleColumns == 1
-                      ? 110
-                      : bundleColumns == 2
-                          ? 180
-                          : 190,
-                ),
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final gemItem = _kGemStoreItems[index];
-                    return _GemStoreCard(
-                      item: gemItem,
-                      busy: busy,
-                      onTap: () => onBuyGem(gemItem),
-                    );
-                  },
-                  childCount: _kGemStoreItems.length,
-                ),
-              ),
-            ),
-            SliverPadding(
-              padding: EdgeInsets.fromLTRB(
-                horizontalPadding,
-                0,
-                horizontalPadding,
-                10,
-              ),
-              sliver: const SliverToBoxAdapter(
-                child: _SectionHeader(
-                  icon: Icons.auto_awesome_rounded,
-                  title: 'الفئات المميزة',
-                  subtitle: 'استأجر 24 ساعة بمشاهدة إعلان 🎥 أو امتلكها للأبد 💎',
-                  color: Color(0xFFFACC15),
-                ),
-              ),
-            ),
-            SliverPadding(
-              padding: EdgeInsets.fromLTRB(
-                horizontalPadding,
-                0,
-                horizontalPadding,
-                20,
-              ),
-              sliver: SliverGrid(
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: categoryColumns,
-                  crossAxisSpacing: gap,
-                  mainAxisSpacing: gap,
-                  mainAxisExtent: 148,
-                ),
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final cat = CategoryCatalog.premiumCategories[index];
-                    return _CategoryStoreCard(
-                      category: cat,
-                      isUnlocked: appState.isCategoryUnlocked(cat.name),
-                      hoursLeft: appState.getCategoryRemainingRentalHours(cat.name),
-                      isPermanent: appState.isVip ||
-                          appState.unlockedCategories.any(
-                              (u) => GameCategory.normalize(u) == GameCategory.normalize(cat.name)),
-                      busy: busy,
-                      onRent: () => onRentCategory(cat),
-                      onUnlock: () => onUnlockCategory(cat),
-                    );
-                  },
-                  childCount: CategoryCatalog.premiumCategories.length,
-                ),
-              ),
-            ),
-            SliverPadding(
-              padding: EdgeInsets.fromLTRB(
-                horizontalPadding,
-                0,
-                horizontalPadding,
-                10,
-              ),
-              sliver: const SliverToBoxAdapter(
-                child: _SectionHeader(
-                  icon: Icons.currency_exchange_rounded,
-                  title: 'تحويل الجواهر',
-                  subtitle: 'حوّل الجواهر إلى كوين لفتح الشخصيات',
-                  color: Color(0xFF38BDF8),
-                ),
-              ),
-            ),
-            SliverPadding(
-              padding: EdgeInsets.fromLTRB(
-                horizontalPadding,
-                0,
-                horizontalPadding,
-                22,
-              ),
-              sliver: SliverGrid(
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: coinColumns,
-                  crossAxisSpacing: gap,
-                  mainAxisSpacing: gap,
-                  mainAxisExtent: 168,
-                ),
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final item = _kCoinItems[index];
-                    return _CoinPackCard(
-                      item: item,
-                      affordable: gems >= item.gemCost,
-                      busy: busy,
-                      onTap: () => onBuyCoins(item),
-                    );
-                  },
-                  childCount: _kCoinItems.length,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  const _Header({required this.onBack});
-
-  final VoidCallback onBack;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
-      child: Row(
-        children: <Widget>[
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                Text(
-                  'المتجر',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.w900,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Text(
-                  'الشخصيات، الرصيد، وتحويل الجواهر',
-                  style: TextStyle(
-                    color: Colors.white60,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-          Tooltip(
-            message: 'رجوع',
-            child: IconButton(
-              onPressed: onBack,
-              icon: const Icon(Icons.arrow_back_rounded),
-              color: Colors.white,
-              style: IconButton.styleFrom(
-                backgroundColor: Colors.white.withValues(alpha: 0.08),
-                side: BorderSide(color: Colors.white.withValues(alpha: 0.16)),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StoreOverview extends StatelessWidget {
-  const _StoreOverview({
-    required this.coins,
-    required this.gems,
-    required this.adService,
-    required this.selectedCharacter,
-    required this.unlockedCharacters,
-    required this.busy,
-    required this.onOpenCharacters,
-    required this.onWatchAd,
-  });
-
-  final int coins;
-  final int gems;
-  final AdService adService;
-  final GameCharacter selectedCharacter;
-  final int unlockedCharacters;
-  final bool busy;
-  final VoidCallback onOpenCharacters;
-  final VoidCallback onWatchAd;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final wide = constraints.maxWidth >= 900;
-        final wallet = _WalletPanel(coins: coins, gems: gems);
-        final characters = _CharacterStorePanel(
-          character: selectedCharacter,
-          unlockedCharacters: unlockedCharacters,
-          onOpen: onOpenCharacters,
-        );
-        final ads = _AdRewardPanel(
-          adService: adService,
-          busy: busy,
-          onWatchAd: onWatchAd,
-        );
-
-        if (!wide) {
-          return Column(
-            children: <Widget>[
-              wallet,
-              const SizedBox(height: 10),
-              characters,
-              const SizedBox(height: 10),
-              ads,
-            ],
-          );
-        }
-
-        return IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              Expanded(flex: 5, child: wallet),
-              const SizedBox(width: 12),
-              Expanded(flex: 5, child: characters),
-              const SizedBox(width: 12),
-              Expanded(flex: 5, child: ads),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _WalletPanel extends StatelessWidget {
-  const _WalletPanel({
-    required this.coins,
-    required this.gems,
-  });
-
-  final int coins;
-  final int gems;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: _panelDecoration(accent: const Color(0xFFFACC15)),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
-            children: <Widget>[
-              Container(
-                width: 54,
-                height: 54,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFACC15).withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: const Color(0xFFFACC15).withValues(alpha: 0.35),
-                  ),
-                ),
-                child: const Icon(
-                  Icons.account_balance_wallet_rounded,
-                  color: Color(0xFFFACC15),
-                  size: 29,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    const Text(
-                      'رصيدك',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 19,
-                        fontWeight: FontWeight.w900,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Text(
-                      'الرصيد المستخدم لفتح الشخصيات',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.58),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
           const SizedBox(height: 14),
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: _BalanceCard(
-                  icon: Icons.monetization_on_rounded,
-                  color: const Color(0xFFFACC15),
-                  value: _compactNumber(coins),
-                  label: 'كوين',
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _BalanceCard(
-                  icon: Icons.diamond_rounded,
-                  color: const Color(0xFF38BDF8),
-                  value: _compactNumber(gems),
-                  label: 'جوهرة',
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CharacterStorePanel extends StatelessWidget {
-  const _CharacterStorePanel({
-    required this.character,
-    required this.unlockedCharacters,
-    required this.onOpen,
-  });
-
-  final GameCharacter character;
-  final int unlockedCharacters;
-  final VoidCallback onOpen;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: _panelDecoration(accent: character.color),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
-            children: <Widget>[
-              Container(
-                width: 58,
-                height: 58,
-                decoration: BoxDecoration(
-                  color: character.color.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: character.color.withValues(alpha: 0.38),
-                  ),
-                ),
-                padding: const EdgeInsets.all(6),
-                child: Image.asset(
-                  character.asset,
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) => Icon(
-                    Icons.person_rounded,
-                    color: character.color,
-                    size: 30,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    const Text(
-                      'الشخصيات',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Text(
-                      'المختار: ${character.nameAr}',
-                      style: TextStyle(
-                        color: character.color,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w900,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-              _TagPill(
-                text: '$unlockedCharacters/${CharacterCatalog.all.length}',
-                color: character.color,
-              ),
-            ],
-          ),
+          _receiptRow(
+              _tr('المبلغ الإجمالي', 'Total'),
+              product.kind == StoreProductKind.subscription
+                  ? '$price / ${_tr('شهر', 'month')}'
+                  : price),
           const SizedBox(height: 12),
           Text(
-            character.tagAr,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.64),
-              fontSize: 12,
-              height: 1.35,
-              fontWeight: FontWeight.w700,
-            ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 12),
-          _ActionButton(
-            icon: Icons.groups_rounded,
-            label: 'فتح وتغيير الشخصيات',
-            color: const Color(0xFF4338CA),
-            onTap: onOpen,
-          ),
+              product.kind == StoreProductKind.subscription
+                  ? _tr(
+                      'اشتراك شهري يتجدد تلقائياً. تُحصّل الدفعة عند التأكيد، ثم كل شهر ما لم تلغِ التجديد عبر اشتراكات Google Play قبل موعد التجديد. يظل الوصول متاحاً حتى نهاية الفترة المدفوعة بعد الإلغاء. راجع السعر والفترة في نافذة Google Play قبل الدفع.',
+                      'A monthly, automatically renewing subscription. Payment is charged at confirmation and every month until you cancel renewal in Google Play subscriptions before the renewal date. Access continues until the paid period ends after cancellation. Review the price and billing period in Google Play before paying.')
+                  : product.oneTime
+                      ? _tr(
+                          'شراء لمرة واحدة. راجع السعر النهائي في Google Play قبل التأكيد.',
+                          'One-time purchase. Review the final price in Google Play before confirming.')
+                      : _tr(
+                          'تُضاف العملات بعد تأكيد الدفع وتسليم العملية. راجع السعر النهائي في Google Play.',
+                          'Currency is added after payment confirmation and delivery. Review the final price in Google Play.'),
+              style: const TextStyle(color: _muted, fontSize: 12, height: 1.7)),
         ],
-      ),
-    );
-  }
-}
+        button: _tr('المتابعة إلى الدفع', 'Continue to payment'),
+      );
 
-class _AdRewardPanel extends StatelessWidget {
-  const _AdRewardPanel({
-    required this.adService,
-    required this.busy,
-    required this.onWatchAd,
-  });
-
-  final AdService adService;
-  final bool busy;
-  final VoidCallback onWatchAd;
-
-  @override
-  Widget build(BuildContext context) {
-    final progress =
-        (adService.watchesToday / AdService.maxDailyWatches).clamp(0.0, 1.0);
-    final canWatch = adService.canWatchAd && !busy;
-    final status = adService.watchesLeft == 0
-        ? 'اكتمل حد الإعلانات اليومي'
-        : adService.cooldownRemaining > Duration.zero
-            ? 'الإعلان التالي بعد ${_formatDuration(adService.cooldownRemaining)}'
-            : '${adService.watchesLeft} إعلانات متاحة اليوم';
-
-    return Container(
-      decoration: _panelDecoration(accent: const Color(0xFF34D399)),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
-            children: <Widget>[
-              Container(
-                width: 50,
-                height: 50,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF34D399).withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: const Color(0xFF34D399).withValues(alpha: 0.35),
-                  ),
-                ),
-                child: const Icon(
-                  Icons.ondemand_video_rounded,
-                  color: Color(0xFF34D399),
-                  size: 28,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    const Text(
-                      'مكافأة الإعلان',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Text(
-                      status,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.58),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(5),
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 8,
-              backgroundColor: Colors.white.withValues(alpha: 0.09),
-              valueColor: const AlwaysStoppedAnimation<Color>(
-                Color(0xFF34D399),
-              ),
-            ),
-          ),
-          const SizedBox(height: 14),
-          _ActionButton(
-            icon: Icons.play_circle_fill_rounded,
-            label: 'شاهد إعلاناً',
-            color: const Color(0xFF166534),
-            onTap: canWatch ? onWatchAd : null,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: <Widget>[
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.14),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: color.withValues(alpha: 0.28)),
-          ),
-          child: Icon(icon, color: color, size: 22),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(
-                title,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              Text(
-                subtitle,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.52),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ),
-        Container(
-          height: 2,
-          width: 76,
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.48),
-            borderRadius: BorderRadius.circular(8),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _CoinPackCard extends StatelessWidget {
-  const _CoinPackCard({
-    required this.item,
-    required this.affordable,
-    required this.busy,
-    required this.onTap,
-  });
-
-  final _CoinItem item;
-  final bool affordable;
-  final bool busy;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final enabled = affordable && !busy;
-    final rate = (item.coinAmount / item.gemCost).round();
-
-    return Opacity(
-      opacity: enabled ? 1 : 0.58,
-      child: Container(
-        decoration: _panelDecoration(
-          accent:
-              affordable ? const Color(0xFF38BDF8) : const Color(0xFF64748B),
-        ),
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFACC15).withValues(alpha: 0.14),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: const Color(0xFFFACC15).withValues(alpha: 0.30),
-                    ),
-                  ),
-                  child: const Icon(
-                    Icons.monetization_on_rounded,
-                    color: Color(0xFFFACC15),
-                    size: 24,
-                  ),
-                ),
-                const Spacer(),
-                _TagPill(text: item.tag, color: const Color(0xFF38BDF8)),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              '${item.label} كوين',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.w900,
-                height: 1,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 5),
-            Text(
-              '${_compactNumber(item.gemCost)} جوهرة  •  $rate كوين لكل جوهرة',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.58),
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const Spacer(),
-            _ActionButton(
-              icon: enabled ? Icons.add_rounded : Icons.lock_rounded,
-              label: enabled ? 'تحويل الآن' : 'جواهر غير كافية',
-              color:
-                  enabled ? const Color(0xFF0369A1) : const Color(0xFF374151),
-              onTap: enabled ? onTap : null,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _BalanceCard extends StatelessWidget {
-  const _BalanceCard({
-    required this.icon,
-    required this.color,
-    required this.value,
-    required this.label,
-  });
-
-  final IconData icon;
-  final Color color;
-  final String value;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.11),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.27)),
-      ),
-      child: Row(
-        children: <Widget>[
-          Icon(icon, color: color, size: 22),
-          const SizedBox(width: 8),
-          Expanded(
+  Future<bool> _confirmSheet(
+          {required String title,
+          required String subtitle,
+          required IconData icon,
+          required Color accent,
+          required List<Widget> body,
+          required String button}) async =>
+      await showModalBottomSheet<bool>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        backgroundColor: _surface,
+        barrierColor: Colors.black.withValues(alpha: 0.72),
+        constraints: const BoxConstraints(maxWidth: 580),
+        shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(26))),
+        builder: (sheetContext) => Directionality(
+          textDirection: _arabic ? TextDirection.rtl : TextDirection.ltr,
+          child: SafeArea(
+              child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 12, 24, 20),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  value,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w900,
-                    height: 1,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.54),
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TagPill extends StatelessWidget {
-  const _TagPill({
-    required this.text,
-    required this.color,
-  });
-
-  final String text;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.26)),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: color,
-          fontSize: 10.5,
-          fontWeight: FontWeight.w900,
-        ),
-      ),
-    );
-  }
-}
-
-class _ActionButton extends StatelessWidget {
-  const _ActionButton({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Opacity(
-      opacity: onTap == null ? 0.48 : 1,
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: <Widget>[
-              Icon(icon, color: Colors.white, size: 17),
-              const SizedBox(width: 6),
-              Flexible(
-                child: Text(
-                  label,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w900,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-BoxDecoration _panelDecoration({required Color accent}) {
-  return BoxDecoration(
-    color: const Color(0xFF081328).withValues(alpha: 0.84),
-    borderRadius: BorderRadius.circular(8),
-    border: Border.all(color: accent.withValues(alpha: 0.27)),
-    boxShadow: <BoxShadow>[
-      BoxShadow(
-        color: Colors.black.withValues(alpha: 0.20),
-        blurRadius: 18,
-        offset: const Offset(0, 10),
-      ),
-    ],
-  );
-}
-
-String _compactNumber(int value) {
-  final sign = value < 0 ? '-' : '';
-  final abs = value.abs();
-  if (abs >= 1000000) {
-    final number = abs / 1000000;
-    return '$sign${number.toStringAsFixed(number >= 10 ? 0 : 1)}M';
-  }
-  if (abs >= 1000) {
-    final number = abs / 1000;
-    return '$sign${number.toStringAsFixed(number >= 10 ? 0 : 1)}K';
-  }
-  return value.toString();
-}
-
-String _formatDuration(Duration duration) {
-  if (duration <= Duration.zero) return 'الآن';
-  final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
-  final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
-  if (duration.inHours > 0) {
-    return '${duration.inHours}:$minutes';
-  }
-  return '$minutes:$seconds';
-}
-
-class _VipPassCard extends StatelessWidget {
-  const _VipPassCard({
-    required this.isVip,
-    this.busy = false,
-    this.onTap,
-  });
-
-  final bool isVip;
-  final bool busy;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        gradient: const LinearGradient(
-          colors: [
-            Color(0xFF1E1702),
-            Color(0xFF0F0E17),
-            Color(0xFF1A1404),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        border: Border.all(
-          color: const Color(0xFFF59E0B).withValues(alpha: 0.70),
-          width: 1.6,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFFF59E0B).withValues(alpha: 0.16),
-            blurRadius: 24,
-            offset: const Offset(0, 6),
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.7),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(18.4),
-        child: Stack(
-          children: [
-            Positioned(
-              top: 0,
-              left: 40,
-              right: 40,
-              height: 2,
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Colors.transparent,
-                      const Color(0xFFFFDF73).withValues(alpha: 0.9),
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              top: -20,
-              right: -20,
-              child: Container(
-                width: 120,
-                height: 120,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: const Color(0xFFEAB308).withValues(alpha: 0.08),
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 52,
-                        height: 52,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: const LinearGradient(
-                            colors: [
-                              Color(0xFFFFDF73),
-                              Color(0xFFD97706),
-                              Color(0xFF78350F),
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFFD97706).withValues(alpha: 0.45),
-                              blurRadius: 12,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
-                          border: Border.all(
-                            color: const Color(0xFFFFE082),
-                            width: 2,
-                          ),
-                        ),
-                        child: const Center(
-                          child: Icon(
-                            Icons.workspace_premium_rounded,
-                            color: Color(0xFF1E1402),
-                            size: 30,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                const Text(
-                                  'العضوية الملكية VIP',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16.5,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: -0.2,
-                                  ),
-                                ),
-                                const Spacer(),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: isVip
-                                          ? [const Color(0xFF10B981), const Color(0xFF047857)]
-                                          : [const Color(0xFFF59E0B), const Color(0xFFB45309)],
-                                    ),
-                                    borderRadius: BorderRadius.circular(10),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: (isVip ? const Color(0xFF10B981) : const Color(0xFFF59E0B))
-                                            .withValues(alpha: 0.35),
-                                        blurRadius: 6,
-                                      ),
-                                    ],
-                                  ),
-                                  child: Text(
-                                    isVip ? 'مفعلة بالكامل ✓' : 'عرض حصري 🔥',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 10.5,
-                                      fontWeight: FontWeight.w900,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            const Text(
-                              'امتيازات لا نهائية للاعبين النخبة لتجربة لعب أسطورية بدون قيود',
-                              style: TextStyle(
-                                color: Color(0xFFFFDF73),
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  const Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      _VipPerkBadge(
-                        icon: Icons.lock_open_rounded,
-                        label: '45 فئة مفتوحة مجاناً',
-                        color: Color(0xFF38BDF8),
-                      ),
-                      _VipPerkBadge(
-                        icon: Icons.block_rounded,
-                        label: 'بدون إعلانات بينية',
-                        color: Color(0xFFF43F5E),
-                      ),
-                      _VipPerkBadge(
-                        icon: Icons.diamond_rounded,
-                        label: '+500 جوهرة شهرياً',
-                        color: Color(0xFF34D399),
-                      ),
-                      _VipPerkBadge(
-                        icon: Icons.monetization_on_rounded,
-                        label: '+5,000 كوين فوري',
-                        color: Color(0xFFFACC15),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  if (isVip)
-                    Container(
-                      height: 44,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        color: const Color(0xFF10B981).withValues(alpha: 0.16),
-                        border: Border.all(
-                          color: const Color(0xFF10B981).withValues(alpha: 0.5),
-                        ),
-                      ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.check_circle_rounded, color: Color(0xFF34D399), size: 20),
-                          SizedBox(width: 8),
-                          Text(
-                            'اشتراك VIP نشط ويمنحك جميع المزايا',
-                            style: TextStyle(
-                              color: Color(0xFF34D399),
-                              fontSize: 13.5,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                  else
-                    Container(
-                      height: 48,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(14),
-                        gradient: const LinearGradient(
-                          colors: [
-                            Color(0xFFFFE082),
-                            Color(0xFFF59E0B),
-                            Color(0xFFD97706),
-                          ],
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                        ),
-                        boxShadow: [
-                          const BoxShadow(
-                            color: Color(0xFF78350F),
-                            offset: Offset(0, 4),
-                            blurRadius: 0,
-                          ),
-                          BoxShadow(
-                            color: const Color(0xFFF59E0B).withValues(alpha: 0.45),
-                            offset: const Offset(0, 6),
-                            blurRadius: 14,
-                          ),
-                        ],
-                        border: Border.all(
-                          color: const Color(0xFFFFF7ED),
-                          width: 1.2,
-                        ),
-                      ),
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: busy ? null : onTap,
-                          borderRadius: BorderRadius.circular(14),
-                          splashColor: Colors.white24,
-                          child: Center(
-                            child: busy
-                                ? const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2.2,
-                                      color: Color(0xFF451A03),
-                                    ),
-                                  )
-                                : const Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        Icons.workspace_premium_rounded,
-                                        size: 22,
-                                        color: Color(0xFF451A03),
-                                      ),
-                                      SizedBox(width: 8),
-                                      Text(
-                                        'تفعيل العضوية الملكية 4.99\$ 👑',
-                                        style: TextStyle(
-                                          color: Color(0xFF451A03),
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w900,
-                                          letterSpacing: -0.2,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ],
+                  Center(
+                      child: Container(
+                          width: 36,
+                          height: 4,
+                          margin: const EdgeInsets.only(bottom: 20),
+                          decoration: BoxDecoration(
+                              color: _muted.withValues(alpha: 0.45),
+                              borderRadius: BorderRadius.circular(10)))),
+                  Row(children: [
+                    _iconTile(icon, accent, size: 46),
+                    const SizedBox(width: 14),
+                    Expanded(
+                        child: Text(title,
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 22)))
+                  ]),
+                  const SizedBox(height: 10),
+                  Text(subtitle,
+                      style: const TextStyle(color: _muted, height: 1.6)),
+                  const SizedBox(height: 20),
+                  ...body,
+                  const SizedBox(height: 20),
+                  _StoreButton(
+                      label: button,
+                      icon: Icons.lock_outline_rounded,
+                      accent: accent,
+                      onPressed: () => Navigator.of(sheetContext).pop(true)),
+                  const SizedBox(height: 6),
+                  TextButton(
+                      onPressed: () => Navigator.of(sheetContext).pop(false),
+                      child: Text(_tr('إلغاء', 'Cancel'),
+                          style: const TextStyle(color: _muted))),
+                ]),
+          )),
         ),
-      ),
-    );
-  }
-}
+      ) ??
+      false;
 
-class _VipPerkBadge extends StatelessWidget {
-  const _VipPerkBadge({
-    required this.icon,
-    required this.label,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: color.withValues(alpha: 0.35),
-          width: 1,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: color),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontSize: 11.5,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
+  Future<void> _exchange(CoinExchange exchange) async {
+    if (_busy || context.read<InAppPurchaseService>().isPurchasing) return;
+    final app = context.read<AppState>();
+    if (app.gems < exchange.gemCost) {
+      _snack(
+          _tr('تحتاج ${_number(exchange.gemCost - app.gems)} جوهرة إضافية.',
+              'You need ${_number(exchange.gemCost - app.gems)} more gems.'),
+          error: true);
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      final confirmed = await _confirmSheet(
+        title: _tr('تحويل الجواهر إلى نقود', 'Exchange gems for coins'),
+        subtitle: _tr('سيُخصم المبلغ من رصيد جواهرك داخل اللعبة.',
+            'The cost will be deducted from your in-game gem balance.'),
+        icon: Icons.currency_exchange_rounded,
+        accent: _gold,
+        body: [
+          _receiptRow(_tr('الجواهر المطلوبة', 'Gem cost'),
+              '${_number(exchange.gemCost)} ${_tr('جوهرة', 'gems')}'),
+          const SizedBox(height: 12),
+          _receiptRow(_tr('النقود التي تحصل عليها', 'Coins received'),
+              '${_number(exchange.coins)} ${_tr('قطعة', 'coins')}')
         ],
-      ),
-    );
+        button: _tr('تأكيد التحويل', 'Confirm exchange'),
+      );
+      if (!confirmed || !mounted) return;
+      final success = await context
+          .read<NativeBridgeService>()
+          .buyCurrency(coinAmount: exchange.coins, gemCost: exchange.gemCost);
+      await app.loadCurrency();
+      if (!mounted) return;
+      if (success) {
+        showCurrencyRewardOverlay(context, coins: exchange.coins, gems: 0);
+      } else {
+        _snack(
+            _tr('لم يكتمل التحويل. تحقق من رصيدك وحاول مجدداً.',
+                'The exchange did not complete. Check your balance and try again.'),
+            error: true);
+      }
+    } catch (_) {
+      _snack(
+          _tr('تعذر تحويل الجواهر الآن.', 'Could not exchange gems right now.'),
+          error: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
-}
 
-class _BundleCard extends StatelessWidget {
-  const _BundleCard({
-    required this.bundle,
-    required this.busy,
-    required this.onTap,
-  });
+  bool _categoryOwned(GameCategory category, AppState app) =>
+      app.hasPermanentCategoryPass ||
+      app.unlockedCategories.any((name) =>
+          GameCategory.normalize(name) ==
+          GameCategory.normalize(category.name));
 
-  final _BundleItem bundle;
-  final bool busy;
-  final VoidCallback onTap;
+  Future<void> _unlockCategory(GameCategory category) async {
+    final app = context.read<AppState>();
+    if (_busy ||
+        context.read<InAppPurchaseService>().isPurchasing ||
+        _categoryOwned(category, app)) {
+      return;
+    }
+    if (app.gems < category.gemCost) {
+      _snack(
+          _tr('تحتاج ${_number(category.gemCost - app.gems)} جوهرة إضافية.',
+              'You need ${_number(category.gemCost - app.gems)} more gems.'),
+          error: true);
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      final confirmed = await _confirmSheet(
+          title: category.name,
+          subtitle: _tr('امتلاك دائم لهذه الفئة، دون اشتراك.',
+              'Permanent ownership of this category, with no subscription.'),
+          icon: Icons.category_rounded,
+          accent: _cyan,
+          body: [
+            _receiptRow(_tr('التكلفة', 'Cost'),
+                '${category.gemCost} ${_tr('جوهرة', 'gems')}'),
+            const SizedBox(height: 10),
+            _receiptRow(_tr('رصيدك بعد الشراء', 'Balance after purchase'),
+                '${_number(app.gems - category.gemCost)} ${_tr('جوهرة', 'gems')}')
+          ],
+          button: _tr('امتلاك الفئة', 'Unlock category'));
+      if (!confirmed || !mounted) return;
+      final success = await app.unlockCategoryWithGems(category.name,
+          gemCost: category.gemCost);
+      _snack(
+          success
+              ? _tr('أصبحت فئة ${category.name} ملكك بشكل دائم.',
+                  'You now permanently own ${category.name}.')
+              : _tr('لم يكتمل فتح الفئة. حاول مجدداً.',
+                  'The category could not be unlocked. Please try again.'),
+          error: !success);
+    } catch (_) {
+      _snack(
+          _tr('تعذر شراء الفئة الآن.',
+              'Could not unlock this category right now.'),
+          error: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _rentCategory(GameCategory category) async {
+    final app = context.read<AppState>();
+    if (_busy ||
+        context.read<InAppPurchaseService>().isPurchasing ||
+        app.isCategoryUnlocked(category.name)) {
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      final watched = await context.read<AdService>().showActionRewardedAd();
+      if (!mounted) return;
+      if (!watched) {
+        _snack(
+            _tr('الإعلان غير متاح أو لم تكتمل مشاهدته.',
+                'The ad is unavailable or was not watched to completion.'),
+            error: true);
+        return;
+      }
+      final unlocked = await app.rentCategoryWithAd(category.name, hours: 24);
+      _snack(
+          unlocked
+              ? _tr('فئة ${category.name} متاحة لك لمدة 24 ساعة.',
+                  '${category.name} is available for 24 hours.')
+              : _tr('تعذر تفعيل الفئة الآن.',
+                  'Could not activate the category right now.'),
+          error: !unlocked);
+    } catch (_) {
+      _snack(
+          _tr('تعذر تفعيل تجربة الفئة.', 'Could not start the category trial.'),
+          error: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _watchAd() async {
+    if (_busy) return;
+    final ads = context.read<AdService>();
+    if (!ads.canWatchAd) return;
+    setState(() => _busy = true);
+    try {
+      final reward = await ads.showRewardedAd();
+      if (!mounted) return;
+      if (reward == null) {
+        _snack(
+            _tr('الإعلان غير متاح أو لم تكتمل مشاهدته.',
+                'The ad is unavailable or was not watched to completion.'),
+            error: true);
+        return;
+      }
+      await context.read<NativeBridgeService>().grantCurrency(
+          coins: reward['coins'] ?? 0, gems: reward['gems'] ?? 0);
+      if (!mounted) return;
+      await context.read<AppState>().loadCurrency();
+      if (!mounted) return;
+      showCurrencyRewardOverlay(context,
+          coins: reward['coins'] ?? 0, gems: reward['gems'] ?? 0);
+    } catch (_) {
+      _snack(
+          _tr('تعذر استلام مكافأة الإعلان الآن.',
+              'Could not receive the ad reward right now.'),
+          error: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _claimDailyReward() async {
+    if (_busy) return;
+    final app = context.read<AppState>();
+    if (app.claimedToday ||
+        !app.dailyStreakLoaded ||
+        !app.isOnline ||
+        app.user == null) {
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      final reward = await app.claimDailyStreak();
+      if (!mounted) return;
+      if (reward != null) {
+        showCurrencyRewardOverlay(context,
+            coins: reward['coins'] ?? 0, gems: reward['gems'] ?? 0);
+      } else {
+        _snack(
+            _tr('تعذر استلام الهدية الآن. حاول مجدداً.',
+                'Could not claim your gift right now. Please try again.'),
+            error: true);
+      }
+    } catch (_) {
+      _snack(
+          _tr('تعذر استلام الهدية الآن.',
+              'Could not claim your gift right now.'),
+          error: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _restorePurchases() async {
+    final iap = context.read<InAppPurchaseService>();
+    if (_busy ||
+        iap.isRestoring ||
+        iap.status == PurchaseFlowStatus.launching ||
+        iap.status == PurchaseFlowStatus.verifying) {
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      final success = await iap.restorePurchases();
+      if (!mounted) return;
+      final app = context.read<AppState>();
+      await Future.wait([app.loadCategoryState(), app.loadCurrency()]);
+      _snack(
+          success
+              ? _tr(
+                  'تمت مراجعة المشتريات. ستظهر الحقوق النشطة بعد تأكيدها من المتجر.',
+                  'Purchases checked. Active entitlements appear after store confirmation.')
+              : _tr(
+                  iap.error.isNotEmpty
+                      ? iap.error
+                      : 'تعذر استعادة المشتريات الآن. أعد المحاولة لاحقاً.',
+                  'Could not restore purchases. Check your Google Play account and connection.'),
+          error: !success);
+    } catch (_) {
+      _snack(
+          _tr('تعذر استعادة المشتريات الآن.',
+              'Could not restore purchases right now.'),
+          error: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _manageSubscription() async {
+    try {
+      final success =
+          await context.read<InAppPurchaseService>().manageSubscriptions();
+      if (!success) {
+        _snack(
+            _tr('تعذر فتح إدارة الاشتراكات الآن.',
+                'Could not open subscription management right now.'),
+            error: true);
+      }
+    } catch (_) {
+      _snack(
+          _tr('تعذر فتح إدارة الاشتراكات الآن.',
+              'Could not open subscription management right now.'),
+          error: true);
+    }
+  }
+
+  Future<void> _retryPurchases() async {
+    final iap = context.read<InAppPurchaseService>();
+    final retryVerification = iap.status == PurchaseFlowStatus.failed;
+    await iap.loadProducts();
+    if (mounted && retryVerification) await _restorePurchases();
+  }
+
+  Future<void> _openCharacters() async {
+    if (_busy) return;
+    await Navigator.of(context).push<void>(
+        MaterialPageRoute(builder: (_) => const CharacterSelectScreen()));
+    if (!mounted) return;
+    final app = context.read<AppState>();
+    await Future.wait([app.loadCharacterState(), app.loadCurrency()]);
+  }
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isWide = constraints.maxWidth >= 330;
-
-        return Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                bundle.colors[0],
-                bundle.colors[1],
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: bundle.tagColor.withValues(alpha: 0.65),
-              width: 1.5,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: bundle.tagColor.withValues(alpha: 0.28),
-                blurRadius: 16,
-                offset: const Offset(0, 5),
-              ),
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.55),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(14.5),
-            child: Stack(
-              children: [
-                // Top Gloss Reflection Line
-                Positioned(
-                  top: 0,
-                  left: 20,
-                  right: 20,
-                  height: 1.5,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          Colors.transparent,
-                          bundle.tagColor.withValues(alpha: 0.85),
-                          Colors.transparent,
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                // Internal Radial Glow
-                Positioned(
-                  top: isWide ? 10 : 25,
-                  right: isWide ? 10 : null,
-                  left: isWide ? null : 15,
-                  child: Container(
-                    width: 70,
-                    height: 70,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: bundle.tagColor.withValues(alpha: 0.22),
-                          blurRadius: 24,
-                          spreadRadius: 8,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  child: isWide
-                      ? _buildWideLayout(context)
-                      : _buildVerticalShowcaseLayout(context),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
+    final app = context.watch<AppState>();
+    final iap = context.watch<InAppPurchaseService>();
+    final ads = context.watch<AdService>();
+    final settings = context.watch<AppSettings>();
+    final disabled = _busy || iap.isPurchasing;
+    return Directionality(
+      textDirection: settings.isArabic ? TextDirection.rtl : TextDirection.ltr,
+      child: Scaffold(
+        backgroundColor: _background,
+        body: DecoratedBox(
+          decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                  begin: Alignment.topRight,
+                  end: Alignment.bottomLeft,
+                  colors: [Color(0xFF16152F), _background, Color(0xFF071826)],
+                  stops: [0, 0.55, 1])),
+          child: SafeArea(
+              child: Column(children: [
+            _header(app),
+            if (_showStatus(iap)) _purchaseStatus(iap),
+            _tabs(),
+            Expanded(
+                child: RefreshIndicator(
+              color: _cyan,
+              backgroundColor: _surface,
+              onRefresh: _refresh,
+              child: LayoutBuilder(builder: (context, constraints) {
+                final padding = constraints.maxWidth >= 800 ? 28.0 : 16.0;
+                return ListView(
+                  controller: _scrollController,
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: EdgeInsets.fromLTRB(padding, 18, padding, 24),
+                  children: [
+                    Center(
+                        child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 1180),
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            if (_section == _StoreSection.featured) ...[
+                              _featured(iap, app, disabled),
+                              const SizedBox(height: 22),
+                              _sectionTitle(
+                                  _tr('اختر طريقتك للعب', 'Make it your game'),
+                                  _tr('عملات، عضوية، وفئات تملكها',
+                                      'Currency, membership and a collection of your own')),
+                              const SizedBox(height: 12),
+                              _discoveryTiles(),
+                              const SizedBox(height: 22),
+                              _sectionTitle(
+                                  _tr('باقات تجمع النقود والجواهر',
+                                      'Coins and gems, together'),
+                                  _tr('المحتويات واضحة قبل كل عملية شراء',
+                                      'See exactly what is included before you buy')),
+                              const SizedBox(height: 12),
+                              _productGrid(
+                                  StoreCatalog.products
+                                      .where((p) =>
+                                          p.kind == StoreProductKind.bundle &&
+                                          p.id != 'pack_starter')
+                                      .toList(),
+                                  iap,
+                                  app,
+                                  disabled),
+                              const SizedBox(height: 22),
+                              _freeRewards(app, ads, disabled),
+                            ],
+                            if (_section == _StoreSection.gems) ...[
+                              _sectionTitle(
+                                  _tr('رصيدك من الجواهر، خيارات أكثر',
+                                      'More gems. More possibilities.'),
+                                  _tr('لفتح الفئات وشراء الشخصيات وتحويلها إلى نقود',
+                                      'Unlock categories, collect characters or exchange for coins')),
+                              const SizedBox(height: 16),
+                              _productGrid(
+                                  StoreCatalog.products
+                                      .where((p) =>
+                                          p.kind == StoreProductKind.gems)
+                                      .toList(),
+                                  iap,
+                                  app,
+                                  disabled),
+                              const SizedBox(height: 22),
+                              _freeRewards(app, ads, disabled),
+                            ],
+                            if (_section == _StoreSection.coins) ...[
+                              _sectionTitle(
+                                  _tr('نقود لتوسيع مجموعتك',
+                                      'Coins for your collection'),
+                                  _tr('شراء مباشر من المتجر أو تحويل جواهرك',
+                                      'Buy through the store or exchange your gems')),
+                              const SizedBox(height: 16),
+                              _productGrid(
+                                  StoreCatalog.products
+                                      .where((p) =>
+                                          p.kind == StoreProductKind.coins)
+                                      .toList(),
+                                  iap,
+                                  app,
+                                  disabled),
+                              const SizedBox(height: 24),
+                              _sectionTitle(
+                                  _tr('تحويل الجواهر إلى نقود',
+                                      'Exchange gems for coins'),
+                                  _tr('تستخدم رصيدك داخل اللعبة، دون دفعة مالية',
+                                      'Spend your in-game gems, with no cash payment')),
+                              const SizedBox(height: 12),
+                              _exchanges(app, disabled),
+                            ],
+                            if (_section == _StoreSection.membership)
+                              _membership(iap, app, disabled),
+                            if (_section == _StoreSection.collection)
+                              _collection(iap, app, disabled),
+                            const SizedBox(height: 24),
+                            _footer(iap),
+                          ]),
+                    ))
+                  ],
+                );
+              }),
+            )),
+          ])),
+        ),
+      ),
     );
   }
 
-  Widget _buildVerticalShowcaseLayout(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // 1. Top Badges Row (Discount Ribbon on start, Multiplier on end)
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    bundle.tagColor.withValues(alpha: 0.95),
-                    bundle.tagColor.withValues(alpha: 0.75),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(6),
-                boxShadow: [
-                  BoxShadow(
-                    color: bundle.tagColor.withValues(alpha: 0.35),
-                    blurRadius: 6,
-                  ),
-                ],
-              ),
-              child: Text(
-                bundle.tag,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -0.2,
-                ),
-              ),
-            ),
-            if (bundle.multiplier.isNotEmpty)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.55),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(
-                    color: const Color(0xFFFACC15).withValues(alpha: 0.75),
-                    width: 0.8,
-                  ),
-                ),
-                child: Text(
-                  bundle.multiplier,
+  Widget _header(AppState app) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 9, 16, 8),
+        child: Row(children: [
+          IconButton(
+              tooltip: _tr('العودة', 'Back'),
+              onPressed: () => Navigator.of(context).maybePop(),
+              style: IconButton.styleFrom(
+                  backgroundColor: Colors.white.withValues(alpha: 0.06),
+                  foregroundColor: Colors.white),
+              icon: Icon(_arabic
+                  ? Icons.arrow_forward_rounded
+                  : Icons.arrow_back_rounded)),
+          const SizedBox(width: 10),
+          Expanded(
+              child: Text(_tr('متجر التحدّي', 'Challenge Store'),
                   style: const TextStyle(
-                    color: Color(0xFFFACC15),
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        // 2. Title and Emblem Row
-        Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  colors: [
-                    bundle.tagColor.withValues(alpha: 0.85),
-                    bundle.tagColor.withValues(alpha: 0.35),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                border: Border.all(
-                  color: bundle.tagColor.withValues(alpha: 0.8),
-                  width: 1.2,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: bundle.tagColor.withValues(alpha: 0.3),
-                    blurRadius: 6,
-                  ),
-                ],
-              ),
-              child: Center(
-                child: Icon(
-                  bundle.icon,
-                  color: Colors.white,
-                  size: 20,
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    bundle.title,
-                    style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: -0.2,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (bundle.subtitle.isNotEmpty) ...[
-                    const SizedBox(height: 1),
-                    Text(
-                      bundle.subtitle,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.7),
-                        fontSize: 9.5,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        // 3. High-Contrast Reward Showcase Box
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.35),
-            borderRadius: BorderRadius.circular(9),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.12),
-              width: 0.8,
+                      fontSize: 21,
+                      fontWeight: FontWeight.w800))),
+          _walletChip(app.coins, Icons.monetization_on_rounded, _gold,
+              _tr('نقود', 'coins'), () => _selectSection(_StoreSection.coins)),
+          const SizedBox(width: 8),
+          _walletChip(app.gems, Icons.diamond_rounded, _cyan,
+              _tr('جواهر', 'gems'), () => _selectSection(_StoreSection.gems)),
+        ]),
+      );
+
+  Widget _walletChip(int amount, IconData icon, Color color, String label,
+          VoidCallback onTap) =>
+      Semantics(
+        label: '$label ${_number(amount)}',
+        button: true,
+        child: Material(
+          color: color.withValues(alpha: 0.09),
+          borderRadius: BorderRadius.circular(14),
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(14),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(icon, color: color, size: 19),
+                const SizedBox(width: 6),
+                Text(_number(amount),
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13)),
+                const SizedBox(width: 5),
+                Icon(Icons.add_rounded, size: 15, color: color),
+              ]),
             ),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.monetization_on_rounded, color: Color(0xFFFFD66B), size: 14),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${bundle.coins}',
-                    style: const TextStyle(
-                      color: Color(0xFFFFD66B),
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w900,
-                    ),
+        ),
+      );
+
+  Widget _tabs() {
+    final tabs = <(_StoreSection, String, IconData)>[
+      (
+        _StoreSection.featured,
+        _tr('المميزة', 'Featured'),
+        Icons.auto_awesome_rounded
+      ),
+      (_StoreSection.gems, _tr('الجواهر', 'Gems'), Icons.diamond_rounded),
+      (
+        _StoreSection.coins,
+        _tr('النقود', 'Coins'),
+        Icons.monetization_on_rounded
+      ),
+      (
+        _StoreSection.membership,
+        _tr('العضوية', 'Membership'),
+        Icons.workspace_premium_rounded
+      ),
+      (
+        _StoreSection.collection,
+        _tr('الفئات والشخصيات', 'Categories & characters'),
+        Icons.grid_view_rounded
+      ),
+    ];
+    return Container(
+      decoration: BoxDecoration(
+          border: Border(
+              bottom: BorderSide(color: Colors.white.withValues(alpha: 0.08)))),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(18, 0, 18, 8),
+        child: Row(
+            children: tabs.map((tab) {
+          final selected = _section == tab.$1;
+          return Padding(
+            padding: const EdgeInsetsDirectional.only(end: 8),
+            child: Semantics(
+              selected: selected,
+              button: true,
+              child: Material(
+                color: selected
+                    ? _purple.withValues(alpha: 0.16)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(12),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () => _selectSection(tab.$1),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                            color: selected
+                                ? _purple.withValues(alpha: 0.5)
+                                : Colors.transparent)),
+                    child: Row(children: [
+                      Icon(tab.$3,
+                          size: 17, color: selected ? _purple : _muted),
+                      const SizedBox(width: 7),
+                      Text(tab.$2,
+                          style: TextStyle(
+                              color: selected ? Colors.white : _muted,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13))
+                    ]),
                   ),
-                ],
-              ),
-              Text(
-                '+',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.4),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
                 ),
               ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.diamond_rounded, color: Color(0xFF7DD3FC), size: 14),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${bundle.gems}',
-                    style: const TextStyle(
-                      color: Color(0xFF7DD3FC),
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        const Spacer(),
-        // 4. Strikethrough & High-Impact 3D Buy Button
-        Row(
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text(
-                    'بدلاً من',
-                    style: TextStyle(
-                      color: Colors.white38,
-                      fontSize: 8.5,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  Text(
-                    bundle.originalPrice,
-                    style: const TextStyle(
-                      color: Color(0xFFF87171),
-                      fontSize: 11,
-                      decoration: TextDecoration.lineThrough,
-                      decorationColor: Color(0xFFEF4444),
-                      decorationThickness: 2,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ],
-              ),
             ),
-            const SizedBox(width: 6),
-            Expanded(
-              child: _TactileBundleButton(
-                price: bundle.price,
-                colors: bundle.ctaColors,
-                shadowColor: bundle.ctaShadowColor,
-                textColor: bundle.ctaTextColor,
-                busy: busy,
-                onTap: onTap,
-              ),
-            ),
-          ],
-        ),
-      ],
+          );
+        }).toList()),
+      ),
     );
   }
 
-  Widget _buildWideLayout(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: LinearGradient(
-              colors: [
-                bundle.tagColor.withValues(alpha: 0.85),
-                bundle.tagColor.withValues(alpha: 0.35),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            border: Border.all(
-              color: bundle.tagColor.withValues(alpha: 0.8),
-              width: 1.5,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: bundle.tagColor.withValues(alpha: 0.35),
-                blurRadius: 10,
-              ),
-            ],
+  bool _showStatus(InAppPurchaseService iap) =>
+      iap.isLoading ||
+      iap.isRestoring ||
+      !iap.isAvailable ||
+      iap.error.isNotEmpty ||
+      (iap.status != PurchaseFlowStatus.idle &&
+          iap.status != PurchaseFlowStatus.delivered);
+
+  Widget _purchaseStatus(InAppPurchaseService iap) {
+    final processing = iap.isPurchasing || iap.isLoading;
+    final error = !iap.isAvailable || iap.status == PurchaseFlowStatus.failed;
+    final color = error ? const Color(0xFFFFA5A5) : _cyan;
+    final message = iap.isLoading
+        ? _tr('جارٍ تحميل الأسعار من Google Play…',
+            'Loading prices from Google Play…')
+        : iap.isRestoring
+            ? _tr('جارٍ مراجعة المشتريات…', 'Checking previous purchases…')
+            : iap.status == PurchaseFlowStatus.pending
+                ? _tr(
+                    'الدفع معلّق. ستُضاف مشترياتك بعد تأكيده، ويمكنك متابعة اللعب.',
+                    'Payment is pending. Your purchase arrives after confirmation; you can keep playing.')
+                : iap.status == PurchaseFlowStatus.verifying
+                    ? _tr('جارٍ تأكيد الدفع وتسليم مشترياتك…',
+                        'Confirming payment and delivering your purchase…')
+                    : iap.status == PurchaseFlowStatus.launching
+                        ? _tr('جارٍ فتح نافذة الدفع الآمنة…',
+                            'Opening the secure payment sheet…')
+                        : iap.status == PurchaseFlowStatus.canceled
+                            ? _tr(
+                                'تم إلغاء عملية الشراء.', 'Purchase canceled.')
+                            : iap.status == PurchaseFlowStatus.failed
+                                ? _tr(
+                                    iap.error.isEmpty
+                                        ? 'تعذر إتمام الشراء. استخدم استعادة المشتريات لإعادة التحقق.'
+                                        : iap.error,
+                                    'Your purchase could not be completed. Use Restore purchases to check its status.')
+                                : _tr(
+                                    iap.error.isNotEmpty
+                                        ? iap.error
+                                        : 'المتجر غير متاح حالياً. أعد المحاولة أو استخدم رصيدك داخل اللعبة.',
+                                    'The store is currently unavailable. Retry or use your in-game balance.');
+    return Container(
+      margin: const EdgeInsets.fromLTRB(18, 0, 18, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withValues(alpha: 0.2))),
+      child: Row(children: [
+        if (processing)
+          SizedBox(
+              width: 15,
+              height: 15,
+              child: CircularProgressIndicator(strokeWidth: 2, color: color))
+        else
+          Icon(error ? Icons.cloud_off_rounded : Icons.info_outline_rounded,
+              size: 18, color: color),
+        const SizedBox(width: 10),
+        Expanded(
+            child: Text(message,
+                style: TextStyle(color: color, fontSize: 12, height: 1.4))),
+        if (error && !processing)
+          TextButton(
+              onPressed: _retryPurchases,
+              style: TextButton.styleFrom(
+                  foregroundColor: color, visualDensity: VisualDensity.compact),
+              child: Text(_tr('إعادة المحاولة', 'Retry'))),
+        if (iap.status == PurchaseFlowStatus.pending &&
+            !iap.isRestoring &&
+            !_busy)
+          TextButton(
+            onPressed: _restorePurchases,
+            style: TextButton.styleFrom(
+                foregroundColor: color, visualDensity: VisualDensity.compact),
+            child: Text(_tr('التحقق', 'Check status')),
           ),
-          child: Center(
-            child: Icon(
-              bundle.icon,
-              color: Colors.white,
-              size: 26,
-            ),
-          ),
+      ]),
+    );
+  }
+
+  Widget _featured(InAppPurchaseService iap, AppState app, bool disabled) {
+    final product = StoreCatalog.byId('pack_starter')!;
+    return _panel(
+      accent: _purple,
+      gradient: const [Color(0xFF292247), Color(0xFF172036)],
+      child: LayoutBuilder(builder: (context, constraints) {
+        final compact = constraints.maxWidth < 440;
+        return Row(children: [
+          Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                _pill(
+                    _tr('بداية جديدة • شراء لمرة واحدة',
+                        'A fresh start • One-time purchase'),
+                    _purple),
+                const SizedBox(height: 12),
+                Text(_title(product),
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 26,
+                        fontWeight: FontWeight.w800,
+                        height: 1.3)),
+                const SizedBox(height: 6),
+                Text(_subtitle(product),
+                    style: const TextStyle(
+                        color: Color(0xFFB9B2D3), fontSize: 13, height: 1.6)),
+                const SizedBox(height: 15),
+                _rewardSummary(product.coins, product.gems),
+                const SizedBox(height: 18),
+                SizedBox(
+                    width: compact ? double.infinity : 290,
+                    child: _purchaseButton(product, iap, disabled,
+                        owned: _owned(product, app))),
+              ])),
+          if (!compact) ...[
+            const SizedBox(width: 18),
+            _ProductArt(
+                icon: Icons.inventory_2_rounded,
+                accent: _purple,
+                size: constraints.maxWidth > 750 ? 156 : 110,
+                bundle: true)
+          ],
+        ]);
+      }),
+    );
+  }
+
+  Widget _discoveryTiles() => _responsiveWrap(minWidth: 210, children: [
+        _discovery(Icons.diamond_rounded, _cyan, _tr('الجواهر', 'Gems'),
+            _tr('افتح ما تحب', 'Unlock what you love'), _StoreSection.gems),
+        _discovery(
+            Icons.workspace_premium_rounded,
+            _gold,
+            _tr('العضوية المميزة', 'Plus membership'),
+            _tr('فئات أكثر، دون إعلانات إجبارية',
+                'More categories, no forced ads'),
+            _StoreSection.membership),
+        _discovery(
+            Icons.auto_awesome_motion_rounded,
+            _green,
+            _tr('مجموعتك', 'Your collection'),
+            _tr('فئات وشخصيات بطابعك', 'Categories and characters, your way'),
+            _StoreSection.collection),
+      ]);
+
+  Widget _discovery(IconData icon, Color color, String title, String subtitle,
+          _StoreSection section) =>
+      Material(
+        color: _surface,
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          onTap: () => _selectSection(section),
+          borderRadius: BorderRadius.circular(18),
+          child: Padding(
+              padding: const EdgeInsets.all(15),
+              child: Row(children: [
+                _iconTile(icon, color, size: 40),
+                const SizedBox(width: 12),
+                Expanded(
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                      Text(title,
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 14)),
+                      const SizedBox(height: 3),
+                      Text(subtitle,
+                          style: const TextStyle(
+                              color: _muted, fontSize: 11, height: 1.4))
+                    ])),
+                Icon(Icons.chevron_right_rounded,
+                    textDirection:
+                        _arabic ? TextDirection.rtl : TextDirection.ltr,
+                    color: _muted,
+                    size: 20),
+              ])),
         ),
+      );
+
+  Widget _productGrid(List<StoreProduct> products, InAppPurchaseService iap,
+          AppState app, bool disabled) =>
+      _responsiveWrap(
+          minWidth: 220,
+          children: products
+              .map((product) => _productCard(product, iap, app, disabled))
+              .toList());
+
+  Widget _productCard(StoreProduct product, InAppPurchaseService iap,
+      AppState app, bool disabled) {
+    final accent = _accent(product);
+    final owned = _owned(product, app);
+    return _panel(
+      accent: accent,
+      padding: 18,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Flexible(
+              child: _pill(
+                  product.oneTime
+                      ? _tr('شراء لمرة واحدة', 'One-time purchase')
+                      : product.kind == StoreProductKind.bundle
+                          ? _tr('نقود + جواهر', 'Coins + gems')
+                          : _tr('رصيد داخل اللعبة', 'In-game currency'),
+                  accent)),
+          if (owned)
+            const Icon(Icons.check_circle_rounded, color: _green, size: 20)
+        ]),
+        const SizedBox(height: 10),
+        Center(
+            child: _ProductArt(
+                icon: _icon(product),
+                accent: accent,
+                size: 84,
+                bundle: product.kind == StoreProductKind.bundle)),
+        const SizedBox(height: 12),
+        Text(_title(product),
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+                color: Colors.white,
+                fontSize: 17,
+                fontWeight: FontWeight.w800)),
+        const SizedBox(height: 6),
+        Text(_subtitle(product),
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: _muted, fontSize: 12, height: 1.6)),
+        const SizedBox(height: 13),
+        _rewardSummary(product.coins, product.gems, centered: true),
+        const SizedBox(height: 18),
+        _purchaseButton(product, iap, disabled, owned: owned),
+      ]),
+    );
+  }
+
+  Widget _purchaseButton(
+      StoreProduct product, InAppPurchaseService iap, bool disabled,
+      {bool owned = false}) {
+    final price = iap.getProductDetails(product.id)?.price;
+    final available = iap.isAvailable && price != null && price.isNotEmpty;
+    final checkingOwnership = !context.read<AppState>().isCommerceReady;
+    final button = _StoreButton(
+      label: owned
+          ? product.kind == StoreProductKind.subscription
+              ? _tr('إدارة الاشتراك', 'Manage membership')
+              : _tr('تم الامتلاك', 'Owned')
+          : checkingOwnership
+              ? _tr('جارٍ التحقق من حسابك…', 'Checking your account…')
+              : iap.isLoading
+                  ? _tr('جارٍ تحميل السعر…', 'Loading price…')
+                  : available
+                      ? product.kind == StoreProductKind.subscription
+                          ? '$price / ${_tr('شهر', 'month')}'
+                          : price
+                      : _tr('غير متاح حالياً', 'Currently unavailable'),
+      icon: owned
+          ? Icons.check_circle_outline_rounded
+          : Icons.shopping_bag_outlined,
+      accent: _accent(product),
+      loading: iap.activeProductId == product.id && iap.isPurchasing,
+      onPressed: owned
+          ? product.kind == StoreProductKind.subscription && !disabled
+              ? _manageSubscription
+              : null
+          : available && !disabled && !iap.isLoading && !checkingOwnership
+              ? () => _buyProduct(product)
+              : null,
+    );
+    if (owned || checkingOwnership || iap.isLoading || available) return button;
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      button,
+      const SizedBox(height: 8),
+      Text(
+          _tr(iap.getExplanation(product.id),
+              'Google Play has not made this product available to your store account. Check its active purchase option and country.'),
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: _muted, fontSize: 11, height: 1.5)),
+      TextButton.icon(
+          onPressed: disabled ? null : () => iap.loadProducts(),
+          icon: const Icon(Icons.refresh_rounded, size: 16),
+          label: Text(_tr('تحديث المنتجات', 'Refresh products'))),
+    ]);
+  }
+
+  Widget _membership(InAppPurchaseService iap, AppState app, bool disabled) {
+    final product = StoreCatalog.byId('vip_monthly')!;
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      _sectionTitle(
+          _tr('تجربة أوسع، كل شهر', 'A richer experience, every month'),
+          _tr('مزايا واضحة طوال فترة العضوية',
+              'Clear benefits throughout your membership')),
+      const SizedBox(height: 16),
+      _panel(
+        accent: _gold,
+        gradient: const [Color(0xFF332C24), Color(0xFF1C2135)],
+        child: LayoutBuilder(builder: (context, constraints) {
+          final intro =
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            _pill(
+                app.isVip
+                    ? _tr('عضويتك مفعّلة', 'Your membership is active')
+                    : _tr('عضوية شهرية', 'Monthly membership'),
+                app.isVip ? _green : _gold),
+            const SizedBox(height: 14),
+            Text(_title(product),
+                style: const TextStyle(
+                    color: _gold, fontSize: 28, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 8),
+            Text(_subtitle(product),
+                style:
+                    const TextStyle(color: _muted, fontSize: 14, height: 1.6)),
+            const SizedBox(height: 20),
+            _benefit(
+                Icons.grid_view_rounded,
+                _tr('وصول لجميع الفئات المميزة',
+                    'Access to every premium category')),
+            const SizedBox(height: 12),
+            _benefit(Icons.block_rounded,
+                _tr('بدون إعلانات إجبارية', 'No forced ads')),
+            const SizedBox(height: 12),
+            _benefit(
+                Icons.videocam_outlined,
+                _tr('مكافآت الإعلانات تبقى اختيارية',
+                    'Reward ads remain optional')),
+            if (app.isVip && app.vipExpiresAtMillis > 0) ...[
+              const SizedBox(height: 16),
+              Text(
+                  _tr('الفترة الحالية متاحة حتى ${_expiry(app.vipExpiresAtMillis)}',
+                      'Current access is valid through ${_expiry(app.vipExpiresAtMillis)}'),
+                  style: const TextStyle(color: _green, fontSize: 12)),
+            ],
+          ]);
+          final action =
+              Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            const Center(
+                child: _ProductArt(
+                    icon: Icons.workspace_premium_rounded,
+                    accent: _gold,
+                    size: 100)),
+            const SizedBox(height: 16),
+            _purchaseButton(product, iap, disabled, owned: app.isVip),
+            const SizedBox(height: 10),
+            Text(
+                _tr('يتجدد تلقائياً كل شهر. يمكنك إلغاء التجديد من Google Play في أي وقت؛ يستمر الوصول حتى نهاية الفترة المدفوعة.',
+                    'Renews automatically every month. Cancel renewal in Google Play at any time; access continues until the paid period ends.'),
+                textAlign: TextAlign.center,
+                style:
+                    const TextStyle(color: _muted, fontSize: 11, height: 1.7)),
+          ]);
+          return constraints.maxWidth >= 620
+              ? Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Expanded(flex: 3, child: intro),
+                  const SizedBox(width: 32),
+                  Expanded(flex: 2, child: action)
+                ])
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [intro, const SizedBox(height: 20), action]);
+        }),
+      ),
+      const SizedBox(height: 16),
+      _panel(
+          child: Row(children: [
+        const Icon(Icons.lock_open_rounded, color: _green),
         const SizedBox(width: 12),
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Row(
-                children: [
-                  Text(
-                    bundle.title,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: bundle.tagColor.withValues(alpha: 0.85),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      bundle.tag,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 9.5,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-                  if (bundle.multiplier.isNotEmpty) ...[
-                    const SizedBox(width: 5),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                      decoration: BoxDecoration(
-                        color: Colors.black45,
-                        borderRadius: BorderRadius.circular(5),
-                        border: Border.all(
-                          color: const Color(0xFFFACC15).withValues(alpha: 0.7),
-                          width: 0.8,
-                        ),
-                      ),
-                      child: Text(
-                        bundle.multiplier,
-                        style: const TextStyle(
-                          color: Color(0xFFFACC15),
-                          fontSize: 9,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-              if (bundle.subtitle.isNotEmpty) ...[
-                const SizedBox(height: 2),
-                Text(
-                  bundle.subtitle,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.65),
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: Colors.black38,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: const Color(0xFFFACC15).withValues(alpha: 0.3),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.monetization_on_rounded, color: Color(0xFFFFD66B), size: 13),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${bundle.coins}',
-                          style: const TextStyle(
-                            color: Color(0xFFFFD66B),
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: Colors.black38,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: const Color(0xFF38BDF8).withValues(alpha: 0.3),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.diamond_rounded, color: Color(0xFF7DD3FC), size: 13),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${bundle.gems}',
-                          style: const TextStyle(
-                            color: Color(0xFF7DD3FC),
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 10),
-        Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(
-              bundle.originalPrice,
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(
+              _tr('تفضّل امتلاك الفئات بشكل دائم؟',
+                  'Prefer to own your categories?'),
               style: const TextStyle(
-                color: Color(0xFFF87171),
-                fontSize: 11,
-                decoration: TextDecoration.lineThrough,
-                decorationColor: Color(0xFFEF4444),
-                decorationThickness: 2,
-                fontWeight: FontWeight.w800,
-              ),
+                  color: Colors.white, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 4),
+          Text(
+              _tr('بطاقة الفئات تُشترى مرة واحدة، ولا تزيل الإعلانات.',
+                  'The categories pass is purchased once and keeps ads unchanged.'),
+              style: const TextStyle(color: _muted, fontSize: 12, height: 1.5))
+        ])),
+        const SizedBox(width: 12),
+        TextButton(
+            onPressed: () => _selectSection(_StoreSection.collection),
+            child: Text(_tr('عرض البطاقة', 'View pass'),
+                style: const TextStyle(color: _green))),
+      ])),
+    ]);
+  }
+
+  Widget _exchanges(AppState app, bool disabled) => _responsiveWrap(
+        minWidth: 190,
+        children: StoreCatalog.coinExchanges
+            .map((exchange) => _panel(
+                  accent: _gold,
+                  padding: 16,
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Icon(Icons.currency_exchange_rounded,
+                            color: _gold, size: 30),
+                        const SizedBox(height: 12),
+                        Text(_number(exchange.coins),
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 24,
+                                fontWeight: FontWeight.w800)),
+                        Text(_tr('قطعة نقدية', 'coins'),
+                            textAlign: TextAlign.center,
+                            style:
+                                const TextStyle(color: _muted, fontSize: 12)),
+                        const SizedBox(height: 16),
+                        _StoreButton(
+                            label:
+                                '${_number(exchange.gemCost)} ${_tr('جوهرة', 'gems')}',
+                            icon: Icons.diamond_rounded,
+                            accent: _cyan,
+                            onPressed:
+                                disabled ? null : () => _exchange(exchange)),
+                        if (app.gems < exchange.gemCost) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                              _tr('تحتاج ${_number(exchange.gemCost - app.gems)} جوهرة إضافية',
+                                  'Need ${_number(exchange.gemCost - app.gems)} more gems'),
+                              textAlign: TextAlign.center,
+                              style:
+                                  const TextStyle(color: _muted, fontSize: 10))
+                        ],
+                      ]),
+                ))
+            .toList(),
+      );
+
+  Widget _collection(InAppPurchaseService iap, AppState app, bool disabled) {
+    final pass = StoreCatalog.byId('category_all_access')!;
+    final ownedCount = CategoryCatalog.premiumCategories
+        .where((cat) => _categoryOwned(cat, app))
+        .length;
+    final categories = CategoryCatalog.premiumCategories
+        .where((cat) =>
+            (!_onlyUnowned || !_categoryOwned(cat, app)) &&
+            GameCategory.normalize(cat.name)
+                .contains(GameCategory.normalize(_searchController.text)))
+        .toList();
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      _sectionTitle(
+          _tr('مجموعتك، بطابعك', 'Build your own collection'),
+          _tr('$ownedCount من ${CategoryCatalog.premiumCategories.length} فئة مميزة مملوكة بشكل دائم',
+              '$ownedCount of ${CategoryCatalog.premiumCategories.length} premium categories permanently owned')),
+      const SizedBox(height: 16),
+      _panel(
+          accent: _green,
+          child: LayoutBuilder(builder: (context, constraints) {
+            final content = Row(children: [
+              _iconTile(Icons.auto_awesome_motion_rounded, _green, size: 50),
+              const SizedBox(width: 14),
+              Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                    Text(_title(pass),
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 19,
+                            fontWeight: FontWeight.w800)),
+                    const SizedBox(height: 5),
+                    Text(_subtitle(pass),
+                        style: const TextStyle(
+                            color: _muted, fontSize: 12, height: 1.6)),
+                    const SizedBox(height: 8),
+                    _pill(
+                        _tr('امتلاك دائم • دون اشتراك',
+                            'Permanent ownership • No subscription'),
+                        _green)
+                  ]))
+            ]);
+            final action = _purchaseButton(pass, iap, disabled,
+                owned: _owned(pass, app) ||
+                    ownedCount == CategoryCatalog.premiumCategories.length);
+            return constraints.maxWidth >= 660
+                ? Row(children: [
+                    Expanded(child: content),
+                    const SizedBox(width: 24),
+                    SizedBox(width: 220, child: action)
+                  ])
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [content, const SizedBox(height: 18), action]);
+          })),
+      const SizedBox(height: 16),
+      _characters(app, disabled),
+      const SizedBox(height: 22),
+      Row(
+        children: [
+          Expanded(
+              child: TextField(
+            controller: _searchController,
+            onChanged: (_) => setState(() {}),
+            style: const TextStyle(color: Colors.white, fontSize: 13),
+            decoration: InputDecoration(
+              hintText: _tr('ابحث عن فئة تحبها', 'Find a category you love'),
+              hintStyle: const TextStyle(color: _muted),
+              prefixIcon:
+                  const Icon(Icons.search_rounded, color: _muted, size: 20),
+              filled: true,
+              fillColor: _surface,
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none),
+              focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: const BorderSide(color: _cyan)),
             ),
-            const SizedBox(height: 4),
-            _TactileBundleButton(
-              price: bundle.price,
-              colors: bundle.ctaColors,
-              shadowColor: bundle.ctaShadowColor,
-              textColor: bundle.ctaTextColor,
-              busy: busy,
-              onTap: onTap,
-            ),
+          )),
+          const SizedBox(width: 12),
+          FilterChip(
+              label: Text(_tr('غير المملوكة', 'Unowned')),
+              selected: _onlyUnowned,
+              onSelected: (value) => setState(() => _onlyUnowned = value),
+              backgroundColor: _surface,
+              selectedColor: _cyan.withValues(alpha: 0.16),
+              labelStyle:
+                  TextStyle(color: _onlyUnowned ? _cyan : _muted, fontSize: 12),
+              checkmarkColor: _cyan,
+              side: BorderSide(color: Colors.white.withValues(alpha: 0.1)))
+        ],
+      ),
+      const SizedBox(height: 14),
+      if (categories.isEmpty)
+        Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(
+                _tr('لا توجد فئات تطابق البحث.',
+                    'No categories match your search.'),
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: _muted)))
+      else
+        _responsiveWrap(
+            minWidth: 175,
+            children: categories
+                .map((cat) => _categoryCard(cat, app, disabled))
+                .toList()),
+    ]);
+  }
+
+  Widget _characters(AppState app, bool disabled) {
+    final character = app.selectedCharacter;
+    final count = CharacterCatalog.all.where(app.isCharacterUnlocked).length;
+    return _panel(
+        child: Row(children: [
+      ClipRRect(
+          borderRadius: BorderRadius.circular(14),
+          child: Container(
+              width: 58,
+              height: 58,
+              color: character.color.withValues(alpha: 0.12),
+              child: Image.asset(character.asset,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) =>
+                      const Icon(Icons.person_rounded, color: _purple)))),
+      const SizedBox(width: 14),
+      Expanded(
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(_tr('شخصيات التحدّي', 'Challenge characters'),
+            style: const TextStyle(
+                color: Colors.white,
+                fontSize: 17,
+                fontWeight: FontWeight.w800)),
+        const SizedBox(height: 5),
+        Text(
+            _tr('$count من ${CharacterCatalog.all.length} شخصيات متاحة • اختر هويتك',
+                '$count of ${CharacterCatalog.all.length} characters available • Choose your identity'),
+            style: const TextStyle(color: _muted, fontSize: 12, height: 1.5))
+      ])),
+      const SizedBox(width: 12),
+      TextButton(
+          onPressed: disabled ? null : _openCharacters,
+          child: Text(_tr('استكشف', 'Explore'),
+              style: const TextStyle(color: _purple))),
+    ]));
+  }
+
+  Widget _categoryCard(GameCategory category, AppState app, bool disabled) {
+    final owned = _categoryOwned(category, app);
+    final rentalHours = app.getCategoryRemainingRentalHours(category.name);
+    final available = app.isCategoryUnlocked(category.name);
+    final accent = owned
+        ? _green
+        : available
+            ? _gold
+            : _cyan;
+    return _panel(
+        padding: 14,
+        accent: accent,
+        child:
+            Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Container(
+              height: 96,
+              decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  color: accent.withValues(alpha: 0.06)),
+              child: Padding(
+                  padding: const EdgeInsets.all(9),
+                  child: Image.asset(category.assetPath,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => Icon(Icons.category_rounded,
+                          color: accent, size: 38)))),
+          const SizedBox(height: 12),
+          Text(category.name,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 14)),
+          const SizedBox(height: 10),
+          if (owned)
+            Center(
+                child:
+                    _pill(_tr('مملوكة بشكل دائم', 'Permanently owned'), _green))
+          else if (app.isVip)
+            Center(
+                child: _pill(
+                    _tr('متاحة ضمن العضوية', 'Included with membership'),
+                    _gold))
+          else ...[
+            if (rentalHours > 0) ...[
+              Center(
+                  child: _pill(
+                      _tr('التجربة: $rentalHours ساعة متبقية',
+                          'Trial: $rentalHours hours left'),
+                      _gold)),
+              const SizedBox(height: 10)
+            ],
+            _StoreButton(
+                label:
+                    '${category.gemCost} ${_tr('جوهرة • للأبد', 'gems • forever')}',
+                icon: Icons.diamond_rounded,
+                accent: _cyan,
+                compact: true,
+                onPressed: disabled ? null : () => _unlockCategory(category)),
+            if (!available)
+              TextButton.icon(
+                  onPressed: disabled ? null : () => _rentCategory(category),
+                  icon: const Icon(Icons.play_circle_outline_rounded, size: 17),
+                  label: Text(
+                      _tr('إعلان • تجربة 24 ساعة', 'Ad • 24-hour trial'),
+                      style: const TextStyle(fontSize: 11)),
+                  style: TextButton.styleFrom(
+                      foregroundColor: _muted,
+                      minimumSize: const Size(0, 42),
+                      visualDensity: VisualDensity.compact)),
           ],
-        ),
-      ],
-    );
-  }
-}
-
-class _GemStoreCard extends StatelessWidget {
-  const _GemStoreCard({
-    required this.item,
-    required this.busy,
-    required this.onTap,
-  });
-
-  final _GemStoreItem item;
-  final bool busy;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isWide = constraints.maxWidth >= 330;
-
-        return Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                item.colors[0],
-                item.colors[1],
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: item.tagColor.withValues(alpha: 0.65),
-              width: 1.5,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: item.tagColor.withValues(alpha: 0.22),
-                blurRadius: 14,
-                offset: const Offset(0, 4),
-              ),
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.5),
-                blurRadius: 8,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(14.5),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              child: isWide ? _buildWideLayout(context) : _buildVerticalLayout(context),
-            ),
-          ),
-        );
-      },
-    );
+        ]));
   }
 
-  Widget _buildWideLayout(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: LinearGradient(
-              colors: [
-                item.tagColor.withValues(alpha: 0.85),
-                item.tagColor.withValues(alpha: 0.35),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            border: Border.all(
-              color: item.tagColor.withValues(alpha: 0.8),
-              width: 1.5,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: item.tagColor.withValues(alpha: 0.35),
-                blurRadius: 10,
-              ),
-            ],
-          ),
-          child: Center(
-            child: Icon(
-              item.icon,
-              color: Colors.white,
-              size: 22,
-            ),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Row(
+  Widget _freeRewards(AppState app, AdService ads, bool disabled) {
+    final daily = app.todayReward;
+    final dailyAvailable = app.dailyStreakLoaded &&
+        !app.claimedToday &&
+        app.isOnline &&
+        app.user != null;
+    final adLabel = ads.watchesLeft == 0
+        ? _tr('تم الوصول للحد اليومي', 'Daily limit reached')
+        : !ads.canWatchAd
+            ? _tr('بعد ${_duration(ads.cooldownRemaining)}',
+                'Available in ${_duration(ads.cooldownRemaining)}')
+            : _tr('مشاهدة إعلان', 'Watch an ad');
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      _sectionTitle(
+          _tr('مكافآت تستحق العودة', 'A reason to come back'),
+          _tr('هدية يومية ومكافآت اختيارية، دون شراء',
+              'A daily gift and optional rewards, with no purchase')),
+      const SizedBox(height: 12),
+      _responsiveWrap(minWidth: 260, children: [
+        _panel(
+            accent: _green,
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(
-                    item.title,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: item.tagColor.withValues(alpha: 0.85),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      item.tag,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 9.5,
-                        fontWeight: FontWeight.w900,
+                  Row(children: [
+                    _iconTile(Icons.card_giftcard_rounded, _green, size: 38),
+                    const SizedBox(width: 12),
+                    Expanded(
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                          Text(_tr('هدية اليوم', 'Your daily gift'),
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 15)),
+                          Text(
+                              _tr('اليوم ${app.streakDay > 0 ? app.streakDay : 1} من سلسلة العودة',
+                                  'Day ${app.streakDay > 0 ? app.streakDay : 1} of your streak'),
+                              style:
+                                  const TextStyle(color: _muted, fontSize: 11))
+                        ]))
+                  ]),
+                  const SizedBox(height: 14),
+                  _rewardSummary(daily['coins'] ?? 0, daily['gems'] ?? 0),
+                  const SizedBox(height: 16),
+                  _StoreButton(
+                      label: app.claimedToday
+                          ? _tr('تم الاستلام • عد غداً',
+                              'Claimed • Come back tomorrow')
+                          : !app.dailyStreakLoaded
+                              ? _tr('جارٍ تحميل الهدية…', 'Loading your gift…')
+                              : app.user == null
+                                  ? _tr('سجّل الدخول لاستلام الهدية',
+                                      'Sign in to claim your gift')
+                                  : !app.isOnline
+                                      ? _tr('تحتاج اتصالاً بالإنترنت',
+                                          'Internet connection needed')
+                                      : _tr('استلام الهدية', 'Claim gift'),
+                      icon: app.claimedToday
+                          ? Icons.check_rounded
+                          : Icons.redeem_rounded,
+                      accent: _green,
+                      onPressed: dailyAvailable && !disabled
+                          ? _claimDailyReward
+                          : null),
+                ])),
+        _panel(
+            accent: _cyan,
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(children: [
+                    _iconTile(Icons.play_circle_outline_rounded, _cyan,
+                        size: 38),
+                    const SizedBox(width: 12),
+                    Expanded(
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                          Text(_tr('مكافأة المشاهدة', 'Watch and earn'),
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 15)),
+                          Text(
+                              _tr('${ads.watchesLeft} من ${AdService.maxDailyWatches} مشاهدات متبقية اليوم',
+                                  '${ads.watchesLeft} of ${AdService.maxDailyWatches} watches left today'),
+                              style:
+                                  const TextStyle(color: _muted, fontSize: 11))
+                        ]))
+                  ]),
+                  const SizedBox(height: 14),
+                  _rewardSummary(AdService.rewardCoins, AdService.rewardGems),
+                  const SizedBox(height: 16),
+                  _StoreButton(
+                      label: adLabel,
+                      icon: Icons.play_arrow_rounded,
+                      accent: _cyan,
+                      onPressed: ads.canWatchAd && !disabled ? _watchAd : null),
+                ])),
+        Builder(
+          builder: (context) {
+            CrossPromoService? promo;
+            try {
+              promo = context.watch<CrossPromoService>();
+            } catch (_) {}
+            if (promo == null) return const SizedBox.shrink();
+            final claimed = promo.isRewardClaimed;
+            final installed = promo.isMillionaireInstalled;
+            final isClaiming = promo.isClaiming;
+            final promoService = promo;
+            return _panel(
+              accent: _gold,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(children: [
+                    _iconTile(Icons.diamond_rounded, _gold, size: 38),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _tr('مكافأة تحميل تحدي المليون',
+                                'Million Challenge Reward'),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 15,
+                            ),
+                          ),
+                          Text(
+                            claimed
+                                ? _tr('تم استلام الجائزة بنجاح ✓',
+                                    'Reward claimed ✓')
+                                : installed
+                                    ? _tr('اللعبة مثبتة • استلم هديتك الآن!',
+                                        'Game installed • Claim now!')
+                                    : _tr(
+                                        'حمّل اللعبة واحصل على 80 جوهرة فوراً',
+                                        'Download & get 80 gems instantly'),
+                            style: const TextStyle(color: _muted, fontSize: 11),
+                          ),
+                        ],
                       ),
                     ),
+                  ]),
+                  const SizedBox(height: 14),
+                  _rewardSummary(0, CrossPromoService.downloadRewardGems),
+                  const SizedBox(height: 16),
+                  _StoreButton(
+                    label: claimed
+                        ? _tr('تم استلام الـ 80 جوهرة ✓', '80 Gems Claimed ✓')
+                        : isClaiming
+                            ? _tr('جارٍ الاستلام…', 'Claiming…')
+                            : installed
+                                ? _tr('استلام 80 جوهرة الآن 💎',
+                                    'Claim 80 Gems Now 💎')
+                                : _tr('تحميل اللعبة (+80 💎)',
+                                    'Download Game (+80 💎)'),
+                    icon: claimed
+                        ? Icons.check_rounded
+                        : installed
+                            ? Icons.card_giftcard_rounded
+                            : Icons.file_download_outlined,
+                    accent: _gold,
+                    onPressed: disabled || claimed || isClaiming
+                        ? null
+                        : () async {
+                            if (installed) {
+                              final res = await promoService
+                                  .claimDownloadReward(context);
+                              if (res == CrossPromoClaimResult.success &&
+                                  context.mounted) {
+                                _snack(_tr(
+                                    'تمت إضافة 80 جوهرة إلى رصيدك بنجاح! 💎🎉',
+                                    '80 gems added to your balance successfully! 💎🎉'));
+                              }
+                            } else {
+                              CrossPromoMillionaireDialog.show(context);
+                            }
+                          },
                   ),
                 ],
               ),
-              const SizedBox(height: 3),
-              Row(
-                children: [
-                  const Icon(Icons.diamond_rounded, color: Color(0xFF38BDF8), size: 15),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${item.gems} جوهرة',
-                    style: const TextStyle(
-                      color: Color(0xFF7DD3FC),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+            );
+          },
         ),
-        const SizedBox(width: 8),
-        SizedBox(
-          width: 82,
-          child: _TactileBundleButton(
-            price: item.price,
-            colors: const [Color(0xFF0284C7), Color(0xFF0369A1), Color(0xFF075985)],
-            shadowColor: const Color(0xFF0C4A6E),
-            textColor: Colors.white,
-            busy: busy,
-            onTap: onTap,
-          ),
-        ),
-      ],
-    );
+      ]),
+    ]);
   }
 
-  Widget _buildVerticalLayout(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-              decoration: BoxDecoration(
-                color: item.tagColor.withValues(alpha: 0.18),
-                borderRadius: BorderRadius.circular(7),
-                border: Border.all(
-                  color: item.tagColor.withValues(alpha: 0.5),
-                  width: 0.8,
-                ),
-              ),
-              child: Text(
-                item.tag,
-                style: TextStyle(
-                  color: item.tagColor,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ),
-            Icon(item.icon, color: const Color(0xFF7DD3FC), size: 18),
-          ],
-        ),
+  Widget _footer(InAppPurchaseService iap) => Column(children: [
+        Divider(color: Colors.white.withValues(alpha: 0.08)),
+        const SizedBox(height: 8),
+        Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 12,
+            runSpacing: 4,
+            children: [
+              TextButton.icon(
+                  onPressed: _busy ||
+                          iap.isRestoring ||
+                          iap.status == PurchaseFlowStatus.launching ||
+                          iap.status == PurchaseFlowStatus.verifying
+                      ? null
+                      : _restorePurchases,
+                  icon: const Icon(Icons.restore_rounded, size: 17),
+                  label: Text(_tr('استعادة المشتريات', 'Restore purchases')),
+                  style: TextButton.styleFrom(foregroundColor: _muted)),
+              TextButton.icon(
+                  onPressed: _busy ? null : _manageSubscription,
+                  icon: const Icon(Icons.manage_accounts_outlined, size: 17),
+                  label: Text(_tr('إدارة الاشتراكات', 'Manage subscriptions')),
+                  style: TextButton.styleFrom(foregroundColor: _muted)),
+              TextButton.icon(
+                  onPressed: () => Navigator.of(context).push<void>(
+                      MaterialPageRoute(
+                          builder: (_) => const PrivacyPolicyScreen())),
+                  icon: const Icon(Icons.privacy_tip_outlined, size: 17),
+                  label: Text(_tr('سياسة الخصوصية', 'Privacy policy')),
+                  style: TextButton.styleFrom(foregroundColor: _muted)),
+            ]),
         const SizedBox(height: 6),
         Text(
-          item.title,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 13,
-            fontWeight: FontWeight.w900,
-          ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
+            _tr('الدفع عبر Google Play • الأسعار بعملة حساب المتجر',
+                'Payments through Google Play • Prices in your store currency'),
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: _muted, fontSize: 11)),
+        const SizedBox(height: 6),
+        Text(
+            _tr('إدارة الاشتراكات تعرض العضوية الشهرية في حساب Google Play الذي اشتريتها به. باقات العملات والجواهر تظهر في سجل الطلبات.',
+                'Subscription management shows monthly memberships in the Google Play account used to buy them. Currency bundles appear in order history.'),
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: _muted, fontSize: 10, height: 1.5)),
+        const SizedBox(height: 6),
+        Text(
+            _tr('تستعيد الاستعادة الاشتراكات والمحتوى الدائم. العملات المستهلكة لا تُعاد إضافتها.',
+                'Restoration checks subscriptions and permanent content. Spent currency is not granted again.'),
+            textAlign: TextAlign.center,
+            style: TextStyle(
+                color: _muted.withValues(alpha: 0.75),
+                fontSize: 10,
+                height: 1.5)),
+      ]);
+
+  Widget _sectionTitle(String title, String subtitle) =>
+      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(title,
+            style: const TextStyle(
+                color: Colors.white,
+                fontSize: 19,
+                fontWeight: FontWeight.w800)),
         const SizedBox(height: 4),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        Text(subtitle,
+            style: const TextStyle(color: _muted, fontSize: 12, height: 1.5)),
+      ]);
+
+  Widget _rewardSummary(int coins, int gems, {bool centered = false}) => Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          alignment: centered ? WrapAlignment.center : WrapAlignment.start,
+          children: [
+            if (coins > 0)
+              _currencyReward(coins, Icons.monetization_on_rounded, _gold,
+                  _tr('نقود', 'coins')),
+            if (gems > 0)
+              _currencyReward(
+                  gems, Icons.diamond_rounded, _cyan, _tr('جوهرة', 'gems'))
+          ]);
+
+  Widget _currencyReward(
+          int amount, IconData icon, Color color, String label) =>
+      Container(
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
           decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.35),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.12),
-              width: 0.8,
-            ),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.diamond_rounded, color: Color(0xFF7DD3FC), size: 14),
-              const SizedBox(width: 4),
-              Text(
-                '${item.gems} جوهرة',
+              color: color.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: color.withValues(alpha: 0.16))),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(icon, color: color, size: 17),
+            const SizedBox(width: 7),
+            Text(_number(amount),
+                style: TextStyle(
+                    color: color, fontWeight: FontWeight.w800, fontSize: 14)),
+            const SizedBox(width: 5),
+            Text(label, style: const TextStyle(color: _muted, fontSize: 11))
+          ]));
+
+  Widget _receiptRow(String label, String value) => Row(children: [
+        Expanded(
+            child: Text(label,
+                style: const TextStyle(color: _muted, fontSize: 13))),
+        const SizedBox(width: 14),
+        Flexible(
+            child: Text(value,
                 style: const TextStyle(
-                  color: Color(0xFF7DD3FC),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const Spacer(),
-        _TactileBundleButton(
-          price: item.price,
-          colors: const [Color(0xFF0284C7), Color(0xFF0369A1), Color(0xFF075985)],
-          shadowColor: const Color(0xFF0C4A6E),
-          textColor: Colors.white,
-          busy: busy,
-          onTap: onTap,
-        ),
-      ],
-    );
-  }
-}
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15)))
+      ]);
 
-class _TactileBundleButton extends StatelessWidget {
-  const _TactileBundleButton({
-    required this.price,
-    required this.busy,
-    required this.onTap,
-    this.colors = const [Color(0xFF22C55E), Color(0xFF16A34A), Color(0xFF15803D)],
-    this.shadowColor = const Color(0xFF14532D),
-    this.textColor = Colors.white,
-  });
+  Widget _benefit(IconData icon, String text) => Row(children: [
+        Icon(icon, color: _green, size: 20),
+        const SizedBox(width: 10),
+        Expanded(
+            child: Text(text,
+                style: const TextStyle(
+                    color: Colors.white, fontSize: 13, height: 1.6)))
+      ]);
 
-  final String price;
-  final bool busy;
-  final VoidCallback onTap;
-  final List<Color> colors;
-  final Color shadowColor;
-  final Color textColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 38,
-      constraints: const BoxConstraints(minWidth: 88),
+  Widget _pill(String label, Color color) => Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
-        gradient: LinearGradient(
-          colors: colors,
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: shadowColor,
-            offset: const Offset(0, 3),
-            blurRadius: 0,
-          ),
-          BoxShadow(
-            color: colors[0].withValues(alpha: 0.45),
-            offset: const Offset(0, 4),
-            blurRadius: 10,
-          ),
-        ],
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.55),
-          width: 1,
-        ),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: busy ? null : onTap,
-          borderRadius: BorderRadius.circular(10),
-          splashColor: Colors.white24,
-          child: Center(
-            child: busy
-                ? SizedBox(
-                    width: 15,
-                    height: 15,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.2,
-                      color: textColor,
-                    ),
-                  )
-                : Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.shopping_bag_rounded,
-                        color: textColor,
-                        size: 14,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        'شراء $price',
-                        style: TextStyle(
-                          color: textColor,
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: -0.2,
-                        ),
-                      ),
-                    ],
-                  ),
-          ),
-        ),
-      ),
-    );
-  }
-}
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(8)),
+      child: Text(label,
+          style: TextStyle(
+              color: color,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              height: 1.4)));
 
-class _CategoryStoreCard extends StatelessWidget {
-  const _CategoryStoreCard({
-    required this.category,
-    required this.isUnlocked,
-    required this.hoursLeft,
-    required this.isPermanent,
-    required this.busy,
-    required this.onRent,
-    required this.onUnlock,
-  });
+  Widget _iconTile(IconData icon, Color accent, {double size = 42}) =>
+      Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12)),
+          child: Icon(icon, color: accent, size: size * 0.52));
 
-  final GameCategory category;
-  final bool isUnlocked;
-  final int hoursLeft;
-  final bool isPermanent;
-  final bool busy;
-  final VoidCallback onRent;
-  final VoidCallback onUnlock;
-
-  @override
-  Widget build(BuildContext context) {
-    final statusColor = isPermanent
-        ? const Color(0xFF10B981)
-        : hoursLeft > 0
-            ? const Color(0xFFF59E0B)
-            : const Color(0xFF38BDF8);
-
-    return Container(
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [
-            Color(0xFF0F1D36),
-            Color(0xFF081224),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isPermanent
-              ? const Color(0xFF10B981).withValues(alpha: 0.6)
-              : hoursLeft > 0
-                  ? const Color(0xFFF59E0B).withValues(alpha: 0.6)
-                  : const Color(0xFF38BDF8).withValues(alpha: 0.35),
-          width: 1.4,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: (isPermanent
-                    ? const Color(0xFF10B981)
-                    : hoursLeft > 0
-                        ? const Color(0xFFF59E0B)
-                        : const Color(0xFF0284C7))
-                .withValues(alpha: 0.16),
-            blurRadius: 12,
-            offset: const Offset(0, 5),
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.5),
-            blurRadius: 6,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.all(7),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Category Illustration Artwork Showcase Container
-          Container(
-            height: 68,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(11),
-              gradient: const LinearGradient(
-                colors: [
-                  Color(0xFF14243B),
-                  Color(0xFF0B1424),
-                ],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-              ),
+  Widget _panel(
+          {required Widget child,
+          Color? accent,
+          List<Color>? gradient,
+          double padding = 20}) =>
+      Container(
+          padding: EdgeInsets.all(padding),
+          decoration: BoxDecoration(
+              color: gradient == null ? _surface : null,
+              gradient: gradient == null
+                  ? null
+                  : LinearGradient(
+                      begin: Alignment.topRight,
+                      end: Alignment.bottomLeft,
+                      colors: gradient),
+              borderRadius: BorderRadius.circular(22),
               border: Border.all(
-                color: statusColor.withValues(alpha: 0.28),
-                width: 0.9,
-              ),
-            ),
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                // Subtle colored glow behind the artwork token
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
+                  color: (accent ?? Colors.white)
+                      .withValues(alpha: accent == null ? 0.07 : 0.2))),
+          child: child);
+
+  Widget _responsiveWrap(
+          {required List<Widget> children, required double minWidth}) =>
+      LayoutBuilder(builder: (context, constraints) {
+        final columns =
+            ((constraints.maxWidth + 12) / (minWidth + 12)).floor().clamp(1, 5);
+        final width = (constraints.maxWidth - (columns - 1) * 12) / columns;
+        return Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: children
+                .map((child) => SizedBox(width: width, child: child))
+                .toList());
+      });
+
+  String _number(int value) => value
+      .toString()
+      .replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
+  String _duration(Duration duration) => _tr(
+      '${(duration.inSeconds / 60).ceil()} دقيقة',
+      '${(duration.inSeconds / 60).ceil()} min');
+  String _expiry(int millis) {
+    final date = DateTime.fromMillisecondsSinceEpoch(millis);
+    return '${date.day}/${date.month}/${date.year}';
+  }
+}
+
+class _StoreButton extends StatelessWidget {
+  const _StoreButton(
+      {required this.label,
+      required this.icon,
+      required this.accent,
+      required this.onPressed,
+      this.loading = false,
+      this.compact = false});
+  final String label;
+  final IconData icon;
+  final Color accent;
+  final VoidCallback? onPressed;
+  final bool loading;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) => FilledButton(
+      onPressed: loading ? null : onPressed,
+      style: FilledButton.styleFrom(
+          backgroundColor: accent,
+          foregroundColor: _background,
+          disabledBackgroundColor: accent.withValues(alpha: 0.07),
+          disabledForegroundColor: _muted,
+          minimumSize: Size(double.infinity, compact ? 44 : 48),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(13))),
+      child: loading
+          ? SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(color: accent, strokeWidth: 2))
+          : Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Icon(icon, size: compact ? 16 : 18),
+              const SizedBox(width: 8),
+              Flexible(
+                  child: Text(label,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                          fontSize: compact ? 11 : 13,
+                          fontWeight: FontWeight.w800)))
+            ]));
+}
+
+class _ProductArt extends StatelessWidget {
+  const _ProductArt(
+      {required this.icon,
+      required this.accent,
+      required this.size,
+      this.bundle = false});
+  final IconData icon;
+  final Color accent;
+  final double size;
+  final bool bundle;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+      width: size,
+      height: size,
+      child: Stack(alignment: Alignment.center, children: [
+        Container(
+            width: size * 0.92,
+            height: size * 0.92,
+            decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(colors: [
+                  accent.withValues(alpha: 0.22),
+                  accent.withValues(alpha: 0)
+                ]))),
+        Transform.rotate(
+            angle: -0.14,
+            child: Container(
+                width: size * 0.64,
+                height: size * 0.64,
+                decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(size * 0.16),
+                    gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          accent.withValues(alpha: 0.27),
+                          accent.withValues(alpha: 0.06)
+                        ]),
+                    border: Border.all(color: accent.withValues(alpha: 0.42)),
                     boxShadow: [
                       BoxShadow(
-                        color: statusColor.withValues(alpha: 0.2),
-                        blurRadius: 12,
-                        spreadRadius: 2,
-                      ),
-                    ],
-                  ),
-                ),
-                // Centered artwork illustration - full aspect ratio, perfectly proportioned
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 8),
-                  child: Image.asset(
-                    category.assetPath,
-                    fit: BoxFit.contain,
-                    errorBuilder: (context, error, stackTrace) {
-                      return const Icon(
-                        Icons.category_rounded,
-                        color: Color(0xFF94A3B8),
-                        size: 28,
-                      );
-                    },
-                  ),
-                ),
-                // Floating Category Tag (Top-Start)
-                if (category.tag.isNotEmpty)
-                  Positioned(
-                    top: 4,
-                    left: 4,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.82),
-                        borderRadius: BorderRadius.circular(5),
-                        border: Border.all(
-                          color: const Color(0xFFFACC15).withValues(alpha: 0.75),
-                          width: 0.7,
-                        ),
-                      ),
-                      child: Text(
-                        category.tag,
-                        style: const TextStyle(
-                          color: Color(0xFFFACC15),
-                          fontSize: 8.5,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                  ),
-                // Floating Lock/Unlock Status Icon (Top-End)
-                Positioned(
-                  top: 4,
-                  right: 4,
-                  child: Container(
-                    padding: const EdgeInsets.all(3.5),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.82),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: statusColor.withValues(alpha: 0.8),
-                        width: 0.8,
-                      ),
-                    ),
-                    child: Icon(
-                      isPermanent
-                          ? Icons.workspace_premium_rounded
-                          : (hoursLeft > 0 ? Icons.timer_rounded : Icons.lock_rounded),
-                      size: 11,
-                      color: statusColor,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 6),
-          // Category Title
-          Text(
-            category.name,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12.5,
-              fontWeight: FontWeight.w900,
-              letterSpacing: -0.2,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 6),
-          // Actions / Status Banner
-          if (isPermanent)
-            Container(
-              height: 32,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: const Color(0xFF10B981).withValues(alpha: 0.16),
-                borderRadius: BorderRadius.circular(9),
-                border: Border.all(
-                  color: const Color(0xFF10B981).withValues(alpha: 0.5),
-                ),
-              ),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.check_circle_rounded, color: Color(0xFF34D399), size: 14),
-                  SizedBox(width: 4),
-                  Text(
-                    'مفتوحة للأبد ✓',
-                    style: TextStyle(
-                      color: Color(0xFF34D399),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ],
-              ),
-            )
-          else if (hoursLeft > 0)
-            Container(
-              height: 32,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: const Color(0xFFF59E0B).withValues(alpha: 0.16),
-                borderRadius: BorderRadius.circular(9),
-                border: Border.all(
-                  color: const Color(0xFFF59E0B).withValues(alpha: 0.5),
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.timer_rounded, color: Color(0xFFFACC15), size: 13),
-                  const SizedBox(width: 4),
-                  Text(
-                    'متبقي $hoursLeft ساعة',
-                    style: const TextStyle(
-                      color: Color(0xFFFACC15),
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ],
-              ),
-            )
-          else
-            Row(
-              children: [
-                // 3D Rent 24h with Ad Button
-                Expanded(
-                  flex: 3,
-                  child: Container(
-                    height: 32,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
-                      gradient: const LinearGradient(
-                        colors: [
-                          Color(0xFF38BDF8),
-                          Color(0xFF0284C7),
-                        ],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                      ),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0xFF075985),
-                          offset: Offset(0, 2),
-                          blurRadius: 0,
-                        ),
-                      ],
-                      border: Border.all(
-                        color: const Color(0xFFBAE6FD),
-                        width: 0.8,
-                      ),
-                    ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: busy ? null : onRent,
-                        borderRadius: BorderRadius.circular(8),
-                        child: const Center(
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.videocam_rounded, color: Colors.white, size: 13),
-                              SizedBox(width: 3),
-                              Text(
-                                '24س مجاناً',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 9.5,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 5),
-                // 3D Permanent Unlock with Gems Button
-                Expanded(
-                  flex: 2,
-                  child: Container(
-                    height: 32,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
-                      gradient: const LinearGradient(
-                        colors: [
-                          Color(0xFFFFDF73),
-                          Color(0xFFF59E0B),
-                        ],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                      ),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0xFF92400E),
-                          offset: Offset(0, 2),
-                          blurRadius: 0,
-                        ),
-                      ],
-                      border: Border.all(
-                        color: const Color(0xFFFEF08A),
-                        width: 0.8,
-                      ),
-                    ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: busy ? null : onUnlock,
-                        borderRadius: BorderRadius.circular(8),
-                        child: Center(
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(Icons.diamond_rounded, color: Color(0xFF451A03), size: 12),
-                              const SizedBox(width: 2),
-                              Text(
-                                '${category.gemCost}',
-                                style: const TextStyle(
-                                  color: Color(0xFF451A03),
-                                  fontSize: 10.5,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+                          color: accent.withValues(alpha: 0.1), blurRadius: 22)
+                    ]))),
+        Icon(icon, size: size * 0.46, color: accent),
+        Positioned(
+            top: size * 0.08,
+            right: size * 0.08,
+            child: Icon(Icons.auto_awesome_rounded,
+                size: size * 0.16, color: accent.withValues(alpha: 0.75))),
+        if (bundle) ...[
+          Positioned(
+              bottom: size * 0.08,
+              right: size * 0.03,
+              child:
+                  Icon(Icons.diamond_rounded, size: size * 0.29, color: _cyan)),
+          Positioned(
+              bottom: size * 0.13,
+              left: size * 0.04,
+              child: Icon(Icons.monetization_on_rounded,
+                  size: size * 0.31, color: _gold)),
         ],
-      ),
-    );
-  }
+      ]));
 }

@@ -244,23 +244,30 @@ public class Data {
     }
 
     public void getRandomRequest(final OnRandomRequestListener listener) {
+        getRandomRequest(getCurrentUserId(), listener);
+    }
+
+    public void getRandomRequest(String currentUserId, final OnRandomRequestListener listener) {
         if (listener != null) {
             listener.onStart();
         }
-        final String currentUserId = getCurrentUserId();
+        if (currentUserId == null || currentUserId.trim().isEmpty()) {
+            currentUserId = getCurrentUserId();
+        }
         if (!isRealUser(currentUserId)) {
             if (listener != null) {
                 listener.onSuccess("null");
             }
             return;
         }
+        final String effectiveUserId = currentUserId;
         requestsRef().orderByChild("createdAt").limitToFirst(50).addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot snapshot) {
                 final ArrayList<String> candidates = new ArrayList<>();
                 for (DataSnapshot child : snapshot.getChildren()) {
                     String requesterId = child.getKey();
-                    if (requesterId == null || requesterId.equals(currentUserId)) {
+                    if (requesterId == null || requesterId.equals(effectiveUserId)) {
                         continue;
                     }
                     String status = valueAsString(child.child("status"));
@@ -272,12 +279,12 @@ public class Data {
                     if (!acceptedBy.isEmpty() && !"0".equals(acceptedBy)) {
                         continue;
                     }
-                    if (!targetId.isEmpty() && !targetId.equals(currentUserId)) {
+                    if (!targetId.isEmpty() && !targetId.equals(effectiveUserId)) {
                         continue;
                     }
                     candidates.add(requesterId);
                 }
-                claimRequestCandidate(currentUserId, candidates, 0, listener);
+                claimRequestCandidate(effectiveUserId, candidates, 0, listener);
             }
 
             @Override

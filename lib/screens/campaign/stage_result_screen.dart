@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/app_state.dart';
@@ -12,6 +13,7 @@ import '../../services/campaign_result_handler.dart';
 import '../../services/campaign_service.dart';
 import '../../services/native_bridge_service.dart';
 import '../../services/rate_game_service.dart';
+import '../../widgets/currency_reward_overlay.dart';
 import 'campaign_map_screen.dart';
 import 'stage_leaderboard_screen.dart';
 import 'widgets/animated_result_stars.dart';
@@ -584,6 +586,8 @@ class _StageResultScreenState extends State<StageResultScreen>
     if (!mounted) return;
     if (success) {
       setState(() => _rewardDoubled = true);
+      HapticFeedback.heavyImpact();
+      showCurrencyRewardOverlay(context, coins: coins, gems: gems);
       messenger
         ..hideCurrentSnackBar()
         ..showSnackBar(
@@ -591,7 +595,7 @@ class _StageResultScreenState extends State<StageResultScreen>
             content: Text(
               'مبروك! تمت مضاعفة مكافأة المرحلة 2x بنجاح! 🎉',
               textAlign: TextAlign.right,
-              style: TextStyle(fontWeight: FontWeight.w800),
+              style: TextStyle(fontWeight: FontWeight.w900),
             ),
             backgroundColor: Color(0xFF0F766E),
           ),
@@ -625,6 +629,20 @@ class _StageResultScreenState extends State<StageResultScreen>
     }
 
     if (!mounted) return;
+    HapticFeedback.heavyImpact();
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          content: Text(
+            'تم الإحياء بنجاح! جاري العودة للمرحلة... ⚡',
+            textAlign: TextAlign.right,
+            style: TextStyle(fontWeight: FontWeight.w900),
+          ),
+          backgroundColor: Color(0xFFBE123C),
+          duration: Duration(seconds: 2),
+        ),
+      );
     await _launchStageAgain(context);
   }
 
@@ -1397,7 +1415,7 @@ String _resultTitle({
   }
 }
 
-class _SecondChanceCard extends StatelessWidget {
+class _SecondChanceCard extends StatefulWidget {
   const _SecondChanceCard({
     required this.busy,
     required this.onRevive,
@@ -1407,72 +1425,175 @@ class _SecondChanceCard extends StatelessWidget {
   final VoidCallback onRevive;
 
   @override
+  State<_SecondChanceCard> createState() => _SecondChanceCardState();
+}
+
+class _SecondChanceCardState extends State<_SecondChanceCard>
+    with TickerProviderStateMixin {
+  late final AnimationController _heartbeatController;
+  late final AnimationController _shimmerController;
+  late final AnimationController _pulseController;
+
+  late final Animation<double> _heartScale;
+  late final Animation<double> _auraScale;
+  late final Animation<double> _auraOpacity;
+  late final Animation<double> _badgePulse;
+  double _buttonPressScale = 1.0;
+
+  @override
+  void initState() {
+    super.initState();
+    // Authentic double-beat heartbeat animation (thump-thump rhythm)
+    _heartbeatController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1300),
+    )..repeat();
+
+    _heartScale = TweenSequence<double>([
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 1.0, end: 1.18)
+            .chain(CurveTween(curve: Curves.easeOutCubic)),
+        weight: 14,
+      ),
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 1.18, end: 1.06)
+            .chain(CurveTween(curve: Curves.easeInCubic)),
+        weight: 12,
+      ),
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 1.06, end: 1.25)
+            .chain(CurveTween(curve: Curves.easeOutCubic)),
+        weight: 16,
+      ),
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 1.25, end: 1.0)
+            .chain(CurveTween(curve: Curves.easeInOutCubic)),
+        weight: 24,
+      ),
+      TweenSequenceItem(
+        tween: ConstantTween<double>(1.0),
+        weight: 34,
+      ),
+    ]).animate(_heartbeatController);
+
+    _auraScale = TweenSequence<double>([
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 1.0, end: 1.70)
+            .chain(CurveTween(curve: Curves.easeOutQuad)),
+        weight: 42,
+      ),
+      TweenSequenceItem(
+        tween: ConstantTween<double>(1.0),
+        weight: 58,
+      ),
+    ]).animate(_heartbeatController);
+
+    _auraOpacity = TweenSequence<double>([
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 0.70, end: 0.0)
+            .chain(CurveTween(curve: Curves.easeOutQuad)),
+        weight: 42,
+      ),
+      TweenSequenceItem(
+        tween: ConstantTween<double>(0.0),
+        weight: 58,
+      ),
+    ]).animate(_heartbeatController);
+
+    // Diagonal sheen sweep for the revival button
+    _shimmerController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2400),
+    )..repeat();
+
+    // Pulse for emergency badge
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    )..repeat(reverse: true);
+
+    _badgePulse = Tween<double>(begin: 1.0, end: 1.08).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _heartbeatController.dispose();
+    _shimmerController.dispose();
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(22),
         gradient: const LinearGradient(
           colors: [
-            Color(0xFF2E0916),
-            Color(0xFF19030B),
-            Color(0xFF250612),
+            Color(0xFF2C0A19),
+            Color(0xFF14020B),
+            Color(0xFF230514),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         border: Border.all(
-          color: const Color(0xFFFF3366).withValues(alpha: 0.65),
+          color: const Color(0xFFFF2A6D).withValues(alpha: 0.75),
           width: 1.8,
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFE11D48).withValues(alpha: 0.35),
-            blurRadius: 22,
+            color: const Color(0xFFE11D48).withValues(alpha: 0.40),
+            blurRadius: 24,
             offset: const Offset(0, 6),
           ),
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.60),
+            color: Colors.black.withValues(alpha: 0.65),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(18.2),
+        borderRadius: BorderRadius.circular(20.2),
         child: Stack(
           children: [
             // Top subtle glowing accent line
             Positioned(
               top: 0,
-              left: 30,
-              right: 30,
-              height: 2,
+              left: 24,
+              right: 24,
+              height: 2.2,
               child: Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
                       Colors.transparent,
-                      const Color(0xFFFB7185).withValues(alpha: 0.9),
+                      const Color(0xFFFB7185).withValues(alpha: 0.95),
                       Colors.transparent,
                     ],
                   ),
                 ),
               ),
             ),
-            // Glowing background aura
+
+            // Glowing background ambient aura
             Positioned(
               top: -30,
               right: -20,
               child: Container(
-                width: 110,
-                height: 110,
+                width: 120,
+                height: 120,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: const Color(0xFFF43F5E).withValues(alpha: 0.12),
+                  color: const Color(0xFFF43F5E).withValues(alpha: 0.15),
                 ),
               ),
             ),
+
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               child: Column(
@@ -1482,38 +1603,81 @@ class _SecondChanceCard extends StatelessWidget {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // 3D Glowing Heart Avatar
-                      Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFFFF4D6D), Color(0xFFC9184A)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFFFF4D6D).withValues(alpha: 0.45),
-                              blurRadius: 12,
-                              offset: const Offset(0, 3),
+                      // 3D Beating Heart with Animated Shockwave Aura
+                      SizedBox(
+                        width: 52,
+                        height: 52,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            // Expanding Shockwave Aura
+                            AnimatedBuilder(
+                              animation: _heartbeatController,
+                              builder: (context, _) {
+                                return Transform.scale(
+                                  scale: _auraScale.value,
+                                  child: Container(
+                                    width: 48,
+                                    height: 48,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: const Color(0xFFFF4D6D)
+                                            .withValues(alpha: _auraOpacity.value),
+                                        width: 2.0,
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+
+                            // Main Pulsing Heart Avatar
+                            AnimatedBuilder(
+                              animation: _heartbeatController,
+                              builder: (context, child) {
+                                return Transform.scale(
+                                  scale: _heartScale.value,
+                                  child: child,
+                                );
+                              },
+                              child: Container(
+                                width: 48,
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  gradient: const LinearGradient(
+                                    colors: [Color(0xFFFF4D6D), Color(0xFFC9184A)],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0xFFFF4D6D)
+                                          .withValues(alpha: 0.50),
+                                      blurRadius: 14,
+                                      offset: const Offset(0, 3),
+                                    ),
+                                  ],
+                                  border: Border.all(
+                                    color: const Color(0xFFFFB3C1),
+                                    width: 2.2,
+                                  ),
+                                ),
+                                child: const Center(
+                                  child: Icon(
+                                    Icons.favorite_rounded,
+                                    color: Colors.white,
+                                    size: 26,
+                                  ),
+                                ),
+                              ),
                             ),
                           ],
-                          border: Border.all(
-                            color: const Color(0xFFFFB3C1),
-                            width: 2,
-                          ),
-                        ),
-                        child: const Center(
-                          child: Icon(
-                            Icons.favorite_rounded,
-                            color: Colors.white,
-                            size: 26,
-                          ),
                         ),
                       ),
                       const SizedBox(width: 14),
+
                       // Text content + Tag
                       Expanded(
                         child: Column(
@@ -1522,46 +1686,51 @@ class _SecondChanceCard extends StatelessWidget {
                             Row(
                               children: [
                                 const Text(
-                                  'فرصة ثانية للإحياء!',
+                                  'فرصة ثانية لإنقاذ التقدم!',
                                   style: TextStyle(
                                     color: Colors.white,
-                                    fontSize: 16,
+                                    fontSize: 16.5,
                                     fontWeight: FontWeight.w900,
                                     letterSpacing: -0.2,
                                   ),
                                 ),
                                 const Spacer(),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    gradient: const LinearGradient(
-                                      colors: [Color(0xFFE11D48), Color(0xFF9F1239)],
-                                    ),
-                                    borderRadius: BorderRadius.circular(10),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: const Color(0xFFE11D48).withValues(alpha: 0.4),
-                                        blurRadius: 6,
+                                ScaleTransition(
+                                  scale: _badgePulse,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      gradient: const LinearGradient(
+                                        colors: [Color(0xFFE11D48), Color(0xFF9F1239)],
                                       ),
-                                    ],
-                                  ),
-                                  child: const Text(
-                                    '🔥 إنقاذ فوري',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w900,
+                                      borderRadius: BorderRadius.circular(10),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: const Color(0xFFE11D48)
+                                              .withValues(alpha: 0.50),
+                                          blurRadius: 8,
+                                        ),
+                                      ],
+                                    ),
+                                    child: const Text(
+                                      '🔥 إنقاذ فوري',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10.5,
+                                        fontWeight: FontWeight.w900,
+                                      ),
                                     ),
                                   ),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 5),
                             const Text(
-                              'لا تخسر تقدمك! شاهد إعلاناً قصيراً لتستعيد حياتك وتكمل التحدي مباشرة ⚡',
+                              'لا تخسر جهدك ومرحلتك! شاهد إعلاناً قصيراً لتستعيد طاقتك وتكمل التحدي مباشرة ⚡',
                               style: TextStyle(
                                 color: Color(0xFFFFCCD5),
-                                fontSize: 11.5,
+                                fontSize: 12,
                                 height: 1.35,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -1572,96 +1741,151 @@ class _SecondChanceCard extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 14),
-                  // 3D Tactile Revival Button
-                  Container(
-                    width: double.infinity,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(14),
-                      gradient: const LinearGradient(
-                        colors: [
-                          Color(0xFFFF597B),
-                          Color(0xFFE11D48),
-                          Color(0xFFBE123C),
-                        ],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                      ),
-                      boxShadow: [
-                        const BoxShadow(
-                          color: Color(0xFF700A23),
-                          offset: Offset(0, 4),
-                          blurRadius: 0,
+
+                  // 3D Tactile Revival Button with Shimmer Sweep
+                  GestureDetector(
+                    onTapDown: widget.busy
+                        ? null
+                        : (_) => setState(() => _buttonPressScale = 0.97),
+                    onTapUp: widget.busy
+                        ? null
+                        : (_) {
+                            setState(() => _buttonPressScale = 1.0);
+                            HapticFeedback.lightImpact();
+                            widget.onRevive();
+                          },
+                    onTapCancel: () => setState(() => _buttonPressScale = 1.0),
+                    child: AnimatedScale(
+                      scale: _buttonPressScale,
+                      duration: const Duration(milliseconds: 100),
+                      curve: Curves.easeOutQuad,
+                      child: Container(
+                        width: double.infinity,
+                        height: 50,
+                        clipBehavior: Clip.antiAlias,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          gradient: const LinearGradient(
+                            colors: [
+                              Color(0xFFFF597B),
+                              Color(0xFFE11D48),
+                              Color(0xFFBE123C),
+                            ],
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                          ),
+                          boxShadow: [
+                            const BoxShadow(
+                              color: Color(0xFF700A23),
+                              offset: Offset(0, 4),
+                              blurRadius: 0,
+                            ),
+                            BoxShadow(
+                              color: const Color(0xFFE11D48).withValues(alpha: 0.55),
+                              offset: const Offset(0, 6),
+                              blurRadius: 16,
+                            ),
+                          ],
+                          border: Border.all(
+                            color: const Color(0xFFFFB3C6).withValues(alpha: 0.85),
+                            width: 1.4,
+                          ),
                         ),
-                        BoxShadow(
-                          color: const Color(0xFFE11D48).withValues(alpha: 0.5),
-                          offset: const Offset(0, 6),
-                          blurRadius: 14,
-                        ),
-                      ],
-                      border: Border.all(
-                        color: const Color(0xFFFFB3C6).withValues(alpha: 0.8),
-                        width: 1.2,
-                      ),
-                    ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: busy ? null : onRevive,
-                        borderRadius: BorderRadius.circular(14),
-                        splashColor: Colors.white24,
-                        highlightColor: Colors.white12,
-                        child: Center(
-                          child: busy
-                              ? const Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2.2,
-                                        color: Colors.white,
-                                      ),
+                        child: Stack(
+                          children: [
+                            // Diagonal Shimmer Sheen
+                            Positioned.fill(
+                              child: AnimatedBuilder(
+                                animation: _shimmerController,
+                                builder: (context, _) {
+                                  return CustomPaint(
+                                    painter: _RevivalShimmerPainter(
+                                      progress: _shimmerController.value,
                                     ),
-                                    SizedBox(width: 10),
-                                    Text(
-                                      'جارٍ تجهيز الإعادة...',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w900,
-                                      ),
-                                    ),
-                                  ],
-                                )
-                              : const Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      Icons.play_circle_fill_rounded,
-                                      size: 22,
-                                      color: Colors.white,
-                                    ),
-                                    SizedBox(width: 8),
-                                    Text(
-                                      'إحياء ومتابعة اللعب الآن 🎬',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 14.5,
-                                        fontWeight: FontWeight.w900,
-                                        letterSpacing: -0.2,
-                                        shadows: [
-                                          Shadow(
-                                            color: Colors.black45,
-                                            offset: Offset(0, 1),
-                                            blurRadius: 2,
+                                  );
+                                },
+                              ),
+                            ),
+
+                            // Button Content
+                            Center(
+                              child: widget.busy
+                                  ? const Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2.4,
+                                            color: Colors.white,
                                           ),
-                                        ],
-                                      ),
+                                        ),
+                                        SizedBox(width: 12),
+                                        Text(
+                                          'جارٍ تجهيز الإعادة...',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 14.5,
+                                            fontWeight: FontWeight.w900,
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                  : Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Container(
+                                          width: 26,
+                                          height: 26,
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color: Colors.white.withValues(alpha: 0.20),
+                                          ),
+                                          child: const Icon(
+                                            Icons.play_arrow_rounded,
+                                            size: 20,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        const Text(
+                                          'إحياء ومتابعة اللعب الآن 🎬',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w900,
+                                            letterSpacing: -0.2,
+                                            shadows: [
+                                              Shadow(
+                                                color: Colors.black45,
+                                                offset: Offset(0, 1),
+                                                blurRadius: 2,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: Colors.black.withValues(alpha: 0.25),
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: const Text(
+                                            'مجاناً',
+                                            style: TextStyle(
+                                              color: Color(0xFFFFD1DC),
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w900,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                  ],
-                                ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -1674,5 +1898,39 @@ class _SecondChanceCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _RevivalShimmerPainter extends CustomPainter {
+  _RevivalShimmerPainter({required this.progress});
+
+  final double progress;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (progress <= 0.05 || progress >= 0.95) return;
+    final width = size.width;
+    final height = size.height;
+    final t = (progress - 0.05) / 0.90;
+    final currentX = (width + 200) * t - 100;
+
+    final paint = Paint()
+      ..shader = LinearGradient(
+        colors: [
+          Colors.white.withValues(alpha: 0.0),
+          Colors.white.withValues(alpha: 0.40),
+          Colors.white.withValues(alpha: 0.0),
+        ],
+        stops: const [0.0, 0.5, 1.0],
+      ).createShader(Rect.fromLTWH(currentX - 50, 0, 100, height));
+
+    canvas.save();
+    canvas.skew(-0.35, 0);
+    canvas.drawRect(Rect.fromLTWH(currentX - 50, 0, 100, height), paint);
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _RevivalShimmerPainter oldDelegate) =>
+      oldDelegate.progress != progress;
 }
 

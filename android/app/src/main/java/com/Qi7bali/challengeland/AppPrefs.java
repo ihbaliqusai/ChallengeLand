@@ -124,7 +124,7 @@ public final class AppPrefs {
     public static boolean isCategoryUnlocked(Context c, String category) {
         if (category == null || category.trim().isEmpty()) return true;
         if (CategoryConfig.isCoreFree(category)) return true;
-        if (isVip(c)) return true;
+        if (isVip(c) || VerifiedCommerceStore.hasAllCategories(c)) return true;
 
         String norm = CategoryConfig.normalize(category);
         for (String u : getUnlockedCategories(c)) {
@@ -213,12 +213,17 @@ public final class AppPrefs {
     }
 
     public static boolean isVip(Context c) {
-        return settingsPrefs(c).getBoolean("isVip", false) || purchasePrefs(c).getBoolean("vip_pass_active", false);
+        return VerifiedCommerceStore.isVip(c);
     }
 
     public static void setVip(Context c, boolean vip) {
-        settingsPrefs(c).edit().putBoolean("isVip", vip).apply();
-        purchasePrefs(c).edit().putBoolean("vip_pass_active", vip).apply();
+        // Purchase entitlements are written exclusively after server verification.
+        settingsPrefs(c).edit().remove("isVip").apply();
+        purchasePrefs(c).edit().remove("vip_pass_active").apply();
+    }
+
+    public static boolean isAdFree(Context c) {
+        return VerifiedCommerceStore.isAdFree(c);
     }
 
     public static void setSoundEnabled(Context c, boolean enabled) {
@@ -348,6 +353,7 @@ public final class AppPrefs {
     }
 
     public static boolean canShowInterstitialNow(Context c) {
+        if (isAdFree(c)) return false;
         SharedPreferences prefs = adPrefs(c);
         int pending = prefs.getInt(KEY_INTERSTITIAL_PENDING_OPPORTUNITIES, 0);
         if (pending < INTERSTITIAL_REQUIRED_OPPORTUNITIES) {
@@ -367,7 +373,7 @@ public final class AppPrefs {
 
     public static void resetLocalProgress(Context c) {
         PlayerStats.reset(c);
-        PlayerProgress.resetAll(c);
+        VerifiedCommerceStore.resetGameplayProgress(c);
         setGuestUser(c);
         adPrefs(c).edit()
                 .remove(KEY_INTERSTITIAL_LAST_SHOWN_AT)

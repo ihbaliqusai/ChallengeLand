@@ -1,0 +1,20 @@
+{
+  "name": "challengeland-commerce",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Server-authoritative Google Play purchase verification and entitlements",
+  "main": "src/index.js",
+  "engines": { "node": "22" },
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "check": "node --check src/index.js && node --check src/commerce.js && node --check src/domain.js && node --check src/play.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^14.5.0",
+    "firebase-functions": "^7.4.0",
+    "googleapis": "^182.0.0"
+  },
+  "overrides": {
+    "gaxios@6.7.1": { "uuid": "^11.1.1" }
+  }
+}

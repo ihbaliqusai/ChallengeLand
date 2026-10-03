@@ -142,8 +142,26 @@ For Team Battle, the important Firestore fields are:
 ## Known limitations
 
 - The room layer keeps multiplayer room state in Cloud Firestore, while the existing native gameplay layer still uses its legacy bridge/data flow.
-- There is no Cloud Functions authority layer yet, so room validation still runs on the client.
+- Multiplayer room validation still runs on the client. Purchases have a separate Cloud Functions verification and entitlement authority.
 - Team Battle is tuned around balanced `1v1` and `2v2` rooms; larger uneven team formats are intentionally not supported.
+
+## Store and purchase verification
+
+The Flutter store supports localized Google Play prices, coins, gems, bundles,
+monthly membership, permanent category access, category gem unlocks, characters,
+and free rewards. Payments are verified by authenticated Functions before native
+delivery; wallet balances and delivery IDs are saved together before Play
+acknowledgment or consumption. The legacy Android store redirects to this store.
+
+- [Commerce review and release checklist (Arabic)](docs/COMMERCE_REVIEW_AR.md)
+- [Purchase troubleshooting and backend setup (Arabic)](docs/COMMERCE_TROUBLESHOOTING_AR.md)
+- [Backend configuration, deployment, migration and testing](functions/README.md)
+
+Configure published Play products, API permissions, Functions and RTDN before
+enabling real payments. This repository currently supports Android billing;
+there is no iOS StoreKit implementation. The game wallet still uses legacy
+client balances: fully authoritative cross-device earned rewards and spending
+require a separate economy migration described in the review.
 
 ## Recommended next improvements
 

@@ -13,6 +13,7 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DatabaseError;
 
 import org.json.JSONArray;
@@ -77,6 +78,24 @@ public class OpponentActivity extends AppCompatActivity {
         userPhoto = settings.getString("userPhoto", "");
         userLevel = settings.getInt("userLevel", 1);
         userScore = settings.getInt("userScore", 0);
+
+        if (userID.isEmpty()) {
+            try {
+                if (FirebaseAuth.getInstance().getCurrentUser() != null) {
+                    userID = FirebaseAuth.getInstance().getCurrentUser().getUid();
+                }
+            } catch (Exception ignored) {}
+        }
+        if (userName.isEmpty()) {
+            try {
+                if (FirebaseAuth.getInstance().getCurrentUser() != null) {
+                    userName = FirebaseAuth.getInstance().getCurrentUser().getDisplayName();
+                }
+            } catch (Exception ignored) {}
+            if (userName == null || userName.isEmpty()) {
+                userName = "بطل التحدي";
+            }
+        }
 
         matchMode = getIntent().getStringExtra("matchMode") == null ? "" : getIntent().getStringExtra("matchMode");
         friendCode = getIntent().getStringExtra("friendCode") == null ? "" : getIntent().getStringExtra("friendCode").trim().toUpperCase();
@@ -234,7 +253,7 @@ public class OpponentActivity extends AppCompatActivity {
         if (launchingGame) {
             return;
         }
-        new Data().getRandomRequest(new OnRandomRequestListener() {
+        new Data().getRandomRequest(userID, new OnRandomRequestListener() {
             @Override
             public void onStart() {
             }

@@ -118,6 +118,16 @@ public class PlayerProgress {
     public static final String ACH_CAMPAIGN_BOSS_5 = "ACH_CAMPAIGN_BOSS_5";
     public static final String ACH_CAMPAIGN_PERFECT_10 = "ACH_CAMPAIGN_PERFECT_10";
 
+    // New Achievements for Modern Modes
+    public static final String ACH_LOCAL_TEAMS = "ACH_LOCAL_TEAMS";
+    public static final String ACH_LOCAL_TEAMS_5 = "ACH_LOCAL_TEAMS_5";
+    public static final String ACH_TV_CAST = "ACH_TV_CAST";
+    public static final String ACH_OFFLINE_BOARD = "ACH_OFFLINE_BOARD";
+    public static final String ACH_OFFLINE_BOARD_WIN = "ACH_OFFLINE_BOARD_WIN";
+    public static final String ACH_FRIEND_BATTLE = "ACH_FRIEND_BATTLE";
+    public static final String ACH_RANDOM_BATTLE_3 = "ACH_RANDOM_BATTLE_3";
+    public static final String ACH_CHARACTER_COLLECTOR = "ACH_CHARACTER_COLLECTOR";
+
     public static final String ACH_ALL_DONE = "ACH_ALL_DONE";
 
     private static final String[] ALL_ACHIEVEMENTS = {
@@ -146,7 +156,10 @@ public class PlayerProgress {
             ACH_CAMPAIGN_STARS_30, ACH_CAMPAIGN_STARS_100, ACH_CAMPAIGN_STARS_200,
             ACH_CAMPAIGN_BLITZ_3, ACH_CAMPAIGN_SURVIVAL_3, ACH_CAMPAIGN_RIVAL_3,
             ACH_CAMPAIGN_SERIES_3, ACH_CAMPAIGN_TEAM_3, ACH_CAMPAIGN_NO_HELP_5,
-            ACH_CAMPAIGN_BOSS_1, ACH_CAMPAIGN_BOSS_5, ACH_CAMPAIGN_PERFECT_10
+            ACH_CAMPAIGN_BOSS_1, ACH_CAMPAIGN_BOSS_5, ACH_CAMPAIGN_PERFECT_10,
+            ACH_LOCAL_TEAMS, ACH_LOCAL_TEAMS_5, ACH_TV_CAST,
+            ACH_OFFLINE_BOARD, ACH_OFFLINE_BOARD_WIN,
+            ACH_FRIEND_BATTLE, ACH_RANDOM_BATTLE_3, ACH_CHARACTER_COLLECTOR
     };
 
     private static SharedPreferences prefs(Context c) {
@@ -183,6 +196,42 @@ public class PlayerProgress {
     public static int getCampaignNoHelpCompletions(Context c) { return prefs(c).getInt("campaignNoHelpCompletions", 0); }
     public static int getCampaignBossWins(Context c) { return prefs(c).getInt("campaignBossWins", 0); }
     public static int getCampaignPerfectCompletions(Context c) { return prefs(c).getInt("campaignPerfectCompletions", 0); }
+    public static int getLocalTeamsPlayed(Context c) { return prefs(c).getInt("localTeamsPlayed", 0); }
+    public static int getOfflineBoardPlayed(Context c) { return prefs(c).getInt("offlineBoardPlayed", 0); }
+    public static int getOfflineBoardWins(Context c) { return prefs(c).getInt("offlineBoardWins", 0); }
+    public static int getTvCastCount(Context c) { return prefs(c).getInt("tvCastCount", 0); }
+    public static int getFriendMatchesPlayed(Context c) { return prefs(c).getInt("friendMatchesPlayed", 0); }
+    public static int getRandomMatchesPlayed(Context c) { return prefs(c).getInt("randomMatchesPlayed", 0); }
+
+    public static void recordLocalTeamsPlayed(Context c) {
+        incrementCounter(c, "localTeamsPlayed", 1);
+        checkMilestoneAchievements(c);
+    }
+
+    public static void recordOfflineBoardPlayed(Context c) {
+        incrementCounter(c, "offlineBoardPlayed", 1);
+        checkMilestoneAchievements(c);
+    }
+
+    public static void recordOfflineBoardWin(Context c) {
+        incrementCounter(c, "offlineBoardWins", 1);
+        checkMilestoneAchievements(c);
+    }
+
+    public static void recordTvCast(Context c) {
+        incrementCounter(c, "tvCastCount", 1);
+        checkMilestoneAchievements(c);
+    }
+
+    public static void recordFriendMatchPlayed(Context c) {
+        incrementCounter(c, "friendMatchesPlayed", 1);
+        checkMilestoneAchievements(c);
+    }
+
+    public static void recordRandomMatchPlayed(Context c) {
+        incrementCounter(c, "randomMatchesPlayed", 1);
+        checkMilestoneAchievements(c);
+    }
 
     public static void addXp(Context c, int amount) {
         if (amount <= 0) return;
@@ -345,7 +394,31 @@ public class PlayerProgress {
         p.edit().putBoolean(claimKey(safeKey), true).apply();
         addCoins(c, reward.coins);
         addXp(c, reward.xp);
-        return new ClaimRewardResult(true, reward.coins, reward.xp, getCoins(c), getGems(c), getXp(c));
+        return new ClaimRewardResult(true, 1, reward.coins, reward.xp, getCoins(c), getGems(c), getXp(c));
+    }
+
+    public static ClaimRewardResult claimAllAchievementRewards(Context c) {
+        migrateExistingAchievementClaims(c);
+        int totalCoins = 0;
+        int totalXp = 0;
+        int count = 0;
+        SharedPreferences p = prefs(c);
+        SharedPreferences.Editor editor = p.edit();
+        for (String key : getAllAchievementKeys()) {
+            if (p.getBoolean(key, false) && !p.getBoolean(claimKey(key), false)) {
+                AchievementReward r = rewardForAchievement(key);
+                editor.putBoolean(claimKey(key), true);
+                totalCoins += r.coins;
+                totalXp += r.xp;
+                count++;
+            }
+        }
+        editor.apply();
+        if (count > 0) {
+            addCoins(c, totalCoins);
+            addXp(c, totalXp);
+        }
+        return new ClaimRewardResult(count > 0, count, totalCoins, totalXp, getCoins(c), getGems(c), getXp(c));
     }
 
     public static void unlockAchievement(Context c, String key) {
@@ -446,6 +519,30 @@ public class PlayerProgress {
         int teamBattleWins = getTeamBattleWins(c);
         if (teamBattleWins >= 5) unlockAchievement(c, ACH_TEAM_BATTLE_WIN_5);
         if (teamBattleWins >= 15) unlockAchievement(c, ACH_TEAM_BATTLE_WIN_15);
+
+        // New Modes & Features Achievements
+        int localTeams = Math.max(getLocalTeamsPlayed(c), LocalTeamsGameStore.all(c).size());
+        if (localTeams >= 1) unlockAchievement(c, ACH_LOCAL_TEAMS);
+        if (localTeams >= 5) unlockAchievement(c, ACH_LOCAL_TEAMS_5);
+
+        int offlineGames = Math.max(getOfflineBoardPlayed(c), OfflineBoardGameStore.all(c).size());
+        if (offlineGames >= 1) unlockAchievement(c, ACH_OFFLINE_BOARD);
+
+        int offlineWins = getOfflineBoardWins(c);
+        for (org.json.JSONObject r : OfflineBoardGameStore.all(c)) {
+            if (r != null && r.optInt("winnerSlot", -2) == 0) {
+                offlineWins++;
+                break;
+            }
+        }
+        if (offlineWins >= 1) unlockAchievement(c, ACH_OFFLINE_BOARD_WIN);
+
+        if (getTvCastCount(c) >= 1) unlockAchievement(c, ACH_TV_CAST);
+        if (getFriendMatchesPlayed(c) >= 1) unlockAchievement(c, ACH_FRIEND_BATTLE);
+        if (getRandomMatchesPlayed(c) >= 3) unlockAchievement(c, ACH_RANDOM_BATTLE_3);
+
+        int charsCount = AppPrefs.getUnlockedCharacters(c).size();
+        if (charsCount >= 2) unlockAchievement(c, ACH_CHARACTER_COLLECTOR);
 
         checkCampaignAchievements(c);
         checkAllDone(c);
@@ -736,192 +833,210 @@ public class PlayerProgress {
     private static AchievementReward rewardForAchievement(String key) {
         switch (key) {
             case ACH_FIRST_GAME:
-                return new AchievementReward(150, 40);
+                return new AchievementReward(50, 30);
             case ACH_FIRST_WIN:
             case ACH_FIRST_ONLINE:
-                return new AchievementReward(250, 70);
+                return new AchievementReward(80, 50);
             case ACH_BUY_POWERUP:
-                return new AchievementReward(200, 60);
+                return new AchievementReward(60, 40);
 
             case ACH_LEVEL_5:
-                return new AchievementReward(300, 100);
+                return new AchievementReward(80, 50);
             case ACH_LEVEL_10:
-                return new AchievementReward(500, 150);
+                return new AchievementReward(120, 80);
             case ACH_LEVEL_20:
-                return new AchievementReward(900, 250);
+                return new AchievementReward(200, 120);
             case ACH_LEVEL_30:
-                return new AchievementReward(1400, 400);
+                return new AchievementReward(300, 180);
             case ACH_LEVEL_45:
-                return new AchievementReward(2200, 650);
+                return new AchievementReward(450, 250);
             case ACH_LEVEL_50:
-                return new AchievementReward(2500, 700);
+                return new AchievementReward(500, 300);
             case ACH_LEVEL_60:
-                return new AchievementReward(3500, 1000);
+                return new AchievementReward(600, 400);
 
             case ACH_GAMES_10:
-                return new AchievementReward(250, 80);
+                return new AchievementReward(60, 40);
             case ACH_GAMES_25:
-                return new AchievementReward(450, 120);
+                return new AchievementReward(100, 60);
             case ACH_GAMES_50:
-                return new AchievementReward(700, 180);
+                return new AchievementReward(150, 90);
             case ACH_GAMES_100:
-                return new AchievementReward(1100, 260);
+                return new AchievementReward(250, 140);
             case ACH_GAMES_250:
-                return new AchievementReward(1800, 420);
+                return new AchievementReward(400, 220);
             case ACH_GAMES_500:
-                return new AchievementReward(3000, 700);
+                return new AchievementReward(600, 350);
 
             case ACH_WIN_5:
-                return new AchievementReward(350, 100);
+                return new AchievementReward(80, 50);
             case ACH_WIN_10:
-                return new AchievementReward(600, 160);
+                return new AchievementReward(140, 80);
             case ACH_WIN_25:
-                return new AchievementReward(1000, 260);
+                return new AchievementReward(220, 120);
             case ACH_WIN_50:
-                return new AchievementReward(1600, 420);
+                return new AchievementReward(350, 180);
             case ACH_WIN_100:
-                return new AchievementReward(2600, 650);
+                return new AchievementReward(500, 260);
             case ACH_WIN_250:
-                return new AchievementReward(4500, 1100);
+                return new AchievementReward(750, 400);
 
             case ACH_CORRECT_10:
-                return new AchievementReward(180, 60);
+                return new AchievementReward(50, 30);
             case ACH_CORRECT_50:
-                return new AchievementReward(400, 120);
+                return new AchievementReward(90, 50);
             case ACH_CORRECT_100:
-                return new AchievementReward(700, 180);
+                return new AchievementReward(150, 80);
             case ACH_CORRECT_500:
-                return new AchievementReward(1500, 350);
+                return new AchievementReward(300, 150);
             case ACH_CORRECT_1000:
-                return new AchievementReward(2500, 550);
+                return new AchievementReward(450, 250);
             case ACH_CORRECT_2500:
-                return new AchievementReward(4200, 900);
+                return new AchievementReward(650, 350);
             case ACH_CORRECT_5000:
-                return new AchievementReward(7000, 1500);
+                return new AchievementReward(850, 500);
 
             case ACH_ACCURACY_70:
-                return new AchievementReward(600, 180);
+                return new AchievementReward(150, 80);
             case ACH_ACCURACY_80:
-                return new AchievementReward(1100, 300);
+                return new AchievementReward(250, 140);
             case ACH_ACCURACY_90:
-                return new AchievementReward(2200, 600);
+                return new AchievementReward(450, 250);
 
             case ACH_PRIZE_1000:
-                return new AchievementReward(200, 60);
+                return new AchievementReward(50, 30);
             case ACH_PRIZE_32000:
-                return new AchievementReward(450, 130);
+                return new AchievementReward(100, 60);
             case ACH_PRIZE_500000:
-                return new AchievementReward(1200, 350);
+                return new AchievementReward(250, 140);
             case ACH_PRIZE_1000000:
-                return new AchievementReward(2500, 700);
+                return new AchievementReward(500, 250);
             case ACH_EARNINGS_100000:
-                return new AchievementReward(500, 150);
+                return new AchievementReward(120, 70);
             case ACH_EARNINGS_1000000:
-                return new AchievementReward(1500, 400);
+                return new AchievementReward(300, 160);
             case ACH_EARNINGS_10000000:
-                return new AchievementReward(4000, 900);
+                return new AchievementReward(600, 350);
 
             case ACH_STREAK_3:
-                return new AchievementReward(200, 70);
+                return new AchievementReward(50, 30);
             case ACH_STREAK_5:
-                return new AchievementReward(350, 100);
+                return new AchievementReward(80, 50);
             case ACH_STREAK_10:
-                return new AchievementReward(800, 220);
+                return new AchievementReward(180, 100);
             case ACH_STREAK_15:
-                return new AchievementReward(1600, 450);
+                return new AchievementReward(350, 180);
             case ACH_WIN_STREAK_3:
-                return new AchievementReward(500, 150);
+                return new AchievementReward(120, 70);
             case ACH_WIN_STREAK_5:
-                return new AchievementReward(1000, 260);
+                return new AchievementReward(250, 140);
             case ACH_WIN_STREAK_10:
-                return new AchievementReward(2200, 600);
+                return new AchievementReward(500, 250);
 
             case ACH_COINS_1000:
-                return new AchievementReward(200, 60);
+                return new AchievementReward(50, 30);
             case ACH_COINS_5000:
-                return new AchievementReward(500, 140);
+                return new AchievementReward(100, 60);
             case ACH_COINS_10000:
-                return new AchievementReward(900, 240);
+                return new AchievementReward(180, 100);
             case ACH_COINS_50000:
-                return new AchievementReward(2200, 550);
+                return new AchievementReward(400, 200);
             case ACH_GEMS_50:
-                return new AchievementReward(450, 120);
+                return new AchievementReward(100, 60);
             case ACH_GEMS_500:
-                return new AchievementReward(1500, 380);
+                return new AchievementReward(300, 160);
             case ACH_GEMS_1000:
-                return new AchievementReward(2600, 650);
+                return new AchievementReward(500, 250);
             case ACH_INVENTORY_5:
-                return new AchievementReward(300, 90);
+                return new AchievementReward(70, 40);
             case ACH_INVENTORY_15:
-                return new AchievementReward(700, 190);
+                return new AchievementReward(150, 80);
             case ACH_INVENTORY_30:
-                return new AchievementReward(1300, 340);
+                return new AchievementReward(280, 150);
 
             case ACH_USE_5050:
             case ACH_USE_AUDIENCE:
             case ACH_USE_CALL:
-                return new AchievementReward(150, 50);
+                return new AchievementReward(40, 25);
             case ACH_USE_ALL_HELPS:
-                return new AchievementReward(700, 220);
+                return new AchievementReward(150, 80);
             case ACH_PERFECT_GAME:
-                return new AchievementReward(1800, 500);
+                return new AchievementReward(400, 200);
 
             case ACH_ONLINE_WIN_5:
-                return new AchievementReward(500, 150);
+                return new AchievementReward(120, 70);
             case ACH_ONLINE_WIN_10:
-                return new AchievementReward(900, 240);
+                return new AchievementReward(200, 110);
             case ACH_ONLINE_WIN_25:
-                return new AchievementReward(1800, 500);
+                return new AchievementReward(400, 200);
             case ACH_BLITZ_FINISH_5:
-                return new AchievementReward(600, 180);
+                return new AchievementReward(140, 80);
             case ACH_BLITZ_FINISH_15:
-                return new AchievementReward(1500, 420);
+                return new AchievementReward(300, 160);
             case ACH_ELIMINATION_WIN_3:
             case ACH_SURVIVAL_WIN_3:
-                return new AchievementReward(700, 200);
+                return new AchievementReward(150, 80);
             case ACH_ELIMINATION_WIN_10:
             case ACH_SURVIVAL_WIN_10:
-                return new AchievementReward(1800, 500);
+                return new AchievementReward(380, 200);
             case ACH_SERIES_WIN_3:
-                return new AchievementReward(800, 230);
+                return new AchievementReward(160, 90);
             case ACH_SERIES_WIN_10:
-                return new AchievementReward(2000, 550);
+                return new AchievementReward(420, 220);
             case ACH_TEAM_BATTLE_WIN_5:
-                return new AchievementReward(900, 260);
+                return new AchievementReward(180, 100);
             case ACH_TEAM_BATTLE_WIN_15:
-                return new AchievementReward(2200, 600);
+                return new AchievementReward(450, 250);
 
             case ACH_CAMPAIGN_STAGE_5:
-                return new AchievementReward(700, 180);
+                return new AchievementReward(150, 80);
             case ACH_CAMPAIGN_STAGE_20:
-                return new AchievementReward(2000, 520);
+                return new AchievementReward(350, 180);
             case ACH_CAMPAIGN_STAGE_50:
-                return new AchievementReward(4500, 1100);
+                return new AchievementReward(700, 350);
             case ACH_CAMPAIGN_STARS_30:
-                return new AchievementReward(1200, 320);
+                return new AchievementReward(250, 120);
             case ACH_CAMPAIGN_STARS_100:
-                return new AchievementReward(3200, 850);
+                return new AchievementReward(500, 260);
             case ACH_CAMPAIGN_STARS_200:
-                return new AchievementReward(6500, 1600);
+                return new AchievementReward(850, 450);
             case ACH_CAMPAIGN_BLITZ_3:
             case ACH_CAMPAIGN_SURVIVAL_3:
             case ACH_CAMPAIGN_RIVAL_3:
             case ACH_CAMPAIGN_SERIES_3:
             case ACH_CAMPAIGN_TEAM_3:
-                return new AchievementReward(900, 260);
+                return new AchievementReward(180, 100);
             case ACH_CAMPAIGN_NO_HELP_5:
-                return new AchievementReward(1800, 500);
+                return new AchievementReward(380, 200);
             case ACH_CAMPAIGN_BOSS_1:
-                return new AchievementReward(1500, 420);
+                return new AchievementReward(300, 150);
             case ACH_CAMPAIGN_BOSS_5:
-                return new AchievementReward(4000, 1000);
+                return new AchievementReward(650, 350);
             case ACH_CAMPAIGN_PERFECT_10:
-                return new AchievementReward(5000, 1300);
+                return new AchievementReward(750, 400);
+
+            // New Achievements
+            case ACH_LOCAL_TEAMS:
+                return new AchievementReward(100, 50);
+            case ACH_LOCAL_TEAMS_5:
+                return new AchievementReward(250, 120);
+            case ACH_TV_CAST:
+                return new AchievementReward(120, 60);
+            case ACH_OFFLINE_BOARD:
+                return new AchievementReward(100, 50);
+            case ACH_OFFLINE_BOARD_WIN:
+                return new AchievementReward(220, 110);
+            case ACH_FRIEND_BATTLE:
+                return new AchievementReward(120, 60);
+            case ACH_RANDOM_BATTLE_3:
+                return new AchievementReward(180, 90);
+            case ACH_CHARACTER_COLLECTOR:
+                return new AchievementReward(150, 70);
 
             case ACH_ALL_DONE:
-                return new AchievementReward(10000, 2500);
+                return new AchievementReward(1200, 600);
             default:
-                return new AchievementReward(250, 80);
+                return new AchievementReward(50, 30);
         }
     }
 
@@ -965,6 +1080,7 @@ public class PlayerProgress {
 
     public static class ClaimRewardResult {
         public final boolean success;
+        public final int claimedCount;
         public final int coins;
         public final int xp;
         public final int totalCoins;
@@ -979,7 +1095,20 @@ public class PlayerProgress {
                 int totalGems,
                 int totalXp
         ) {
+            this(success, success ? 1 : 0, coins, xp, totalCoins, totalGems, totalXp);
+        }
+
+        public ClaimRewardResult(
+                boolean success,
+                int claimedCount,
+                int coins,
+                int xp,
+                int totalCoins,
+                int totalGems,
+                int totalXp
+        ) {
             this.success = success;
+            this.claimedCount = claimedCount;
             this.coins = coins;
             this.xp = xp;
             this.totalCoins = totalCoins;

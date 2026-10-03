@@ -23,6 +23,7 @@ class MainActivity : FlutterActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
+        VerifiedCommerceStore.invalidateWalletHydration(this)
         super.onCreate(savedInstanceState)
         handleIntentData(intent)
         syncDailyReminderSchedule()
@@ -31,7 +32,12 @@ class MainActivity : FlutterActivity() {
     override fun onResume() {
         super.onResume()
         syncDailyReminderSchedule()
-        playBillingManager?.queryActivePurchases()
+    }
+
+    override fun onDestroy() {
+        playBillingManager?.close()
+        stopCampaignMapMusic()
+        super.onDestroy()
     }
 
     override fun onPause() {
@@ -112,6 +118,11 @@ class MainActivity : FlutterActivity() {
                     "launchSpeedBattle" -> {
                         val matchMode = call.argument<String>("matchMode") ?: ""
                         val friendCode = call.argument<String>("friendCode") ?: ""
+                        if (matchMode == "friend") {
+                            PlayerProgress.recordFriendMatchPlayed(this)
+                        } else {
+                            PlayerProgress.recordRandomMatchPlayed(this)
+                        }
                         val intent = Intent(this, OpponentActivity::class.java).apply {
                             if (matchMode.isNotBlank()) putExtra("matchMode", matchMode)
                             if (friendCode.isNotBlank()) putExtra("friendCode", friendCode)
@@ -119,7 +130,16 @@ class MainActivity : FlutterActivity() {
                         startActivity(intent)
                         result.success(true)
                     }
+                    "launchRandomMatch" -> {
+                        PlayerProgress.recordRandomMatchPlayed(this)
+                        val intent = Intent(this, OpponentActivity::class.java).apply {
+                            putExtra("matchMode", "random")
+                        }
+                        startActivity(intent)
+                        result.success(true)
+                    }
                     "launchFriendChallenge" -> {
+                        PlayerProgress.recordFriendMatchPlayed(this)
                         val friendCode = call.argument<String>("friendCode") ?: ""
                         val intent = Intent(this, OpponentActivity::class.java).apply {
                             putExtra("matchMode", "friend")
@@ -432,6 +452,7 @@ class MainActivity : FlutterActivity() {
                         result.success(true)
                     }
                     "resetLegacyUser" -> {
+                        VerifiedCommerceStore.invalidateWalletHydration(this)
                         AppPrefs.setGuestUser(this)
                         AppPrefs.clearUnlockedCategories(this)
                         AppPrefs.clearUnlockedCharacters(this)
@@ -548,12 +569,27 @@ class MainActivity : FlutterActivity() {
                         AppPrefs.resetLocalProgress(this)
                         result.success(true)
                     }
-                    "deliverPurchase" -> {
-                        val productId = call.argument<String>("productId") ?: ""
-                        val deliveryKey = call.argument<String>("deliveryKey") ?: ""
-                        val delivered = deliverPurchaseDirectly(this, productId, deliveryKey)
-                        result.success(delivered)
+                    "getCommerceState" -> result.success(VerifiedCommerceStore.state(this))
+                    "hydrateCommerceWallet" -> result.success(VerifiedCommerceStore.hydrateWallet(
+                        this, call.argument<String>("accountUid") ?: "",
+                        call.argument<Int>("coins") ?: -1, call.argument<Int>("gems") ?: -1,
+                        call.argument<List<String>>("appliedDeliveryIds") ?: emptyList()
+                    ))
+                    "syncCommerceDeliveryIds" -> result.success(VerifiedCommerceStore.syncDeliveryIds(
+                        this, call.argument<List<String>>("appliedDeliveryIds") ?: emptyList()
+                    ))
+                    "confirmCommerceSnapshot" -> {
+                        playBillingManager?.confirmCommerceSnapshot(
+                            call.argument<List<String>>("appliedDeliveryIds") ?: emptyList(),
+                            call.argument<String>("accountUid")
+                        ) { result.success(it) } ?: result.success(false)
                     }
+                    "getBillingProducts", "refreshBillingProducts" -> {
+                        playBillingManager?.getBillingProducts { result.success(it) }
+                            ?: result.success(mapOf("available" to false, "products" to emptyList<Any>(),
+                                "error" to "Google Play is unavailable."))
+                    }
+                    "manageSubscriptions" -> result.success(playBillingManager?.manageSubscriptions() ?: false)
                     "launchBilling" -> {
                         val productId = call.argument<String>("productId") ?: ""
                         if (playBillingManager == null) {
@@ -574,8 +610,9 @@ class MainActivity : FlutterActivity() {
                     "buyCurrency" -> {
                         val coinAmount = call.argument<Int>("coinAmount") ?: 0
                         val gemCost    = call.argument<Int>("gemCost")    ?: 0
-                        val ok         = coinAmount > 0 && gemCost > 0 && PlayerProgress.spendGems(this, gemCost)
-                        if (ok) PlayerProgress.addCoins(this, coinAmount)
+                        val exchanges = mapOf(1500 to 15, 6000 to 55, 14000 to 120, 35000 to 290, 90000 to 700)
+                        val ok = exchanges[coinAmount] == gemCost &&
+                            VerifiedCommerceStore.exchangeGemsForCoins(this, coinAmount, gemCost)
                         result.success(ok)
                     }
                     "restorePurchases" -> {
@@ -583,18 +620,9 @@ class MainActivity : FlutterActivity() {
                             val ch = MethodChannel(flutterEngine?.dartExecutor?.binaryMessenger ?: return@setMethodCallHandler, "millionaire/native")
                             playBillingManager = PlayBillingManager(this, ch)
                         }
-                        playBillingManager?.queryActivePurchases { purchases ->
-                            val hasVip = purchases.any { p ->
-                                p.products.any { it.replace("_", "").lowercase().contains("vip") }
-                            }
-                            val vipActive = hasVip || AppPrefs.isVip(this)
-                            if (vipActive) {
-                                AppPrefs.setVip(this, true)
-                            }
-                            result.success(vipActive)
-                        } ?: run {
-                            result.success(AppPrefs.isVip(this))
-                        }
+                        playBillingManager?.queryActivePurchases { result.success(it) }
+                            ?: result.success(VerifiedCommerceStore.state(this) + mapOf("success" to false,
+                                "message" to "Google Play is unavailable."))
                     }
                     "getAchievements" -> {
                         PlayerProgress.checkMilestoneAchievements(this)
@@ -666,6 +694,29 @@ class MainActivity : FlutterActivity() {
                         map["campaignBossWins"] = campaignBossWins
                         map["campaignPerfectCompletions"] = campaignPerfectCompletions
 
+                        val localTeamsCount = Math.max(
+                            PlayerProgress.getLocalTeamsPlayed(this),
+                            com.qi7bali.landchallengeonline.LocalTeamsGameStore.all(this).size
+                        )
+                        val offlineBoardCount = Math.max(
+                            PlayerProgress.getOfflineBoardPlayed(this),
+                            com.qi7bali.landchallengeonline.OfflineBoardGameStore.all(this).size
+                        )
+                        var offlineBoardWins = PlayerProgress.getOfflineBoardWins(this)
+                        for (r in com.qi7bali.landchallengeonline.OfflineBoardGameStore.all(this)) {
+                            if (r != null && r.optInt("winnerSlot", -2) == 0) {
+                                offlineBoardWins++
+                                break
+                            }
+                        }
+                        map["localTeamsPlayed"] = localTeamsCount
+                        map["offlineBoardPlayed"] = offlineBoardCount
+                        map["offlineBoardWins"] = offlineBoardWins
+                        map["tvCastCount"] = PlayerProgress.getTvCastCount(this)
+                        map["friendMatchesPlayed"] = PlayerProgress.getFriendMatchesPlayed(this)
+                        map["randomMatchesPlayed"] = PlayerProgress.getRandomMatchesPlayed(this)
+                        map["unlockedCharactersCount"] = AppPrefs.getUnlockedCharacters(this).size
+
                         result.success(map)
                     }
                     "recordCampaignAchievementProgress" -> {
@@ -695,6 +746,20 @@ class MainActivity : FlutterActivity() {
                             "unclaimedAchievements" to PlayerProgress.getUnclaimedAchievementCount(this)
                         ))
                     }
+                    "claimAllAchievementRewards" -> {
+                        PlayerProgress.checkMilestoneAchievements(this)
+                        val claim = PlayerProgress.claimAllAchievementRewards(this)
+                        result.success(mapOf(
+                            "success" to claim.success,
+                            "claimedCount" to claim.claimedCount,
+                            "coins" to claim.coins,
+                            "xp" to claim.xp,
+                            "totalCoins" to claim.totalCoins,
+                            "totalGems" to claim.totalGems,
+                            "totalXp" to claim.totalXp,
+                            "unclaimedAchievements" to PlayerProgress.getUnclaimedAchievementCount(this)
+                        ))
+                    }
                     "getCharacterState" -> {
                         val selected = AppPrefs.getSelectedCharacter(this)
                         val unlocked = AppPrefs.getUnlockedCharacters(this)
@@ -714,15 +779,22 @@ class MainActivity : FlutterActivity() {
                         val index   = call.argument<Int>("index") ?: -1
                         val payWith = call.argument<String>("payWith") ?: "coins"
                         val cost    = call.argument<Int>("cost") ?: 0
-                        if (index !in 0..7 || cost <= 0 || (payWith != "coins" && payWith != "gems")) {
+                        val prices = mapOf(2 to ("coins" to 12000), 4 to ("gems" to 300), 7 to ("gems" to 800))
+                        val expected = prices[index]
+                        if (expected == null || expected.first != payWith || expected.second != cost) {
                             result.success(false)
+                        } else if (AppPrefs.isCharacterPurchased(this, index)) {
+                            result.success(true)
                         } else {
                             val ok = if (payWith == "coins") {
                                 PlayerProgress.spendCoins(this, cost)
                             } else {
                                 PlayerProgress.spendGems(this, cost)
                             }
-                            if (ok) AppPrefs.unlockCharacter(this, index)
+                            if (ok) {
+                                AppPrefs.unlockCharacter(this, index)
+                                PlayerProgress.checkMilestoneAchievements(this)
+                            }
                             result.success(ok)
                         }
                     }
@@ -733,13 +805,18 @@ class MainActivity : FlutterActivity() {
                         result.success(mapOf(
                             "unlocked" to unlocked,
                             "rentals" to rentals,
-                            "isVip" to isVip
+                            "isVip" to isVip,
+                            "allCategories" to VerifiedCommerceStore.hasAllCategories(this)
                         ))
                     }
                     "unlockCategory" -> {
                         val category = call.argument<String>("category") ?: ""
                         val gemCost = call.argument<Int>("gemCost") ?: CategoryConfig.DEFAULT_PERMANENT_GEM_COST
-                        val ok = AppPrefs.unlockCategoryPermanently(this, category, gemCost)
+                        val alreadyOwned = VerifiedCommerceStore.hasAllCategories(this) ||
+                            AppPrefs.getUnlockedCategories(this).any { CategoryConfig.normalize(it) == CategoryConfig.normalize(category) }
+                        val ok = if (alreadyOwned) true else CategoryConfig.isPremium(category) &&
+                            gemCost == CategoryConfig.DEFAULT_PERMANENT_GEM_COST &&
+                            AppPrefs.unlockCategoryPermanently(this, category, CategoryConfig.DEFAULT_PERMANENT_GEM_COST)
                         result.success(ok)
                     }
                     "rentCategory" -> {
@@ -750,9 +827,7 @@ class MainActivity : FlutterActivity() {
                     }
                     "setCategoryState" -> {
                         val unlocked = (call.argument<List<String>>("unlocked") ?: emptyList()).toSet()
-                        val isVip = call.argument<Boolean>("isVip") ?: false
                         AppPrefs.setUnlockedCategories(this, unlocked)
-                        AppPrefs.setVip(this, isVip)
                         result.success(true)
                     }
                     "setCharacterState" -> {
@@ -890,53 +965,4 @@ class MainActivity : FlutterActivity() {
         return values
     }
 
-    companion object {
-        fun deliverPurchaseDirectly(context: android.content.Context, productId: String, deliveryKey: String): Boolean {
-            val cleanId = productId.replace("_", "").lowercase()
-            val isVipProduct = cleanId.contains("vip") || cleanId == "noads"
-
-            // VIP subscription status must ALWAYS be active if a VIP product is purchased/delivered
-            if (isVipProduct) {
-                AppPrefs.setVip(context, true)
-            }
-
-            if (deliveryKey.isNotBlank() && AppPrefs.isPurchaseDelivered(context, deliveryKey)) {
-                return true
-            }
-            var delivered = true
-            when {
-                cleanId == "gems80"    -> PlayerProgress.addGems(context, 80)
-                cleanId == "gems500"   -> PlayerProgress.addGems(context, 500)
-                cleanId == "gems1200"  -> PlayerProgress.addGems(context, 1200)
-                cleanId == "gems2500"  -> PlayerProgress.addGems(context, 2500)
-                cleanId == "gems6500"  -> PlayerProgress.addGems(context, 6500)
-                cleanId == "gems14000" -> PlayerProgress.addGems(context, 14000)
-                cleanId == "packstarter" -> {
-                    PlayerProgress.addGems(context, 100)
-                    PlayerProgress.addCoins(context, 10000)
-                }
-                cleanId == "packvalue" -> {
-                    PlayerProgress.addGems(context, 600)
-                    PlayerProgress.addCoins(context, 35000)
-                }
-                cleanId == "packchampion" -> {
-                    PlayerProgress.addGems(context, 1800)
-                    PlayerProgress.addCoins(context, 100000)
-                }
-                cleanId == "noads" -> {
-                    AppPrefs.setVip(context, true)
-                }
-                isVipProduct -> {
-                    AppPrefs.setVip(context, true)
-                    PlayerProgress.addGems(context, 500)
-                    PlayerProgress.addCoins(context, 5000)
-                }
-                else -> delivered = false
-            }
-            if (delivered && deliveryKey.isNotBlank()) {
-                AppPrefs.markPurchaseDelivered(context, deliveryKey)
-            }
-            return delivered
-        }
-    }
 }
