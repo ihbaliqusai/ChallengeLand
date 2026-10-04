@@ -10,6 +10,8 @@ class ResultRewardPanel extends StatelessWidget {
     this.onDoubleReward,
     this.isDoubled = false,
     this.isDoubling = false,
+    this.gameplayXp = 0,
+    this.trophyDelta,
   });
 
   final StageSubmissionResult result;
@@ -17,6 +19,8 @@ class ResultRewardPanel extends StatelessWidget {
   final VoidCallback? onDoubleReward;
   final bool isDoubled;
   final bool isDoubling;
+  final int gameplayXp;
+  final int? trophyDelta;
 
   @override
   Widget build(BuildContext context) {
@@ -120,6 +124,26 @@ class ResultRewardPanel extends StatelessWidget {
               style: const TextStyle(
                   color: Colors.white70, fontSize: 13, height: 1.4),
             ),
+          if (gameplayXp > 0 || trophyDelta != null) ...[
+            const SizedBox(height: 12),
+            const Text('تقدم اللعب المحتسب',
+                style: TextStyle(color: Colors.white70, fontSize: 12)),
+            const SizedBox(height: 8),
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              if (gameplayXp > 0)
+                _RewardChip(
+                    icon: Icons.bolt_rounded,
+                    label: '+$gameplayXp XP من اللعب',
+                    color: const Color(0xFF54F088)),
+              if (trophyDelta != null)
+                _RewardChip(
+                    icon: Icons.emoji_events_rounded,
+                    label: '${trophyDelta! >= 0 ? '+' : ''}$trophyDelta كأس',
+                    color: trophyDelta! < 0
+                        ? const Color(0xFFFB7185)
+                        : const Color(0xFFFFD66B)),
+            ]),
+          ],
           if (hasCurrency &&
               !isDoubled &&
               onDoubleReward != null &&

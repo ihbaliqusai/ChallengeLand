@@ -36,6 +36,15 @@ class CampaignResultHandler {
 
       final payload = await nativeBridge.consumePendingCampaignStageResult();
       if (payload == null) return false;
+      final owner = payload['accountUid']?.toString().trim() ?? '';
+      final activeUid = appState.currentUser?.uid ?? 'guest_local';
+      bool accountIsActive() =>
+          (appState.currentUser?.uid ?? 'guest_local') == activeUid;
+      if (owner.isNotEmpty && owner != activeUid) {
+        // Native stores pending results by account. Reject mismatched older
+        // payloads as well, before creating progress or reward claims.
+        return false;
+      }
       if (payload['mode'] != null && payload['mode'].toString() != 'campaign') {
         return false;
       }
@@ -63,6 +72,7 @@ class CampaignResultHandler {
       }
 
       final stages = await campaignService.loadStages(campaignId: campaignId);
+      if (!accountIsActive()) return false;
       final stage = _findStage(stages, stageId);
       if (stage == null) {
         if (context.mounted) {
@@ -84,6 +94,7 @@ class CampaignResultHandler {
         await _recordCampaignAchievementProgress(
           nativeBridge: nativeBridge,
           result: preview,
+          accountUid: activeUid,
         );
         if (!context.mounted) return true;
         unawaited(Navigator.of(context).pushReplacement(
@@ -109,6 +120,7 @@ class CampaignResultHandler {
           photoUrl: user.photoURL,
         );
       } catch (error, stackTrace) {
+        if (!accountIsActive()) return true;
         _debugSaveFailure(
           error: error,
           stackTrace: stackTrace,
@@ -128,6 +140,7 @@ class CampaignResultHandler {
         await _recordCampaignAchievementProgress(
           nativeBridge: nativeBridge,
           result: preview,
+          accountUid: activeUid,
         );
         if (!context.mounted) return true;
         unawaited(Navigator.of(context).pushReplacement(
@@ -142,15 +155,18 @@ class CampaignResultHandler {
         return true;
       }
 
+      if (!accountIsActive()) return true;
       final rewardApplied = await applySubmissionReward(
         appState: appState,
         campaignService: campaignService,
         result: result,
       );
 
+      if (!accountIsActive()) return true;
       await _recordCampaignAchievementProgress(
         nativeBridge: nativeBridge,
         result: result,
+        accountUid: activeUid,
       );
 
       if (!context.mounted) return true;
@@ -214,7 +230,7 @@ class CampaignResultHandler {
   }
 
   static const String _loggedOutSaveMessage =
-      'سجّل الدخول لحفظ تقدمك في تحدي المراحل.';
+      'أداء بطولي! غنائمك ونجومك جاهزة للإيداع 🏆';
 
   static String saveFailureMessage(Object error) => _saveFailureMessage(error);
 
@@ -251,11 +267,12 @@ class CampaignResultHandler {
   static Future<void> _recordCampaignAchievementProgress({
     required NativeBridgeService nativeBridge,
     required StageSubmissionResult result,
+    required String accountUid,
   }) async {
     try {
       final attempt = result.attempt;
       await CampaignEngagementService().recordAttempt(
-        playerId: attempt.uid.isEmpty ? 'guest' : attempt.uid,
+        playerId: accountUid == 'guest_local' ? 'guest' : accountUid,
         campaignId: attempt.campaignId,
         attempt: attempt,
       );
@@ -265,6 +282,7 @@ class CampaignResultHandler {
     try {
       final attempt = result.attempt;
       await nativeBridge.recordCampaignAchievementProgress(
+        accountUid: accountUid,
         campaignId: attempt.campaignId,
         stageId: attempt.stageId,
         campaignMode: attempt.campaignMode,

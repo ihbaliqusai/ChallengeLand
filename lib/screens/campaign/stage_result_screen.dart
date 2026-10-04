@@ -29,6 +29,7 @@ import 'widgets/result_reward_panel.dart';
 import 'widgets/result_replay_goal_card.dart';
 import 'widgets/result_ribbon_header.dart';
 import 'widgets/result_score_counter.dart';
+import 'widgets/save_guest_progress_dialog.dart';
 
 class StageResultScreen extends StatefulWidget {
   const StageResultScreen({
@@ -178,6 +179,16 @@ class _StageResultScreenState extends State<StageResultScreen>
   }
 
   void _openNextStage() {
+    if (_isUnsavedPreview) {
+      _promptSaveBeforeExit(
+        context,
+        onProceedWithoutSave: () {
+          final navigator = Navigator.of(context);
+          navigator.popUntil((route) => route.isFirst);
+        },
+      );
+      return;
+    }
     if (context.read<AppState>().currentUser?.uid !=
         submissionResult.attempt.uid) {
       _returnToMap();
@@ -198,6 +209,16 @@ class _StageResultScreenState extends State<StageResultScreen>
   }
 
   void _returnToMap() {
+    if (_isUnsavedPreview) {
+      _promptSaveBeforeExit(
+        context,
+        onProceedWithoutSave: () {
+          final navigator = Navigator.of(context);
+          navigator.popUntil((route) => route.isFirst);
+        },
+      );
+      return;
+    }
     final navigator = Navigator.of(context);
     final resultRoute = ModalRoute.of(context);
     var foundMap = false;
@@ -393,7 +414,18 @@ class _StageResultScreenState extends State<StageResultScreen>
                                     ],
                                     if (_isUnsavedPreview) ...[
                                       const SizedBox(height: 10),
-                                      const _WarningPill(),
+                                      _GuestVictoryBanner(
+                                        stars: attempt.stars,
+                                        coins: submissionResult.rewardCoinsGranted > 0
+                                            ? submissionResult.rewardCoinsGranted
+                                            : (attempt.score > 0 ? 500 : 100),
+                                        gems: submissionResult.rewardGemsGranted > 0
+                                            ? submissionResult.rewardGemsGranted
+                                            : 50,
+                                        score: attempt.score,
+                                        onClaim: () =>
+                                            _openSaveGuestProgressModal(context),
+                                      ),
                                     ],
                                     const SizedBox(height: 12),
                                     _StatsPanel(
@@ -427,6 +459,15 @@ class _StageResultScreenState extends State<StageResultScreen>
                                     const SizedBox(height: 10),
                                     ResultRewardPanel(
                                       result: submissionResult,
+                                      gameplayXp:
+                                          (rawNativeResult?['gameplayXp']
+                                                      as num?)
+                                                  ?.toInt() ??
+                                              0,
+                                      trophyDelta:
+                                          (rawNativeResult?['trophyDelta']
+                                                  as num?)
+                                              ?.toInt(),
                                       currencyRewardApplied:
                                           currencyRewardApplied,
                                       onDoubleReward:
@@ -465,10 +506,11 @@ class _StageResultScreenState extends State<StageResultScreen>
                                       ),
                                     ),
                                     if (_isUnsavedPreview) ...[
-                                      const SizedBox(height: 4),
-                                      _RetrySaveButton(
+                                      const SizedBox(height: 6),
+                                      _ClaimGuestRewardsButton(
                                         busy: _savingResult,
-                                        onPressed: () => _retrySave(context),
+                                        onPressed: () =>
+                                            _openSaveGuestProgressModal(context),
                                       ),
                                     ],
                                     const SizedBox(height: 8),
@@ -568,6 +610,109 @@ class _StageResultScreenState extends State<StageResultScreen>
   bool _hasModeDetails(StageAttempt attempt) {
     final mode = _modeForAttempt(attempt, stage);
     return mode != CampaignMode.classic && mode != CampaignMode.noLifeline;
+  }
+
+  void _openSaveGuestProgressModal(BuildContext context) {
+    final payload = rawNativeResult;
+    if (payload == null) {
+      _retrySave(context);
+      return;
+    }
+
+    SaveGuestProgressDialog.show(
+      context,
+      stage: stage,
+      submissionResult: submissionResult,
+      rawNativeResult: payload,
+      onSaved: (savedResult, rewardApplied) {
+        if (!mounted) return;
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute<void>(
+            builder: (_) => StageResultScreen(
+              stage: stage,
+              submissionResult: savedResult,
+              rawNativeResult: payload,
+              currencyRewardApplied: rewardApplied,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _promptSaveBeforeExit(
+    BuildContext context, {
+    required VoidCallback onProceedWithoutSave,
+  }) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogCtx) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          backgroundColor: const Color(0xFF0F1A3C),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+            side: BorderSide(
+              color: const Color(0xFFFACC15).withValues(alpha: 0.4),
+              width: 1.5,
+            ),
+          ),
+          title: const Row(
+            children: [
+              Icon(Icons.stars_rounded, color: Color(0xFFFACC15), size: 26),
+              SizedBox(width: 8),
+              Text(
+                'حفظ الإنجاز والجوائز 🏆',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            'لديك ${submissionResult.attempt.stars} نجوم وجوائز قيّمة بانتظار إيداعها بحسابك.\nإذا غادرت الآن دون حفظ، قد تفقد ما حققته!',
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 14,
+              height: 1.45,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogCtx).pop();
+                onProceedWithoutSave();
+              },
+              child: const Text(
+                'متابعة دون حفظ',
+                style: TextStyle(
+                  color: Colors.white54,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            FilledButton.icon(
+              onPressed: () {
+                Navigator.of(dialogCtx).pop();
+                _openSaveGuestProgressModal(context);
+              },
+              icon: const Icon(Icons.cloud_upload_rounded, size: 18),
+              label: const Text('حفظ الجوائز الآن (موصى به)'),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFFACC15),
+                foregroundColor: const Color(0xFF1E1B4B),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                textStyle: const TextStyle(fontWeight: FontWeight.w900),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _retrySave(BuildContext context) async {
@@ -1292,37 +1437,131 @@ class _BossScoreSide extends StatelessWidget {
   }
 }
 
-class _WarningPill extends StatelessWidget {
-  const _WarningPill();
+class _GuestVictoryBanner extends StatelessWidget {
+  const _GuestVictoryBanner({
+    required this.stars,
+    required this.coins,
+    required this.gems,
+    required this.score,
+    required this.onClaim,
+  });
+
+  final int stars;
+  final int coins;
+  final int gems;
+  final int score;
+  final VoidCallback onClaim;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFB84A).withValues(alpha: 0.18),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: const Color(0xFFFFD36A)),
-      ),
-      child: const Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.warning_amber_rounded, color: Color(0xFFFFD36A), size: 18),
-          SizedBox(width: 6),
-          Flexible(
-            child: Text(
-              'تعذر حفظ المرحلة، لكن هذه نتيجتك الحالية.',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+    return GestureDetector(
+      onTap: onClaim,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [
+              Color(0xFF2E1903),
+              Color(0xFF0F183C),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: const Color(0xFFFACC15).withValues(alpha: 0.6),
+            width: 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFFF59E0B).withValues(alpha: 0.22),
+              blurRadius: 18,
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.military_tech_rounded,
+                    color: Color(0xFFFACC15), size: 22),
+                SizedBox(width: 6),
+                Text(
+                  '🎉 انتصار بطولي! غنائمك جاهزة للإيداع',
+                  style: TextStyle(
+                    color: Color(0xFFFFE082),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 5),
+            Text(
+              'احفظ إنجازك الآن بلمسة واحدة لتحصل على كل النجوم والعملات وتفتح المرحلة التالية!',
+              textAlign: TextAlign.center,
               style: TextStyle(
-                color: Colors.white,
-                fontSize: 15,
-                fontWeight: FontWeight.w900,
+                color: Colors.white.withValues(alpha: 0.8),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
               ),
             ),
-          ),
-        ],
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 12,
+              runSpacing: 4,
+              alignment: WrapAlignment.center,
+              children: [
+                _BannerChip(
+                  icon: Icons.star_rounded,
+                  label: '$stars نجوم',
+                  color: const Color(0xFFFFD700),
+                ),
+                _BannerChip(
+                  icon: Icons.monetization_on_rounded,
+                  label: '+$coins ذهب',
+                  color: const Color(0xFFFACC15),
+                ),
+                _BannerChip(
+                  icon: Icons.diamond_rounded,
+                  label: '+$gems جوهرة',
+                  color: const Color(0xFF38BDF8),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
+    );
+  }
+}
+
+class _BannerChip extends StatelessWidget {
+  const _BannerChip({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, color: color, size: 15),
+        const SizedBox(width: 3),
+        Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1463,23 +1702,39 @@ class _StatChip extends StatelessWidget {
   }
 }
 
-class _RetrySaveButton extends StatelessWidget {
-  const _RetrySaveButton({required this.onPressed, this.busy = false});
+class _ClaimGuestRewardsButton extends StatelessWidget {
+  const _ClaimGuestRewardsButton({
+    required this.onPressed,
+    this.busy = false,
+  });
 
   final VoidCallback onPressed;
   final bool busy;
 
   @override
   Widget build(BuildContext context) {
-    return FilledButton.icon(
-      onPressed: busy ? null : onPressed,
-      icon: const Icon(Icons.cloud_upload_rounded, size: 18),
-      label: Text(busy ? 'جارٍ حفظ التقدم...' : 'إعادة محاولة الحفظ'),
-      style: FilledButton.styleFrom(
-        backgroundColor: const Color(0xFFFFC857),
-        foregroundColor: const Color(0xFF311300),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        textStyle: const TextStyle(fontWeight: FontWeight.w900),
+    return SizedBox(
+      width: double.infinity,
+      height: 52,
+      child: FilledButton.icon(
+        onPressed: busy ? null : onPressed,
+        icon: const Icon(Icons.stars_rounded, size: 22),
+        label: Text(
+          busy ? 'جارٍ حفظ التقدم...' : '✨ احفظ إنجازك وجوائزك الآن (تسجيل سريع)',
+        ),
+        style: FilledButton.styleFrom(
+          backgroundColor: const Color(0xFFFACC15),
+          foregroundColor: const Color(0xFF1E1B4B),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          textStyle: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w900,
+          ),
+          elevation: 6,
+          shadowColor: const Color(0xFFF59E0B).withValues(alpha: 0.5),
+        ),
       ),
     );
   }

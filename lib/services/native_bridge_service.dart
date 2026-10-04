@@ -369,6 +369,28 @@ class NativeBridgeService {
     await _channel.invokeMethod('resetLegacyUser');
   }
 
+  Future<Map<String, dynamic>> getProgressionSnapshot() async {
+    final raw = await _channel
+        .invokeMapMethod<String, dynamic>('getProgressionSnapshot');
+    if (raw == null) throw StateError('Native progression is unavailable');
+    return raw;
+  }
+
+  Future<Map<String, dynamic>> hydrateProgression({
+    required String accountUid,
+    required Map<String, int> stats,
+    required Map<String, int> acknowledged,
+  }) async {
+    final raw =
+        await _channel.invokeMapMethod<String, dynamic>('hydrateProgression', {
+      'accountUid': accountUid,
+      'stats': stats,
+      'acknowledged': acknowledged,
+    });
+    if (raw == null) throw StateError('Progression account changed');
+    return raw;
+  }
+
   Future<void> launchOfflineGame() async {
     await _channel.invokeMethod('launchOfflineGame');
   }
@@ -436,6 +458,7 @@ class NativeBridgeService {
   }
 
   Future<void> recordCampaignAchievementProgress({
+    required String accountUid,
     required String campaignId,
     required String stageId,
     required String campaignMode,
@@ -445,6 +468,7 @@ class NativeBridgeService {
     required int usedLifelines,
   }) async {
     await _channel.invokeMethod('recordCampaignAchievementProgress', {
+      'accountUid': accountUid,
       'campaignId': campaignId,
       'stageId': stageId,
       'campaignMode': campaignMode,
@@ -603,8 +627,10 @@ class NativeBridgeService {
     await _channel.invokeMethod<void>('openNotificationSettings');
   }
 
-  Future<void> resetLocalProgress() async {
-    await _channel.invokeMethod<void>('resetLocalProgress');
+  Future<void> resetLocalProgress({String? accountUid}) async {
+    await _channel.invokeMethod<void>('resetLocalProgress', {
+      if (accountUid != null) 'accountUid': accountUid,
+    });
   }
 
   Future<bool> restorePurchases() async {

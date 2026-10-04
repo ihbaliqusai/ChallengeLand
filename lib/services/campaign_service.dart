@@ -589,6 +589,12 @@ class CampaignService {
       throw ArgumentError.value(uid, 'uid', 'uid must not be empty');
     }
 
+    final resultOwner = nativeResult['accountUid']?.toString().trim() ?? '';
+    if (resultOwner.isNotEmpty && resultOwner != normalizedUid) {
+      throw ArgumentError(
+          'The campaign result belongs to a different account.');
+    }
+
     final campaignId = stage.campaignId;
     final stageId = stage.id;
     final resultCampaignId =

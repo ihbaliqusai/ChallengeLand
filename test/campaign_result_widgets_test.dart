@@ -68,6 +68,20 @@ Widget _host(Widget child, {double textScale = 1}) => MaterialApp(
     );
 
 void main() {
+  testWidgets('failed replay still shows settled gameplay XP and trophy loss',
+      (tester) async {
+    await tester.pumpWidget(_host(ResultRewardPanel(
+      result: _result(completed: false),
+      currencyRewardApplied: false,
+      gameplayXp: 53,
+      trophyDelta: -18,
+    )));
+    expect(find.textContaining('+53 XP من اللعب', findRichText: true), findsOneWidget);
+    expect(find.textContaining('-18 كأس', findRichText: true), findsOneWidget);
+    expect(find.text('تقدم اللعب المحتسب'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('failed replay keeps attempt stars separate from best stars',
       (tester) async {
     await tester.pumpWidget(_host(ResultReplayGoalCard(

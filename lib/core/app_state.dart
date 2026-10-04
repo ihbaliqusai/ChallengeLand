@@ -9,15 +9,18 @@ import '../models/game_category.dart';
 import '../services/auth_service.dart';
 import '../services/campaign_currency_service.dart';
 import '../services/native_bridge_service.dart';
+import '../services/progression_service.dart';
 import 'player_rank.dart';
-import 'trophy_league.dart';
 
 class AppState extends ChangeNotifier {
   AppState({
     required AuthService authService,
     required NativeBridgeService nativeBridgeService,
+    FirebaseFirestore? firestore,
   })  : _authService = authService,
-        _nativeBridgeService = nativeBridgeService {
+        _nativeBridgeService = nativeBridgeService,
+        _firestore = firestore ?? FirebaseFirestore.instance,
+        _progressionService = ProgressionService(firestore: firestore) {
     NativeBridgeService.addPurchaseDeliveredListener(_onPurchaseDelivered);
     unawaited(loadCategoryState());
     _authSubscription = _authService.authStateChanges().listen(_onAuthChanged);
@@ -36,7 +39,8 @@ class AppState extends ChangeNotifier {
 
   final AuthService _authService;
   final NativeBridgeService _nativeBridgeService;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseFirestore _firestore;
+  final ProgressionService _progressionService;
 
   StreamSubscription<User?>? _authSubscription;
 
@@ -46,12 +50,19 @@ class AppState extends ChangeNotifier {
   int coins = 0;
   int gems = 0;
   int trophies = 0;
+  int bestTrophies = 0;
+  Map<String, int> _playerStats = <String, int>{};
+  Map<String, int> get playerStats => Map.unmodifiable(_playerStats);
+  Future<void> _progressionTail = Future<void>.value();
+  Future<void>? _progressionSyncFuture;
+  String? _nativeBoundUid;
+  Map<String, int> _lastProgressionAcknowledged = <String, int>{};
   int streakDay = 0;
   bool claimedToday = false;
   bool dailyStreakLoaded = false;
   bool _claimingStreak = false;
 
-  User? get currentUser => user ?? FirebaseAuth.instance.currentUser;
+  User? get currentUser => user ?? _authService.currentUser;
 
   // ── Character selection ─────────────────────────────────────────────────────
   /// The chosen character index (0..7), or -1 when the player has not picked one
@@ -390,33 +401,48 @@ class AppState extends ChangeNotifier {
   int level = 1;
   int xp = 0;
   int xpInCurrentLevel = 0;
-  int xpNeededForLevel = 100;
-  int _lastKnownGamesPlayed = -1;
-  int _lastKnownWins = -1;
-  bool _checkingXp = false;
+  int xpNeededForLevel = PlayerRank.xpNeededForLevel(1);
 
-  static int _computeLevel(int totalXp) {
-    return PlayerRank.levelForXp(totalXp);
+  void _applyProgression(Map<String, int> stats) {
+    _playerStats = ProgressionService.normalize(stats);
+    xp = _playerStats['xp'] ?? 0;
+    level = PlayerRank.levelForXp(xp);
+    xpInCurrentLevel = PlayerRank.xpIntoLevel(xp);
+    xpNeededForLevel = PlayerRank.xpNeededForLevel(level);
+    trophies = _playerStats['trophies'] ?? 0;
+    bestTrophies = _playerStats['bestTrophies'] ?? trophies;
   }
 
-  static int _computeXpInLevel(int totalXp) {
-    return PlayerRank.xpIntoLevel(totalXp);
+  Future<T> _enqueueProgression<T>(Future<T> Function() action) {
+    final operation = _progressionTail.then((_) => action());
+    _progressionTail =
+        operation.then<void>((_) {}, onError: (Object _, StackTrace __) {});
+    return operation;
   }
+
+  Map<String, dynamic> _publicIdentity(User account) => {
+        'username': _resolvedUsername(account),
+        'photoUrl': _resolvedPhotoUrl(account),
+        'friendCode': friendCode,
+      };
+
+  static Map<String, int> _snapshotNumbers(dynamic raw) => raw is Map
+      ? {
+          for (final entry in raw.entries)
+            if (entry.value is num)
+              entry.key.toString(): (entry.value as num).toInt()
+        }
+      : <String, int>{};
 
   Future<void> loadLevelData() async {
-    final uid = user?.uid;
+    final uid = currentUser?.uid;
+    final generation = _authGeneration;
     if (uid == null) return;
+    await checkAndAwardXpForGames();
     try {
       final doc = await _firestore.collection('users').doc(uid).get();
+      if (generation != _authGeneration || currentUser?.uid != uid) return;
       final data = doc.data() ?? {};
-      xp = (data['xp'] as num?)?.toInt() ?? 0;
-      _lastKnownGamesPlayed =
-          (data['lastKnownGamesPlayed'] as num?)?.toInt() ?? -1;
-      _lastKnownWins = (data['lastKnownWins'] as num?)?.toInt() ?? -1;
-      level = _computeLevel(xp);
-      xpInCurrentLevel = _computeXpInLevel(xp);
-      xpNeededForLevel = PlayerRank.xpNeededForLevel(level);
-      trophies = (data['trophies'] as num?)?.toInt() ?? 0;
 
       // Streak data
       final lastClaimTs = data['lastStreakClaimDate'] as Timestamp?;
@@ -447,68 +473,68 @@ class AppState extends ChangeNotifier {
       dailyStreakLoaded = true;
       notifyListeners();
     } catch (e) {
+      if (generation != _authGeneration || currentUser?.uid != uid) return;
       // Firestore read failed (offline/network). Retain defaults and notify
       // so UI shows day 1 rather than an endless spinner.
       streakDay = streakDay > 0 ? streakDay : 1;
       dailyStreakLoaded = true;
       notifyListeners();
     }
-    unawaited(checkAndAwardXpForGames());
   }
 
   Future<void> checkAndAwardXpForGames() async {
-    if (_checkingXp) return;
-    _checkingXp = true;
-    final uid = user?.uid;
-    if (uid == null) {
-      _checkingXp = false;
-      return;
-    }
+    final active = _progressionSyncFuture;
+    if (active != null) return active;
+    final operation = _enqueueProgression<void>(() async {
+      await _synchronizeProgression();
+    });
+    _progressionSyncFuture = operation;
     try {
-      final stats = await _nativeBridgeService.getPlayerStats();
-      final gamesPlayed = stats['gamesPlayed'] ?? 0;
-      final wins = stats['wins'] ?? 0;
-      final nativeXp = stats['xp'] ?? xp;
-      final effectiveXp = nativeXp > xp ? nativeXp : xp;
-      final computedLevel = _computeLevel(effectiveXp);
-      final computedTrophies = TrophyProgression.computeTrophies(stats);
-      final statsChanged =
-          gamesPlayed != _lastKnownGamesPlayed || wins != _lastKnownWins;
-      final xpChanged = xp != effectiveXp;
-      final levelChanged = level != computedLevel;
-      final trophiesChanged = trophies != computedTrophies;
-
-      _lastKnownGamesPlayed = gamesPlayed;
-      _lastKnownWins = wins;
-      xp = effectiveXp;
-      level = computedLevel;
-      xpInCurrentLevel = _computeXpInLevel(effectiveXp);
-      xpNeededForLevel = PlayerRank.xpNeededForLevel(level);
-      trophies = computedTrophies;
-
-      if (xpChanged || levelChanged || trophiesChanged) {
-        notifyListeners();
-      }
-
-      if (statsChanged || xpChanged || levelChanged || trophiesChanged) {
-        await _firestore.collection('users').doc(uid).set(
-          {
-            'xp': xp,
-            'level': level,
-            'trophies': trophies,
-            'lastKnownGamesPlayed': gamesPlayed,
-            'lastKnownWins': wins,
-          },
-          SetOptions(merge: true),
-        );
-        await _syncPublicProfile(
-          level: level,
-          trophies: trophies,
-        );
-      }
-    } catch (_) {
+      await operation;
     } finally {
-      _checkingXp = false;
+      if (identical(_progressionSyncFuture, operation)) {
+        _progressionSyncFuture = null;
+      }
+    }
+  }
+
+  Future<bool> _synchronizeProgression() async {
+    final account = currentUser;
+    if (account == null) return false;
+    final uid = account.uid;
+    final generation = _authGeneration;
+    bool active() => currentUser?.uid == uid && generation == _authGeneration;
+    try {
+      if (_nativeBoundUid != uid) await _syncLegacyUser();
+      if (!active()) return false;
+      final snapshot = await _nativeBridgeService.getProgressionSnapshot();
+      if (!active() || snapshot['accountUid'] != uid) return false;
+      final nativeStats = _snapshotNumbers(snapshot['stats']);
+      final contributions = _snapshotNumbers(snapshot['contributions']);
+      // Native progress remains immediately visible while the network is down.
+      _applyProgression(nativeStats);
+      notifyListeners();
+      final totals = await _progressionService.synchronize(
+        uid: uid,
+        deviceId: snapshot['deviceId']?.toString() ?? '',
+        nativeStats: nativeStats,
+        contributions: contributions,
+        identity: _publicIdentity(account),
+      );
+      if (!active()) return false;
+      final restored = await _nativeBridgeService.hydrateProgression(
+        accountUid: uid,
+        stats: totals,
+        acknowledged: contributions,
+      );
+      if (!active() || restored['accountUid'] != uid) return false;
+      _lastProgressionAcknowledged = contributions;
+      _applyProgression(_snapshotNumbers(restored['stats']));
+      notifyListeners();
+      return true;
+    } catch (error) {
+      debugPrint('[Progression] Sync deferred: ${error.runtimeType}');
+      return false;
     }
   }
 
@@ -529,7 +555,7 @@ class AppState extends ChangeNotifier {
       if (generation != _authGeneration) return;
       await _loadAndSyncUserData(nextUser.uid, generation);
       if (generation != _authGeneration) return;
-      unawaited(_syncPublicProfile());
+      unawaited(syncPublicProfile());
     } else {
       _resetSessionState();
       await _nativeBridgeService.resetLegacyUser();
@@ -565,6 +591,7 @@ class AppState extends ChangeNotifier {
   Future<void> signOut() async {
     final uid = currentUser?.uid;
     if (uid != null) {
+      await checkAndAwardXpForGames();
       await _saveFullUserSnapshot(uid);
     }
     await _runBusy(_authService.signOut);
@@ -574,11 +601,12 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> deleteAccount({String? password}) async {
+    final deletedUid = currentUser?.uid;
     await _runBusy(
       () => _authService.deleteCurrentAccount(password: password),
     );
     try {
-      await _nativeBridgeService.resetLocalProgress();
+      await _nativeBridgeService.resetLocalProgress(accountUid: deletedUid);
     } catch (_) {
       // Account deletion already succeeded remotely; local cleanup is best-effort.
     }
@@ -664,6 +692,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<bool> grantCampaignReward({
+    required String claimId,
     required int coinsReward,
     required int gemsReward,
     required int xpReward,
@@ -671,8 +700,10 @@ class AppState extends ChangeNotifier {
     final currencyGranted = await grantCampaignCurrency(
       coinsReward: coinsReward,
       gemsReward: gemsReward,
+      claimId: claimId,
     );
-    final xpGranted = await grantCampaignXp(xpReward: xpReward);
+    final xpGranted =
+        await grantCampaignXp(xpReward: xpReward, claimId: claimId);
     return currencyGranted && xpGranted;
   }
 
@@ -749,76 +780,61 @@ class AppState extends ChangeNotifier {
   }
 
   Future<bool> grantCampaignXp({required int xpReward, String? claimId}) async {
-    final uid = currentUser?.uid;
+    final account = currentUser;
+    final uid = account?.uid;
     final generation = _authGeneration;
-    final initialXp = xp;
-    if (uid == null) return false;
+    if (uid == null || account == null) return false;
     if (xpReward <= 0) return true;
+    if (claimId == null || claimId.isEmpty) return false;
     try {
-      final userRef = _firestore.collection('users').doc(uid);
-      final nextXp = await _firestore.runTransaction<int>((transaction) async {
-        final userSnapshot = await transaction.get(userRef);
-        final claimRef = claimId == null
-            ? null
-            : userRef.collection('campaignRewardClaims').doc(claimId);
-        final claimSnapshot =
-            claimRef == null ? null : await transaction.get(claimRef);
-        final storedXp =
-            (userSnapshot.data()?['xp'] as num?)?.toInt() ?? initialXp;
-        if (claimRef != null) {
-          if (claimSnapshot?.exists != true) {
-            throw StateError('Campaign reward claim is missing');
-          }
-          if (claimSnapshot!.data()?['xpClaimed'] == true) return storedXp;
-        }
-        final earnedXp = claimRef == null
-            ? xpReward
-            : (claimSnapshot!.data()?['xp'] as num?)?.toInt() ?? 0;
-        final totalXp = storedXp + earnedXp;
-        transaction.set(
-            userRef,
-            {
-              'xp': totalXp,
-              'level': _computeLevel(totalXp),
-            },
-            SetOptions(merge: true));
-        if (claimRef != null) {
-          transaction.update(claimRef, {
-            'xpClaimed': true,
-            'updatedAt': FieldValue.serverTimestamp(),
-          });
-        }
-        return totalXp;
+      return await _enqueueProgression<bool>(() async {
+        bool active() =>
+            generation == _authGeneration && currentUser?.uid == uid;
+        final synced = await _synchronizeProgression();
+        if (!synced || !active()) return false;
+        final totals = await _progressionService.grantCampaignXp(
+          uid: uid,
+          claimId: claimId,
+          identity: _publicIdentity(account),
+        );
+        if (!active()) return false;
+        final restored = await _nativeBridgeService.hydrateProgression(
+          accountUid: uid,
+          stats: totals,
+          acknowledged: _lastProgressionAcknowledged,
+        );
+        if (!active() || restored['accountUid'] != uid) return false;
+        _applyProgression(_snapshotNumbers(restored['stats']));
+        notifyListeners();
+        return true;
       });
-      if (generation != _authGeneration || currentUser?.uid != uid) {
-        return false;
-      }
-      final nextLevel = _computeLevel(nextXp);
-      xp = nextXp;
-      level = nextLevel;
-      xpInCurrentLevel = _computeXpInLevel(nextXp);
-      xpNeededForLevel = PlayerRank.xpNeededForLevel(nextLevel);
-      notifyListeners();
-      return true;
     } catch (_) {
       return false;
     }
   }
 
   Future<void> _syncLegacyUser() async {
-    final currentUser = user;
-    if (currentUser == null) return;
+    final account = currentUser;
+    final generation = _authGeneration;
+    if (account == null) return;
 
     await _nativeBridgeService.syncLegacyUser(
-      uid: currentUser.uid,
-      username: _resolvedUsername(currentUser),
-      photoUrl: _resolvedPhotoUrl(currentUser),
+      uid: account.uid,
+      username: _resolvedUsername(account),
+      photoUrl: _resolvedPhotoUrl(account),
     );
+    if (generation == _authGeneration && currentUser?.uid == account.uid) {
+      _nativeBoundUid = account.uid;
+    }
   }
 
   Future<void> _loadAndSyncUserData(String uid, int generation) async {
     bool isActive() => generation == _authGeneration && currentUser?.uid == uid;
     try {
+      // Account binding also works offline and must precede any wallet/stat
+      // reads, otherwise a failed cloud read could expose the previous account.
+      await _syncLegacyUser();
+      if (!isActive()) return;
       final doc = await _firestore.collection('users').doc(uid).get();
       final data = doc.data();
       if (!isActive()) return;
@@ -854,14 +870,7 @@ class AppState extends ChangeNotifier {
           }
         }
 
-        xp = (data['xp'] as num?)?.toInt() ?? 0;
-        level = _computeLevel(xp);
-        xpInCurrentLevel = _computeXpInLevel(xp);
-        xpNeededForLevel = PlayerRank.xpNeededForLevel(level);
-        trophies = (data['trophies'] as num?)?.toInt() ?? 0;
-        _lastKnownGamesPlayed =
-            (data['lastKnownGamesPlayed'] as num?)?.toInt() ?? -1;
-        _lastKnownWins = (data['lastKnownWins'] as num?)?.toInt() ?? -1;
+        _applyProgression(ProgressionService.readStats(data));
       } else {
         // حساب جديد تماماً: قيم افتراضية نظيفة خاصة به
         coins = 500;
@@ -869,11 +878,7 @@ class AppState extends ChangeNotifier {
         unlockedCategories = <String>[];
         selectedCharacterIndex = -1;
         purchasedCharacters.clear();
-        xp = 0;
-        level = 1;
-        xpInCurrentLevel = 0;
-        xpNeededForLevel = PlayerRank.xpNeededForLevel(1);
-        trophies = 0;
+        _applyProgression(<String, int>{});
       }
 
       // Reconcile native grants committed just before an interrupted cloud save.
@@ -912,6 +917,8 @@ class AppState extends ChangeNotifier {
 
       if (!isActive()) return;
       _commerceHydratedUid = uid;
+      await checkAndAwardXpForGames();
+      if (!isActive()) return;
       await _saveFullUserSnapshot(uid);
 
       // Restore only after the account wallet and delivery ledger are hydrated.
@@ -924,6 +931,8 @@ class AppState extends ChangeNotifier {
     } catch (e) {
       if (!isActive()) return;
       debugPrint('[AppState] Error loading user data: $e');
+      await checkAndAwardXpForGames();
+      if (!isActive()) return;
       await loadCurrency();
       await loadCategoryState();
       await loadCharacterState();
@@ -985,9 +994,6 @@ class AppState extends ChangeNotifier {
           'unlockedCategories': unlockedCategories,
           'characterIndex': selectedCharacterIndex,
           'purchasedCharacters': purchasedCharacters.toList(),
-          'xp': xp,
-          'level': level,
-          'trophies': trophies,
           'currencyUpdatedAt': FieldValue.serverTimestamp(),
           'appliedCommerceDeliveryIds': deliveryIds,
         },
@@ -1006,29 +1012,13 @@ class AppState extends ChangeNotifier {
     await _saveFullUserSnapshot(uid);
   }
 
-  Future<void> _syncPublicProfile({
+  Future<void> syncPublicProfile({
     int? level,
     int? trophies,
   }) async {
-    final currentUser = user;
-    if (currentUser == null) return;
-
-    try {
-      await _firestore.collection('public_profiles').doc(currentUser.uid).set(
-        <String, dynamic>{
-          'uid': currentUser.uid,
-          'username': _resolvedUsername(currentUser),
-          'photoUrl': _resolvedPhotoUrl(currentUser),
-          'level': level ?? this.level,
-          'trophies': trophies ?? this.trophies,
-          'lastSeenAt': FieldValue.serverTimestamp(),
-          'friendCode': friendCode,
-        },
-        SetOptions(merge: true),
-      );
-    } catch (_) {
-      // Keep gameplay responsive if Firestore is temporarily unavailable.
-    }
+    // Only the progression transaction publishes totals; callers cannot
+    // accidentally overwrite a newer trophy loss with an older screen value.
+    await checkAndAwardXpForGames();
   }
 
   Future<void> _runBusy(Future<dynamic> Function() action) async {
@@ -1090,8 +1080,11 @@ class AppState extends ChangeNotifier {
     xp = 0;
     xpInCurrentLevel = 0;
     xpNeededForLevel = PlayerRank.xpNeededForLevel(1);
-    _lastKnownGamesPlayed = -1;
-    _lastKnownWins = -1;
+    bestTrophies = 0;
+    _playerStats = <String, int>{};
+    _nativeBoundUid = null;
+    _progressionSyncFuture = null;
+    _lastProgressionAcknowledged = <String, int>{};
     selectedCharacterIndex = -1;
     purchasedCharacters.clear();
     characterStateLoaded = false;

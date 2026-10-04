@@ -86,7 +86,8 @@ class InviteService {
     if (clean.isEmpty) return;
     try {
       final prefs = await SharedPreferences.getInstance();
-      final set = (prefs.getStringList(_kDismissedInvitesKey) ?? <String>[]).toSet();
+      final set =
+          (prefs.getStringList(_kDismissedInvitesKey) ?? <String>[]).toSet();
       set.add(clean);
       // Keep set bounded to last 100 codes
       final trimmedList = set.toList();
@@ -111,8 +112,11 @@ class InviteService {
     final trimmed = text.trim();
 
     // Direct exact code
-    if (RegExp(r'^(?:CL-)?[A-Za-z0-9]{4,15}$', caseSensitive: false).hasMatch(trimmed)) {
-      return trimmed.replaceAll(RegExp(r'^CL-', caseSensitive: false), '').toUpperCase();
+    if (RegExp(r'^(?:CL-)?[A-Za-z0-9]{4,15}$', caseSensitive: false)
+        .hasMatch(trimmed)) {
+      return trimmed
+          .replaceAll(RegExp(r'^CL-', caseSensitive: false), '')
+          .toUpperCase();
     }
 
     // Match labeled code
@@ -125,7 +129,8 @@ class InviteService {
     }
 
     // Check inside word boundaries
-    final words = text.replaceAll(RegExp(r'https?://[^\s]+'), '').split(RegExp(r'\s+'));
+    final words =
+        text.replaceAll(RegExp(r'https?://[^\s]+'), '').split(RegExp(r'\s+'));
     for (final word in words) {
       final clean = word.replaceAll(RegExp(r'[^A-Za-z0-9]'), '');
       if (clean.length >= 6 && clean.length <= 12) {
@@ -178,7 +183,8 @@ class InviteService {
       }
 
       // 2. Check public_profiles by direct UID
-      final directDoc = await _firestore.collection('public_profiles').doc(clean).get();
+      final directDoc =
+          await _firestore.collection('public_profiles').doc(clean).get();
       if (directDoc.exists && directDoc.data() != null) {
         final profile = PlayerProfile.fromMap(directDoc.data()!);
         if (profile.uid.isNotEmpty && profile.uid != myUid) {
@@ -208,14 +214,7 @@ class InviteService {
       final userDoc = await _firestore.collection('users').doc(clean).get();
       if (userDoc.exists && userDoc.data() != null) {
         final data = userDoc.data()!;
-        final username = (data['displayName'] ?? data['username'] ?? 'لاعب').toString();
-        final photo = data['photoUrl']?.toString();
-        return PlayerProfile.empty().copyWith(
-          uid: clean,
-          username: username,
-          photoUrl: photo,
-          totalScore: (data['xp'] as num?)?.toInt() ?? 0,
-        );
+        return PlayerProfile.fromMap({...data, 'uid': userDoc.id});
       }
     } catch (e) {
       if (kDebugMode) {
@@ -294,7 +293,8 @@ class InviteService {
               type: InviteType.room,
               code: roomPreview.id,
               title: '🏆 دعوة انضمام لغرفة جماعية!',
-              subtitle: 'المضيف: ${roomPreview.hostName} • ${roomPreview.playerCount}/${roomPreview.maxPlayers} لاعبين',
+              subtitle:
+                  'المضيف: ${roomPreview.hostName} • ${roomPreview.playerCount}/${roomPreview.maxPlayers} لاعبين',
               rawText: text,
               senderName: roomPreview.hostName,
               roomMode: roomPreview.mode,
@@ -314,7 +314,8 @@ class InviteService {
       final isFriendMsg = text.contains('تحدي') ||
           text.contains('كود') ||
           text.contains('ChallengeLand') ||
-          RegExp(r'^(?:CL-)?[A-Za-z0-9]{6,12}$', caseSensitive: false).hasMatch(text);
+          RegExp(r'^(?:CL-)?[A-Za-z0-9]{6,12}$', caseSensitive: false)
+              .hasMatch(text);
 
       if (isFriendMsg) {
         final code = extractFriendCode(text);
@@ -336,7 +337,7 @@ class InviteService {
               rawText: text,
               senderName: profile.username,
               senderPhoto: profile.photoUrl,
-              senderLevel: (profile.totalScore / 100).clamp(1, 99).toInt(),
+              senderLevel: profile.level,
             );
           } else {
             // Not a real registered user -> permanently dismiss so we never alert the user!

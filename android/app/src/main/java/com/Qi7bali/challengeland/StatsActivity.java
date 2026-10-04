@@ -1,6 +1,5 @@
 package com.qi7bali.landchallengeonline;
 
-import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.os.Bundle;
@@ -24,15 +23,9 @@ public class StatsActivity extends AppCompatActivity {
         bind();
 
         findViewById(R.id.btnStatsBack).setOnClickListener(v -> finish());
-        findViewById(R.id.btnResetStats).setOnClickListener(v -> new AlertDialog.Builder(StatsActivity.this)
-                .setTitle("تصفير الإحصائيات")
-                .setMessage("هل تريد حذف الإحصائيات المحفوظة؟")
-                .setPositiveButton("نعم", (d, i) -> {
-                    PlayerStats.reset(StatsActivity.this);
-                    bind();
-                })
-                .setNegativeButton("إلغاء", null)
-                .show());
+        // Account progression is persistent. Resetting local totals would break
+        // cloud reconciliation and restart beginner protection.
+        findViewById(R.id.btnResetStats).setVisibility(View.GONE);
     }
 
     private void bind() {
@@ -61,7 +54,12 @@ public class StatsActivity extends AppCompatActivity {
         setText(R.id.txtStatsBestStreak, String.valueOf(bestStreak));
         TextView extra = findViewById(R.id.txtStatsExtra);
         if (extra != null) {
-            extra.setText("المستوى: " + level + "   |   القطع: " + coins + "   |   الجواهر: " + gems);
+            extra.setText("المستوى: " + level
+                    + "   |   الخبرة: " + PlayerProgress.getXp(this)
+                    + "   |   الكؤوس: " + PlayerStats.getTrophies(this)
+                    + "\nأفضل كؤوس: " + PlayerStats.getBestTrophies(this)
+                    + "   |   التعادلات: " + PlayerStats.getDraws(this)
+                    + "   |   القطع: " + coins + "   |   الجواهر: " + gems);
         }
     }
 

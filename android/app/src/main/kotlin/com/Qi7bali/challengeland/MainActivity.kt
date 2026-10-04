@@ -461,16 +461,27 @@ class MainActivity : FlutterActivity() {
                         val uid = call.argument<String>("uid") ?: "guest_local"
                         val username = call.argument<String>("username") ?: "لاعب"
                         val photoUrl = call.argument<String>("photoUrl") ?: ""
-                        val level = AppPrefs.getUserLevel(this)
-                        val score = AppPrefs.getUserScore(this)
+                        if (uid != "guest_local" &&
+                            com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid != uid) {
+                            result.error("ACCOUNT_CHANGED", "The signed-in account changed", null)
+                            return@setMethodCallHandler
+                        }
+                        val score = if (AppPrefs.getUserId(this) == uid) AppPrefs.getUserScore(this) else 0
+                        // Bind before deriving the level so a previous account's
+                        // cached identity cannot become this account's level.
                         AppPrefs.setUser(
                             this,
                             uid,
                             username,
                             photoUrl,
-                            level,
+                            1,
                             score
                         )
+                        val level = PlayerProgress.getLevel(this)
+                        AppPrefs.setUser(this, uid, username, photoUrl, level, score)
+                        // Establish the account's local baseline before any
+                        // game can create a new contribution on this device.
+                        ProgressionSyncState.capture(this)
                         if (uid != "guest_local") {
                             Data.syncUserProfile(uid, username, photoUrl, level, score)
                             Data.setUserActive(uid)
@@ -484,45 +495,33 @@ class MainActivity : FlutterActivity() {
                         AppPrefs.clearUnlockedCharacters(this)
                         AppPrefs.setSelectedCharacter(this, -1)
                         // Do NOT wipe VIP status on legacy reset; VIP subscriptions belong to Google Play / device.
-                        PlayerProgress.setCurrency(this, 0, 0)
-                        PlayerStats.reset(this)
+                        // Account data remains in its own namespace for the
+                        // next sign-in; logging out never deletes progression.
                         result.success(true)
                     }
                     "getPlayerStats" -> {
-                        val games         = PlayerStats.getGamesPlayed(this)
-                        val wins          = PlayerStats.getWins(this)
-                        val losses        = PlayerStats.getLosses(this)
-                        val correct       = PlayerStats.getCorrectAnswers(this)
-                        val wrong         = PlayerStats.getWrongAnswers(this)
-                        val total         = correct + wrong
-                        val bestStreak    = PlayerStats.getBestStreak(this)
-                        val winStreak     = PlayerStats.getCurrentWinStreak(this)
-                        val bestWinStreak = PlayerStats.getBestWinStreak(this)
-                        val highest       = PlayerStats.getHighestMoney(this)
-                        val totalEarnings = PlayerStats.getTotalEarnings(this)
-                        val onlineWins    = PlayerProgress.getOnlineWins(this)
-                        val xp            = PlayerProgress.getXp(this)
-                        val level         = PlayerProgress.getLevel(this)
-                        val winPct        = if (games > 0) (wins * 100 / games) else 0
-                        val accPct        = if (total > 0) (correct * 100 / total) else 0
-                        result.success(mapOf(
-                            "gamesPlayed"    to games,
-                            "wins"           to wins,
-                            "losses"         to losses,
-                            "correctAnswers" to correct,
-                            "wrongAnswers"   to wrong,
-                            "totalAnswered"  to total,
-                            "bestStreak"     to bestStreak,
-                            "winStreak"      to winStreak,
-                            "bestWinStreak"  to bestWinStreak,
-                            "highestMoney"   to highest,
-                            "totalEarnings"  to totalEarnings,
-                            "onlineWins"     to onlineWins,
-                            "xp"             to xp,
-                            "level"          to level,
-                            "winPercent"     to winPct,
-                            "accuracy"       to accPct
-                        ))
+                        result.success(PlayerStats.snapshot(this))
+                    }
+                    "getProgressionSnapshot" -> {
+                        result.success(ProgressionSyncState.capture(this))
+                    }
+                    "hydrateProgression" -> {
+                        val accountUid = call.argument<String>("accountUid") ?: ""
+                        if (com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid != accountUid) {
+                            result.error("ACCOUNT_CHANGED", "The signed-in account changed", null)
+                            return@setMethodCallHandler
+                        }
+                        val stats = call.argument<Map<String, Number>>("stats") ?: emptyMap()
+                        val acknowledged = call.argument<Map<String, Number>>("acknowledged") ?: emptyMap()
+                        if (ProgressionSyncState.hydrate(this, accountUid, stats, acknowledged)) {
+                            val level = PlayerProgress.getLevel(this)
+                            AppPrefs.setUser(this, accountUid, AppPrefs.getUserName(this),
+                                AppPrefs.getUserPhoto(this), level, AppPrefs.getUserScore(this))
+                            Data.setUserLevel(accountUid, level)
+                            result.success(ProgressionSyncState.capture(this))
+                        } else {
+                            result.error("ACCOUNT_CHANGED", "The progression account changed", null)
+                        }
                     }
                     "getSettings" -> {
                         result.success(mapOf(
@@ -592,7 +591,15 @@ class MainActivity : FlutterActivity() {
                         result.success(true)
                     }
                     "resetLocalProgress" -> {
-                        AppPrefs.resetLocalProgress(this)
+                        val deletedUid = call.argument<String>("accountUid") ?: AppPrefs.getUserId(this)
+                        val storage = getSharedPreferences("PlayerProgress_v2_$deletedUid", MODE_PRIVATE)
+                        val editor = storage.edit()
+                        storage.all.keys.filterNot { it.startsWith("commerce_") }.forEach(editor::remove)
+                        // Retain the migration marker: a deleted account must
+                        // never import its historical snapshot again.
+                        editor.putBoolean("accountInitialized", true)
+                        ProgressionAccount.commitOrRollback(storage, editor)
+                        if (deletedUid == AppPrefs.getUserId(this)) AppPrefs.setGuestUser(this)
                         result.success(true)
                     }
                     "getCommerceState" -> result.success(VerifiedCommerceStore.state(this))
@@ -720,24 +727,11 @@ class MainActivity : FlutterActivity() {
                         map["campaignBossWins"] = campaignBossWins
                         map["campaignPerfectCompletions"] = campaignPerfectCompletions
 
-                        val localTeamsCount = Math.max(
-                            PlayerProgress.getLocalTeamsPlayed(this),
-                            com.qi7bali.landchallengeonline.LocalTeamsGameStore.all(this).size
-                        )
-                        val offlineBoardCount = Math.max(
-                            PlayerProgress.getOfflineBoardPlayed(this),
-                            com.qi7bali.landchallengeonline.OfflineBoardGameStore.all(this).size
-                        )
-                        var offlineBoardWins = PlayerProgress.getOfflineBoardWins(this)
-                        for (r in com.qi7bali.landchallengeonline.OfflineBoardGameStore.all(this)) {
-                            if (r != null && r.optInt("winnerSlot", -2) == 0) {
-                                offlineBoardWins++
-                                break
-                            }
-                        }
-                        map["localTeamsPlayed"] = localTeamsCount
-                        map["offlineBoardPlayed"] = offlineBoardCount
-                        map["offlineBoardWins"] = offlineBoardWins
+                        // Saved games may belong to another account. Achievement
+                        // progress comes only from this account's counters.
+                        map["localTeamsPlayed"] = PlayerProgress.getLocalTeamsPlayed(this)
+                        map["offlineBoardPlayed"] = PlayerProgress.getOfflineBoardPlayed(this)
+                        map["offlineBoardWins"] = PlayerProgress.getOfflineBoardWins(this)
                         map["tvCastCount"] = PlayerProgress.getTvCastCount(this)
                         map["friendMatchesPlayed"] = PlayerProgress.getFriendMatchesPlayed(this)
                         map["randomMatchesPlayed"] = PlayerProgress.getRandomMatchesPlayed(this)
@@ -746,6 +740,12 @@ class MainActivity : FlutterActivity() {
                         result.success(map)
                     }
                     "recordCampaignAchievementProgress" -> {
+                        val owner = call.argument<String>("accountUid") ?: ""
+                        val authenticatedUid = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: "guest_local"
+                        if (owner.isEmpty() || owner != AppPrefs.getUserId(this) || owner != authenticatedUid) {
+                            result.error("ACCOUNT_CHANGED", "The campaign account changed", null)
+                            return@setMethodCallHandler
+                        }
                         PlayerProgress.onCampaignStageFinished(
                             this,
                             call.argument<String>("campaignId") ?: "main_campaign",

@@ -5,7 +5,86 @@ import 'package:provider/provider.dart';
 import '../../core/app_state.dart';
 import '../../core/player_rank.dart';
 import '../../core/trophy_league.dart';
-import '../../services/native_bridge_service.dart';
+import '../../widgets/progression_guide.dart';
+
+void _showModeStats(BuildContext context) {
+  final stats = context.read<AppState>().playerStats;
+  const modes = {
+    'offline': 'التحدي الفردي',
+    'campaign': 'الحملة',
+    'local_teams': 'الفرق المحلية',
+    'board': 'أرض التحدي',
+    'battle': 'المواجهة',
+    'team_battle': 'معركة الفرق',
+    'blitz': 'التحدي السريع',
+    'elimination': 'الإقصاء',
+    'survival': 'البقاء',
+    'series': 'السلسلة',
+  };
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: const Color(0xFF091224),
+    builder: (context) => Directionality(
+      textDirection: TextDirection.rtl,
+      child: SafeArea(
+        child: SizedBox(
+          height: MediaQuery.sizeOf(context).height * 0.85,
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              Row(children: [
+                const Expanded(
+                    child: Text('إحصاءات أطوار اللعب',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w900))),
+                IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    tooltip: 'إغلاق',
+                    color: Colors.white,
+                    icon: const Icon(Icons.close_rounded)),
+              ]),
+              const Text(
+                  'يبدأ تفصيل الأطوار من المباريات المسجلة بالنظام الجديد. الإحصاءات الإجمالية تشمل سجلك السابق.',
+                  style: TextStyle(
+                      color: Colors.white60, fontSize: 12, height: 1.6)),
+              const SizedBox(height: 12),
+              for (final mode in modes.entries)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                          '${mode.value} • ${stats['mode_${mode.key}_games'] ?? 0} مباراة',
+                          style: const TextStyle(
+                              color: Color(0xFF38BDF8),
+                              fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 6),
+                      Text(
+                          'فوز ${stats['mode_${mode.key}_wins'] ?? 0} • '
+                          'خسارة ${stats['mode_${mode.key}_losses'] ?? 0} • '
+                          'تعادل ${stats['mode_${mode.key}_draws'] ?? 0} • '
+                          'انسحاب ${stats['mode_${mode.key}_abandoned'] ?? 0}',
+                          style: const TextStyle(
+                              color: Colors.white70, fontSize: 12)),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
 
 class StatsScreen extends StatefulWidget {
   const StatsScreen({super.key});
@@ -16,7 +95,6 @@ class StatsScreen extends StatefulWidget {
 
 class _StatsScreenState extends State<StatsScreen> {
   bool _loading = true;
-  Map<String, int> _stats = {};
 
   @override
   void initState() {
@@ -28,12 +106,9 @@ class _StatsScreenState extends State<StatsScreen> {
   Future<void> _loadStats() async {
     try {
       final appState = context.read<AppState>();
-      final nativeBridge = context.read<NativeBridgeService>();
       await appState.checkAndAwardXpForGames();
-      final stats = await nativeBridge.getPlayerStats();
       if (!mounted) return;
       setState(() {
-        _stats = stats;
         _loading = false;
       });
     } catch (_) {
@@ -79,7 +154,7 @@ class _StatsScreenState extends State<StatsScreen> {
                           ? const _LoadingState()
                           : _StatsDashboard(
                               appState: appState,
-                              stats: _stats,
+                              stats: appState.playerStats,
                             ),
                     ),
                   ),
@@ -108,20 +183,16 @@ class _StatsDashboard extends StatelessWidget {
   Widget build(BuildContext context) {
     final games = _value('gamesPlayed');
     final wins = _value('wins');
-    final recordedLosses = _value('losses');
-    final losses = recordedLosses > 0
-        ? recordedLosses
-        : (games - wins < 0 ? 0 : games - wins);
+    final losses = _value('losses');
     final correct = _value('correctAnswers');
     final wrong = _value('wrongAnswers');
     final totalAnswered =
         _value('totalAnswered') > 0 ? _value('totalAnswered') : correct + wrong;
-    final winPercent = _value('winPercent') > 0
-        ? _value('winPercent')
-        : (games > 0 ? (wins * 100 / games).round() : 0);
-    final accuracy = _value('accuracy') > 0
-        ? _value('accuracy')
-        : (totalAnswered > 0 ? (correct * 100 / totalAnswered).round() : 0);
+    final winPercent =
+        games > 0 ? (wins * 100 / games).round().clamp(0, 100) : 0;
+    final accuracy = totalAnswered > 0
+        ? (correct * 100 / totalAnswered).round().clamp(0, 100)
+        : 0;
     final trophies = appState.trophies;
     final league = TrophyProgression.leagueFor(trophies);
 
@@ -143,6 +214,18 @@ class _StatsDashboard extends StatelessWidget {
         color: const Color(0xFFFB7185),
         value: _compactNumber(losses),
         label: 'الخسائر',
+      ),
+      _StatItem(
+        icon: Icons.handshake_rounded,
+        color: const Color(0xFF94A3B8),
+        value: _compactNumber(_value('draws')),
+        label: 'التعادلات',
+      ),
+      _StatItem(
+        icon: Icons.exit_to_app_rounded,
+        color: const Color(0xFFFB923C),
+        value: _compactNumber(_value('abandoned')),
+        label: 'الانسحابات',
       ),
       _StatItem(
         icon: Icons.public_rounded,
@@ -186,10 +269,81 @@ class _StatsDashboard extends StatelessWidget {
         value: _moneyNumber(_value('totalEarnings')),
         label: 'الأرباح',
       ),
+      _StatItem(
+        icon: Icons.auto_awesome_rounded,
+        color: const Color(0xFFA78BFA),
+        value: _compactNumber(appState.xp),
+        label: 'إجمالي الخبرة XP',
+      ),
+      _StatItem(
+        icon: Icons.workspace_premium_rounded,
+        color: const Color(0xFFFACC15),
+        value: _compactNumber(appState.bestTrophies),
+        label: 'أفضل رصيد كؤوس',
+      ),
     ];
 
     return LayoutBuilder(
       builder: (context, constraints) {
+        if (constraints.maxWidth < 700) {
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+            children: [
+              SizedBox(
+                height: 265,
+                child: _PlayerPanel(
+                  appState: appState,
+                  games: games,
+                  wins: wins,
+                  trophies: trophies,
+                  league: league,
+                  compact: false,
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 110,
+                child: Row(children: [
+                  Expanded(
+                      child: _HeroMetric(
+                    icon: Icons.trending_up_rounded,
+                    color: const Color(0xFF4ADE80),
+                    value: '$winPercent%',
+                    label: 'نسبة الفوز',
+                    caption: '$wins فوز من $games',
+                    progress: winPercent / 100,
+                    compact: false,
+                  )),
+                  const SizedBox(width: 8),
+                  Expanded(
+                      child: _HeroMetric(
+                    icon: Icons.task_alt_rounded,
+                    color: const Color(0xFF38BDF8),
+                    value: '$accuracy%',
+                    label: 'دقة الإجابات',
+                    caption: '$correct صحيحة',
+                    progress: accuracy / 100,
+                    compact: false,
+                  )),
+                ]),
+              ),
+              const SizedBox(height: 12),
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  mainAxisSpacing: 8,
+                  crossAxisSpacing: 8,
+                  mainAxisExtent: 100,
+                ),
+                itemCount: items.length,
+                itemBuilder: (_, index) =>
+                    _StatTile(item: items[index], compact: true),
+              ),
+            ],
+          );
+        }
         final compact =
             constraints.maxHeight < 300 || constraints.maxWidth < 760;
         final gap = compact ? 8.0 : 12.0;
@@ -327,6 +481,18 @@ class _Header extends StatelessWidget {
               ],
             ),
           ),
+          IconButton(
+            onPressed: () => _showModeStats(context),
+            tooltip: 'إحصاءات أطوار اللعب',
+            color: const Color(0xFF38BDF8),
+            icon: const Icon(Icons.sports_esports_rounded),
+          ),
+          IconButton(
+            onPressed: () => showProgressionGuide(context),
+            tooltip: 'دليل التقدم والمكافآت',
+            color: const Color(0xFFFACC15),
+            icon: const Icon(Icons.info_outline_rounded),
+          ),
           Tooltip(
             message: 'رجوع',
             child: IconButton(
@@ -435,7 +601,7 @@ class _PlayerPanel extends StatelessWidget {
                           const SizedBox(width: 4),
                           Expanded(
                             child: Text(
-                              rankTitle,
+                              'رتبة الخبرة: $rankTitle',
                               style: TextStyle(
                                 color: rankColor,
                                 fontSize: 11,
@@ -523,13 +689,21 @@ class _LevelProgress extends StatelessWidget {
                 fontWeight: FontWeight.w900,
               ),
             ),
-            const Spacer(),
-            Text(
-              xpText,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.58),
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
+            const SizedBox(width: 8),
+            Expanded(
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    xpText,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.58),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
               ),
             ),
           ],
@@ -572,7 +746,7 @@ class _LeagueLine extends StatelessWidget {
             const SizedBox(width: 6),
             Expanded(
               child: Text(
-                league.nameAr,
+                TrophyProgression.divisionLabelFor(trophies),
                 style: TextStyle(
                   color: league.color,
                   fontSize: compact ? 12 : 13,
@@ -749,39 +923,17 @@ class _StatsGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final firstRow = items.take(5).toList();
-    final secondRow = items.skip(5).take(5).toList();
-
-    return Column(
-      children: [
-        Expanded(child: _StatRow(items: firstRow, compact: compact, gap: gap)),
-        SizedBox(height: gap),
-        Expanded(child: _StatRow(items: secondRow, compact: compact, gap: gap)),
-      ],
-    );
-  }
-}
-
-class _StatRow extends StatelessWidget {
-  const _StatRow({
-    required this.items,
-    required this.compact,
-    required this.gap,
-  });
-
-  final List<_StatItem> items;
-  final bool compact;
-  final double gap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        for (var i = 0; i < items.length; i++) ...[
-          Expanded(child: _StatTile(item: items[i], compact: compact)),
-          if (i != items.length - 1) SizedBox(width: gap),
-        ],
-      ],
+    return GridView.builder(
+      padding: EdgeInsets.zero,
+      gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 145,
+        mainAxisExtent: compact ? 82 : 100,
+        mainAxisSpacing: gap,
+        crossAxisSpacing: gap,
+      ),
+      itemCount: items.length,
+      itemBuilder: (_, index) =>
+          _StatTile(item: items[index], compact: compact),
     );
   }
 }

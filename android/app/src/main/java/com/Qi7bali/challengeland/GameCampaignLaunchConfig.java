@@ -10,7 +10,9 @@ final class GameCampaignLaunchConfig {
 
     static void load(GameActivity activity, String modeExtra, String matchModeExtra) {
         activity.campaignMode = "campaign".equals(modeExtra);
-        activity.campaignAttemptId = java.util.UUID.randomUUID().toString();
+        activity.campaignAttemptId = activity.safeIntentString("campaignAttemptId", "");
+        if (activity.campaignAttemptId.isEmpty()) activity.campaignAttemptId = java.util.UUID.randomUUID().toString();
+        activity.getIntent().putExtra("campaignAttemptId", activity.campaignAttemptId);
         activity.campaignStartedAtMs = System.currentTimeMillis();
         activity.campaignId = activity.safeIntentString("campaignId", "main_campaign");
         activity.campaignStageId = activity.safeIntentString("stageId", "");

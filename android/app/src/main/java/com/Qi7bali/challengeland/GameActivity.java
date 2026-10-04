@@ -80,7 +80,38 @@ import static com.qi7bali.landchallengeonline.GameRules.NEXT_QUESTION_SYNC_BUFFE
 import static com.qi7bali.landchallengeonline.GameRules.ONLINE_SPEED_POINTS;
 import static com.qi7bali.landchallengeonline.GameRules.QUESTION_TIMEOUT_MS;
 
-public class GameActivity extends AppCompatActivity {
+public class GameActivity extends AppCompatActivity implements ProgressionMatchHost {
+    @Override public String progressionMatchId() {
+        if (campaignMode) return "campaign:" + campaignId + ":" + campaignAttemptId;
+        if (boardLocalTeams && !localTeamsSaveId.isEmpty()) return "local:" + localTeamsSaveId;
+        if (!offlineBoardSaveId.isEmpty()) return "offline:" + offlineBoardSaveId;
+        if (roomId != null && !roomId.isEmpty()) return "room:" + roomId + ":"
+                + progressionMode() + ":" + Math.max(1, getIntent().getIntExtra("roomRoundNumber", 1));
+        return NativeProgression.fallbackId(this);
+    }
+    @Override public String progressionMode() {
+        if (campaignMode) return "campaign";
+        if (boardLocalTeams) return "local_teams";
+        if (boardRoomMatch) return boardTeamMatch ? "team_battle" : "battle";
+        if (boardMode) return "board";
+        if (modeOnline) return eliminationMode ? "elimination" : "battle";
+        return "offline";
+    }
+    @Override public String progressionAnswerId() {
+        if (boardMode) return "cell:" + boardPickedCol + ":" + boardPickedRow + ":" + boardPickerSlot;
+        return "question:" + currentQuestion;
+    }
+    @Override public boolean progressionOnline() { return modeOnline && !campaignMode; }
+    @Override public boolean progressionHumanOpponents() {
+        if (boardRoomMatch && boardSeatIsBot != null) {
+            for (int i = 0; i < boardSeatIsBot.length; i++) {
+                if (i != mySeat && !boardSeatIsBot[i]
+                        && (!boardTeamMatch || !myTeam.equals(boardSeatTeam[i]))) return true;
+            }
+        }
+        for (MatchOpponent opponent : opponents) if (!opponent.bot) return true;
+        return false;
+    }
     private static final int DIALOG_CHARACTER_DELAY_MS = 18;
     private static final int DIALOG_EXTRA_VISIBLE_MS = 1000;
     private static final int CAMPAIGN_FEEDBACK_TALK_MS = 900;
@@ -432,6 +463,7 @@ public class GameActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         supportRequestWindowFeature(Window.FEATURE_NO_TITLE);
         super.onCreate(savedInstanceState);
+        NativeProgression.restore(this, savedInstanceState);
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
                 WindowManager.LayoutParams.FLAG_FULLSCREEN);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
@@ -1096,6 +1128,7 @@ public class GameActivity extends AppCompatActivity {
     @Override
     protected void onSaveInstanceState(@NonNull Bundle outState) {
         super.onSaveInstanceState(outState);
+        NativeProgression.save(this, outState);
         if (localTeamsSaveId != null && !localTeamsSaveId.trim().isEmpty()) {
             outState.putString("localTeamsSaveId", localTeamsSaveId);
         }
@@ -1826,6 +1859,7 @@ public class GameActivity extends AppCompatActivity {
                             // the other team (steal) before the answer is revealed. Abort the
                             // reveal/end-turn sequence here and run the steal attempt instead.
                             if (boardLocalTeams && !playerCorrect && !boardStealActive) {
+                                PlayerStats.recordWrongAnswer(GameActivity.this);
                                 offlineContestants.showSlotResult(localSeat, false);
                                 playSound(R.raw.wrong_answer, false, false);
                                 person.sad();
@@ -1962,10 +1996,14 @@ public class GameActivity extends AppCompatActivity {
             if (s > myScore) rank++;
         }
         final boolean win = seatWon.length > 0 && seatWon[0];
+        int topCount = 0;
+        for (boolean top : seatWon) if (top) topCount++;
+        final boolean tied = win && topCount > 1;
         String headline = win ? "🏆 فزت بالمباراة!"
                 : ("انتهت المباراة — ترتيبك " + rank + " من " + count);
         try {
-            PlayerStats.recordGameEnd(GameActivity.this, win, myScore);
+            PlayerStats.recordGameEnd(GameActivity.this, tied ? ProgressionRules.DRAW
+                    : win ? ProgressionRules.WIN : ProgressionRules.LOSS, myScore);
             PlayerProgress.onGameFinished(GameActivity.this, win, myScore,
                     PlayerStats.getBestStreak(GameActivity.this), usedAllHelps(), usedAnyHelp());
         } catch (Exception ignored) {
@@ -1991,7 +2029,7 @@ public class GameActivity extends AppCompatActivity {
         // A hot-seat two-team match has no personal winner; record a game played
         // without claiming a win so the device owner's win stats stay clean.
         try {
-            PlayerStats.recordGameEnd(GameActivity.this, false, Math.max(scoreA, scoreB));
+            PlayerStats.recordGameEnd(GameActivity.this, ProgressionRules.DRAW, Math.max(scoreA, scoreB));
             PlayerProgress.onGameFinished(GameActivity.this, false, Math.max(scoreA, scoreB),
                     PlayerStats.getBestStreak(GameActivity.this), usedAllHelps(), usedAnyHelp());
         } catch (Exception ignored) {
@@ -2070,6 +2108,13 @@ public class GameActivity extends AppCompatActivity {
                 new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
 
         root.addView(resultsRow);
+
+        TextView rewards = makeBoardText(PlayerStats.matchRewardSummary(this), 15f, 0xFF7DD3FC, Gravity.CENTER);
+        LinearLayout.LayoutParams rewardsLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        rewardsLp.bottomMargin = dpx(16);
+        rewards.setLayoutParams(rewardsLp);
+        root.addView(rewards);
 
         Button back = new Button(this);
         back.setText("العودة لإدارة المباريات 🏆");
@@ -2179,8 +2224,10 @@ public class GameActivity extends AppCompatActivity {
 
         try {
             PlayerStats.recordGameEnd(GameActivity.this, completed, myScore);
-            PlayerProgress.onGameFinished(GameActivity.this, completed, myScore,
-                    PlayerStats.getBestStreak(GameActivity.this), usedAllHelps(), usedAnyHelp());
+            if (!campaignMode) {
+                PlayerProgress.onGameFinished(GameActivity.this, completed, myScore,
+                        PlayerStats.getBestStreak(GameActivity.this), usedAllHelps(), usedAnyHelp());
+            }
         } catch (Exception ignored) {
         }
         if (completed) {
@@ -2774,6 +2821,7 @@ public class GameActivity extends AppCompatActivity {
             if (!campaignId.equals(record.optString("campaignId", campaignId))) return;
             if (campaignBoard != record.optBoolean("campaignBoard", false)) return;
             campaignAttemptId = record.optString("attemptId", campaignAttemptId);
+            getIntent().putExtra("campaignAttemptId", campaignAttemptId);
 
             campaignCorrectAnswers = record.optInt("correctAnswers", campaignCorrectAnswers);
             campaignWrongAnswers = record.optInt("wrongAnswers", campaignWrongAnswers);
@@ -4013,7 +4061,9 @@ public class GameActivity extends AppCompatActivity {
         markMyGameState("finished");
         detachOpponentStatusListener();
         try {
-            PlayerStats.recordGameEnd(GameActivity.this, win, myScore);
+            boolean tied = boardTeamMatch ? winnerTeam.isEmpty() : win && winnerId.isEmpty();
+            PlayerStats.recordGameEnd(GameActivity.this, tied ? ProgressionRules.DRAW
+                    : win ? ProgressionRules.WIN : ProgressionRules.LOSS, myScore);
             PlayerProgress.onGameFinished(GameActivity.this, win, myScore,
                     PlayerStats.getBestStreak(GameActivity.this), usedAllHelps(), usedAnyHelp());
         } catch (Exception ignored) {
@@ -4074,7 +4124,8 @@ public class GameActivity extends AppCompatActivity {
         String summary = boardTeamMatch
                 ? ("الفريق أ  " + teamAScore + "   —   " + teamBScore + "  الفريق ب")
                 : ("نقاطك: " + offlineContestants.scoreForSlot(meSeat));
-        TextView sub = makeBoardText(summary, 16f, 0xFFB9C4DE, Gravity.CENTER);
+        TextView sub = makeBoardText(summary + "\n" + PlayerStats.matchRewardSummary(this),
+                16f, 0xFFB9C4DE, Gravity.CENTER);
         LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         slp.bottomMargin = dpx(14);
@@ -6819,6 +6870,8 @@ public class GameActivity extends AppCompatActivity {
         }
 
         localPlayerRemoved = true;
+        PlayerStats.recordWrongAnswer(this);
+        PlayerStats.recordGameEnd(this, ProgressionRules.ABANDON, 0);
         markMyGameState("left_timeout");
         detachOpponentRoundListener();
         detachQuestionSyncListener();
@@ -7087,28 +7140,11 @@ public class GameActivity extends AppCompatActivity {
     }
 
     private void updateScoreAndLevel() {
+        if (!NativeProgression.activeAccount(this)) return;
         if (gameScoreMe > 0) {
-            int newScore = myScore + gameScoreMe;
+            int newScore = ProgressionRules.safeAdd(myScore, gameScoreMe);
             if (!myID.startsWith("guest_")) Data.setUserScore(myID, newScore);
-            int newLevel = 1;
-            if (newScore >= 200000000)
-                newLevel = 10;
-            else if (newScore >= 100000000)
-                newLevel = 9;
-            else if (newScore >= 50000000)
-                newLevel = 8;
-            else if (newScore >= 25000000)
-                newLevel = 7;
-            else if (newScore >= 15000000)
-                newLevel = 6;
-            else if (newScore >= 9000000)
-                newLevel = 5;
-            else if (newScore >= 6000000)
-                newLevel = 4;
-            else if (newScore >= 3000000)
-                newLevel = 3;
-            else if (newScore >= 1000000)
-                newLevel = 2;
+            int newLevel = PlayerProgress.getLevel(this);
 
             AppPrefs.setUser(GameActivity.this, myID, myName, myPhoto, newLevel, newScore);
             myScore = newScore;
@@ -7125,6 +7161,7 @@ public class GameActivity extends AppCompatActivity {
                 };
                 handler.postDelayed(runnable, 3000);
             }
+            myLevel = newLevel;
         }
     }
 
@@ -7331,6 +7368,7 @@ public class GameActivity extends AppCompatActivity {
         if (!modeOnline || matchStateCommitted) {
             return;
         }
+        PlayerStats.recordGameEnd(this, ProgressionRules.ABANDON, 0);
         markMyGameState("left");
         detachOpponentStatusListener();
         detachOpponentRoundListener();
@@ -7379,14 +7417,15 @@ public class GameActivity extends AppCompatActivity {
         if (!modeOnline) {
             return;
         }
-        if (!opponentLeft) {
-            markMyGameState("finished");
-        }
+        markMyGameState("finished");
         detachOpponentStatusListener();
         detachOpponentRoundListener();
         detachQuestionSyncListener();
         String leaderId = getMatchLeaderId();
         Intent intent = new Intent(GameActivity.this, ResultActivity.class);
+        NativeProgression.copyToResult(this, intent);
+        intent.putExtra("matchMode", progressionMode());
+        intent.putExtra("roomId", roomId);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         intent.putExtra("myScore", gameScoreMe);
         intent.putExtra("myNewScore", myScore);
@@ -7401,6 +7440,13 @@ public class GameActivity extends AppCompatActivity {
         intent.putExtra("didWin", myID.equals(leaderId));
         intent.putExtra("winnerName", getPlayerDisplayName(leaderId));
         intent.putExtra("opponentsJson", buildOpponentsSummaryJson());
+        boolean tied = !opponentLeft && !localPlayerEliminated && gameScoreMe == getHighestOpponentScore()
+                && setMe == getLeaderSets();
+        intent.putExtra("progressionDraw", tied);
+        PlayerStats.recordGameEnd(this, tied ? ProgressionRules.DRAW
+                : (myID.equals(leaderId) || opponentLeft) ? ProgressionRules.WIN : ProgressionRules.LOSS, gameScoreMe * 1000);
+        PlayerProgress.onOnlineMatchFinished(this, myID.equals(leaderId) || opponentLeft, setMe,
+                progressionMode(), true, progressionMatchId());
         startActivity(intent);
         finish();
     }
@@ -8584,7 +8630,6 @@ public class GameActivity extends AppCompatActivity {
             return;
         }
         campaignFailureReason = reason == null ? "" : reason;
-        PlayerStats.recordGameEnd(GameActivity.this, false, 0);
         persistPendingCampaignStageResult(false, 0, campaignWrongAnswers);
         new Handler().postDelayed(new Runnable() {
             @Override
@@ -8714,7 +8759,6 @@ public class GameActivity extends AppCompatActivity {
     private void completeCampaignStage() {
         final int prize = getCampaignCurrentMoney();
         final boolean completed = isCampaignStageCompleteByMode();
-        PlayerStats.recordGameEnd(GameActivity.this, completed, prize);
         persistPendingCampaignStageResult(completed, completed ? prize : 0, 0);
         finishCampaignAndReturnToFlutter();
     }
@@ -9133,7 +9177,7 @@ public class GameActivity extends AppCompatActivity {
                 @Override
                 public void run() {
                     try {
-                        PlayerStats.recordGameEnd(GameActivity.this, false, score);
+                        PlayerStats.recordGameEnd(GameActivity.this, ProgressionRules.ABANDON, score);
                         if (!campaignMode) {
                             PlayerProgress.onGameFinished(GameActivity.this, false, score,
                                     PlayerStats.getBestStreak(GameActivity.this), usedAllHelps(), usedAnyHelp());
@@ -9162,7 +9206,7 @@ public class GameActivity extends AppCompatActivity {
             public void run() {
                 try {
                     int prize = Integer.parseInt(txtAmount.getText().toString().replace("$", "").trim());
-                    PlayerStats.recordGameEnd(GameActivity.this, false, prize);
+                    PlayerStats.recordGameEnd(GameActivity.this, ProgressionRules.ABANDON, prize);
                     if (!campaignMode) {
                         PlayerProgress.onGameFinished(GameActivity.this, false, prize, PlayerStats.getBestStreak(GameActivity.this), usedAllHelps(), usedAnyHelp());
                     }

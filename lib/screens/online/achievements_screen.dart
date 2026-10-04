@@ -115,14 +115,14 @@ const List<_Category> _kCategories = <_Category>[
   ),
   _Category(
     titleAr: 'الرتبة والمستوى',
-    subtitleAr: 'من مبتدئ إلى أسطورة',
+    subtitleAr: 'من مستكشف إلى أسطورة المعرفة',
     icon: Icons.workspace_premium_rounded,
     color: Color(0xFF60A5FA),
     items: <_AchDef>[
       _AchDef(
         key: 'ACH_LEVEL_5',
-        titleAr: 'برونزي',
-        descAr: 'بلغ المستوى 5 وافتح رتبة البرونز.',
+        titleAr: 'متعلم',
+        descAr: 'بلغ المستوى 5 وافتح رتبة المتعلم.',
         icon: Icons.shield_rounded,
         color: Color(0xFFB45309),
         rewardCoins: 80,
@@ -133,8 +133,8 @@ const List<_Category> _kCategories = <_Category>[
       ),
       _AchDef(
         key: 'ACH_LEVEL_10',
-        titleAr: 'فضي',
-        descAr: 'بلغ المستوى 10 وافتح رتبة الفضة.',
+        titleAr: 'عارف',
+        descAr: 'بلغ المستوى 10 وافتح رتبة العارف.',
         icon: Icons.shield_moon_rounded,
         color: Color(0xFF94A3B8),
         rewardCoins: 120,
@@ -145,8 +145,8 @@ const List<_Category> _kCategories = <_Category>[
       ),
       _AchDef(
         key: 'ACH_LEVEL_20',
-        titleAr: 'ذهبي',
-        descAr: 'بلغ المستوى 20 وافتح رتبة الذهب.',
+        titleAr: 'باحث',
+        descAr: 'بلغ المستوى 20 وافتح رتبة الباحث.',
         icon: Icons.military_tech_rounded,
         color: Color(0xFFFACC15),
         rewardCoins: 200,
@@ -157,8 +157,8 @@ const List<_Category> _kCategories = <_Category>[
       ),
       _AchDef(
         key: 'ACH_LEVEL_30',
-        titleAr: 'ماسي',
-        descAr: 'بلغ المستوى 30 وافتح رتبة الماس.',
+        titleAr: 'موسوعي',
+        descAr: 'بلغ المستوى 30 وافتح رتبة الموسوعي.',
         icon: Icons.diamond_rounded,
         color: Color(0xFF38BDF8),
         rewardCoins: 300,
@@ -169,8 +169,8 @@ const List<_Category> _kCategories = <_Category>[
       ),
       _AchDef(
         key: 'ACH_LEVEL_45',
-        titleAr: 'خبير',
-        descAr: 'بلغ المستوى 45 وافتح رتبة الخبير.',
+        titleAr: 'حكيم',
+        descAr: 'بلغ المستوى 45 وافتح رتبة الحكيم.',
         icon: Icons.workspace_premium_rounded,
         color: Color(0xFF8B5CF6),
         rewardCoins: 450,
@@ -181,8 +181,8 @@ const List<_Category> _kCategories = <_Category>[
       ),
       _AchDef(
         key: 'ACH_LEVEL_60',
-        titleAr: 'أسطورة',
-        descAr: 'بلغ المستوى 60 وادخل رتبة الأساطير.',
+        titleAr: 'أسطورة المعرفة',
+        descAr: 'بلغ المستوى 60 وافتح رتبة أسطورة المعرفة.',
         icon: Icons.local_fire_department_rounded,
         color: Color(0xFFEF4444),
         rewardCoins: 600,
@@ -1478,6 +1478,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
 
     if (result['success'] == 1) {
       await appState.loadCurrency();
+      await appState.checkAndAwardXpForGames();
       await _loadAchievements();
       if (!mounted) return;
       final coins = result['coins'] ?? achievement.rewardCoins;
@@ -1526,6 +1527,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
       final claimedCount = result['claimedCount'] ?? 0;
       if (claimedCount > 0 || result['success'] == 1) {
         await appState.loadCurrency();
+        await appState.checkAndAwardXpForGames();
         await _loadAchievements();
         if (!mounted) return;
         final coins = result['coins'] ?? 0;

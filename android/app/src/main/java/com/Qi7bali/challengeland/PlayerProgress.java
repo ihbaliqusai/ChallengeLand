@@ -6,6 +6,7 @@ import android.content.SharedPreferences;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
+import java.util.Map;
 
 public class PlayerProgress {
     private static final String PREF = "PlayerProgress";
@@ -163,7 +164,35 @@ public class PlayerProgress {
     };
 
     private static SharedPreferences prefs(Context c) {
-        return c.getSharedPreferences(PREF, Context.MODE_PRIVATE);
+        return preferences(c);
+    }
+
+    public static SharedPreferences preferences(Context c) {
+        return ProgressionAccount.preferences(c);
+    }
+
+    public static void writeHydration(SharedPreferences.Editor editor, Map<String, Integer> values) {
+        for (String key : new String[]{"xp", "onlineWins", "blitzFinishes", "eliminationWins",
+                "survivalWins", "seriesWins", "teamBattleWins"}) {
+            if (values.containsKey(key)) editor.putInt(key, Math.max(0, values.get(key)));
+        }
+    }
+
+    public static synchronized void hydrateProgression(Context c, Map<String, Integer> values) {
+        SharedPreferences.Editor editor = prefs(c).edit();
+        writeHydration(editor, values);
+        ProgressionAccount.commitOrRollback(prefs(c), editor);
+    }
+
+    public static void setXp(Context c, int xp) {
+        SharedPreferences p = prefs(c);
+        ProgressionAccount.commitOrRollback(p, p.edit().putInt("xp", Math.max(0, xp)));
+        checkLevelAchievements(c);
+    }
+
+    public static void checkProgressionAchievements(Context c) {
+        checkLevelAchievements(c);
+        checkMilestoneAchievements(c);
     }
 
     public static String[] getAllAchievementKeys() {
@@ -233,18 +262,18 @@ public class PlayerProgress {
         checkMilestoneAchievements(c);
     }
 
-    public static void addXp(Context c, int amount) {
+    public static synchronized void addXp(Context c, int amount) {
         if (amount <= 0) return;
         SharedPreferences p = prefs(c);
-        int newXp = p.getInt("xp", 0) + amount;
-        p.edit().putInt("xp", newXp).apply();
+        int newXp = ProgressionRules.safeAdd(p.getInt("xp", 0), amount);
+        ProgressionAccount.commitOrRollback(p, p.edit().putInt("xp", newXp));
         checkLevelAchievements(c);
     }
 
     public static synchronized void addCoins(Context c, int amount) {
         if (amount == 0) return;
         SharedPreferences p = prefs(c);
-        int newCoins = Math.max(0, p.getInt("coins", 0) + amount);
+        int newCoins = ProgressionRules.safeAdd(p.getInt("coins", 0), amount);
         p.edit().putInt("coins", newCoins).apply();
         checkCurrencyAchievements(c);
     }
@@ -291,7 +320,7 @@ public class PlayerProgress {
     public static synchronized void addGems(Context c, int amount) {
         if (amount == 0) return;
         SharedPreferences p = prefs(c);
-        int newGems = Math.max(0, p.getInt("gems", 0) + amount);
+        int newGems = ProgressionRules.safeAdd(p.getInt("gems", 0), amount);
         p.edit().putInt("gems", newGems).apply();
         checkCurrencyAchievements(c);
     }
@@ -327,13 +356,13 @@ public class PlayerProgress {
     }
 
     public static String getRankTitle(int level) {
-        if (level >= 60) return "Legend";
-        if (level >= 45) return "Master";
-        if (level >= 30) return "Diamond";
-        if (level >= 20) return "Gold";
-        if (level >= 10) return "Silver";
-        if (level >= 5) return "Bronze";
-        return "Rookie";
+        if (level >= 60) return "أسطورة المعرفة";
+        if (level >= 45) return "حكيم";
+        if (level >= 30) return "موسوعي";
+        if (level >= 20) return "باحث";
+        if (level >= 10) return "عارف";
+        if (level >= 5) return "متعلم";
+        return "مستكشف";
     }
 
     private static int xpNeededForLevel(int level) {
@@ -359,7 +388,7 @@ public class PlayerProgress {
         String key = inventoryKey(type);
         if (key == null || amount == 0) return;
         SharedPreferences p = prefs(c);
-        int next = Math.max(0, p.getInt(key, 0) + amount);
+        int next = ProgressionRules.safeAdd(p.getInt(key, 0), amount);
         p.edit().putInt(key, next).apply();
         if (amount > 0 && countsAsPurchase) unlockAchievement(c, ACH_BUY_POWERUP);
         checkInventoryAchievements(c);
@@ -405,7 +434,7 @@ public class PlayerProgress {
         return count;
     }
 
-    public static ClaimRewardResult claimAchievementReward(Context c, String key) {
+    public static synchronized ClaimRewardResult claimAchievementReward(Context c, String key) {
         migrateExistingAchievementClaims(c);
         if (key == null || key.trim().isEmpty()) {
             return new ClaimRewardResult(false, 0, 0, getCoins(c), getGems(c), getXp(c));
@@ -416,13 +445,15 @@ public class PlayerProgress {
             return new ClaimRewardResult(false, 0, 0, getCoins(c), getGems(c), getXp(c));
         }
         AchievementReward reward = rewardForAchievement(safeKey);
-        p.edit().putBoolean(claimKey(safeKey), true).apply();
-        addCoins(c, reward.coins);
-        addXp(c, reward.xp);
+        ProgressionAccount.commitOrRollback(p, p.edit().putBoolean(claimKey(safeKey), true)
+                .putInt("coins", ProgressionRules.safeAdd(getCoins(c), reward.coins))
+                .putInt("xp", ProgressionRules.safeAdd(getXp(c), reward.xp)));
+        checkCurrencyAchievements(c);
+        checkLevelAchievements(c);
         return new ClaimRewardResult(true, 1, reward.coins, reward.xp, getCoins(c), getGems(c), getXp(c));
     }
 
-    public static ClaimRewardResult claimAllAchievementRewards(Context c) {
+    public static synchronized ClaimRewardResult claimAllAchievementRewards(Context c) {
         migrateExistingAchievementClaims(c);
         int totalCoins = 0;
         int totalXp = 0;
@@ -438,10 +469,12 @@ public class PlayerProgress {
                 count++;
             }
         }
-        editor.apply();
         if (count > 0) {
-            addCoins(c, totalCoins);
-            addXp(c, totalXp);
+            ProgressionAccount.commitOrRollback(p, editor
+                    .putInt("coins", ProgressionRules.safeAdd(getCoins(c), totalCoins))
+                    .putInt("xp", ProgressionRules.safeAdd(getXp(c), totalXp)));
+            checkCurrencyAchievements(c);
+            checkLevelAchievements(c);
         }
         return new ClaimRewardResult(count > 0, count, totalCoins, totalXp, getCoins(c), getGems(c), getXp(c));
     }
@@ -546,20 +579,14 @@ public class PlayerProgress {
         if (teamBattleWins >= 15) unlockAchievement(c, ACH_TEAM_BATTLE_WIN_15);
 
         // New Modes & Features Achievements
-        int localTeams = Math.max(getLocalTeamsPlayed(c), LocalTeamsGameStore.all(c).size());
+        int localTeams = Math.max(getLocalTeamsPlayed(c), prefs(c).getInt("mode_local_teams_games", 0));
         if (localTeams >= 1) unlockAchievement(c, ACH_LOCAL_TEAMS);
         if (localTeams >= 5) unlockAchievement(c, ACH_LOCAL_TEAMS_5);
 
-        int offlineGames = Math.max(getOfflineBoardPlayed(c), OfflineBoardGameStore.all(c).size());
+        int offlineGames = Math.max(getOfflineBoardPlayed(c), prefs(c).getInt("mode_board_games", 0));
         if (offlineGames >= 1) unlockAchievement(c, ACH_OFFLINE_BOARD);
 
-        int offlineWins = getOfflineBoardWins(c);
-        for (org.json.JSONObject r : OfflineBoardGameStore.all(c)) {
-            if (r != null && r.optInt("winnerSlot", -2) == 0) {
-                offlineWins++;
-                break;
-            }
-        }
+        int offlineWins = Math.max(getOfflineBoardWins(c), prefs(c).getInt("mode_board_wins", 0));
         if (offlineWins >= 1) unlockAchievement(c, ACH_OFFLINE_BOARD_WIN);
 
         if (getTvCastCount(c) >= 1) unlockAchievement(c, ACH_TV_CAST);
@@ -684,6 +711,7 @@ public class PlayerProgress {
         if (lv >= 20) unlockAchievement(c, ACH_LEVEL_20);
         if (lv >= 30) unlockAchievement(c, ACH_LEVEL_30);
         if (lv >= 45) unlockAchievement(c, ACH_LEVEL_45);
+        if (lv >= 50) unlockAchievement(c, ACH_LEVEL_50);
         if (lv >= 60) unlockAchievement(c, ACH_LEVEL_60);
     }
 
@@ -725,6 +753,13 @@ public class PlayerProgress {
             boolean usedAllHelps,
             boolean usedAnyHelp
     ) {
+        PlayerStats.recordGameEnd(c, won, prizeMoney);
+        if (NativeProgression.online(c)) {
+            onOnlineMatchFinished(c, won, 0, NativeProgression.mode(c), true, NativeProgression.matchId(c));
+            return;
+        }
+        if (!claimMatchRewards(c, MATCH_COMPLETION_BONUS + Math.max(50, prizeMoney / 40))) return;
+        won = ProgressionRules.WIN.equals(PlayerStats.matchOutcome(c));
         unlockAchievement(c, ACH_FIRST_GAME);
         if (won) unlockAchievement(c, ACH_FIRST_WIN);
 
@@ -741,9 +776,6 @@ public class PlayerProgress {
         if (usedAllHelps) unlockAchievement(c, ACH_USE_ALL_HELPS);
         if (won && !usedAnyHelp) unlockAchievement(c, ACH_PERFECT_GAME);
 
-        grantCompletedMatchBonus(c, null);
-        addCoins(c, Math.max(50, prizeMoney / 40));
-        addXp(c, won ? XP_OFFLINE_WIN : XP_OFFLINE_LOSS);
         checkMilestoneAchievements(c);
     }
 
@@ -759,20 +791,15 @@ public class PlayerProgress {
             boolean completedToEnd,
             String completionKey
     ) {
+        PlayerStats.recordGameEnd(c, won, 0);
+        if (!claimMatchRewards(c, completedToEnd ? MATCH_COMPLETION_BONUS : 0)) return;
+        won = ProgressionRules.WIN.equals(PlayerStats.matchOutcome(c));
         unlockAchievement(c, ACH_FIRST_GAME);
         unlockAchievement(c, ACH_FIRST_ONLINE);
         if (won) unlockAchievement(c, ACH_FIRST_WIN);
 
-        int xp = won ? XP_ONLINE_WIN : XP_ONLINE_LOSS;
-        xp += Math.max(0, roundsWon) * XP_ONLINE_ROUND_WON;
-        addXp(c, xp);
-
-        if (completedToEnd) {
-            grantCompletedMatchBonus(c, completionKey);
-        }
-
         if (won) {
-            int onlineWins = incrementCounter(c, "onlineWins", 1);
+            int onlineWins = getOnlineWins(c);
             if (onlineWins >= 5) unlockAchievement(c, ACH_ONLINE_WIN_5);
             if (onlineWins >= 10) unlockAchievement(c, ACH_ONLINE_WIN_10);
             if (onlineWins >= 25) unlockAchievement(c, ACH_ONLINE_WIN_25);
@@ -780,26 +807,26 @@ public class PlayerProgress {
 
         final String normalizedMode = normalizeMode(matchMode);
         if (completedToEnd && "blitz".equals(normalizedMode)) {
-            int blitzFinishes = incrementCounter(c, "blitzFinishes", 1);
+            int blitzFinishes = getBlitzFinishes(c);
             if (blitzFinishes >= 5) unlockAchievement(c, ACH_BLITZ_FINISH_5);
             if (blitzFinishes >= 15) unlockAchievement(c, ACH_BLITZ_FINISH_15);
         }
 
         if (won) {
             if ("elimination".equals(normalizedMode)) {
-                int total = incrementCounter(c, "eliminationWins", 1);
+                int total = getEliminationWins(c);
                 if (total >= 3) unlockAchievement(c, ACH_ELIMINATION_WIN_3);
                 if (total >= 10) unlockAchievement(c, ACH_ELIMINATION_WIN_10);
             } else if ("survival".equals(normalizedMode)) {
-                int total = incrementCounter(c, "survivalWins", 1);
+                int total = getSurvivalWins(c);
                 if (total >= 3) unlockAchievement(c, ACH_SURVIVAL_WIN_3);
                 if (total >= 10) unlockAchievement(c, ACH_SURVIVAL_WIN_10);
             } else if ("series".equals(normalizedMode)) {
-                int total = incrementCounter(c, "seriesWins", 1);
+                int total = getSeriesWins(c);
                 if (total >= 3) unlockAchievement(c, ACH_SERIES_WIN_3);
                 if (total >= 10) unlockAchievement(c, ACH_SERIES_WIN_10);
             } else if ("team_battle".equals(normalizedMode)) {
-                int total = incrementCounter(c, "teamBattleWins", 1);
+                int total = getTeamBattleWins(c);
                 if (total >= 5) unlockAchievement(c, ACH_TEAM_BATTLE_WIN_5);
                 if (total >= 15) unlockAchievement(c, ACH_TEAM_BATTLE_WIN_15);
             }
@@ -808,9 +835,24 @@ public class PlayerProgress {
         checkMilestoneAchievements(c);
     }
 
+    private static synchronized boolean claimMatchRewards(Context c, int coins) {
+        if (!NativeProgression.activeAccount(c)) return false;
+        String outcome = PlayerStats.matchOutcome(c);
+        if (outcome.isEmpty() || ProgressionRules.ABANDON.equals(outcome)) return false;
+        SharedPreferences p = prefs(c);
+        String id = NativeProgression.matchId(c);
+        // No rewards for an empty lobby or an opponent leaving before gameplay.
+        if (p.getInt("session:" + id + ":correct", 0) + p.getInt("session:" + id + ":wrong", 0) == 0) return false;
+        String key = "completionReward:" + id;
+        if (p.getBoolean(key, false)) return false;
+        ProgressionAccount.commitOrRollback(p, p.edit().putBoolean(key, true)
+                .putInt("coins", ProgressionRules.safeAdd(p.getInt("coins", 0), Math.max(0, coins))));
+        return true;
+    }
+
     private static int incrementCounter(Context c, String key, int amount) {
         SharedPreferences p = prefs(c);
-        int next = p.getInt(key, 0) + amount;
+        int next = ProgressionRules.safeAdd(p.getInt(key, 0), amount);
         p.edit().putInt(key, next).apply();
         return next;
     }

@@ -15,14 +15,13 @@ class ProfileService {
   Future<PlayerProfile?> fetchProfile(String uid) async {
     final doc = await _profiles.doc(uid).get();
     if (!doc.exists) return null;
-    return PlayerProfile.fromMap(doc.data() ?? const <String, dynamic>{});
+    return _profileFromDocument(doc);
   }
 
   Stream<PlayerProfile> watchProfile(String uid) {
     return _profiles.doc(uid).snapshots().map(
-          (doc) => doc.exists
-              ? PlayerProfile.fromMap(doc.data() ?? const <String, dynamic>{})
-              : PlayerProfile.empty(),
+          (doc) =>
+              doc.exists ? _profileFromDocument(doc) : PlayerProfile.empty(),
         );
   }
 
@@ -37,7 +36,8 @@ class ProfileService {
 
     late final StreamController<Map<String, PlayerProfile>> controller;
     final profiles = <String, PlayerProfile>{};
-    final subscriptions = <StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>>[];
+    final subscriptions =
+        <StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>>[];
 
     void emit() {
       if (!controller.isClosed) {
@@ -50,8 +50,7 @@ class ProfileService {
         for (final uid in uniqueIds) {
           final subscription = _profiles.doc(uid).snapshots().listen((doc) {
             if (doc.exists) {
-              profiles[uid] =
-                  PlayerProfile.fromMap(doc.data() ?? const <String, dynamic>{});
+              profiles[uid] = _profileFromDocument(doc);
             } else {
               profiles.remove(uid);
             }
@@ -70,4 +69,11 @@ class ProfileService {
 
     return controller.stream;
   }
+
+  PlayerProfile _profileFromDocument(
+          DocumentSnapshot<Map<String, dynamic>> doc) =>
+      PlayerProfile.fromMap(<String, dynamic>{
+        ...?doc.data(),
+        'uid': doc.id,
+      });
 }

@@ -41,6 +41,7 @@ public class ResultActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         supportRequestWindowFeature(Window.FEATURE_NO_TITLE);
         super.onCreate(savedInstanceState);
+        NativeProgression.restore(this, savedInstanceState);
         getWindow().setFlags(
                 WindowManager.LayoutParams.FLAG_FULLSCREEN,
                 WindowManager.LayoutParams.FLAG_FULLSCREEN
@@ -139,9 +140,11 @@ public class ResultActivity extends AppCompatActivity {
             txtOpponentSetsLabel.setText("صحيحة");
         }
 
-        final String completionKey = (roomId == null || roomId.trim().isEmpty())
-                ? null
-                : roomId.trim() + "|" + (matchMode == null ? "battle" : matchMode);
+        final boolean isTie = getIntent().getBooleanExtra("progressionDraw",
+                isTieResult(matchMode, didWin, opponentLeft, myEliminated, winnerTeamId, myScore, opponentScore, mySets, opponentSets));
+        final String completionKey = NativeProgression.matchId(this);
+        PlayerStats.recordGameEnd(this, isTie ? ProgressionRules.DRAW
+                : (didWin || opponentLeft) ? ProgressionRules.WIN : ProgressionRules.LOSS, myScore * 1000);
         PlayerProgress.onOnlineMatchFinished(
                 this,
                 didWin || opponentLeft,
@@ -150,16 +153,14 @@ public class ResultActivity extends AppCompatActivity {
                 true,
                 completionKey
         );
-        PlayerStats.recordGameEnd(this, didWin || opponentLeft, myScore * 1000);
 
         final String resolvedWinner = winnerName == null || winnerName.trim().isEmpty()
                 ? opponentName
                 : winnerName;
-        final boolean isTie = isTieResult(matchMode, didWin, opponentLeft, myEliminated, winnerTeamId, myScore, opponentScore, mySets, opponentSets);
-        final boolean positiveResult = isPositiveResult(matchMode, didWin, opponentLeft, myTeam, winnerTeamId);
+        final boolean positiveResult = !isTie && isPositiveResult(matchMode, didWin, opponentLeft, myTeam, winnerTeamId);
         applyResultTheme(resultPanel, resultAura, txtOutcomeBadge, txtResult, positiveResult, isTie);
 
-        txtResult.setText(resolveResultHeadline(matchMode, didWin, opponentLeft, myEliminated, winnerTeamId));
+        txtResult.setText(isTie ? "تعادل!" : resolveResultHeadline(matchMode, didWin, opponentLeft, myEliminated, winnerTeamId));
         txtScore.setText(resolvePerformanceLine(
                 matchMode,
                 myScore,
@@ -183,6 +184,9 @@ public class ResultActivity extends AppCompatActivity {
                 myTeam,
                 seriesTarget
         ));
+        int trophyDelta = PlayerStats.matchTrophies(this);
+        txtResultDetails.append("\n+" + PlayerStats.matchXp(this) + " XP  •  "
+                + (trophyDelta >= 0 ? "+" : "") + trophyDelta + " كأس");
 
         final boolean anySetsNonZero = hasAnySets(opponents, mySets);
         llyOpponentsSummary.addView(buildSummaryTextView(

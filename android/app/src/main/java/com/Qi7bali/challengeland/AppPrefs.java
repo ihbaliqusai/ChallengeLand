@@ -66,7 +66,7 @@ public final class AppPrefs {
     public static String getUserId(Context c) { return userPrefs(c).getString("userID", ""); }
     public static String getUserName(Context c) { return userPrefs(c).getString("userName", "ضيف"); }
     public static String getUserPhoto(Context c) { return userPrefs(c).getString("userPhoto", ""); }
-    public static int getUserLevel(Context c) { return userPrefs(c).getInt("userLevel", 1); }
+    public static int getUserLevel(Context c) { return PlayerProgress.getLevel(c); }
     public static int getUserScore(Context c) { return userPrefs(c).getInt("userScore", 0); }
 
     // ── Character selection ─────────────────────────────────────────────────
@@ -310,26 +310,59 @@ public final class AppPrefs {
         roomPrefs(c).edit().remove(KEY_PENDING_ROOM_MATCH_RESULT).apply();
     }
 
-    public static void setPendingCampaignStageResult(Context c, String payload) {
-        if (!roomPrefs(c).edit().putString(KEY_PENDING_CAMPAIGN_STAGE_RESULT, payload).commit()) {
-            throw new IllegalStateException("Campaign result could not be saved");
+    private static String campaignResultKey(Context c) {
+        return KEY_PENDING_CAMPAIGN_STAGE_RESULT + "_" + ProgressionAccount.uid(c);
+    }
+
+    private static boolean campaignResultOwned(Context c, String payload) {
+        if (payload == null || payload.trim().isEmpty()) return false;
+        try {
+            org.json.JSONObject result = new org.json.JSONObject(payload);
+            String owner = result.optString("accountUid", "").trim();
+            return owner.isEmpty() || owner.equals(ProgressionAccount.uid(c));
+        } catch (Exception invalidPayload) {
+            return false;
         }
     }
 
-    public static String consumePendingCampaignStageResult(Context c) {
+    private static String availableCampaignResultKey(Context c, SharedPreferences prefs) {
+        String scopedKey = campaignResultKey(c);
+        if (campaignResultOwned(c, prefs.getString(scopedKey, ""))) return scopedKey;
+        if (campaignResultOwned(c, prefs.getString(KEY_PENDING_CAMPAIGN_STAGE_RESULT, ""))) {
+            return KEY_PENDING_CAMPAIGN_STAGE_RESULT;
+        }
+        return "";
+    }
+
+    public static synchronized void setPendingCampaignStageResult(Context c, String payload) {
+        if (!campaignResultOwned(c, payload)) {
+            throw new IllegalArgumentException("Campaign result does not belong to the active account");
+        }
         SharedPreferences prefs = roomPrefs(c);
-        String payload = prefs.getString(KEY_PENDING_CAMPAIGN_STAGE_RESULT, "");
-        prefs.edit().remove(KEY_PENDING_CAMPAIGN_STAGE_RESULT).apply();
+        ProgressionAccount.commitOrRollback(prefs, prefs.edit().putString(campaignResultKey(c), payload));
+    }
+
+    public static synchronized String consumePendingCampaignStageResult(Context c) {
+        SharedPreferences prefs = roomPrefs(c);
+        String key = availableCampaignResultKey(c, prefs);
+        if (key.isEmpty()) return "";
+        String payload = prefs.getString(key, "");
+        ProgressionAccount.commitOrRollback(prefs, prefs.edit().remove(key));
         return payload == null ? "" : payload;
     }
 
     public static String getPendingCampaignStageResult(Context c) {
-        String payload = roomPrefs(c).getString(KEY_PENDING_CAMPAIGN_STAGE_RESULT, "");
+        SharedPreferences prefs = roomPrefs(c);
+        String key = availableCampaignResultKey(c, prefs);
+        if (key.isEmpty()) return "";
+        String payload = prefs.getString(key, "");
         return payload == null ? "" : payload;
     }
 
-    public static void clearPendingCampaignStageResult(Context c) {
-        roomPrefs(c).edit().remove(KEY_PENDING_CAMPAIGN_STAGE_RESULT).apply();
+    public static synchronized void clearPendingCampaignStageResult(Context c) {
+        SharedPreferences prefs = roomPrefs(c);
+        String key = availableCampaignResultKey(c, prefs);
+        if (!key.isEmpty()) ProgressionAccount.commitOrRollback(prefs, prefs.edit().remove(key));
     }
 
     public static boolean isPurchaseDelivered(Context c, String deliveryKey) {

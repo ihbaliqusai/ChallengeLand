@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 import '../../core/app_state.dart';
 import '../../core/player_rank.dart';
 import '../../core/trophy_league.dart';
-import '../../services/native_bridge_service.dart';
+import '../../widgets/progression_guide.dart';
 import '../character/character_select_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -17,7 +17,6 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   bool _loading = true;
-  Map<String, int> _stats = {};
 
   @override
   void initState() {
@@ -29,12 +28,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _loadStats() async {
     try {
       final appState = context.read<AppState>();
-      final nativeBridge = context.read<NativeBridgeService>();
       await appState.checkAndAwardXpForGames();
-      final stats = await nativeBridge.getPlayerStats();
       if (!mounted) return;
       setState(() {
-        _stats = stats;
         _loading = false;
       });
     } catch (_) {
@@ -113,7 +109,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ? const _LoadingState()
                           : _ProfileDashboard(
                               appState: appState,
-                              stats: _stats,
+                              stats: appState.playerStats,
                               onEditName: _showEditUsernameDialog,
                             ),
                     ),
@@ -145,18 +141,15 @@ class _ProfileDashboard extends StatelessWidget {
   Widget build(BuildContext context) {
     final games = _value('gamesPlayed');
     final wins = _value('wins');
-    final losses = (_value('losses') > 0 ? _value('losses') : games - wins)
-        .clamp(0, 999999);
+    final losses = _value('losses');
     final correct = _value('correctAnswers');
     final wrong = _value('wrongAnswers');
     final totalAnswered =
         _value('totalAnswered') > 0 ? _value('totalAnswered') : correct + wrong;
-    final accuracy = _value('accuracy') > 0
-        ? _value('accuracy')
-        : (totalAnswered > 0 ? (correct * 100 / totalAnswered).round() : 0);
-    final winRate = _value('winPercent') > 0
-        ? _value('winPercent')
-        : (games > 0 ? (wins * 100 / games).round() : 0);
+    final accuracy = totalAnswered > 0
+        ? (correct * 100 / totalAnswered).round().clamp(0, 100)
+        : 0;
+    final winRate = games > 0 ? (wins * 100 / games).round().clamp(0, 100) : 0;
     final rank = PlayerRank.tierForLevel(appState.level);
     final nextRank = PlayerRank.nextTierForLevel(appState.level);
     final league = TrophyProgression.leagueFor(appState.trophies);
@@ -189,8 +182,8 @@ class _ProfileDashboard extends StatelessWidget {
       _MetricItem(
         icon: Icons.public_rounded,
         color: const Color(0xFF22D3EE),
-        label: 'أونلاين',
-        value: _compactNumber(_value('onlineWins')),
+        label: 'التعادلات',
+        value: _compactNumber(_value('draws')),
       ),
       _MetricItem(
         icon: Icons.local_fire_department_rounded,
@@ -198,10 +191,66 @@ class _ProfileDashboard extends StatelessWidget {
         label: 'سلسلة الفوز',
         value: _compactNumber(_value('winStreak')),
       ),
+      _MetricItem(
+        icon: Icons.exit_to_app_rounded,
+        color: const Color(0xFFFB923C),
+        label: 'الانسحابات',
+        value: _compactNumber(_value('abandoned')),
+      ),
+      _MetricItem(
+        icon: Icons.public_rounded,
+        color: const Color(0xFF22D3EE),
+        label: 'فوز أونلاين',
+        value: _compactNumber(_value('onlineWins')),
+      ),
     ];
 
     return LayoutBuilder(
       builder: (context, constraints) {
+        if (constraints.maxWidth < 800) {
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+            children: [
+              SizedBox(
+                height: 250,
+                child: _IdentityPanel(
+                  appState: appState,
+                  rank: rank,
+                  league: league,
+                  onEditName: onEditName,
+                  compact: false,
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 130,
+                child: _LevelPanel(
+                  appState: appState,
+                  rank: rank,
+                  nextRank: nextRank,
+                  compact: true,
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 200,
+                child: _MetricsGrid(metrics: metrics, compact: false, gap: 8),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 400,
+                child: _ProgressionPanel(
+                  appState: appState,
+                  league: league,
+                  winRate: winRate,
+                  correct: correct,
+                  wrong: wrong,
+                  compact: false,
+                ),
+              ),
+            ],
+          );
+        }
         final compact =
             constraints.maxHeight < 300 || constraints.maxWidth < 820;
         final gap = compact ? 8.0 : 12.0;
@@ -318,6 +367,12 @@ class _Header extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+          IconButton(
+            onPressed: () => showProgressionGuide(context),
+            tooltip: 'دليل التقدم والمكافآت',
+            color: const Color(0xFFFACC15),
+            icon: const Icon(Icons.info_outline_rounded),
           ),
           Tooltip(
             message: 'رجوع',
@@ -443,7 +498,7 @@ class _IdentityPanel extends StatelessWidget {
                       _MiniBadge(
                         icon: rank.icon,
                         color: rank.color,
-                        text: rank.nameAr,
+                        text: 'رتبة الخبرة: ${rank.nameAr}',
                       ),
                     ],
                   ),
@@ -473,7 +528,7 @@ class _IdentityPanel extends StatelessWidget {
               compact: compact,
             ),
             _ProgressLine(
-              title: league.nameAr,
+              title: TrophyProgression.divisionLabelFor(appState.trophies),
               value: '${_compactNumber(appState.trophies)} كأس',
               progress: league.progress(appState.trophies),
               color: league.color,
@@ -575,7 +630,7 @@ class _LevelPanel extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        'تقدم المستوى',
+                        'المستوى • ${_compactNumber(appState.xp)} XP إجمالي',
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: compact ? 13 : 15,
@@ -694,8 +749,9 @@ class _MetricsGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final first = metrics.take(3).toList();
-    final second = metrics.skip(3).take(3).toList();
+    final midpoint = (metrics.length / 2).ceil();
+    final first = metrics.take(midpoint).toList();
+    final second = metrics.skip(midpoint).toList();
 
     return Column(
       children: [
@@ -817,7 +873,7 @@ class _ProgressionPanel extends StatelessWidget {
           ),
           SizedBox(height: compact ? 8 : 10),
           Text(
-            'جدول الكؤوس',
+            'الكؤوس • أفضل رصيد ${appState.bestTrophies}',
             style: TextStyle(
               color: Colors.white,
               fontSize: compact ? 12 : 13,
@@ -869,7 +925,7 @@ class _LeagueSummary extends StatelessWidget {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  league.nameAr,
+                  TrophyProgression.divisionLabelFor(trophies),
                   style: TextStyle(
                     color: league.color,
                     fontSize: compact ? 14 : 16,
@@ -1109,12 +1165,18 @@ class _RuleRow extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          Text(
-            rule.value,
-            style: TextStyle(
-              color: rule.color,
-              fontSize: compact ? 10 : 11,
-              fontWeight: FontWeight.w900,
+          const SizedBox(width: 6),
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                rule.value,
+                style: TextStyle(
+                  color: rule.color,
+                  fontSize: compact ? 10 : 11,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
             ),
           ),
         ],
@@ -1207,7 +1269,8 @@ class _AccountStrip extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFFFFD700).withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.25)),
+        border:
+            Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.25)),
       ),
       child: Row(
         children: [

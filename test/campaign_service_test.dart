@@ -20,6 +20,33 @@ void main() {
   });
 
   group('Campaign result compatibility', () {
+    test(
+        'a result captured by another account cannot create progress or claims',
+        () async {
+      await expectLater(
+          service.submitStageResult(
+            uid: 'player',
+            stage: stage,
+            nativeResult: {
+              ..._boardResult(stage, completed: true, score: 1200),
+              'accountUid': 'previous-player',
+            },
+          ),
+          throwsArgumentError);
+      expect(
+          (await firestore
+                  .doc('users/player/campaignProgress/${stage.id}')
+                  .get())
+              .exists,
+          isFalse);
+      expect(
+          (await firestore
+                  .collection('users/player/campaignRewardClaims')
+                  .get())
+              .docs,
+          isEmpty);
+    });
+
     test('native completion time survives a delayed save and replay', () async {
       final completedAt = DateTime(2026, 10, 2, 23, 59);
       final payload = <String, dynamic>{

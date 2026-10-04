@@ -12,7 +12,8 @@ final class GameCampaignResultStore {
     }
 
     void persistPendingStageResult(boolean completed, int money, int wrongAnswers) {
-        if (!activity.campaignMode || activity.campaignResultPersisted) {
+        if (!activity.campaignMode || activity.campaignResultPersisted
+                || !NativeProgression.activeAccount(activity)) {
             return;
         }
         activity.stopCampaignStageTimer();
@@ -21,6 +22,7 @@ final class GameCampaignResultStore {
             int targetCount = activity.getCampaignTargetQuestionCount();
             int answeredCorrect = Math.max(0, Math.min(targetCount, activity.campaignCorrectAnswers));
             payload.put("mode", "campaign");
+            payload.put("accountUid", ProgressionAccount.uid(activity));
             payload.put("campaignId", activity.campaignId);
             payload.put("stageId", activity.campaignStageId);
             payload.put("attemptId", activity.campaignAttemptId);
@@ -30,6 +32,9 @@ final class GameCampaignResultStore {
             boolean bossDefeated = boardBoss ? completed
                     : activity.campaignBossBattle && activity.isCampaignBossDefeated();
             boolean effectiveCompleted = activity.campaignBossBattle && !activity.campaignBoard ? bossDefeated : completed;
+            if (!"question_pool_unavailable".equals(activity.campaignFailureReason)) {
+                PlayerStats.recordGameEnd(activity, effectiveCompleted, money);
+            }
             int boardOpponentScore = 0;
             if (boardBoss && activity.offlineContestants != null) {
                 for (int slot = 1; slot < activity.offlineContestants.contestantCount(); slot++) {
@@ -38,6 +43,8 @@ final class GameCampaignResultStore {
             }
             int playerScore = activity.getCampaignPlayerScore();
             payload.put("completed", effectiveCompleted);
+            payload.put("gameplayXp", PlayerStats.matchXp(activity));
+            payload.put("trophyDelta", PlayerStats.matchTrophies(activity));
             payload.put("score", playerScore);
             payload.put("money", Math.max(0, money));
             payload.put("correctAnswers", answeredCorrect);

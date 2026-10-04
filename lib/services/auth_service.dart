@@ -97,11 +97,10 @@ class AuthService {
         'username': normalizedUsername,
         'lastSeenAt': FieldValue.serverTimestamp(),
       };
-      await privateRef.set(
-        payload,
-        SetOptions(merge: true),
-      );
-      await publicRef.set(
+      final batch = _firestore.batch();
+      batch.set(privateRef, payload, SetOptions(merge: true));
+      batch.set(
+        publicRef,
         <String, dynamic>{
           'uid': user.uid,
           'username': normalizedUsername,
@@ -112,6 +111,7 @@ class AuthService {
         },
         SetOptions(merge: true),
       );
+      await batch.commit();
     } catch (_) {
       // Firebase Auth remains the source of truth when Firestore is unavailable.
     }
@@ -148,47 +148,49 @@ class AuthService {
   }) async {
     final ref = _firestore.collection('users').doc(uid);
     final publicRef = _firestore.collection('public_profiles').doc(uid);
-    final snapshot = await ref.get();
-    final existing = snapshot.data() ?? const <String, dynamic>{};
-    final resolvedUsername = _resolveUsername(existing, username, email);
-    final resolvedPhotoUrl = _resolvePhotoUrl(existing, photoUrl);
-    final publicTrophies = (existing['trophies'] as num?)?.toInt() ?? 0;
-    final publicLevel = (existing['level'] as num?)?.toInt() ?? 1;
-
-    if (_auth.currentUser != null &&
+    final resolvedUsername =
+        await _firestore.runTransaction<String>((transaction) async {
+      final snapshot = await transaction.get(ref);
+      final publicSnapshot = await transaction.get(publicRef);
+      final existing = snapshot.data() ?? const <String, dynamic>{};
+      final resolvedUsername = _resolveUsername(existing, username, email);
+      final resolvedPhotoUrl = _resolvePhotoUrl(existing, photoUrl);
+      transaction.set(
+          ref,
+          <String, dynamic>{
+            'uid': uid,
+            'email': email,
+            'username': resolvedUsername,
+            'photoUrl': resolvedPhotoUrl,
+            if (!snapshot.exists) 'wins': 0,
+            if (!snapshot.exists) 'losses': 0,
+            if (!snapshot.exists) 'totalMatches': 0,
+            if (!snapshot.exists) 'totalScore': 0,
+            if (!snapshot.exists) 'rating': 1000,
+            if (!snapshot.exists) 'createdAt': FieldValue.serverTimestamp(),
+            'lastSeenAt': FieldValue.serverTimestamp(),
+          },
+          SetOptions(merge: true));
+      // Identity changes never republish a previously read XP/trophy total.
+      // ProgressionService alone publishes the current account progression.
+      transaction.set(
+          publicRef,
+          <String, dynamic>{
+            'uid': uid,
+            'username': resolvedUsername,
+            'photoUrl': resolvedPhotoUrl,
+            if (!publicSnapshot.exists) 'rating': 1000,
+            if (!publicSnapshot.exists)
+              'createdAt': FieldValue.serverTimestamp(),
+            'lastSeenAt': FieldValue.serverTimestamp(),
+          },
+          SetOptions(merge: true));
+      return resolvedUsername;
+    });
+    if (_auth.currentUser?.uid == uid &&
         (_auth.currentUser!.displayName ?? '').trim() != resolvedUsername) {
       await _auth.currentUser!.updateDisplayName(resolvedUsername);
     }
-
-    await ref.set(
-      <String, dynamic>{
-        'uid': uid,
-        'email': email,
-        'username': resolvedUsername,
-        'photoUrl': resolvedPhotoUrl,
-        if (!snapshot.exists) 'wins': 0,
-        if (!snapshot.exists) 'losses': 0,
-        if (!snapshot.exists) 'totalMatches': 0,
-        if (!snapshot.exists) 'totalScore': 0,
-        if (!snapshot.exists) 'rating': 1000,
-        if (!snapshot.exists) 'createdAt': FieldValue.serverTimestamp(),
-        'lastSeenAt': FieldValue.serverTimestamp(),
-      },
-      SetOptions(merge: true),
-    );
-    await publicRef.set(
-      <String, dynamic>{
-        'uid': uid,
-        'username': resolvedUsername,
-        'photoUrl': resolvedPhotoUrl,
-        'rating': (existing['rating'] as num?)?.toInt() ?? 1000,
-        'trophies': publicTrophies,
-        'level': publicLevel,
-        if (!snapshot.exists) 'createdAt': FieldValue.serverTimestamp(),
-        'lastSeenAt': FieldValue.serverTimestamp(),
-      },
-      SetOptions(merge: true),
-    );
   }
 
   Future<void> signOut() async {
@@ -307,6 +309,9 @@ class AuthService {
     await _deleteSubcollection(
       _firestore.collection('users').doc(uid).collection('match_history'),
     );
+    await _deleteSubcollection(
+      _firestore.collection('users').doc(uid).collection('progressionDevices'),
+    );
     await _deleteMatchingDocs(
       _firestore.collection('invitations').where('fromUid', isEqualTo: uid),
     );
@@ -327,27 +332,29 @@ class AuthService {
   Future<void> _deleteSubcollection(
     CollectionReference<Map<String, dynamic>> collection,
   ) async {
-    final snapshot = await collection.get();
-    if (snapshot.docs.isEmpty) return;
-
-    final batch = _firestore.batch();
-    for (final doc in snapshot.docs) {
-      batch.delete(doc.reference);
+    while (true) {
+      final snapshot = await collection.limit(400).get();
+      if (snapshot.docs.isEmpty) return;
+      final batch = _firestore.batch();
+      for (final doc in snapshot.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
     }
-    await batch.commit();
   }
 
   Future<void> _deleteMatchingDocs(
     Query<Map<String, dynamic>> query,
   ) async {
-    final snapshot = await query.get();
-    if (snapshot.docs.isEmpty) return;
-
-    final batch = _firestore.batch();
-    for (final doc in snapshot.docs) {
-      batch.delete(doc.reference);
+    while (true) {
+      final snapshot = await query.limit(400).get();
+      if (snapshot.docs.isEmpty) return;
+      final batch = _firestore.batch();
+      for (final doc in snapshot.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
     }
-    await batch.commit();
   }
 
   UserFacingError _mapDeletionError(FirebaseAuthException error) {

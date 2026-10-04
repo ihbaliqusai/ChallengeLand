@@ -1,6 +1,5 @@
 package com.qi7bali.landchallengeonline;
 
-import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.content.Intent;
@@ -63,37 +62,10 @@ public class SettingsActivity extends AppCompatActivity {
             }
         });
 
-        findViewById(R.id.btnResetStats).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                new AlertDialog.Builder(SettingsActivity.this)
-                        .setTitle("إعادة ضبط الإحصائيات")
-                        .setMessage("سيتم مسح الإحصائيات فقط مع الاحتفاظ بالإنجازات والعملات والمستوى.")
-                        .setPositiveButton("متابعة", (dialog, which) -> {
-                            PlayerStats.reset(SettingsActivity.this);
-                            Toast.makeText(SettingsActivity.this, "تمت إعادة ضبط الإحصائيات", Toast.LENGTH_SHORT).show();
-                            updateSummary();
-                        })
-                        .setNegativeButton("إلغاء", null)
-                        .show();
-            }
-        });
-
-        findViewById(R.id.btnResetProgress).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                new AlertDialog.Builder(SettingsActivity.this)
-                        .setTitle("إعادة ضبط التقدم")
-                        .setMessage("سيتم مسح العملات والجواهر والإنجازات والمستوى والإحصائيات.")
-                        .setPositiveButton("إعادة ضبط", (dialog, which) -> {
-                            AppPrefs.resetLocalProgress(SettingsActivity.this);
-                            Toast.makeText(SettingsActivity.this, "تمت إعادة ضبط التقدم المحلي", Toast.LENGTH_SHORT).show();
-                            updateSummary();
-                        })
-                        .setNegativeButton("إلغاء", null)
-                        .show();
-            }
-        });
+        // Synced account progression can only be removed by account deletion.
+        // Clearing one device would reset protection and invalidate its ledger.
+        findViewById(R.id.btnResetStats).setVisibility(View.GONE);
+        findViewById(R.id.btnResetProgress).setVisibility(View.GONE);
 
         findViewById(R.id.btnLogout).setOnClickListener(new View.OnClickListener() {
             @Override

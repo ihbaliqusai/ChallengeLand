@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/app_state.dart';
@@ -409,28 +410,44 @@ class _LoginForm extends StatelessWidget {
               ),
             ),
 
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
 
-            NeonButton(
-              label: 'ابدأ التحدي الآن',
-              icon: Icons.sports_esports_rounded,
-              gold: true,
-              onPressed: state.isBusy ? null : onGuestStart,
+            _GuestChallengeHeroCard(
+              disabled: state.isBusy,
+              onTap: onGuestStart,
             ),
 
-            const SizedBox(height: 8),
+            const SizedBox(height: 20),
 
-            Text(
-              'بدون تسجيل. احفظ تقدمك بعد أول فوز.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.62),
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: Divider(
+                    color: Colors.white.withValues(alpha: 0.18),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: Text(
+                    register
+                        ? 'أو أنشئ حسابك مباشرة'
+                        : 'أو تسجيل الدخول لحسابك',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.55),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Divider(
+                    color: Colors.white.withValues(alpha: 0.18),
+                  ),
+                ),
+              ],
             ),
 
-            const SizedBox(height: 18),
+            const SizedBox(height: 16),
 
             // ── fields ──────────────────────────────────────
             AnimatedSize(
@@ -645,3 +662,271 @@ class _GoogleButtonState extends State<_GoogleButton> {
     );
   }
 }
+
+// ────────────────────────────────────────────────────────────────
+//  Guest Challenge Hero Card (World-Class Instant Play Entry)
+// ────────────────────────────────────────────────────────────────
+class _GuestChallengeHeroCard extends StatefulWidget {
+  const _GuestChallengeHeroCard({
+    required this.onTap,
+    this.disabled = false,
+  });
+
+  final VoidCallback onTap;
+  final bool disabled;
+
+  @override
+  State<_GuestChallengeHeroCard> createState() =>
+      _GuestChallengeHeroCardState();
+}
+
+class _GuestChallengeHeroCardState extends State<_GuestChallengeHeroCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulseCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _pulseCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _pulseCtrl,
+      builder: (context, child) {
+        return Container(
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFF171344),
+                Color(0xFF090D24),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(
+              color: const Color(0xFFFACC15).withValues(
+                alpha: 0.35 + _pulseCtrl.value * 0.45,
+              ),
+              width: 1.6,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFF59E0B).withValues(
+                  alpha: 0.16 + _pulseCtrl.value * 0.18,
+                ),
+                blurRadius: 20,
+                spreadRadius: 1,
+              ),
+            ],
+          ),
+          child: child,
+        );
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Top Badge
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFACC15).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: const Color(0xFFFACC15).withValues(alpha: 0.45),
+                    ),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.bolt_rounded,
+                          color: Color(0xFFFACC15), size: 15),
+                      SizedBox(width: 4),
+                      Text(
+                        'دخول فوري بدون تسجيل • العب كبطل',
+                        style: TextStyle(
+                          color: Color(0xFFFACC15),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF38BDF8).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Text(
+                    'غابة البداية 🌲',
+                    style: TextStyle(
+                      color: Color(0xFF7DD3FC),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 10),
+
+            // Header & Subtitle
+            const Row(
+              children: [
+                Icon(
+                  Icons.sports_esports_rounded,
+                  color: Color(0xFFFFD700),
+                  size: 26,
+                ),
+                SizedBox(width: 8),
+                Text(
+                  'تحدي البداية الأسطوري',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 5),
+
+            Text(
+              'اختبر ذكاءك في ساحة التحدي الأولى. العب فوراً واكسب النجوم والذهب مع إمكانية حفظ جوائزك بحساب دائم بعد المعركة!',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.72),
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                height: 1.35,
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            // Spoils Chips Row
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.28),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.08),
+                ),
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _HeroCardChip(
+                    icon: Icons.monetization_on_rounded,
+                    label: '+500 ذهب',
+                    color: Color(0xFFFACC15),
+                  ),
+                  _HeroCardChip(
+                    icon: Icons.diamond_rounded,
+                    label: '+50 جوهرة',
+                    color: Color(0xFF38BDF8),
+                  ),
+                  _HeroCardChip(
+                    icon: Icons.star_rounded,
+                    label: '3 نجوم',
+                    color: Color(0xFFFFD700),
+                  ),
+                  _HeroCardChip(
+                    icon: Icons.card_giftcard_rounded,
+                    label: 'صندوق ترحيبي',
+                    color: Color(0xFFA78BFA),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 14),
+
+            // Glowing Action Button
+            SizedBox(
+              height: 52,
+              child: FilledButton.icon(
+                onPressed: widget.disabled
+                    ? null
+                    : () {
+                        HapticFeedback.mediumImpact();
+                        widget.onTap();
+                      },
+                icon: const Icon(Icons.play_arrow_rounded, size: 24),
+                label: const Text('🚀 ابدأ التحدي الآن (انطلاق)'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFFFACC15),
+                  foregroundColor: const Color(0xFF1E1B4B),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  textStyle: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                  ),
+                  elevation: 6,
+                  shadowColor:
+                      const Color(0xFFF59E0B).withValues(alpha: 0.5),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HeroCardChip extends StatelessWidget {
+  const _HeroCardChip({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, color: color, size: 14),
+        const SizedBox(width: 3),
+        Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
+    );
+  }
+}
+

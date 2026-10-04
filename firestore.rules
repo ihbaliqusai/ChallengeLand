@@ -31,17 +31,241 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    function nonnegativeInteger(value) {
+      return value is int && value >= 0 && value <= 2147483647;
+    }
+
     function publicProfileFieldsAreSafe() {
-      return request.resource.data.keys().hasOnly([
+      let data = request.resource.data;
+      return data.keys().hasOnly([
         'uid',
         'username',
         'photoUrl',
-        'rating',
-        'trophies',
-        'level',
+        'friendCode',
         'createdAt',
-        'lastSeenAt'
-      ]);
+        'lastSeenAt',
+        'xp',
+        'gamesPlayed',
+        'wins',
+        'losses',
+        'draws',
+        'abandoned',
+        'correctAnswers',
+        'wrongAnswers',
+        'totalEarnings',
+        'onlineWins',
+        'trophiesEarned',
+        'trophiesLost',
+        'blitzFinishes',
+        'eliminationWins',
+        'survivalWins',
+        'seriesWins',
+        'teamBattleWins',
+        'localTeamsPlayed',
+        'offlineBoardPlayed',
+        'offlineBoardWins',
+        'friendMatchesPlayed',
+        'randomMatchesPlayed',
+        'bestStreak',
+        'bestWinStreak',
+        'highestMoney',
+        'bestTrophies',
+        'trophies',
+        'winStreak',
+        'lastPrize',
+        'level',
+        'totalAnswered',
+        'accuracy',
+        'winPercent',
+        'progressionVersion',
+        'totalMatches',
+        'totalScore',
+        'rating'
+      ]) &&
+        data.uid is string &&
+        data.get('username', '') is string &&
+        (data.get('photoUrl', null) == null || data.photoUrl is string) &&
+        data.get('friendCode', '') is string &&
+        (data.get('createdAt', null) == null || data.createdAt is timestamp) &&
+        (data.get('lastSeenAt', null) == null || data.lastSeenAt is timestamp) &&
+        nonnegativeInteger(data.get('xp', 0)) &&
+        nonnegativeInteger(data.get('gamesPlayed', 0)) &&
+        nonnegativeInteger(data.get('wins', 0)) &&
+        nonnegativeInteger(data.get('losses', 0)) &&
+        nonnegativeInteger(data.get('draws', 0)) &&
+        nonnegativeInteger(data.get('abandoned', 0)) &&
+        nonnegativeInteger(data.get('correctAnswers', 0)) &&
+        nonnegativeInteger(data.get('wrongAnswers', 0)) &&
+        nonnegativeInteger(data.get('totalEarnings', 0)) &&
+        nonnegativeInteger(data.get('onlineWins', 0)) &&
+        nonnegativeInteger(data.get('trophiesEarned', 0)) &&
+        nonnegativeInteger(data.get('trophiesLost', 0)) &&
+        nonnegativeInteger(data.get('blitzFinishes', 0)) &&
+        nonnegativeInteger(data.get('eliminationWins', 0)) &&
+        nonnegativeInteger(data.get('survivalWins', 0)) &&
+        nonnegativeInteger(data.get('seriesWins', 0)) &&
+        nonnegativeInteger(data.get('teamBattleWins', 0)) &&
+        nonnegativeInteger(data.get('localTeamsPlayed', 0)) &&
+        nonnegativeInteger(data.get('offlineBoardPlayed', 0)) &&
+        nonnegativeInteger(data.get('offlineBoardWins', 0)) &&
+        nonnegativeInteger(data.get('friendMatchesPlayed', 0)) &&
+        nonnegativeInteger(data.get('randomMatchesPlayed', 0)) &&
+        nonnegativeInteger(data.get('bestStreak', 0)) &&
+        nonnegativeInteger(data.get('bestWinStreak', 0)) &&
+        nonnegativeInteger(data.get('highestMoney', 0)) &&
+        nonnegativeInteger(data.get('bestTrophies', 0)) &&
+        nonnegativeInteger(data.get('trophies', 0)) &&
+        nonnegativeInteger(data.get('winStreak', 0)) &&
+        nonnegativeInteger(data.get('lastPrize', 0)) &&
+        nonnegativeInteger(data.get('level', 0)) &&
+        nonnegativeInteger(data.get('totalAnswered', 0)) &&
+        nonnegativeInteger(data.get('accuracy', 0)) &&
+        nonnegativeInteger(data.get('winPercent', 0)) &&
+        nonnegativeInteger(data.get('progressionVersion', 0)) &&
+        nonnegativeInteger(data.get('totalMatches', 0)) &&
+        nonnegativeInteger(data.get('totalScore', 0)) &&
+        nonnegativeInteger(data.get('rating', 0)) &&
+        data.get('level', 1) >= 1 &&
+        data.get('accuracy', 0) <= 100 &&
+        data.get('winPercent', 0) <= 100;
+    }
+
+    // Integer arithmetic retains its type; a float in any group makes its sum
+    // a float. Checking the sum once plus each sign keeps all 72 counters
+    // validated within Firestore's 1000-expression budget. Contributions are
+    // cumulative int64 checkpoints; displayed account totals use int32 bounds.
+    function validContributionGroup0(counters) {
+      let value0 = counters.get('xp', 0);
+      let value1 = counters.get('gamesPlayed', 0);
+      let value2 = counters.get('wins', 0);
+      let value3 = counters.get('losses', 0);
+      let value4 = counters.get('draws', 0);
+      let value5 = counters.get('abandoned', 0);
+      let value6 = counters.get('correctAnswers', 0);
+      let value7 = counters.get('wrongAnswers', 0);
+      let value8 = counters.get('totalEarnings', 0);
+      let value9 = counters.get('onlineWins', 0);
+      return (value0 + value1 + value2 + value3 + value4 + value5 + value6 + value7 + value8 + value9) is int &&
+        value0 >= 0 && value1 >= 0 && value2 >= 0 && value3 >= 0 && value4 >= 0 && value5 >= 0 && value6 >= 0 && value7 >= 0 && value8 >= 0 && value9 >= 0;
+    }
+
+    function validContributionGroup1(counters) {
+      let value0 = counters.get('trophiesEarned', 0);
+      let value1 = counters.get('trophiesLost', 0);
+      let value2 = counters.get('blitzFinishes', 0);
+      let value3 = counters.get('eliminationWins', 0);
+      let value4 = counters.get('survivalWins', 0);
+      let value5 = counters.get('seriesWins', 0);
+      let value6 = counters.get('teamBattleWins', 0);
+      let value7 = counters.get('localTeamsPlayed', 0);
+      let value8 = counters.get('offlineBoardPlayed', 0);
+      let value9 = counters.get('offlineBoardWins', 0);
+      return (value0 + value1 + value2 + value3 + value4 + value5 + value6 + value7 + value8 + value9) is int &&
+        value0 >= 0 && value1 >= 0 && value2 >= 0 && value3 >= 0 && value4 >= 0 && value5 >= 0 && value6 >= 0 && value7 >= 0 && value8 >= 0 && value9 >= 0;
+    }
+
+    function validContributionGroup2(counters) {
+      let value0 = counters.get('friendMatchesPlayed', 0);
+      let value1 = counters.get('randomMatchesPlayed', 0);
+      let value2 = counters.get('mode_campaign_games', 0);
+      let value3 = counters.get('mode_campaign_wins', 0);
+      let value4 = counters.get('mode_campaign_losses', 0);
+      let value5 = counters.get('mode_campaign_draws', 0);
+      let value6 = counters.get('mode_campaign_abandoned', 0);
+      let value7 = counters.get('mode_offline_games', 0);
+      let value8 = counters.get('mode_offline_wins', 0);
+      let value9 = counters.get('mode_offline_losses', 0);
+      return (value0 + value1 + value2 + value3 + value4 + value5 + value6 + value7 + value8 + value9) is int &&
+        value0 >= 0 && value1 >= 0 && value2 >= 0 && value3 >= 0 && value4 >= 0 && value5 >= 0 && value6 >= 0 && value7 >= 0 && value8 >= 0 && value9 >= 0;
+    }
+
+    function validContributionGroup3(counters) {
+      let value0 = counters.get('mode_offline_draws', 0);
+      let value1 = counters.get('mode_offline_abandoned', 0);
+      let value2 = counters.get('mode_local_teams_games', 0);
+      let value3 = counters.get('mode_local_teams_wins', 0);
+      let value4 = counters.get('mode_local_teams_losses', 0);
+      let value5 = counters.get('mode_local_teams_draws', 0);
+      let value6 = counters.get('mode_local_teams_abandoned', 0);
+      let value7 = counters.get('mode_board_games', 0);
+      let value8 = counters.get('mode_board_wins', 0);
+      let value9 = counters.get('mode_board_losses', 0);
+      return (value0 + value1 + value2 + value3 + value4 + value5 + value6 + value7 + value8 + value9) is int &&
+        value0 >= 0 && value1 >= 0 && value2 >= 0 && value3 >= 0 && value4 >= 0 && value5 >= 0 && value6 >= 0 && value7 >= 0 && value8 >= 0 && value9 >= 0;
+    }
+
+    function validContributionGroup4(counters) {
+      let value0 = counters.get('mode_board_draws', 0);
+      let value1 = counters.get('mode_board_abandoned', 0);
+      let value2 = counters.get('mode_battle_games', 0);
+      let value3 = counters.get('mode_battle_wins', 0);
+      let value4 = counters.get('mode_battle_losses', 0);
+      let value5 = counters.get('mode_battle_draws', 0);
+      let value6 = counters.get('mode_battle_abandoned', 0);
+      let value7 = counters.get('mode_team_battle_games', 0);
+      let value8 = counters.get('mode_team_battle_wins', 0);
+      let value9 = counters.get('mode_team_battle_losses', 0);
+      return (value0 + value1 + value2 + value3 + value4 + value5 + value6 + value7 + value8 + value9) is int &&
+        value0 >= 0 && value1 >= 0 && value2 >= 0 && value3 >= 0 && value4 >= 0 && value5 >= 0 && value6 >= 0 && value7 >= 0 && value8 >= 0 && value9 >= 0;
+    }
+
+    function validContributionGroup5(counters) {
+      let value0 = counters.get('mode_team_battle_draws', 0);
+      let value1 = counters.get('mode_team_battle_abandoned', 0);
+      let value2 = counters.get('mode_blitz_games', 0);
+      let value3 = counters.get('mode_blitz_wins', 0);
+      let value4 = counters.get('mode_blitz_losses', 0);
+      let value5 = counters.get('mode_blitz_draws', 0);
+      let value6 = counters.get('mode_blitz_abandoned', 0);
+      let value7 = counters.get('mode_elimination_games', 0);
+      let value8 = counters.get('mode_elimination_wins', 0);
+      let value9 = counters.get('mode_elimination_losses', 0);
+      return (value0 + value1 + value2 + value3 + value4 + value5 + value6 + value7 + value8 + value9) is int &&
+        value0 >= 0 && value1 >= 0 && value2 >= 0 && value3 >= 0 && value4 >= 0 && value5 >= 0 && value6 >= 0 && value7 >= 0 && value8 >= 0 && value9 >= 0;
+    }
+
+    function validContributionGroup6(counters) {
+      let value0 = counters.get('mode_elimination_draws', 0);
+      let value1 = counters.get('mode_elimination_abandoned', 0);
+      let value2 = counters.get('mode_survival_games', 0);
+      let value3 = counters.get('mode_survival_wins', 0);
+      let value4 = counters.get('mode_survival_losses', 0);
+      let value5 = counters.get('mode_survival_draws', 0);
+      let value6 = counters.get('mode_survival_abandoned', 0);
+      let value7 = counters.get('mode_series_games', 0);
+      let value8 = counters.get('mode_series_wins', 0);
+      let value9 = counters.get('mode_series_losses', 0);
+      return (value0 + value1 + value2 + value3 + value4 + value5 + value6 + value7 + value8 + value9) is int &&
+        value0 >= 0 && value1 >= 0 && value2 >= 0 && value3 >= 0 && value4 >= 0 && value5 >= 0 && value6 >= 0 && value7 >= 0 && value8 >= 0 && value9 >= 0;
+    }
+
+    function validContributionGroup7(counters) {
+      let value0 = counters.get('mode_series_draws', 0);
+      let value1 = counters.get('mode_series_abandoned', 0);
+      return (value0 + value1) is int &&
+        value0 >= 0 && value1 >= 0;
+    }
+
+    function progressionCheckpointFieldsAreSafe() {
+      let data = request.resource.data;
+      let counters = data.contributions;
+      return data.keys().hasOnly(['contributions', 'updatedAt', 'version']) &&
+        data.version == 2 && data.updatedAt is timestamp &&
+        counters is map &&
+        // Only canonical counters are copied by ProgressionService. Unknown
+        // private keys never enter the separately whitelisted public profile.
+        counters.keys().size() <= 73 &&
+        validContributionGroup0(counters) &&
+        validContributionGroup1(counters) &&
+        validContributionGroup2(counters) &&
+        validContributionGroup3(counters) &&
+        validContributionGroup4(counters) &&
+        validContributionGroup5(counters) &&
+        validContributionGroup6(counters) &&
+        validContributionGroup7(counters) &&
+        counters.get('trophies', 0) is int &&
+        counters.get('trophies', 0) >= -2147483647 &&
+        counters.get('trophies', 0) <= 2147483647;
     }
 
     function campaignLeaderboardFieldsAreSafe(uid) {
@@ -150,6 +374,12 @@ service cloud.firestore {
 
     match /users/{uid} {
       allow read, create, update, delete: if isOwner(uid);
+
+      match /progressionDevices/{deviceId} {
+        allow read, delete: if isOwner(uid);
+        allow create, update: if isOwner(uid) &&
+          progressionCheckpointFieldsAreSafe();
+      }
 
       match /friends/{friendUid} {
         allow read, create, update, delete: if isOwner(uid);

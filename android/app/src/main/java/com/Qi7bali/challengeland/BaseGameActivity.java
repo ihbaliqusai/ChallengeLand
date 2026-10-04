@@ -67,7 +67,25 @@ import org.json.JSONObject;
 import java.util.Iterator;
 import java.util.Locale;
 
-public abstract class BaseGameActivity extends AppCompatActivity {
+public abstract class BaseGameActivity extends AppCompatActivity implements ProgressionMatchHost {
+    @Override public String progressionMatchId() {
+        if (roomId != null && !roomId.trim().isEmpty()) return "room:" + roomId + ":"
+                + getMatchModeId() + ":" + Math.max(1, roomRoundNumber);
+        return NativeProgression.fallbackId(this);
+    }
+    @Override public String progressionMode() { return modeOnline ? getMatchModeId() : "offline"; }
+    @Override public String progressionAnswerId() { return "question:" + currentQuestion; }
+    @Override public boolean progressionOnline() { return modeOnline; }
+    @Override public boolean progressionHumanOpponents() {
+        for (MatchOpponent opponent : opponents) {
+            if (!opponent.bot && (!isTeamBattleMode() || !myTeam.equals(opponent.teamId))) return true;
+        }
+        return false;
+    }
+    @Override protected void onSaveInstanceState(Bundle state) {
+        NativeProgression.save(this, state);
+        super.onSaveInstanceState(state);
+    }
     private static final float MUSIC_VOLUME = 0.5f;
     private static final int DIALOG_EXTRA_VISIBLE_MS = 1000;
 
@@ -363,6 +381,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         supportRequestWindowFeature(Window.FEATURE_NO_TITLE);
         super.onCreate(savedInstanceState);
+        NativeProgression.restore(this, savedInstanceState);
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
                 WindowManager.LayoutParams.FLAG_FULLSCREEN);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
@@ -2715,6 +2734,8 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         }
 
         localPlayerRemoved = true;
+        PlayerStats.recordWrongAnswer(this);
+        PlayerStats.recordGameEnd(this, ProgressionRules.ABANDON, 0);
         markMyGameState("left_timeout");
         detachOpponentRoundListener();
         detachQuestionSyncListener();
@@ -2997,28 +3018,11 @@ public abstract class BaseGameActivity extends AppCompatActivity {
     }
 
     private void updateScoreAndLevel() {
+        if (!NativeProgression.activeAccount(this)) return;
         if (gameScoreMe > 0) {
-            int newScore = myScore + gameScoreMe;
+            int newScore = ProgressionRules.safeAdd(myScore, gameScoreMe);
             if (!myID.startsWith("guest_")) Data.setUserScore(myID, newScore);
-            int newLevel = 1;
-            if (newScore >= 200000000)
-                newLevel = 10;
-            else if (newScore >= 100000000)
-                newLevel = 9;
-            else if (newScore >= 50000000)
-                newLevel = 8;
-            else if (newScore >= 25000000)
-                newLevel = 7;
-            else if (newScore >= 15000000)
-                newLevel = 6;
-            else if (newScore >= 9000000)
-                newLevel = 5;
-            else if (newScore >= 6000000)
-                newLevel = 4;
-            else if (newScore >= 3000000)
-                newLevel = 3;
-            else if (newScore >= 1000000)
-                newLevel = 2;
+            int newLevel = PlayerProgress.getLevel(this);
 
             AppPrefs.setUser(BaseGameActivity.this, myID, myName, myPhoto, newLevel, newScore);
             myScore = newScore;
@@ -3035,6 +3039,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                 };
                 handler.postDelayed(runnable, 3000);
             }
+            myLevel = newLevel;
         }
     }
 
@@ -3860,6 +3865,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         if (!modeOnline || matchStateCommitted) {
             return;
         }
+        PlayerStats.recordGameEnd(this, ProgressionRules.ABANDON, 0);
         markMyGameState("left");
         detachOpponentStatusListener();
         detachOpponentRoundListener();
@@ -3911,14 +3917,14 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         onlineResultScreenOpened = true;
         stopTimer(false);
         cancelBlitzBotSimulation();
-        if (!opponentLeft) {
-            markMyGameState("finished");
-        }
+        markMyGameState("finished");
         detachOpponentStatusListener();
         detachOpponentRoundListener();
         detachQuestionSyncListener();
         OnlineResultState resultState = buildOnlineResultState();
         Intent intent = new Intent(BaseGameActivity.this, ResultActivity.class);
+        NativeProgression.copyToResult(this, intent);
+        intent.putExtra("roomRoundNumber", roomRoundNumber);
         intent.putExtra("myScore", gameScoreMe);
         intent.putExtra("myNewScore", myScore);
         intent.putExtra("mySets", setMe);
@@ -3941,6 +3947,13 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         intent.putExtra("didWin", resultState.didWin);
         intent.putExtra("winnerName", resultState.winnerName);
         intent.putExtra("opponentsJson", buildOpponentsSummaryJson());
+        boolean tied = !opponentLeft && !localPlayerEliminated && progressionIsDraw();
+        if (isTeamBattleMode()) tied = !opponentLeft && "".equals(intent.getStringExtra("winnerTeamId"));
+        intent.putExtra("progressionDraw", tied);
+        PlayerStats.recordGameEnd(this, tied ? ProgressionRules.DRAW
+                : (resultState.didWin || opponentLeft) ? ProgressionRules.WIN : ProgressionRules.LOSS, gameScoreMe * 1000);
+        PlayerProgress.onOnlineMatchFinished(this, resultState.didWin || opponentLeft, setMe,
+                progressionMode(), true, progressionMatchId());
         persistPendingRoomMatchResult();
         startActivity(intent);
         finish();
@@ -4541,6 +4554,23 @@ public abstract class BaseGameActivity extends AppCompatActivity {
             return timeCompare;
         }
         return Integer.compare(stableHash(leftPlayerId), stableHash(rightPlayerId));
+    }
+
+    private boolean progressionIsDraw() {
+        String leader = getMatchLeaderId();
+        String me = getLocalMatchPlayerId();
+        if (getSetsForPlayer(me) != getSetsForPlayer(leader)
+                || getGameScoreForPlayer(me) != getGameScoreForPlayer(leader)
+                || getTotalCorrectAnswersForPlayer(me) != getTotalCorrectAnswersForPlayer(leader)
+                || getTotalAnswerTimeForPlayer(me) != getTotalAnswerTimeForPlayer(leader)) return false;
+        for (MatchOpponent opponent : opponents) {
+            if (opponent.eliminated) continue;
+            if (getSetsForPlayer(opponent.id) == getSetsForPlayer(me)
+                    && getGameScoreForPlayer(opponent.id) == getGameScoreForPlayer(me)
+                    && getTotalCorrectAnswersForPlayer(opponent.id) == getTotalCorrectAnswersForPlayer(me)
+                    && getTotalAnswerTimeForPlayer(opponent.id) == getTotalAnswerTimeForPlayer(me)) return true;
+        }
+        return false;
     }
 
     private int getSetsForPlayer(String playerId) {
@@ -5212,7 +5242,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
             public void run() {
                 try {
                     int prize = Integer.parseInt(txtAmount.getText().toString().replace("$", "").trim());
-                    PlayerStats.recordGameEnd(BaseGameActivity.this, false, prize);
+                    PlayerStats.recordGameEnd(BaseGameActivity.this, ProgressionRules.ABANDON, prize);
                     PlayerProgress.onGameFinished(BaseGameActivity.this, false, prize, PlayerStats.getBestStreak(BaseGameActivity.this), usedAllHelps(), usedAnyHelp());
                 } catch (Exception ignored) {}
                 stopAllSound();

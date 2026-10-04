@@ -109,52 +109,52 @@ class TrophyProgression {
 
   static const List<TrophyRule> rules = [
     TrophyRule(
-      label: 'إنهاء مباراة',
-      value: '+4',
-      icon: Icons.sports_esports_rounded,
-      color: Color(0xFF38BDF8),
-    ),
-    TrophyRule(
-      label: 'فوز',
-      value: '+18',
+      label: 'فوز في مباراة',
+      value: '+22',
       icon: Icons.emoji_events_rounded,
       color: Color(0xFFFACC15),
     ),
     TrophyRule(
-      label: 'فوز أونلاين',
-      value: '+12',
+      label: 'فوز أونلاين ضد لاعب حقيقي',
+      value: '+8 إضافي',
       icon: Icons.public_rounded,
       color: Color(0xFF22D3EE),
     ),
     TrophyRule(
-      label: '10 إجابات صحيحة',
-      value: '+1',
-      icon: Icons.check_circle_rounded,
-      color: Color(0xFF34D399),
-    ),
-    TrophyRule(
-      label: 'أفضل تتابع',
-      value: '+4',
-      icon: Icons.bolt_rounded,
-      color: Color(0xFFF97316),
-    ),
-    TrophyRule(
-      label: 'أفضل سلسلة فوز',
-      value: '+10',
-      icon: Icons.local_fire_department_rounded,
-      color: Color(0xFFFFB020),
-    ),
-    TrophyRule(
-      label: 'الخسارة',
-      value: '-6',
+      label: 'الخسارة في مباراة',
+      value: '-18',
       icon: Icons.flag_rounded,
       color: Color(0xFFFB7185),
     ),
     TrophyRule(
-      label: '12 إجابة خاطئة',
-      value: '-1',
-      icon: Icons.cancel_rounded,
-      color: Color(0xFFF87171),
+      label: 'سلسلة انتصارات (3+ فوز)',
+      value: '+2 إلى +10 لكل فوز',
+      icon: Icons.local_fire_department_rounded,
+      color: Color(0xFFFFB020),
+    ),
+    TrophyRule(
+      label: 'التعادل',
+      value: '0 • تبقى كؤوسك',
+      icon: Icons.balance_rounded,
+      color: Color(0xFF34D399),
+    ),
+    TrophyRule(
+      label: 'إتمام جلسة الفرق المحلية المشتركة',
+      value: '+6 • بعد إجابة محتسبة',
+      icon: Icons.groups_rounded,
+      color: Color(0xFF2DD4BF),
+    ),
+    TrophyRule(
+      label: 'دقة الفوز بعد 5 إجابات على الأقل',
+      value: '75%: +3 • 90%: +5',
+      icon: Icons.check_circle_rounded,
+      color: Color(0xFF38BDF8),
+    ),
+    TrophyRule(
+      label: 'حماية أول 8 مباريات',
+      value: 'الخسارة -10 • الحد الأدنى 0',
+      icon: Icons.shield_outlined,
+      color: Color(0xFFA78BFA),
     ),
   ];
 
@@ -162,6 +162,52 @@ class TrophyProgression {
       leagues.lastWhere((league) => league.contains(trophies),
           orElse: () => leagues.first);
 
+  static TrophyLeague? nextLeagueFor(int trophies) {
+    final index = leagues.indexOf(leagueFor(trophies));
+    return index + 1 < leagues.length ? leagues[index + 1] : null;
+  }
+
+  /// Three visible milestones within each finite league, from III up to I.
+  static String divisionLabelFor(int trophies) {
+    final league = leagueFor(trophies);
+    if (league.max == null) return league.nameAr;
+    final division = (league.progress(trophies) * 3).floor().clamp(0, 2);
+    return '${league.nameAr} ${const ['III', 'II', 'I'][division]}';
+  }
+
+  /// Delta for one settled match, mirrored by native ProgressionRules.
+  /// This is independent of lifetime accuracy/rate: crossing a statistics
+  /// threshold can never retroactively alter trophies from previous matches.
+  static int trophyDelta({
+    required bool won,
+    bool draw = false,
+    bool online = false,
+    bool sharedLocalCompletion = false,
+    required int gamesBefore,
+    int winStreak = 0,
+    int correctAnswers = 0,
+    int wrongAnswers = 0,
+  }) {
+    if (sharedLocalCompletion) return 6;
+    if (draw) return 0;
+    if (!won) return gamesBefore < 8 ? -10 : -18;
+    final streak = ((winStreak - 2) * 2).clamp(0, 10);
+    final correct = correctAnswers.clamp(0, 2147483647);
+    final wrong = wrongAnswers.clamp(0, 2147483647);
+    final answered = correct + wrong;
+    var accuracy = 0;
+    if (answered >= 5) {
+      if (correct * 100 >= answered * 90) {
+        accuracy = 5;
+      } else if (correct * 100 >= answered * 75) {
+        accuracy = 3;
+      }
+    }
+    return 22 + (online ? 8 : 0) + streak + accuracy;
+  }
+
+  /// Legacy migration estimate only. New matches persist per-result deltas;
+  /// callers must never replace an existing trophy balance with this estimate.
   static int computeTrophies(Map<String, int> stats) {
     final gamesPlayed = stats['gamesPlayed'] ?? 0;
     final wins = stats['wins'] ?? 0;
@@ -169,52 +215,62 @@ class TrophyProgression {
     final onlineWins = stats['onlineWins'] ?? 0;
     final correctAnswers = stats['correctAnswers'] ?? 0;
     final wrongAnswers = stats['wrongAnswers'] ?? 0;
-    final bestStreak = stats['bestStreak'] ?? 0;
     final bestWinStreak = stats['bestWinStreak'] ?? 0;
-    final totalEarnings = stats['totalEarnings'] ?? 0;
     final totalAnswered = correctAnswers + wrongAnswers;
 
-    final participation = gamesPlayed * 4;
-    final winScore = wins * 18;
-    final onlineScore = onlineWins * 12;
-    final answerScore = correctAnswers ~/ 10;
-    final streakScore = bestStreak * 4 + bestWinStreak * 10;
-    final earningsScore = (totalEarnings ~/ 25000).clamp(0, 300);
-    final winRateBonus = _winRateBonus(gamesPlayed, wins);
-    final accuracyBonus = _accuracyBonus(totalAnswered, correctAnswers);
-    final penalties = losses * 6 + wrongAnswers ~/ 12;
+    // Zero wins or zero games = 0 trophies. Trophies must be earned through actual victory.
+    if (wins == 0 || gamesPlayed == 0) return 0;
 
-    final trophies = participation +
-        winScore +
-        onlineScore +
-        answerScore +
-        streakScore +
-        earningsScore +
-        winRateBonus +
-        accuracyBonus -
-        penalties;
+    // 1. Net Wins Differential (Zero-sum Ladder with Beginner Protection)
+    // For beginners (under 8 wins), losses are cushioned (-10). Higher up, losses hurt (-18).
+    final lossPenaltyPerGame = (wins < 8) ? 10 : 18;
+    final winScore = wins * 22;
+    final lossPenalty = losses * lossPenaltyPerGame;
+    final netScore = winScore - lossPenalty;
 
-    return trophies.clamp(0, 999999);
+    // A negative or zero net score cannot climb the competitive ladder
+    if (netScore <= 0) return 0;
+
+    // 2. High-Stakes Online Wins (Playing against live human opponents)
+    final onlineBonus = onlineWins * 8;
+
+    // 3. Win Streak Skill Bonus (capped to prevent runaway numbers)
+    final streakBonus =
+        (bestWinStreak >= 3) ? ((bestWinStreak - 2) * 5).clamp(0, 80) : 0;
+
+    // 4. Competitive Win Rate Evaluation (requires at least 10 matches)
+    final winRateBonus = _computeWinRateBonus(gamesPlayed, wins);
+
+    // 5. Accuracy & Knowledge Skill Bonus (requires at least 25 answered questions)
+    final accuracyBonus = _computeAccuracyBonus(totalAnswered, correctAnswers);
+
+    // 6. Aggregate Net Trophies
+    final rawTrophies =
+        netScore + onlineBonus + streakBonus + winRateBonus + accuracyBonus;
+
+    return rawTrophies.clamp(0, 99999);
   }
 
-  static int _winRateBonus(int gamesPlayed, int wins) {
+  static int _computeWinRateBonus(int gamesPlayed, int wins) {
     if (gamesPlayed < 10) return 0;
     final rate = wins / gamesPlayed;
-    if (rate >= 0.75) return 180;
-    if (rate >= 0.60) return 100;
-    if (rate >= 0.45) return 45;
+    if (rate >= 0.75) return 150;
+    if (rate >= 0.65) return 90;
+    if (rate >= 0.55) return 40;
+    if (rate < 0.40) return -40;
     return 0;
   }
 
-  static int _accuracyBonus(int totalAnswered, int correctAnswers) {
-    if (totalAnswered < 40) return 0;
+  static int _computeAccuracyBonus(int totalAnswered, int correctAnswers) {
+    if (totalAnswered < 25) return 0;
     final accuracy = correctAnswers / totalAnswered;
-    if (accuracy >= 0.85) return 140;
-    if (accuracy >= 0.75) return 80;
-    if (accuracy >= 0.65) return 35;
+    if (accuracy >= 0.88) return 60;
+    if (accuracy >= 0.75) return 30;
+    if (accuracy < 0.50) return -30;
     return 0;
   }
 
   static const String trophyBasisLabelAr =
-      'الفوز، الاستمرار، الدقة، والأداء الأونلاين';
+      'كؤوس لكل نتيجة في جميع الأطوار، مع مكافآت الفوز والدقة والسلسلة. '
+      'رتبة الخبرة ترتفع بالمستوى، والدوري يتحدد بالكؤوس.';
 }

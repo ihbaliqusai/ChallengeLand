@@ -19,7 +19,7 @@ object VerifiedCommerceStore {
     private const val STARTER = "${PREFIX}starter"
 
     private fun prefs(context: Context) =
-        context.getSharedPreferences("PlayerProgress", Context.MODE_PRIVATE)
+        ProgressionAccount.preferences(context)
 
     private fun uid(): String? = try {
         FirebaseAuth.getInstance().currentUser?.takeUnless { it.isAnonymous }?.uid
