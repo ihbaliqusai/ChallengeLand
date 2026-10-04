@@ -1,7 +1,7 @@
 name: challenge_land
 description: ChallengeLand quiz game with online multiplayer, matchmaking, invitations, friends, leaderboards, and Firebase-backed profiles.
 publish_to: "none"
-version: 3.6.6+34
+version: 3.6.7+35
 
 environment:
   sdk: ">=3.5.0 <4.0.0"
@@ -22,6 +22,7 @@ dependencies:
   shared_preferences: ^2.5.3
   connectivity_plus: ^6.1.0
   qr_flutter: ^4.1.0
+  video_player: ^2.10.1
 
 dev_dependencies:
   flutter_test:
@@ -64,6 +65,7 @@ flutter:
     - assets/characters/
     - assets/categories/
     - assets/fonts/NotoSansArabic-OFL.txt
+    - assets/videos/
   fonts:
     - family: Baloo
       fonts:

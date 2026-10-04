@@ -127,6 +127,15 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  /// Unblocks the initial gate if native or cloud character loading took longer
+  /// than the safety threshold, ensuring the player is never trapped.
+  void markCharacterStateLoaded() {
+    if (!characterStateLoaded) {
+      characterStateLoaded = true;
+      notifyListeners();
+    }
+  }
+
   /// Selects an already-unlocked character. Returns false if it is still locked.
   Future<bool> selectCharacter(int index) async {
     final character = CharacterCatalog.byIndex(index);
@@ -582,6 +591,10 @@ class AppState extends ChangeNotifier {
     await _runBusy(_authService.signInWithGoogle);
   }
 
+  Future<void> sendPasswordResetEmail(String email) async {
+    await _runBusy(() => _authService.sendPasswordResetEmail(email));
+  }
+
   Future<void> updateUsername(String username) async {
     await _authService.updateUsername(username);
     await _syncLegacyUser();
@@ -833,16 +846,22 @@ class AppState extends ChangeNotifier {
     try {
       // Account binding also works offline and must precede any wallet/stat
       // reads, otherwise a failed cloud read could expose the previous account.
-      await _syncLegacyUser();
+      await _syncLegacyUser().timeout(const Duration(seconds: 3));
       if (!isActive()) return;
-      final doc = await _firestore.collection('users').doc(uid).get();
+      final doc = await _firestore
+          .collection('users')
+          .doc(uid)
+          .get()
+          .timeout(const Duration(seconds: 4));
       final data = doc.data();
       if (!isActive()) return;
 
       // Bind the native account before reading its verified entitlements.
-      await _syncLegacyUser();
+      await _syncLegacyUser().timeout(const Duration(seconds: 3));
       if (!isActive()) return;
-      final commerce = await _nativeBridgeService.getCommerceState();
+      final commerce = await _nativeBridgeService
+          .getCommerceState()
+          .timeout(const Duration(seconds: 3), onTimeout: () => <String, dynamic>{});
       if (!isActive()) return;
       _applyCommerceState(commerce);
       final rawRemoteIds = data?['appliedCommerceDeliveryIds'];
@@ -897,29 +916,37 @@ class AppState extends ChangeNotifier {
         }
       }
 
-      await _syncLegacyUser();
+      await _syncLegacyUser().timeout(const Duration(seconds: 3));
       if (!isActive()) return;
-      final hydrated = await _nativeBridgeService.hydrateCommerceWallet(
+      await _nativeBridgeService.hydrateCommerceWallet(
         accountUid: uid,
         coins: coins,
         gems: gems,
         deliveryIds: remoteDeliveryIds.toList(),
-      );
-      if (!isActive() || !hydrated) return;
-      await _nativeBridgeService.setCategoryState(
-        unlocked: unlockedCategories,
-        isVip: isVip,
-      );
-      await _nativeBridgeService.setCharacterState(
-        selected: selectedCharacterIndex,
-        unlocked: purchasedCharacters.toList(),
-      );
+      ).timeout(const Duration(seconds: 3), onTimeout: () => true);
+
+      if (!isActive()) return;
+      try {
+        await _nativeBridgeService.setCategoryState(
+          unlocked: unlockedCategories,
+          isVip: isVip,
+        ).timeout(const Duration(seconds: 2));
+      } catch (_) {}
+
+      try {
+        await _nativeBridgeService.setCharacterState(
+          selected: selectedCharacterIndex,
+          unlocked: purchasedCharacters.toList(),
+        ).timeout(const Duration(seconds: 2));
+      } catch (_) {}
 
       if (!isActive()) return;
       _commerceHydratedUid = uid;
-      await checkAndAwardXpForGames();
+      try {
+        await checkAndAwardXpForGames().timeout(const Duration(seconds: 3));
+      } catch (_) {}
       if (!isActive()) return;
-      await _saveFullUserSnapshot(uid);
+      unawaited(_saveFullUserSnapshot(uid));
 
       // Restore only after the account wallet and delivery ledger are hydrated.
       // An already-used receipt must never credit a restored wallet again.
@@ -931,11 +958,25 @@ class AppState extends ChangeNotifier {
     } catch (e) {
       if (!isActive()) return;
       debugPrint('[AppState] Error loading user data: $e');
-      await checkAndAwardXpForGames();
+      try {
+        await checkAndAwardXpForGames().timeout(const Duration(seconds: 2));
+      } catch (_) {}
       if (!isActive()) return;
-      await loadCurrency();
-      await loadCategoryState();
-      await loadCharacterState();
+      try {
+        await loadCurrency().timeout(const Duration(seconds: 2));
+      } catch (_) {}
+      try {
+        await loadCategoryState().timeout(const Duration(seconds: 2));
+      } catch (_) {}
+      try {
+        await loadCharacterState().timeout(const Duration(seconds: 2));
+      } catch (_) {}
+    } finally {
+      if (isActive()) {
+        if (!categoryStateLoaded) categoryStateLoaded = true;
+        if (!characterStateLoaded) characterStateLoaded = true;
+        notifyListeners();
+      }
     }
   }
 

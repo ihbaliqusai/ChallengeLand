@@ -30,6 +30,8 @@ class _FirstRunChallengeScreenState extends State<FirstRunChallengeScreen>
 
   bool _launching = false;
   bool _waitingForResult = false;
+  int _pendingResultAttempts = 0;
+  static const int _maxPendingResultAttempts = 4;
   String? _error;
 
   int _selectedCharacterIndex = 1; // Default to Omar (index 1)
@@ -106,8 +108,11 @@ class _FirstRunChallengeScreenState extends State<FirstRunChallengeScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      if (_launching && !_waitingForResult && mounted) {
-        setState(() => _waitingForResult = true);
+      if (_launching) {
+        _pendingResultAttempts = 0;
+        if (!_waitingForResult && mounted) {
+          setState(() => _waitingForResult = true);
+        }
       }
       _consumePendingResult();
     }
@@ -115,6 +120,7 @@ class _FirstRunChallengeScreenState extends State<FirstRunChallengeScreen>
 
   Future<void> _consumePendingResult() async {
     if (!mounted) return;
+    _pendingResultAttempts++;
     final handled =
         await CampaignResultHandler.consumeAndHandlePendingCampaignResult(
       context: context,
@@ -124,10 +130,20 @@ class _FirstRunChallengeScreenState extends State<FirstRunChallengeScreen>
       setState(() {
         _launching = false;
         _waitingForResult = false;
+        _pendingResultAttempts = 0;
       });
       return;
     }
     if (_launching) {
+      if (_pendingResultAttempts >= _maxPendingResultAttempts) {
+        // Player returned without completing the stage (e.g. pressed back).
+        setState(() {
+          _launching = false;
+          _waitingForResult = false;
+          _pendingResultAttempts = 0;
+        });
+        return;
+      }
       Future<void>.delayed(const Duration(milliseconds: 350), () {
         if (mounted && _launching) _consumePendingResult();
       });
@@ -881,6 +897,38 @@ class _FirstRunChallengeScreenState extends State<FirstRunChallengeScreen>
                   fontSize: 13,
                 ),
               ),
+              if (_waitingForResult) ...[
+                const SizedBox(height: 14),
+                TextButton.icon(
+                  onPressed: () {
+                    HapticFeedback.lightImpact();
+                    setState(() {
+                      _launching = false;
+                      _waitingForResult = false;
+                      _pendingResultAttempts = 0;
+                    });
+                  },
+                  icon: const Icon(Icons.close_rounded,
+                      size: 16, color: Color(0xFFF87171)),
+                  label: const Text(
+                    'إلغاء والعودة للساحة',
+                    style: TextStyle(
+                      color: Color(0xFFF87171),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  style: TextButton.styleFrom(
+                    backgroundColor:
+                        const Color(0xFFEF4444).withValues(alpha: 0.15),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
