@@ -330,6 +330,18 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     private boolean boardOpponentResultReady = false;
     private boolean boardOpponentCorrect = false;
     private boolean boardOpponentHalf = false;
+    private int boardOpponentPoints = 0;
+    private boolean boardPickPending = false;
+    private boolean boardAdvancePending = false;
+    private boolean boardDuelFinished = false;
+    private final Handler duelConnectionHandler = new Handler();
+    private Runnable duelForfeitRunnable;
+    private DatabaseReference duelTerminalRef;
+    private ValueEventListener duelTerminalListener;
+    private DatabaseReference duelConnectionRef;
+    private ValueEventListener duelConnectionListener;
+    private Map<String, Object> duelTurnLedger = new HashMap<>();
+    private Runnable stopDuelSessionListener;
     private DatabaseReference boardPicksRef;
     private ValueEventListener boardPicksListener;
     private DatabaseReference boardReadyRef;
@@ -1837,6 +1849,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     /** Answer/reveal flow for the offline competition (you + 3 AI contestants). */
     private void handleOfflineContestantAnswer(final boolean timeout) {
         final boolean playerCorrect = !timeout && myAnswer == rightAnswer;
+        final int answeredDuelTurn = boardOnlineTurn;
         if (!timeout) {
             offlineContestants.markPlayerAnswered();
         }
@@ -1847,6 +1860,8 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
             @Override
             public void run() {
                 if (EXITING) return;
+                if (boardOnline && !boardRoomMatch
+                        && (boardDuelFinished || answeredDuelTurn != boardOnlineTurn)) return;
                 t++;
                 switch (t) {
                     case 1:
@@ -1999,12 +2014,12 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         int topCount = 0;
         for (boolean top : seatWon) if (top) topCount++;
         final boolean tied = win && topCount > 1;
-        String headline = win ? "🏆 فزت بالمباراة!"
+        String headline = tied ? "🤝 تعادل!" : win ? "🏆 فزت بالمباراة!"
                 : ("انتهت المباراة — ترتيبك " + rank + " من " + count);
         try {
             PlayerStats.recordGameEnd(GameActivity.this, tied ? ProgressionRules.DRAW
                     : win ? ProgressionRules.WIN : ProgressionRules.LOSS, myScore);
-            PlayerProgress.onGameFinished(GameActivity.this, win, myScore,
+            PlayerProgress.onGameFinished(GameActivity.this, win && !tied, myScore,
                     PlayerStats.getBestStreak(GameActivity.this), usedAllHelps(), usedAnyHelp());
         } catch (Exception ignored) {
         }
@@ -3909,6 +3924,15 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
 
     private void onCellPicked(int col, int row) {
         if (boardCampaignMatch && !ensureCampaignBoardCategoryAccess()) return;
+        if (boardOnline && !boardRoomMatch) {
+            if (!boardPickerIsHuman || boardPickPending || boardPickedCol >= 0
+                    || col < 0 || col >= boardCols || row < 0 || row >= BOARD_ROWS
+                    || boardCellConsumed[col][row]) return;
+            boardPickPending = true;
+            cancelBoardSelectTimer();
+            claimDuelCell(boardOnlineTurn, col, row);
+            return;
+        }
         boardPickedCol = col;
         boardPickedRow = row;
         boardCurrentQuestion = boardCellQuestion[col][row];
@@ -3929,6 +3953,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     }
 
     private void enterBoardQuestion(boolean humanTurn) {
+        if (boardOnline && boardDuelFinished) return;
         hideBoardOverlay();
         initQuestion();
         // Fresh cell: the value starts at full (the steal reuses the same cell without
@@ -3949,6 +3974,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     }
 
     private void endBoardTurn() {
+        if (boardOnline && boardDuelFinished) return;
         showBoardRefereePanel(false);
         if (boardLocalTeams && offlineContestants != null) {
             offlineContestants.setLocalTeamsActiveQuestionSlot(-1);
@@ -3999,6 +4025,8 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
             return;
         }
         if (boardOnline) {
+            if (boardDuelFinished) return;
+            boardDuelFinished = true;
             markMyGameState("finished");
             detachBoardListeners();
             detachOpponentStatusListener();
@@ -4163,6 +4191,34 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         cardsScroll.addView(cardsRow);
         root.addView(cardsScroll);
 
+        if (boardOnline && !boardRoomMatch) {
+            Button details = new Button(this);
+            details.setText("تفاصيل الأسئلة والنقاط");
+            details.setAllCaps(false);
+            final LinearLayout history = new LinearLayout(this);
+            history.setOrientation(LinearLayout.VERTICAL);
+            history.setVisibility(View.GONE);
+            for (int turn = 0; turn < boardTotalTurns; turn++) {
+                Map<String, Object> result = OnlineDuelState.map(duelTurnLedger.get("t" + turn));
+                if (!Boolean.TRUE.equals(result.get("done"))) continue;
+                int col = OnlineDuelState.number(result.get("col"), -1);
+                int row = OnlineDuelState.number(result.get("row"), -1);
+                String name = myID.equals(result.get("playerId")) ? myName : opponentName;
+                int points = OnlineDuelState.number(result.get("points"), 0);
+                String outcome = Boolean.TRUE.equals(result.get("correct")) ? "صحيحة" : "خاطئة / انتهى الوقت";
+                String question = boardCellQuestion != null && col >= 0 && col < boardCols
+                        && row >= 0 && row < BOARD_ROWS ? boardCellQuestion[col][row].getQ() : "";
+                TextView entry = makeBoardText((turn + 1) + ". " + name + " • " + outcome
+                        + " • " + points + " نقطة\n" + question, 13f, 0xFFE2E8F0, Gravity.RIGHT);
+                entry.setPadding(dpx(8), dpx(8), dpx(8), dpx(8));
+                history.addView(entry);
+            }
+            details.setOnClickListener(v -> history.setVisibility(
+                    history.getVisibility() == View.GONE ? View.VISIBLE : View.GONE));
+            root.addView(details);
+            root.addView(history);
+        }
+
         // Return button
         Button back = new Button(this);
         back.setText("العودة للقائمة");
@@ -4185,7 +4241,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         overlay.addView(scroll);
 
         // Auto-continue if the player lingers.
-        new Handler().postDelayed(new Runnable() {
+        if (!(boardOnline && !boardRoomMatch)) new Handler().postDelayed(new Runnable() {
             @Override
             public void run() {
                 if (!EXITING) proceedAfterBoardResult();
@@ -4572,20 +4628,21 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
 
     /** Owner creates the game session; the joiner looks it up. Then both pick a category. */
     private void startOnlineBoardSession() {
+        if (safeIntentString("duelSessionId", "").isEmpty()) {
+            Toast.makeText(this, "معرّف المباراة مفقود. أعد البحث عن منافس.", Toast.LENGTH_LONG).show();
+            finish();
+            return;
+        }
+        gameID = safeIntentString("duelSessionId", "");
+        attachDuelTerminalListener();
         if (meOwner) {
-            new Data().createGameID(myID, getOpponentIds(), new OnCreateGameIdListener() {
+            new Data().createGameIDWithSession(myID, getOpponentIds(), gameID, new OnCreateGameIdListener() {
                 @Override
                 public void onSuccess(String createdGameID) {
-                    if (EXITING) return;
+                    if (EXITING || boardDuelFinished) return;
                     gameID = createdGameID;
                     beginOnlineGameSession();
                     attachOpponentStatusListener();
-                    for (MatchOpponent opponent : opponents) {
-                        if (!opponent.bot && opponent.id != null && !opponent.id.trim().isEmpty()) {
-                            FirebaseDatabase.getInstance().getReference()
-                                    .child("temp").child(opponent.id).child("gameID").setValue(createdGameID);
-                        }
-                    }
                     showOnlineBoardCategorySelect();
                 }
 
@@ -4596,15 +4653,13 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                 }
             });
         } else {
-            // getGameID keeps a listener attached and fires again when the owner writes
-            // the temp gameID, so an empty first result just means "wait".
-            new Data().getGameID(myID, new OnGetGameIdListener() {
+            // Wait for the session reserved by the atomic matchmaking transaction.
+            stopDuelSessionListener = new Data().getDuelGameID(myID, opponentID, safeIntentString("duelSessionId", ""), new OnGetGameIdListener() {
                 @Override
                 public void onSuccess(String foundGameID) {
-                    if (EXITING || (gameID != null && !gameID.trim().isEmpty())) return;
+                    if (EXITING || boardDuelFinished || boardPicksRef != null) return;
                     if (foundGameID == null || foundGameID.trim().isEmpty()) return;
                     gameID = foundGameID;
-                    Data.removeTempGameID(foundGameID);
                     beginOnlineGameSession();
                     attachOpponentStatusListener();
                     showOnlineBoardCategorySelect();
@@ -4714,6 +4769,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     }
 
     private void onOnlineCategoryChosen(String category) {
+        if (boardDuelFinished) return;
         if (gameID == null || gameID.trim().isEmpty()) return;
         stopCategorySelectMusicIfPlaying();
         showBoardWaitingOverlay("اخترت: " + category
@@ -4822,7 +4878,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     }
 
     private void buildAndPushOnlineBoard(String ownerCat, String joinerCat) {
-        if (boardCellQuestion != null) return;
+        if (boardDuelFinished || boardCellQuestion != null) return;
         boardSelectedCategories.clear();
         boardSelectedCategories.add(ownerCat);
         boardSelectedCategories.add(joinerCat);
@@ -4837,6 +4893,12 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
             }
         }
         HashMap<String, Object> payload = new HashMap<>();
+        payload.put("protocolVersion", 2);
+        payload.put("ownerId", myID);
+        payload.put("joinerId", opponentID);
+        payload.put("rows", BOARD_ROWS);
+        payload.put("currentTurn", 0);
+        payload.put("phase", "selecting");
         payload.put("categories/0", ownerCat);
         payload.put("categories/1", joinerCat);
         for (int col = 0; col < 2; col++) {
@@ -4934,7 +4996,9 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         boardCellsRemaining = cols * BOARD_ROWS;
         boardTotalTurns = cols * BOARD_ROWS;
         hideBoardOverlay();
-        beginOnlineBoardTurn(0);
+        if (!boardRoomMatch) applyDuelScores(snapshot);
+        beginOnlineBoardTurn(boardRoomMatch ? 0
+                : OnlineDuelState.number(snapshot.child("currentTurn").getValue(), 0));
     }
 
     private String boardCellString(DataSnapshot snap, String fallback) {
@@ -4947,6 +5011,8 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     private void beginOnlineBoardTurn(int turn) {
         detachBoardTurnListener();
         boardOnlineTurn = turn;
+        boardPickPending = false;
+        boardAdvancePending = false;
         boardWatchEntered = false;
         boardWatchQuestionShown = false;
         boardWatchResultApplied = false;
@@ -5032,7 +5098,152 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     }
 
     private void advanceOnlineBoardTurn() {
-        beginOnlineBoardTurn(boardOnlineTurn + 1);
+        if (boardRoomMatch) {
+            beginOnlineBoardTurn(boardOnlineTurn + 1);
+            return;
+        }
+        if (boardAdvancePending || boardDuelFinished || EXITING) return;
+        boardAdvancePending = true;
+        final int turn = boardOnlineTurn;
+        boardRef().addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override public void onDataChange(DataSnapshot snapshot) {
+                boardAdvancePending = false;
+                if (EXITING || boardDuelFinished || boardOnlineTurn != turn) return;
+                if (!Boolean.TRUE.equals(snapshot.child("turns").child("t" + turn)
+                        .child("done").getValue(Boolean.class))) {
+                    new Handler().postDelayed(() -> {
+                        if (!EXITING && boardOnlineTurn == turn) advanceOnlineBoardTurn();
+                    }, 750);
+                    return;
+                }
+                applyDuelScores(snapshot);
+                beginOnlineBoardTurn(OnlineDuelState.number(snapshot.child("currentTurn").getValue(), turn + 1));
+            }
+            @Override public void onCancelled(DatabaseError error) {
+                boardAdvancePending = false;
+                retryDuelAction(turn, () -> advanceOnlineBoardTurn());
+            }
+        });
+    }
+
+    private void attachDuelTerminalListener() {
+        duelTerminalRef = boardRef();
+        duelTerminalListener = new ValueEventListener() {
+            @Override public void onDataChange(DataSnapshot snapshot) {
+                if (!EXITING && !boardDuelFinished
+                        && "forfeit".equals(snapshot.child("finishReason").getValue(String.class)))
+                    showDuelForfeitResult(snapshot);
+            }
+            @Override public void onCancelled(DatabaseError error) {}
+        };
+        duelTerminalRef.addValueEventListener(duelTerminalListener);
+    }
+
+    private void finishDuelByForfeit() {
+        if (EXITING || boardDuelFinished) return;
+        FirebaseDatabase.getInstance().getReference().child("Games").child(gameID)
+                .runTransaction(new Transaction.Handler() {
+            @Override public Transaction.Result doTransaction(MutableData data) {
+                String status = String.valueOf(data.child(opponentID).child("status").getValue());
+                if (!"left".equals(status) && !"left_timeout".equals(status)) return Transaction.abort();
+                Map<String, Object> state = OnlineDuelState.map(data.child("board").getValue());
+                OnlineDuelState.forfeit(state, myID);
+                data.child("board").setValue(state);
+                return Transaction.success(data);
+            }
+            @Override public void onComplete(DatabaseError error, boolean committed, DataSnapshot snapshot) {
+                if (EXITING || boardDuelFinished) return;
+                if (error != null) retryDuelAction(boardOnlineTurn, () -> finishDuelByForfeit());
+                else if (committed && "forfeit".equals(snapshot.child("board").child("finishReason").getValue(String.class)))
+                    showDuelForfeitResult(snapshot.child("board"));
+            }
+        }, false);
+    }
+
+    private void showDuelForfeitResult(DataSnapshot snapshot) {
+        if (boardDuelFinished) return;
+        boardDuelFinished = true;
+        stopTimer(false);
+        cancelBoardSelectTimer();
+        cancelPendingBoardReveal();
+        CAN_PLAY = false;
+        CAN_HOME = false;
+        applyDuelScores(snapshot);
+        detachBoardListeners();
+        detachOpponentStatusListener();
+        markMyGameState("finished");
+        boolean win = myID.equals(snapshot.child("winnerId").getValue(String.class));
+        int score = offlineContestants.scoreForSlot(0);
+        PlayerStats.recordGameEnd(this, win ? ProgressionRules.WIN : ProgressionRules.LOSS, score);
+        PlayerProgress.onGameFinished(this, win, score, PlayerStats.getBestStreak(this), usedAllHelps(), usedAnyHelp());
+        showBoardResultScreen(win ? "🏆 فزت بانسحاب المنافس" : "انتهت المباراة بالانسحاب",
+                0, 0, 0, new boolean[]{win, !win});
+    }
+
+    private void applyDuelScores(DataSnapshot snapshot) {
+        Map<String, Object> state = OnlineDuelState.map(snapshot.getValue());
+        duelTurnLedger = new HashMap<>(OnlineDuelState.map(state.get("turns")));
+        Map<String, Object> scores = OnlineDuelState.scores(state);
+        offlineContestants.setScoreForSlot(0, OnlineDuelState.number(scores.get(myID), 0));
+        offlineContestants.setScoreForSlot(1, OnlineDuelState.number(scores.get(opponentID), 0));
+        if (boardCellConsumed == null) return;
+        for (int col = 0; col < boardCols; col++) {
+            for (int row = 0; row < BOARD_ROWS; row++) {
+                boardCellConsumed[col][row] = snapshot.child("consumed").child(col + "_" + row).exists();
+            }
+        }
+    }
+
+    private void retryDuelAction(int turn, Runnable action) {
+        if (EXITING || boardDuelFinished || turn != boardOnlineTurn) return;
+        showBoardWaitingOverlay("جارٍ مزامنة المباراة… تحقق من اتصال الإنترنت");
+        new Handler().postDelayed(() -> {
+            if (!EXITING && !boardDuelFinished && turn == boardOnlineTurn) action.run();
+        }, 1500);
+    }
+
+    private void claimDuelCell(final int turn, final int col, final int row) {
+        boardRef().runTransaction(new Transaction.Handler() {
+            @Override public Transaction.Result doTransaction(MutableData data) {
+                Map<String, Object> state = OnlineDuelState.map(data.getValue());
+                if (!OnlineDuelState.claim(state, myID, turn, col, row)) return Transaction.abort();
+                data.setValue(state);
+                return Transaction.success(data);
+            }
+            @Override public void onComplete(DatabaseError error, boolean committed, DataSnapshot snapshot) {
+                if (EXITING || boardDuelFinished || boardOnlineTurn != turn) return;
+                if (error != null) {
+                    retryDuelAction(turn, () -> claimDuelCell(turn, col, row));
+                    return;
+                }
+                boardPickPending = false;
+                if (!committed) {
+                    showBoardWaitingOverlay("تعذر تثبيت الاختيار. أعد الدخول إلى المباراة.");
+                    return;
+                }
+                boardPickedCol = col;
+                boardPickedRow = row;
+                boardCurrentQuestion = boardCellQuestion[col][row];
+                boardCellConsumed[col][row] = true;
+                enterBoardQuestion(true);
+            }
+        }, false);
+    }
+
+    private void completeDuelTurn(final int turn, final boolean correct, final int reveals) {
+        boardRef().runTransaction(new Transaction.Handler() {
+            @Override public Transaction.Result doTransaction(MutableData data) {
+                Map<String, Object> state = OnlineDuelState.map(data.getValue());
+                if (!OnlineDuelState.complete(state, myID, turn, correct, reveals)) return Transaction.abort();
+                data.setValue(state);
+                return Transaction.success(data);
+            }
+            @Override public void onComplete(DatabaseError error, boolean committed, DataSnapshot snapshot) {
+                if (EXITING || boardDuelFinished || boardOnlineTurn != turn) return;
+                if (error != null) retryDuelAction(turn, () -> completeDuelTurn(turn, correct, reveals));
+                else if (!committed) showBoardWaitingOverlay("تعذر تثبيت النتيجة. أعد الدخول إلى المباراة.");
+            }
+        }, false);
     }
 
     private void writeOnlineTurnPick(int turn, int col, int row) {
@@ -5045,6 +5256,10 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
 
     private void writeOnlineTurnResult(int turn, boolean correct, boolean half) {
         if (gameID == null || gameID.trim().isEmpty()) return;
+        if (!boardRoomMatch) {
+            completeDuelTurn(turn, correct, boardRevealCount);
+            return;
+        }
         HashMap<String, Object> payload = new HashMap<>();
         payload.put("correct", correct);
         payload.put("half", half);
@@ -5063,6 +5278,8 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                 Long col = snapshot.child("col").getValue(Long.class);
                 Long row = snapshot.child("row").getValue(Long.class);
                 if (col != null && row != null && !boardWatchEntered) {
+                    if (col < 0 || col >= boardCols || row < 0 || row >= BOARD_ROWS) return;
+                    if (!boardRoomMatch && !opponentID.equals(snapshot.child("playerId").getValue(String.class))) return;
                     boardWatchEntered = true;
                     boardPickedCol = col.intValue();
                     boardPickedRow = row.intValue();
@@ -5079,6 +5296,8 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                     Boolean half = snapshot.child("half").getValue(Boolean.class);
                     boardOpponentCorrect = correct != null && correct;
                     boardOpponentHalf = half != null && half;
+                    boardOpponentPoints = OnlineDuelState.number(snapshot.child("points").getValue(),
+                            boardOpponentCorrect ? currentBoardCellValue() / (boardOpponentHalf ? 2 : 1) : 0);
                     boardOpponentResultReady = true;
                     maybeApplyOpponentResult();
                 }
@@ -5128,8 +5347,13 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         if (boardWatchResultApplied || !boardWatchQuestionShown || !boardOpponentResultReady) return;
         boardWatchResultApplied = true;
         final boolean correct = boardOpponentCorrect;
+        final int turnAtResult = boardOnlineTurn;
         int value = currentBoardCellValue();
-        if (boardOpponentHalf) value = value / 2;
+        if (boardRoomMatch) {
+            if (boardOpponentHalf) value = value / 2;
+        } else {
+            value = boardOpponentPoints;
+        }
         if (imgRight != null) imgRight.setImageResource(R.drawable.frame_right);
         if (correct) {
             offlineContestants.awardCell(boardWatchSeat, value);
@@ -5145,7 +5369,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         new Handler().postDelayed(new Runnable() {
             @Override
             public void run() {
-                if (!EXITING) advanceOnlineBoardTurn();
+                if (!EXITING && boardOnlineTurn == turnAtResult) advanceOnlineBoardTurn();
             }
         }, BOARD_REVEAL_HOLD_MS);
     }
@@ -5153,6 +5377,10 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     // ---- Disconnect handling --------------------------------------------
 
     private void handleBoardOpponentLeft() {
+        if (!boardRoomMatch) {
+            finishDuelByForfeit();
+            return;
+        }
         if (boardOpponentLeft) return;
         boardOpponentLeft = true;
         detachBoardTurnListener();
@@ -5251,6 +5479,17 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     }
 
     private void detachBoardListeners() {
+        if (stopDuelSessionListener != null) stopDuelSessionListener.run();
+        stopDuelSessionListener = null;
+        duelConnectionHandler.removeCallbacksAndMessages(null);
+        if (duelTerminalRef != null && duelTerminalListener != null)
+            duelTerminalRef.removeEventListener(duelTerminalListener);
+        duelTerminalRef = null;
+        duelTerminalListener = null;
+        if (duelConnectionRef != null && duelConnectionListener != null)
+            duelConnectionRef.removeEventListener(duelConnectionListener);
+        duelConnectionRef = null;
+        duelConnectionListener = null;
         detachBoardSetupListeners();
         detachBoardTurnListener();
     }
@@ -5258,6 +5497,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     // ---- Board grid screen ----------------------------------------------
 
     private void showBoardGrid() {
+        if (boardOnline && boardDuelFinished) return;
         cancelBoardSelectTimer();
         boardAwaitingTypedInput = false;
         showBoardTypedPanel(false);
@@ -7283,6 +7523,19 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         } catch (Exception ignored) {
         }
         markMyGameState("active");
+        if (boardOnline && !boardRoomMatch && duelConnectionRef == null) {
+            duelConnectionRef = FirebaseDatabase.getInstance().getReference(".info/connected");
+            duelConnectionListener = new ValueEventListener() {
+                @Override public void onDataChange(DataSnapshot snapshot) {
+                    if (EXITING || boardDuelFinished || !Boolean.TRUE.equals(snapshot.getValue(Boolean.class))) return;
+                    myStatusRef.onDisconnect().setValue("left").addOnSuccessListener(unused -> {
+                        if (!EXITING && !boardDuelFinished) markMyGameState("active");
+                    });
+                }
+                @Override public void onCancelled(DatabaseError error) {}
+            };
+            duelConnectionRef.addValueEventListener(duelConnectionListener);
+        }
         attachOpponentStatusListener();
     }
 
@@ -7308,7 +7561,19 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                     }
                     String status = snapshot.getValue(String.class);
                     if ("left".equals(status) || "left_timeout".equals(status)) {
-                        convertOpponentToComputer(opponent);
+                        if (boardOnline && !boardRoomMatch) {
+                            if (duelForfeitRunnable != null) return;
+                            duelForfeitRunnable = () -> {
+                                duelForfeitRunnable = null;
+                                if (!EXITING && !boardDuelFinished) convertOpponentToComputer(opponent);
+                            };
+                            showDialog("انقطع اتصال المنافس. ننتظر عودته لمدة 20 ثانية…", "", 700, 2500,
+                                    R.drawable.mouth_01, false);
+                            duelConnectionHandler.postDelayed(duelForfeitRunnable, 20_000L);
+                        } else convertOpponentToComputer(opponent);
+                    } else if ("active".equals(status) && boardOnline && !boardRoomMatch) {
+                        if (duelForfeitRunnable != null) duelConnectionHandler.removeCallbacks(duelForfeitRunnable);
+                        duelForfeitRunnable = null;
                     } else if ("eliminated".equals(status)) {
                         opponent.eliminated = true;
                         opponentHudController.refreshOpponentPanels();

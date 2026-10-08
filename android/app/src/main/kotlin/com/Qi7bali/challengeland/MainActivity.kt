@@ -25,12 +25,14 @@ class MainActivity : FlutterActivity() {
         installSplashScreen()
         VerifiedCommerceStore.invalidateWalletHydration(this)
         super.onCreate(savedInstanceState)
+        DuelNotifications.initialize(this)
         handleIntentData(intent)
         syncDailyReminderSchedule()
     }
 
     override fun onResume() {
         super.onResume()
+        DuelNotifications.resume(this)
         syncDailyReminderSchedule()
     }
 
@@ -45,6 +47,14 @@ class MainActivity : FlutterActivity() {
         super.onPause()
     }
 
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 7502 || requestCode == 7401) {
+            DuelNotifications.sync(this)
+            syncDailyReminderSchedule()
+        }
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
@@ -52,6 +62,8 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun handleIntentData(intent: Intent?) {
+        val recipient = intent?.getStringExtra("duelRecipientUid")
+        if (recipient != null && recipient != com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid) return
         val uri = intent?.data
         if (uri != null && uri.scheme == "challengeland") {
             val host = uri.host ?: uri.path.orEmpty()
@@ -566,6 +578,7 @@ class MainActivity : FlutterActivity() {
                     "setNotificationsEnabled" -> {
                         val enabled = call.argument<Boolean>("enabled") ?: true
                         AppPrefs.setNotificationsEnabled(this, enabled)
+                        DuelNotifications.sync(this)
                         if (enabled) {
                             NotificationScheduler.scheduleDailyReminder(this)
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {

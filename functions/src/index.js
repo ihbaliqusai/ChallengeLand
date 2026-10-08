@@ -2,6 +2,9 @@
 
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore } = require("firebase-admin/firestore");
+const { getDatabase } = require("firebase-admin/database");
+const { getMessaging } = require("firebase-admin/messaging");
+const { createDuelNotifications, InviteError } = require("./duel_notifications");
 const { setGlobalOptions } = require("firebase-functions/v2");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { onMessagePublished } = require("firebase-functions/v2/pubsub");
@@ -60,6 +63,23 @@ function protectedCallable(handler) {
 
 exports.verifyPlayPurchase = protectedCallable((service, uid, data) => service.verifyPurchase(uid, data));
 exports.restoreCommercePurchases = protectedCallable((service, uid) => service.restorePurchases(uid));
+
+let duelNotifications;
+function duelCallable(method) {
+  return onCall(async request => {
+    const uid = requireAccount(request);
+    duelNotifications ||= createDuelNotifications({ db: getFirestore(), realtime: getDatabase(
+      undefined, "https://challengeland-default-rtdb.firebaseio.com"), messaging: getMessaging() });
+    try { return await duelNotifications[method](uid, request.data); }
+    catch (error) {
+      const code = error instanceof InviteError ? error.code : "internal";
+      logger.warn("Duel notification operation failed", { uid, code });
+      throw new HttpsError(code, error instanceof InviteError ? error.message : "Notification service unavailable.");
+    }
+  });
+}
+exports.registerDuelDevice = duelCallable("register");
+exports.sendDuelInvite = duelCallable("send");
 
 // Eventarc authenticates the Pub/Sub trigger. There is no public RTDN webhook.
 // Only Google's Play notification publisher should be granted publish on topic.

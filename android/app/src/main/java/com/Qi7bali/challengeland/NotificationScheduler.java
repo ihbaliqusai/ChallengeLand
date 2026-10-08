@@ -5,32 +5,32 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 
-import java.util.Calendar;
+import java.util.TimeZone;
 
 public final class NotificationScheduler {
     private static final int DAILY_REMINDER_REQUEST = 7401;
+    static final String ACTION_REMINDER = "com.qi7bali.landchallengeonline.DAILY_REWARD_REMINDER";
+    static final String PREFS = "DailyPlayReminder";
+    static final String LAST_DELIVERED_DAY = "lastDeliveredDay";
 
     private NotificationScheduler() {}
 
     public static void scheduleDailyReminder(Context context) {
+        if (!AppPrefs.isNotificationsEnabled(context)) {
+            cancelDailyReminder(context);
+            return;
+        }
+        DailyReminderReceiver.createChannel(context);
         AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
         if (alarmManager == null) {
             return;
         }
 
-        Calendar trigger = Calendar.getInstance();
-        trigger.set(Calendar.HOUR_OF_DAY, 20);
-        trigger.set(Calendar.MINUTE, 0);
-        trigger.set(Calendar.SECOND, 0);
-        trigger.set(Calendar.MILLISECOND, 0);
-        if (trigger.getTimeInMillis() <= System.currentTimeMillis()) {
-            trigger.add(Calendar.DAY_OF_YEAR, 1);
-        }
-
-        alarmManager.setInexactRepeating(
+        String lastDay = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .getString(LAST_DELIVERED_DAY, "");
+        alarmManager.setAndAllowWhileIdle(
                 AlarmManager.RTC_WAKEUP,
-                trigger.getTimeInMillis(),
-                AlarmManager.INTERVAL_DAY,
+                DailyReminderPolicy.nextTriggerAt(System.currentTimeMillis(), TimeZone.getDefault(), lastDay),
                 reminderIntent(context)
         );
     }
@@ -40,11 +40,13 @@ public final class NotificationScheduler {
         if (alarmManager != null) {
             alarmManager.cancel(reminderIntent(context));
         }
+        android.app.NotificationManager manager = context.getSystemService(android.app.NotificationManager.class);
+        if (manager != null) manager.cancel(DAILY_REMINDER_REQUEST);
     }
 
     private static PendingIntent reminderIntent(Context context) {
         Intent intent = new Intent(context, DailyReminderReceiver.class);
-        intent.setAction("com.qi7bali.landchallengeonline.DAILY_REWARD_REMINDER");
+        intent.setAction(ACTION_REMINDER);
         return PendingIntent.getBroadcast(
                 context,
                 DAILY_REMINDER_REQUEST,

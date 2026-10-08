@@ -1,5 +1,8 @@
 {
   "rules": {
+    "DuelRequestsV2": {
+      ".indexOn": ["status"]
+    },
     "TvMatches": {
       ".read": true,
       ".write": true

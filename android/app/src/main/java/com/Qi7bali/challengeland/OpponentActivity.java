@@ -29,6 +29,18 @@ public class OpponentActivity extends AppCompatActivity {
     boolean requestAccepted = false;
     boolean ownRequestInserted = false;
     boolean launchingGame = false;
+    private boolean resolvingOpponent = false;
+    private boolean closed = false;
+    private String duelSessionId = "";
+    private Runnable stopRequestListener;
+    private final Handler queueHeartbeatHandler = new Handler();
+    private final Runnable queueHeartbeat = new Runnable() {
+        @Override public void run() {
+            if (closed || requestAccepted || launchingGame) return;
+            Data.refreshDuelSearch(userID);
+            queueHeartbeatHandler.postDelayed(this, 30_000L);
+        }
+    };
     String userID = "";
     String userName = "";
     String userPhoto = "";
@@ -109,14 +121,23 @@ public class OpponentActivity extends AppCompatActivity {
 
         scheduleCancelButton();
         startBrowsingOpponents();
-        if ("friend".equals(matchMode) && !friendCode.isEmpty()) {
-            if (btnCancel != null) {
-                btnCancel.setVisibility(View.VISIBLE);
+        ownRequestInserted = true;
+        Data.resetDuelSearch(userID, "friend".equals(matchMode) ? "__friend_pending__" : "", () -> {
+            if (closed || isFinishing()) return;
+            queueHeartbeatHandler.postDelayed(queueHeartbeat, 30_000L);
+            if ("friend".equals(matchMode) && !friendCode.isEmpty()) {
+                if (btnCancel != null) {
+                    btnCancel.setVisibility(View.VISIBLE);
+                }
+                startFriendInviteFlow();
+            } else {
+                startRandomMatchFlow();
             }
-            startFriendInviteFlow();
-        } else {
-            startRandomMatchFlow();
-        }
+        }, error -> {
+            if (closed || isFinishing()) return;
+            setStatus("تعذر بدء البحث. تحقق من الاتصال وأعد المحاولة.");
+            if (btnCancel != null) btnCancel.setVisibility(View.VISIBLE);
+        });
     }
 
     private void scheduleCancelButton() {
@@ -134,7 +155,7 @@ public class OpponentActivity extends AppCompatActivity {
         new Data().getUserIdByFriendCode(normalizedFriendCode, new OnGetGameIdListener() {
             @Override
             public void onSuccess(final String targetUserId) {
-                if (launchingGame) {
+                if (closed || launchingGame) {
                     return;
                 }
                 if (targetUserId == null || targetUserId.trim().isEmpty()) {
@@ -155,7 +176,7 @@ public class OpponentActivity extends AppCompatActivity {
 
                     @Override
                     public void onSuccess(String idOpponent) {
-                        if (launchingGame) {
+                        if (closed || launchingGame) {
                             return;
                         }
                         if (idOpponent != null && !idOpponent.isEmpty() && !"null".equals(idOpponent)) {
@@ -175,7 +196,7 @@ public class OpponentActivity extends AppCompatActivity {
 
                     @Override
                     public void onFailed(DatabaseError error) {
-                        if (launchingGame) return;
+                        if (closed || launchingGame) return;
                         ownRequestInserted = true;
                         Data.insertRequest(userID, targetUserId);
                         waitForAcceptedRequest();
@@ -201,14 +222,14 @@ public class OpponentActivity extends AppCompatActivity {
         matchmakingRunnable = new Runnable() {
             @Override
             public void run() {
-                if (!requestAccepted && !launchingGame) {
+                if (!closed && !requestAccepted && !launchingGame) {
                     new Data().claimFriendRequest(userID, targetUserId, new OnRandomRequestListener() {
                         @Override
                         public void onStart() {}
 
                         @Override
                         public void onSuccess(String idOpponent) {
-                            if (launchingGame) return;
+                            if (closed || launchingGame) return;
                             if (idOpponent != null && !idOpponent.isEmpty() && !"null".equals(idOpponent)) {
                                 requestAccepted = true;
                                 setStatus("تم قبول التحدي! جاري بدء المواجهة...");
@@ -241,8 +262,15 @@ public class OpponentActivity extends AppCompatActivity {
         botFallbackRunnable = new Runnable() {
             @Override
             public void run() {
-                if (!requestAccepted && !launchingGame && !"friend".equals(matchMode)) {
-                    launchBotMatch();
+                if (!closed && !requestAccepted && !launchingGame && !"friend".equals(matchMode)) {
+                    Data.withdrawDuelSearch(userID, new OnGetGameIdListener() {
+                        @Override public void onSuccess(String opponent) {
+                            if (closed || launchingGame) return;
+                            if (opponent.isEmpty()) launchBotMatch();
+                            else resolveOpponentAndLaunch(opponent, false);
+                        }
+                        @Override public void onFailed(DatabaseError error) { scheduleBotFallback(); }
+                    });
                 }
             }
         };
@@ -250,7 +278,7 @@ public class OpponentActivity extends AppCompatActivity {
     }
 
     private void tryClaimAvailableOpponent() {
-        if (launchingGame) {
+        if (closed || launchingGame) {
             return;
         }
         new Data().getRandomRequest(userID, new OnRandomRequestListener() {
@@ -260,7 +288,7 @@ public class OpponentActivity extends AppCompatActivity {
 
             @Override
             public void onSuccess(String idOpponent) {
-                if (launchingGame) {
+                if (closed || launchingGame) {
                     return;
                 }
                 if (idOpponent != null && !idOpponent.isEmpty() && !"null".equals(idOpponent)) {
@@ -284,14 +312,15 @@ public class OpponentActivity extends AppCompatActivity {
     }
 
     private void waitForAcceptedRequest() {
-        new Data().getRequestResponse(userID, new OnGetRequestResponseListener() {
+        if (stopRequestListener != null) stopRequestListener.run();
+        stopRequestListener = new Data().getRequestResponse(userID, new OnGetRequestResponseListener() {
             @Override
             public void onStart() {
             }
 
             @Override
             public void onSuccess(String opponentID) {
-                if (launchingGame) {
+                if (closed || launchingGame) {
                     return;
                 }
                 if (opponentID != null && !opponentID.isEmpty() && !"0".equals(opponentID)) {
@@ -306,7 +335,33 @@ public class OpponentActivity extends AppCompatActivity {
         });
     }
 
-    private void resolveOpponentAndLaunch(final String opponentId, final boolean meOwner) {
+    private void resolveOpponentAndLaunch(final String opponentId, final boolean ignoredOwner) {
+        if (closed || launchingGame || resolvingOpponent) return;
+        resolvingOpponent = true;
+        requestAccepted = true;
+        botFallbackHandler.removeCallbacksAndMessages(null);
+        queueHeartbeatHandler.removeCallbacksAndMessages(null);
+        new Data().getMatchedSession(userID, opponentId, new OnGetGameIdListener() {
+            @Override public void onSuccess(String sessionId) {
+                if (closed || launchingGame) return;
+                if (sessionId.isEmpty()) {
+                    resolvingOpponent = false;
+                    setStatus("تعذر التحقق من المباراة. أعد البحث عن منافس.");
+                    return;
+                }
+                duelSessionId = sessionId;
+                loadMatchedOpponent(opponentId);
+            }
+            @Override public void onFailed(DatabaseError error) {
+                resolvingOpponent = false;
+                setStatus("تعذر الاتصال. جارٍ إعادة التحقق من المباراة…");
+                matchmakingHandler.postDelayed(() -> resolveOpponentAndLaunch(opponentId, false), 1500);
+            }
+        });
+    }
+
+    private void loadMatchedOpponent(final String opponentId) {
+        final boolean meOwner = userID.compareTo(opponentId) < 0;
         new Data().getUserFromFirebase(opponentId, new OnGetUserInfoListener() {
             @Override
             public void onStart() {
@@ -314,19 +369,24 @@ public class OpponentActivity extends AppCompatActivity {
 
             @Override
             public void onSuccess(User user) {
-                if (launchingGame) {
+                if (closed || launchingGame) {
                     return;
                 }
                 if (user == null) {
+                    resolvingOpponent = false;
                     Toast.makeText(OpponentActivity.this, "تعذر تحميل بيانات المنافس", Toast.LENGTH_SHORT).show();
                     return;
                 }
+                user.id = opponentId;
                 stopBrowsingOpponents(user, meOwner);
             }
 
             @Override
             public void onFailed(DatabaseError error) {
-                Toast.makeText(OpponentActivity.this, "تعذر تحميل بيانات المنافس", Toast.LENGTH_SHORT).show();
+                if (closed || launchingGame) return;
+                matchmakingHandler.postDelayed(() -> {
+                    if (!closed && !launchingGame) loadMatchedOpponent(opponentId);
+                }, 1500);
             }
         });
     }
@@ -339,7 +399,7 @@ public class OpponentActivity extends AppCompatActivity {
         matchmakingRunnable = new Runnable() {
             @Override
             public void run() {
-                if (!requestAccepted && !launchingGame) {
+                if (!closed && !requestAccepted && !launchingGame) {
                     tryClaimAvailableOpponent();
                 }
             }
@@ -388,7 +448,6 @@ public class OpponentActivity extends AppCompatActivity {
         if (btnCancel != null) btnCancel.setVisibility(View.GONE);
         matchmakingHandler.removeCallbacksAndMessages(null);
         if (ownRequestInserted) {
-            Data.cancelRequest(userID);
             ownRequestInserted = false;
         }
         imgPhoto22.clearAnimation();
@@ -405,9 +464,11 @@ public class OpponentActivity extends AppCompatActivity {
         Runnable runnable = new Runnable() {
             @Override
             public void run() {
+                if (closed || isFinishing()) return;
                 Intent intent = new Intent(OpponentActivity.this, GameActivity.class);
                 intent.putExtra("mode", "online");
                 intent.putExtra("meOwner", meOwner);
+                intent.putExtra("duelSessionId", duelSessionId);
                 intent.putExtra("matchMode", "board");
                 intent.putExtra("characterIndex", AppPrefs.getEffectiveCharacter(OpponentActivity.this));
                 try {
@@ -458,6 +519,7 @@ public class OpponentActivity extends AppCompatActivity {
         Runnable runnable = new Runnable() {
             @Override
             public void run() {
+                if (closed || isFinishing()) return;
                 Intent intent = new Intent(OpponentActivity.this, GameActivity.class);
                 intent.putExtra("mode", "online");
                 intent.putExtra("meOwner", true);
@@ -498,6 +560,10 @@ public class OpponentActivity extends AppCompatActivity {
     }
 
     private void cleanupPendingRequest() {
+        closed = true;
+        queueHeartbeatHandler.removeCallbacksAndMessages(null);
+        if (stopRequestListener != null) stopRequestListener.run();
+        stopRequestListener = null;
         cancelButtonHandler.removeCallbacks(cancelButtonRunnable);
         matchmakingHandler.removeCallbacksAndMessages(null);
         botFallbackHandler.removeCallbacksAndMessages(null);

@@ -134,7 +134,15 @@ public class Data {
         payload.put("status", "waiting");
         payload.put("targetId", targetId == null ? "" : targetId.trim());
         payload.put("createdAt", ServerValue.TIMESTAMP);
-        requestsRef().child(userID).setValue(payload);
+        requestsRef().child(userID).runTransaction(new Transaction.Handler() {
+            @Override public Transaction.Result doTransaction(MutableData data) {
+                if ("matched".equals(valueAsString(data.child("status").getValue()))) return Transaction.abort();
+                payload.put("searchId", valueAsString(data.child("searchId").getValue()));
+                data.setValue(payload);
+                return Transaction.success(data);
+            }
+            @Override public void onComplete(DatabaseError error, boolean committed, DataSnapshot snapshot) {}
+        }, false);
     }
 
     public static void setFictitiousOpponent(String userID, String opponentID) {
@@ -162,7 +170,79 @@ public class Data {
         if (!isRealUser(userID)) {
             return;
         }
-        requestsRef().child(userID).removeValue();
+        withdrawDuelSearch(userID, new OnGetGameIdListener() {
+            @Override public void onSuccess(String opponent) {
+                if (opponent.isEmpty()) return;
+                new Data().getMatchedSession(userID, opponent, new OnGetGameIdListener() {
+                    @Override public void onSuccess(String sessionId) {
+                        if (sessionId.isEmpty()) return;
+                        gamesRef().child(sessionId).child("board").runTransaction(new Transaction.Handler() {
+                            @Override public Transaction.Result doTransaction(MutableData data) {
+                                Map<String, Object> board = OnlineDuelState.map(data.getValue());
+                                OnlineDuelState.forfeit(board, opponent);
+                                data.setValue(board);
+                                return Transaction.success(data);
+                            }
+                            @Override public void onComplete(DatabaseError error, boolean committed, DataSnapshot snapshot) {}
+                        }, false);
+                    }
+                    @Override public void onFailed(DatabaseError error) {}
+                });
+            }
+            @Override public void onFailed(DatabaseError error) {}
+        });
+    }
+
+    public static void resetDuelSearch(String userID, String target, Runnable ready,
+                                       java.util.function.Consumer<DatabaseError> failed) {
+        if (!isRealUser(userID)) {
+            failed.accept(DatabaseError.fromException(new IllegalStateException("Sign in before matchmaking")));
+            return;
+        }
+        HashMap<String, Object> request = new HashMap<>();
+        request.put("userId", userID);
+        request.put("status", "waiting");
+        request.put("acceptedBy", "0");
+        request.put("targetId", target);
+        request.put("searchId", java.util.UUID.randomUUID().toString());
+        request.put("createdAt", ServerValue.TIMESTAMP);
+        requestsRef().child(userID).setValue(request, (error, ref) -> {
+            if (error == null) ready.run();
+            else failed.accept(error);
+        });
+    }
+
+    public static void withdrawDuelSearch(String userID, OnGetGameIdListener listener) {
+        if (!isRealUser(userID)) {
+            if (listener != null) listener.onFailed(DatabaseError.fromException(
+                    new IllegalStateException("Sign in before matchmaking")));
+            return;
+        }
+        requestsRef().child(userID).runTransaction(new Transaction.Handler() {
+            @Override public Transaction.Result doTransaction(MutableData data) {
+                if ("matched".equals(valueAsString(data.child("status").getValue()))) return Transaction.abort();
+                // A tombstone prevents an in-flight claim from recreating a cancelled seat.
+                data.child("status").setValue("cancelled");
+                return Transaction.success(data);
+            }
+            @Override public void onComplete(DatabaseError error, boolean committed, DataSnapshot snapshot) {
+                if (listener == null) return;
+                if (error != null) listener.onFailed(error);
+                else listener.onSuccess(committed || snapshot == null ? ""
+                        : valueAsString(snapshot.child("acceptedBy")));
+            }
+        }, false);
+    }
+
+    public static void refreshDuelSearch(String userID) {
+        requestsRef().child(userID).runTransaction(new Transaction.Handler() {
+            @Override public Transaction.Result doTransaction(MutableData data) {
+                if (!"waiting".equals(valueAsString(data.child("status").getValue()))) return Transaction.abort();
+                data.child("createdAt").setValue(ServerValue.TIMESTAMP);
+                return Transaction.success(data);
+            }
+            @Override public void onComplete(DatabaseError error, boolean committed, DataSnapshot snapshot) {}
+        }, false);
     }
 
     public static void acceptRequest(String userID, String opponentID) {
@@ -261,7 +341,7 @@ public class Data {
             return;
         }
         final String effectiveUserId = currentUserId;
-        requestsRef().orderByChild("createdAt").limitToFirst(50).addListenerForSingleValueEvent(new ValueEventListener() {
+        requestsRef().orderByChild("status").equalTo("waiting").addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot snapshot) {
                 final ArrayList<String> candidates = new ArrayList<>();
@@ -270,6 +350,8 @@ public class Data {
                     if (requesterId == null || requesterId.equals(effectiveUserId)) {
                         continue;
                     }
+                    Long createdAt = child.child("createdAt").getValue(Long.class);
+                    if (createdAt == null || System.currentTimeMillis() - createdAt >= 120_000L) continue;
                     String status = valueAsString(child.child("status"));
                     String acceptedBy = valueAsString(child.child("acceptedBy"));
                     String targetId = valueAsString(child.child("targetId"));
@@ -296,11 +378,12 @@ public class Data {
         });
     }
 
-    public void getRequestResponse(String userID, final OnGetRequestResponseListener listener) {
+    public Runnable getRequestResponse(String userID, final OnGetRequestResponseListener listener) {
         if (listener != null) {
             listener.onStart();
         }
-        requestsRef().child(userID).child("acceptedBy").addValueEventListener(new ValueEventListener() {
+        DatabaseReference responseRef = requestsRef().child(userID).child("acceptedBy");
+        ValueEventListener responseListener = new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot snapshot) {
                 String acceptedBy = valueAsString(snapshot);
@@ -318,7 +401,9 @@ public class Data {
                     listener.onFailed(error);
                 }
             }
-        });
+        };
+        responseRef.addValueEventListener(responseListener);
+        return () -> responseRef.removeEventListener(responseListener);
     }
 
     public void getAnswer(String gameID, final String opponentID, final int expectedQuestionIndex, final OnGetAnswersListener listener) {
@@ -373,7 +458,12 @@ public class Data {
 
     public void createGameID(final String myID, final ArrayList<String> opponentIds,
                              final OnCreateGameIdListener listener) {
-        final DatabaseReference gameRef = gamesRef().push();
+        createGameIDWithSession(myID, opponentIds, null, listener);
+    }
+
+    public void createGameIDWithSession(final String myID, final ArrayList<String> opponentIds,
+                                       final String sessionId, final OnCreateGameIdListener listener) {
+        final DatabaseReference gameRef = sessionId == null ? gamesRef().push() : gamesRef().child(sessionId);
         final String gameID = gameRef.getKey() == null ? String.valueOf(System.currentTimeMillis()) : gameRef.getKey();
 
         ArrayList<Question> questions = loadSharedQuestions();
@@ -413,13 +503,13 @@ public class Data {
                 }
                 return;
             }
-            requestsRef().child(myID).removeValue();
+            if (sessionId == null) requestsRef().child(myID).removeValue();
             if (opponentIds != null) {
                 for (String opponentId : opponentIds) {
                     if (opponentId == null || opponentId.trim().isEmpty()) {
                         continue;
                     }
-                    requestsRef().child(opponentId).removeValue();
+                    if (sessionId == null) requestsRef().child(opponentId).removeValue();
                 }
             }
             if (listener != null) {
@@ -758,7 +848,8 @@ public class Data {
     }
 
     private static DatabaseReference requestsRef() {
-        return rootRef().child("Requests");
+        // Do not pair protocol-v2 clients with releases using independent local turns.
+        return rootRef().child("DuelRequestsV2");
     }
 
     private static DatabaseReference tempRef() {
@@ -779,48 +870,66 @@ public class Data {
             return;
         }
 
-        requestsRef().child(targetUserId).runTransaction(new Transaction.Handler() {
-            @Override
-            public Transaction.Result doTransaction(MutableData currentData) {
-                if (currentData.getValue() == null) {
-                    return Transaction.abort();
-                }
-                String status = valueAsString(currentData.child("status").getValue());
-                String acceptedBy = valueAsString(currentData.child("acceptedBy").getValue());
-                String targetId = valueAsString(currentData.child("targetId").getValue());
-                if (!status.isEmpty() && !"waiting".equals(status)) {
-                    return Transaction.abort();
-                }
-                if (!acceptedBy.isEmpty() && !"0".equals(acceptedBy)) {
-                    return Transaction.abort();
-                }
-                if (!targetId.isEmpty() && !targetId.equals(currentUserId)) {
-                    return Transaction.abort();
-                }
-                currentData.child("acceptedBy").setValue(currentUserId);
-                currentData.child("status").setValue("matched");
-                return Transaction.success(currentData);
-            }
-
-            @Override
-            public void onComplete(@Nullable DatabaseError error, boolean committed, @Nullable DataSnapshot currentData) {
-                if (error != null) {
-                    if (listener != null) {
-                        listener.onFailed(error);
-                    }
-                    return;
-                }
-                if (committed) {
-                    if (listener != null) {
-                        listener.onSuccess(targetUserId);
-                    }
-                } else {
-                    if (listener != null) {
-                        listener.onSuccess("null");
-                    }
-                }
+        requestsRef().child(currentUserId).child("targetId").setValue(targetUserId, (error, ref) -> {
+            if (error != null) {
+                if (listener != null) listener.onFailed(error);
+            } else {
+                requestsRef().child(currentUserId).child("searchId").get().addOnSuccessListener(snapshot ->
+                        DuelNotifications.sendInvite(targetUserId, valueAsString(snapshot)));
+                claimPair(currentUserId, targetUserId, listener);
             }
         });
+    }
+
+    private void claimPair(final String me, final String other, final OnRandomRequestListener listener) {
+        final String sessionId = gamesRef().push().getKey();
+        // Preload the whole transaction location; a partial query cache can start at null.
+        requestsRef().get().addOnSuccessListener(initial -> {
+        final String searchId = valueAsString(initial.child(me).child("searchId"));
+        final long now = System.currentTimeMillis();
+        requestsRef().runTransaction(new Transaction.Handler() {
+            @Override public Transaction.Result doTransaction(MutableData data) {
+                if (!searchId.equals(valueAsString(data.child(me).child("searchId").getValue())))
+                    return Transaction.abort();
+                Map<String, Object> queue = OnlineDuelState.map(data.getValue());
+                if (!OnlineMatchmakingState.claim(queue, me, other, sessionId, now)) return Transaction.abort();
+                data.setValue(queue);
+                return Transaction.success(data);
+            }
+            @Override public void onComplete(DatabaseError error, boolean committed, DataSnapshot snapshot) {
+                if (listener == null) return;
+                if (error != null) listener.onFailed(error);
+                else listener.onSuccess(committed ? other : "null");
+            }
+        }, false);
+        }).addOnFailureListener(error -> {
+            if (listener != null) listener.onFailed(DatabaseError.fromException(error));
+        });
+    }
+
+    public void getMatchedSession(String me, String other, OnGetGameIdListener listener) {
+        requestsRef().child(me).addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override public void onDataChange(DataSnapshot snapshot) {
+                String paired = valueAsString(snapshot.child("acceptedBy"));
+                listener.onSuccess(other.equals(paired) ? valueAsString(snapshot.child("sessionId")) : "");
+            }
+            @Override public void onCancelled(DatabaseError error) { listener.onFailed(error); }
+        });
+    }
+
+    public Runnable getDuelGameID(String me, String owner, String sessionId, OnGetGameIdListener listener) {
+        DatabaseReference sessionRef = gamesRef().child(sessionId);
+        ValueEventListener sessionListener = new ValueEventListener() {
+            @Override public void onDataChange(DataSnapshot snapshot) {
+                if (!owner.equals(valueAsString(snapshot.child("meta").child("ownerId")))
+                        || !snapshot.child(me).exists() || !snapshot.child("questions").exists()) return;
+                snapshot.getRef().removeEventListener(this);
+                listener.onSuccess(sessionId);
+            }
+            @Override public void onCancelled(DatabaseError error) { listener.onFailed(error); }
+        };
+        sessionRef.addValueEventListener(sessionListener);
+        return () -> sessionRef.removeEventListener(sessionListener);
     }
 
     private void claimRequestCandidate(final String currentUserId,
@@ -835,44 +944,14 @@ public class Data {
         }
 
         final String requesterId = candidates.get(index);
-        requestsRef().child(requesterId).runTransaction(new Transaction.Handler() {
-            @Override
-            public Transaction.Result doTransaction(MutableData currentData) {
-                if (currentData.getValue() == null) {
-                    return Transaction.abort();
-                }
-                String status = valueAsString(currentData.child("status").getValue());
-                String acceptedBy = valueAsString(currentData.child("acceptedBy").getValue());
-                String targetId = valueAsString(currentData.child("targetId").getValue());
-                if (!status.isEmpty() && !"waiting".equals(status)) {
-                    return Transaction.abort();
-                }
-                if (!acceptedBy.isEmpty() && !"0".equals(acceptedBy)) {
-                    return Transaction.abort();
-                }
-                if (!targetId.isEmpty() && !targetId.equals(currentUserId)) {
-                    return Transaction.abort();
-                }
-                currentData.child("acceptedBy").setValue(currentUserId);
-                currentData.child("status").setValue("matched");
-                return Transaction.success(currentData);
+        claimPair(currentUserId, requesterId, new OnRandomRequestListener() {
+            @Override public void onStart() {}
+            @Override public void onSuccess(String opponent) {
+                if ("null".equals(opponent)) claimRequestCandidate(currentUserId, candidates, index + 1, listener);
+                else if (listener != null) listener.onSuccess(opponent);
             }
-
-            @Override
-            public void onComplete(@Nullable DatabaseError error, boolean committed, @Nullable DataSnapshot currentData) {
-                if (error != null) {
-                    if (listener != null) {
-                        listener.onFailed(error);
-                    }
-                    return;
-                }
-                if (committed) {
-                    if (listener != null) {
-                        listener.onSuccess(requesterId);
-                    }
-                } else {
-                    claimRequestCandidate(currentUserId, candidates, index + 1, listener);
-                }
+            @Override public void onFailed(DatabaseError error) {
+                if (listener != null) listener.onFailed(error);
             }
         });
     }
