@@ -26,6 +26,7 @@ class MainActivity : FlutterActivity() {
         VerifiedCommerceStore.invalidateWalletHydration(this)
         super.onCreate(savedInstanceState)
         DuelNotifications.initialize(this)
+        PlayerPresence.initialize(application)
         handleIntentData(intent)
         syncDailyReminderSchedule()
     }
@@ -153,12 +154,18 @@ class MainActivity : FlutterActivity() {
                         startActivity(intent)
                         result.success(true)
                     }
+                    "setSocialBusy" -> {
+                        PlayerPresence.setFlutterBusy(call.argument<Boolean>("busy") == true)
+                        result.success(null)
+                    }
+                    "getSocialServerTime" -> result.success(PlayerPresence.serverTime())
                     "launchFriendChallenge" -> {
                         PlayerProgress.recordFriendMatchPlayed(this)
                         val friendCode = call.argument<String>("friendCode") ?: ""
                         val intent = Intent(this, OpponentActivity::class.java).apply {
                             putExtra("matchMode", "friend")
                             putExtra("friendCode", friendCode)
+                            putExtra("socialAccepted", true)
                         }
                         startActivity(intent)
                         result.success(true)

@@ -55,6 +55,8 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
   @override
   void initState() {
     super.initState();
+    const MethodChannel('millionaire/native').invokeMethod<void>(
+        'setSocialBusy', {'busy': true}).catchError((_) {});
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     _pulseCtrl = AnimationController(
       vsync: this,
@@ -66,6 +68,8 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
   void dispose() {
     _blitzTimer?.cancel();
     _pulseCtrl.dispose();
+    const MethodChannel('millionaire/native').invokeMethod<void>(
+        'setSocialBusy', {'busy': false}).catchError((_) {});
     super.dispose();
   }
 

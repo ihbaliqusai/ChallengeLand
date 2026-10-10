@@ -27,6 +27,7 @@ import '../../services/campaign_result_handler.dart';
 import '../../services/invite_service.dart';
 import '../../services/native_bridge_service.dart';
 import '../../widgets/friend_challenge_modal.dart';
+import '../social/social_screen.dart';
 import '../../widgets/cross_promo_millionaire_badge.dart';
 import '../../widgets/cross_promo_millionaire_dialog.dart';
 import '../../widgets/special_offer_dialog.dart';
@@ -397,7 +398,7 @@ class _HomeScreenState extends State<HomeScreen>
       } else if (action.startsWith('challenge:')) {
         final code = action.substring('challenge:'.length).trim();
         if (code.isNotEmpty) {
-          await context.read<AppState>().openFriendChallenge(code);
+          await FriendChallengeModal.show(context, initialFriendCode: code);
         }
       } else if (action.startsWith('room:')) {
         final roomId = action.substring('room:'.length).trim();
@@ -852,7 +853,9 @@ class _GameModesSheet extends StatelessWidget {
                             title: 'تحدي صديق',
                             subtitle: '1 ضد 1 أو منافس عشوائي',
                             enabled: isOnline,
-                            onTap: () => FriendChallengeModal.show(context),
+                            onTap: () => Navigator.of(context).push(
+                                MaterialPageRoute(
+                                    builder: (_) => const SocialScreen())),
                           ),
                         ),
                         const SizedBox(width: 10),
@@ -1194,6 +1197,15 @@ class _HomeMenuSheet extends StatelessWidget {
                             context,
                             const AchievementsScreen(),
                           ),
+                        ),
+                        _MenuActionTile(
+                          icon: Icons.people_alt_rounded,
+                          color: const Color(0xFF38BDF8),
+                          title: 'الأصدقاء',
+                          enabled: isOnline,
+                          onTap: () => _openScreen(
+                              context, const SocialScreen(),
+                              enabled: isOnline),
                         ),
                         _MenuActionTile(
                           icon: Icons.settings_rounded,
@@ -2260,7 +2272,9 @@ class _CenterArena extends StatelessWidget {
                           gold: false,
                           compact: isCompactHeight,
                           enabled: appState.isOnline,
-                          onPressed: () => FriendChallengeModal.show(context),
+                          onPressed: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                  builder: (_) => const SocialScreen())),
                         ),
                       ],
                     ),

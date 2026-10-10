@@ -863,6 +863,13 @@ public class Data {
     public void claimFriendRequest(final String currentUserId,
                                    final String targetUserId,
                                    final OnRandomRequestListener listener) {
+        claimFriendRequest(currentUserId, targetUserId, listener, true);
+    }
+
+    public void claimFriendRequest(final String currentUserId,
+                                   final String targetUserId,
+                                   final OnRandomRequestListener listener,
+                                   final boolean notifyInvite) {
         if (!isRealUser(currentUserId) || !isRealUser(targetUserId)) {
             if (listener != null) {
                 listener.onSuccess("null");
@@ -874,7 +881,7 @@ public class Data {
             if (error != null) {
                 if (listener != null) listener.onFailed(error);
             } else {
-                requestsRef().child(currentUserId).child("searchId").get().addOnSuccessListener(snapshot ->
+                if (notifyInvite) requestsRef().child(currentUserId).child("searchId").get().addOnSuccessListener(snapshot ->
                         DuelNotifications.sendInvite(targetUserId, valueAsString(snapshot)));
                 claimPair(currentUserId, targetUserId, listener);
             }

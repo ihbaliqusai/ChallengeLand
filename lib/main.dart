@@ -20,6 +20,8 @@ import 'services/room_service.dart';
 import 'services/ad_service.dart';
 import 'services/cross_promo_service.dart';
 import 'services/invite_service.dart';
+import 'services/social_service.dart';
+import 'widgets/social_shell.dart';
 import 'services/in_app_purchase_service.dart';
 import 'widgets/startup_gate.dart';
 
@@ -114,6 +116,7 @@ class _ChallengeLandAppState extends State<ChallengeLandApp> {
         ),
         Provider<RoomService>(create: (_) => RoomService()),
         Provider<InviteService>(create: (_) => InviteService()),
+        Provider<SocialService>(create: (_) => SocialService()),
         ChangeNotifierProxyProvider2<AuthService, NativeBridgeService,
             AppState>(
           create: (context) => AppState(
@@ -144,7 +147,7 @@ class _ChallengeLandAppState extends State<ChallengeLandApp> {
                   maxScaleFactor: 1,
                 ),
               ),
-              child: child ?? const SizedBox.shrink(),
+              child: SocialShell(child: child ?? const SizedBox.shrink()),
             );
           },
           localizationsDelegates: const <LocalizationsDelegate<dynamic>>[

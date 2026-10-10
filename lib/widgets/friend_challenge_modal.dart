@@ -8,6 +8,7 @@ import 'package:share_plus/share_plus.dart';
 import '../core/app_state.dart';
 import '../models/player_profile.dart';
 import '../services/invite_service.dart';
+import '../services/social_service.dart';
 
 class FriendChallengeModal extends StatefulWidget {
   const FriendChallengeModal({
@@ -260,6 +261,7 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
   }
 
   Future<void> _launchChallenge(String targetCode) async {
+    if (_isLaunching) return;
     final cleanCode = targetCode.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').toUpperCase();
     if (cleanCode.isEmpty) {
       setState(() => _errorMessage = 'يرجى إدخال كود صديقك');
@@ -275,20 +277,29 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
     setState(() => _isLaunching = true);
 
     try {
+      final user = appState.currentUser;
+      if (user == null || user.isAnonymous) {
+        throw const SocialException('سجّل الدخول لإرسال تحدٍّ.');
+      }
+      final social = context.read<SocialService>();
+      final inviteService = context.read<InviteService>();
+      final peer = _verifiedOpponent?.friendCode == cleanCode
+          ? _verifiedOpponent!.uid : await social.findCode(cleanCode);
+      await social.send(user.uid, peer, challenge: true);
       // Save to recent opponents if we have a verified profile
       if (_verifiedOpponent != null) {
-        final inviteService = context.read<InviteService>();
         await inviteService.saveRecentOpponent(_verifiedOpponent!);
       }
 
       if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
       Navigator.of(context).pop();
-      await appState.openFriendChallenge(cleanCode);
+      messenger.showSnackBar(const SnackBar(content: Text('أُرسلت الدعوة. ستبدأ المواجهة بعد قبول الطرف الآخر خلال 30 ثانية.')));
     } catch (e) {
       if (mounted) {
         setState(() {
           _isLaunching = false;
-          _errorMessage = 'تعذر بدء التحدي: $e';
+          _errorMessage = e is SocialException ? e.message : 'تعذر إرسال الدعوة. تحقق من الاتصال وحاول مجددًا.';
         });
       }
     }
@@ -1367,7 +1378,7 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
                     )
                   : const Icon(Icons.flash_on_rounded, size: 20),
               label: Text(
-                _isLaunching ? 'جاري بدء التحدي...' : 'بدء المواجهة الحاسمة ⚔️',
+                _isLaunching ? 'جارٍ إرسال الدعوة...' : 'إرسال دعوة مواجهة ⚔️',
                 style: const TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.bold,

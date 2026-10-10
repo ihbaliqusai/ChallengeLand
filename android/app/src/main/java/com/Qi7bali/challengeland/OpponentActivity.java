@@ -170,7 +170,7 @@ public class OpponentActivity extends AppCompatActivity {
                 }
 
                 // Try claiming existing request from target first
-                new Data().claimFriendRequest(userID, targetUserId, new OnRandomRequestListener() {
+                claimFriendRequest(targetUserId, new OnRandomRequestListener() {
                     @Override
                     public void onStart() {}
 
@@ -214,6 +214,11 @@ public class OpponentActivity extends AppCompatActivity {
         });
     }
 
+    private void claimFriendRequest(String targetUserId, OnRandomRequestListener listener) {
+        new Data().claimFriendRequest(userID, targetUserId, listener,
+            !getIntent().getBooleanExtra("socialAccepted", false));
+    }
+
     private void scheduleFriendPolling(final String targetUserId) {
         if (launchingGame || requestAccepted) {
             return;
@@ -223,7 +228,7 @@ public class OpponentActivity extends AppCompatActivity {
             @Override
             public void run() {
                 if (!closed && !requestAccepted && !launchingGame) {
-                    new Data().claimFriendRequest(userID, targetUserId, new OnRandomRequestListener() {
+                    claimFriendRequest(targetUserId, new OnRandomRequestListener() {
                         @Override
                         public void onStart() {}
 

@@ -326,7 +326,24 @@ class AuthService {
       _firestore.collection('rooms').where('hostId', isEqualTo: uid),
     );
 
+    for (final collection in ['social_links', 'social_challenges']) {
+      await _deleteMatchingDocs(_firestore
+          .collection(collection)
+          .where('members', arrayContains: uid));
+    }
+    await _deleteMatchingDocs(_firestore
+        .collection('social_blocks')
+        .where('ownerUid', isEqualTo: uid));
+
     final batch = _firestore.batch();
+    for (final collection in [
+      'player_presence',
+      'social_settings',
+      'social_limits',
+      'social_reservations'
+    ]) {
+      batch.delete(_firestore.collection(collection).doc(uid));
+    }
     batch.delete(_firestore.collection('matchmaking_queue').doc(uid));
     batch.delete(_firestore.collection('public_profiles').doc(uid));
     batch.delete(_firestore.collection('users').doc(uid));
