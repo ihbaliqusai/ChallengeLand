@@ -835,6 +835,24 @@ public class PlayerProgress {
         checkMilestoneAchievements(c);
     }
 
+    /** Restore account receipts monotonically; this method never awards currency or XP. */
+    public static synchronized boolean hydrateAchievementClaims(Context c, String uid,
+            java.util.List<String> unlocked, java.util.List<String> claimed) {
+        if (uid == null || !uid.equals(ProgressionAccount.uid(c))) return false;
+        migrateExistingAchievementClaims(c);
+        SharedPreferences p = prefs(c);
+        SharedPreferences.Editor editor = p.edit();
+        java.util.Set<String> valid = new java.util.HashSet<>(java.util.Arrays.asList(getAllAchievementKeys()));
+        for (String key : unlocked) {
+            if (valid.contains(key)) editor.putBoolean(key, true);
+        }
+        for (String key : claimed) {
+            if (valid.contains(key)) editor.putBoolean(key, true).putBoolean(claimKey(key), true);
+        }
+        ProgressionAccount.commitOrRollback(p, editor);
+        return true;
+    }
+
     private static synchronized boolean claimMatchRewards(Context c, int coins) {
         if (!NativeProgression.activeAccount(c)) return false;
         String outcome = PlayerStats.matchOutcome(c);

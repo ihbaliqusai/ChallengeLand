@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -5,38 +7,7 @@ import 'package:provider/provider.dart';
 import '../../core/app_state.dart';
 import '../../widgets/daily_reward_dialog.dart';
 
-const _kDayRewards = [
-  {'coins': 100, 'gems': 0},
-  {'coins': 150, 'gems': 0},
-  {'coins': 200, 'gems': 1},
-  {'coins': 250, 'gems': 0},
-  {'coins': 300, 'gems': 1},
-  {'coins': 400, 'gems': 2},
-  {'coins': 500, 'gems': 3},
-  {'coins': 300, 'gems': 1},
-  {'coins': 350, 'gems': 1},
-  {'coins': 400, 'gems': 2},
-  {'coins': 450, 'gems': 2},
-  {'coins': 500, 'gems': 3},
-  {'coins': 600, 'gems': 3},
-  {'coins': 800, 'gems': 5},
-  {'coins': 400, 'gems': 2},
-  {'coins': 450, 'gems': 2},
-  {'coins': 500, 'gems': 3},
-  {'coins': 550, 'gems': 3},
-  {'coins': 600, 'gems': 4},
-  {'coins': 700, 'gems': 4},
-  {'coins': 1000, 'gems': 7},
-  {'coins': 600, 'gems': 3},
-  {'coins': 650, 'gems': 4},
-  {'coins': 700, 'gems': 4},
-  {'coins': 750, 'gems': 5},
-  {'coins': 800, 'gems': 5},
-  {'coins': 900, 'gems': 6},
-  {'coins': 1000, 'gems': 7},
-  {'coins': 1200, 'gems': 8},
-  {'coins': 2000, 'gems': 15},
-];
+const _kDayRewards = AppState.streakRewards;
 
 class DailyStreakScreen extends StatefulWidget {
   const DailyStreakScreen({super.key});
@@ -45,11 +16,48 @@ class DailyStreakScreen extends StatefulWidget {
   State<DailyStreakScreen> createState() => _DailyStreakScreenState();
 }
 
-class _DailyStreakScreenState extends State<DailyStreakScreen> {
+class _DailyStreakScreenState extends State<DailyStreakScreen>
+    with WidgetsBindingObserver {
+  Timer? _dayTimer;
+  DateTime _calendarDay = DateUtils.dateOnly(DateTime.now());
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _refreshRewards());
+    _dayTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      final today = DateUtils.dateOnly(DateTime.now());
+      if (today != _calendarDay) {
+        _calendarDay = today;
+        unawaited(_refreshRewards());
+      }
+    });
+  }
+
+  Future<void> _refreshRewards() async {
+    if (!mounted) return;
+    try {
+      await context
+          .read<AppState>()
+          .loadLevelData()
+          .timeout(const Duration(seconds: 8));
+    } catch (_) {
+      // Keep the last known progress; the claim still rechecks the cloud.
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) unawaited(_refreshRewards());
+  }
+
+  @override
+  void dispose() {
+    _dayTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   Future<void> _claimReward() async {
@@ -95,7 +103,7 @@ class _DailyStreakScreenState extends State<DailyStreakScreen> {
                     child: _DailyRewardsDashboard(
                       streakDay: streakDay,
                       claimedToday: claimedToday,
-                      claiming: false,
+                      claiming: appState.claimingDailyReward,
                       onClaim: _claimReward,
                     ),
                   ),
@@ -139,6 +147,32 @@ class _DailyRewardsDashboard extends StatelessWidget {
             : constraints.maxWidth < 980
                 ? 260.0
                 : 292.0;
+
+        if (constraints.maxWidth < 560) {
+          return SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+            child: Column(children: [
+              SizedBox(
+                  height: 320,
+                  child: _RewardPanel(
+                    streakDay: streakDay,
+                    claimedToday: claimedToday,
+                    claiming: claiming,
+                    onClaim: onClaim,
+                    compact: true,
+                  )),
+              const SizedBox(height: 12),
+              SizedBox(
+                  height: 390,
+                  child: _RewardsGrid(
+                    streakDay: streakDay,
+                    claimedToday: claimedToday,
+                    compact: true,
+                    gap: 6,
+                  )),
+            ]),
+          );
+        }
 
         return Padding(
           padding: EdgeInsets.fromLTRB(
@@ -256,7 +290,8 @@ class _RewardPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final reward = _kDayRewards[streakDay - 1];
     final nextMilestone = _nextMilestone(streakDay);
-    final progress = streakDay / 30;
+    final completedDays = streakDay - (claimedToday ? 0 : 1);
+    final progress = completedDays / 30;
     final coins = reward['coins'] ?? 0;
     final gems = reward['gems'] ?? 0;
 
@@ -277,7 +312,7 @@ class _RewardPanel extends StatelessWidget {
             _RewardPreview(coins: coins, gems: gems, compact: compact),
             SizedBox(height: compact ? 8 : 12),
             _ProgressBlock(
-              streakDay: streakDay,
+              streakDay: completedDays,
               nextMilestone: nextMilestone,
               progress: progress,
               compact: compact,
@@ -661,8 +696,9 @@ class _RewardsGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: List.generate(5, (row) {
-        final children = List.generate(6, (col) {
-          final day = row * 6 + col + 1;
+        final children = List.generate(7, (col) {
+          final day = row * 7 + col + 1;
+          if (day > 30) return const Expanded(child: SizedBox());
           final reward = _kDayRewards[day - 1];
           return Expanded(
             child: _DayTile(
@@ -710,7 +746,7 @@ class _DayTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isMilestone = day == 7 || day == 14 || day == 21 || day == 30;
+    final isMilestone = day % 7 == 0 || day == 30;
     final accent = switch (state) {
       _RewardDayState.claimed => const Color(0xFF22C55E),
       _RewardDayState.todayAvailable => const Color(0xFFFACC15),
@@ -907,7 +943,7 @@ _RewardDayState _dayState(int day, int streakDay, bool claimedToday) {
 }
 
 int _nextMilestone(int streakDay) {
-  for (final milestone in const [7, 14, 21, 30]) {
+  for (final milestone in const [7, 14, 21, 28, 30]) {
     if (streakDay <= milestone) return milestone;
   }
   return 30;

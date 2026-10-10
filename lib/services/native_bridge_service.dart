@@ -501,6 +501,18 @@ class NativeBridgeService {
     });
   }
 
+  Future<void> hydrateAchievementClaims(
+      {required String accountUid,
+      required Iterable<String> unlockedIds,
+      required Iterable<String> claimedIds}) async {
+    final ok = await _channel.invokeMethod<bool>('hydrateAchievementClaims', {
+      'accountUid': accountUid,
+      'unlockedIds': unlockedIds.toList(),
+      'claimedIds': claimedIds.toList(),
+    });
+    if (ok != true) throw StateError('Achievement receipts were not restored');
+  }
+
   Future<Map<String, int>> claimAllAchievementRewards() async {
     final result = await _channel.invokeMapMethod<String, dynamic>(
       'claimAllAchievementRewards',

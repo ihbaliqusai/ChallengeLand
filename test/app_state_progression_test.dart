@@ -62,8 +62,10 @@ class _Firestore extends FakeFirebaseFirestore {
     final number = ++transactions;
     final gate = nextResponse;
     nextResponse = null;
-    final result = await super.runTransaction(transactionHandler,
-        timeout: timeout, maxAttempts: maxAttempts);
+    final result = await super.runTransaction(
+        (transaction) => transactionHandler(_MergeTransaction(transaction)),
+        timeout: timeout,
+        maxAttempts: maxAttempts);
     if (gate != null) {
       gate.entered.complete();
       await gate.release.future;
@@ -72,6 +74,33 @@ class _Firestore extends FakeFirebaseFirestore {
       throw StateError('The committed cloud response was lost');
     }
     return result;
+  }
+}
+
+// The fake transaction drops SetOptions; preserve real Firestore merge behavior.
+class _MergeTransaction implements Transaction {
+  _MergeTransaction(this.delegate);
+  final Transaction delegate;
+  @override
+  Future<DocumentSnapshot<T>> get<T extends Object?>(
+          DocumentReference<T> ref) =>
+      delegate.get(ref);
+  @override
+  Transaction set<T>(DocumentReference<T> ref, T data, [SetOptions? options]) {
+    ref.set(data, options);
+    return this;
+  }
+
+  @override
+  Transaction update(DocumentReference ref, Map<String, dynamic> data) {
+    delegate.update(ref, data);
+    return this;
+  }
+
+  @override
+  Transaction delete(DocumentReference ref) {
+    delegate.delete(ref);
+    return this;
   }
 }
 
@@ -93,6 +122,45 @@ class _Native implements NativeBridgeService {
   int installation = 0;
   int walletCoins = 500;
   int walletGems = 10;
+  bool failWalletSync = false;
+  bool failAchievementSync = false;
+  final achievements = <String, Map<String, dynamic>>{};
+
+  @override
+  Future<Map<String, dynamic>> getAchievements() async => {
+        'accountUid': boundUid,
+        ...?achievements[boundUid],
+        'unclaimedAchievements':
+            999, // The UI must derive counts from receipts.
+      };
+
+  @override
+  Future<void> hydrateAchievementClaims(
+      {required String accountUid,
+      required Iterable<String> unlockedIds,
+      required Iterable<String> claimedIds}) async {
+    if (failAchievementSync || accountUid != boundUid) {
+      throw StateError('Receipt sync interrupted');
+    }
+    final data = achievements.putIfAbsent(accountUid, () => {});
+    for (final id in unlockedIds) {
+      data[id] = true;
+    }
+    for (final id in claimedIds) {
+      data['${id}_CLAIMED'] = true;
+    }
+  }
+
+  @override
+  Future<Map<String, int>> setUserCurrency(
+      {required int coins, required int gems, String? expectedUid}) async {
+    if (failWalletSync || expectedUid != boundUid) {
+      throw StateError('Wallet sync interrupted');
+    }
+    walletCoins = coins;
+    walletGems = gems;
+    return {'coins': coins, 'gems': gems};
+  }
 
   _NativeAccount get active => accounts[boundUid]!;
 
@@ -281,6 +349,158 @@ class _Harness {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  test(
+      'achievement claim all stays claimed after reopening and a stale device read',
+      () async {
+    final h = _Harness();
+    addTearDown(h.close);
+    await h.seed('alice');
+    await h.signIn('alice');
+    h.native.achievements['alice'] = {
+      'ACH_FIRST_GAME': true,
+      'ACH_FIRST_WIN': true
+    };
+    final batch = await h.state.claimAchievementRewards();
+    expect(batch!.newlyClaimedIds.length, 2);
+    expect(h.state.coins, 630);
+    expect(h.state.xp, 180);
+    h.native.achievements['alice'] = {
+      'ACH_FIRST_GAME': true,
+      'ACH_FIRST_WIN': true
+    };
+    final reopened = await h.state.loadAchievementState();
+    expect(reopened['ACH_FIRST_GAME_CLAIMED'], isTrue);
+    expect(reopened['ACH_FIRST_WIN_CLAIMED'], isTrue);
+    final retry = await h.state.claimAchievementRewards();
+    expect(retry!.newlyClaimedIds, isEmpty);
+    expect(h.state.coins, 630);
+    expect(h.state.xp, 180);
+  });
+
+  test(
+      'achievement native sync failure cannot erase receipts and is safely recovered',
+      () async {
+    final h = _Harness();
+    addTearDown(h.close);
+    await h.seed('alice');
+    await h.signIn('alice');
+    h.native.achievements['alice'] = {'ACH_FIRST_GAME': true};
+    h.native.failWalletSync = true;
+    expect(await h.state.claimAchievementRewards(), isNull);
+    expect((await h.privateData('alice'))['coins'], 550);
+    expect((await h.privateData('alice'))['xp'], 130);
+    await h.state.loadCurrency();
+    await _drain();
+    expect((await h.privateData('alice'))['coins'], 550);
+    h.native.failWalletSync = false;
+    final reopened = await h.state.loadAchievementState();
+    expect(reopened['ACH_FIRST_GAME_CLAIMED'], isTrue);
+    expect(h.native.walletCoins, 550);
+    expect(h.state.xp, 130);
+    expect((await h.state.claimAchievementRewards())!.newlyClaimedIds, isEmpty);
+    expect(h.native.walletCoins, 550);
+  });
+
+  test('a lost achievement response keeps both XP and currency safe on replay',
+      () async {
+    final h = _Harness();
+    addTearDown(h.close);
+    await h.seed('alice');
+    await h.signIn('alice');
+    h.native.achievements['alice'] = {'ACH_FIRST_GAME': true};
+    h.db.failResponseNumber =
+        h.db.transactions + 2; // Progression, then payout.
+    expect(await h.state.claimAchievementRewards(), isNull);
+    expect((await h.privateData('alice'))['coins'], 550);
+    expect((await h.privateData('alice'))['xp'], 130);
+    expect(h.native.walletCoins, 500);
+    final restored = await h.state.loadAchievementState();
+    expect(restored['ACH_FIRST_GAME_CLAIMED'], isTrue);
+    expect(h.state.coins, 550);
+    expect(h.state.xp, 130);
+    expect((await h.state.claimAchievementRewards())!.newlyClaimedIds, isEmpty);
+    expect(h.state.xp, 130);
+  });
+
+  test(
+      'receipt hydration failure does not duplicate XP already restored natively',
+      () async {
+    final h = _Harness();
+    addTearDown(h.close);
+    await h.seed('alice');
+    await h.signIn('alice');
+    h.native.achievements['alice'] = {'ACH_FIRST_GAME': true};
+    h.native.failAchievementSync = true;
+    expect(await h.state.claimAchievementRewards(), isNull);
+    expect(h.native.walletCoins, 550);
+    expect(h.native.active.stats['xp'], 130);
+    h.native.failAchievementSync = false;
+    final retry = await h.state.claimAchievementRewards();
+    expect(retry!.newlyClaimedIds, isEmpty);
+    expect(h.state.xp, 130);
+    expect((await h.privateData('alice'))['xp'], 130);
+  });
+
+  test('interrupted daily delivery survives wallet refresh and retries once',
+      () async {
+    final h = _Harness();
+    addTearDown(h.close);
+    await h.seed('alice');
+    await h.signIn('alice');
+    h.native.failWalletSync = true;
+    expect(await h.state.claimDailyStreak(), isNull);
+    expect(h.state.claimedToday, isFalse);
+    expect(h.state.dailyRewardError, isNotNull);
+    expect((await h.privateData('alice'))['coins'], 600);
+    await h.state.loadCurrency();
+    await h.state.loadLevelData();
+    await _drain();
+    expect((await h.privateData('alice'))['coins'], 600,
+        reason: 'Stale native snapshots cannot erase the committed reward');
+    expect(h.state.claimedToday, isFalse,
+        reason: 'Interrupted delivery remains retryable');
+    h.native.failWalletSync = false;
+    expect(await h.state.claimDailyStreak(), {'coins': 100, 'gems': 0});
+    expect(h.state.coins, 600);
+    expect(h.native.walletCoins, 600);
+    expect(h.state.claimedToday, isTrue);
+    expect(h.state.dailyRewardError, isNull);
+    await h.state.claimDailyStreak();
+    expect((await h.privateData('alice'))['coins'], 600);
+  });
+
+  test('weekly counter starts empty on day eight and ends at day thirty',
+      () async {
+    final h = _Harness();
+    addTearDown(h.close);
+    h.state.streakDay = 8;
+    expect(h.state.rewardWeekStart, 8);
+    expect(h.state.rewardWeekCompleted, 0);
+    h.state.claimedToday = true;
+    expect(h.state.rewardWeekCompleted, 1);
+    h.state.streakDay = 30;
+    expect(h.state.rewardWeekLength, 2);
+    expect(h.state.rewardWeekCompleted, 2);
+  });
+
+  test('lost daily cloud response can be replayed without a second grant',
+      () async {
+    final h = _Harness();
+    addTearDown(h.close);
+    await h.seed('alice');
+    await h.signIn('alice');
+    h.db.failResponseNumber = h.db.transactions + 1;
+    expect(await h.state.claimDailyStreak(), isNull);
+    expect((await h.privateData('alice'))['coins'], 600);
+    expect(h.native.walletCoins, 500);
+    await h.state.loadCurrency();
+    await _drain();
+    expect((await h.privateData('alice'))['coins'], 600);
+    expect(await h.state.claimDailyStreak(), {'coins': 100, 'gems': 0});
+    expect(h.native.walletCoins, 600);
+    expect((await h.privateData('alice'))['coins'], 600);
+  });
 
   test('native play and campaign receipts update real state once across reset',
       () async {

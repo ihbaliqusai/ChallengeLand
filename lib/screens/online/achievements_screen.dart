@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/app_state.dart';
-import '../../services/native_bridge_service.dart';
+import '../../models/achievement_rewards.dart';
 import '../../widgets/currency_reward_overlay.dart';
 
 enum _AchStatus { done, progress, locked }
@@ -17,8 +17,6 @@ class _AchDef {
     required this.descAr,
     required this.icon,
     required this.color,
-    required this.rewardCoins,
-    required this.rewardXp,
     this.progressKey,
     this.progressTarget,
     this.progressLabel = '',
@@ -34,8 +32,8 @@ class _AchDef {
   final String descAr;
   final IconData icon;
   final Color color;
-  final int rewardCoins;
-  final int rewardXp;
+  int get rewardCoins => AchievementRewards.catalog[key]!.coins;
+  int get rewardXp => AchievementRewards.catalog[key]!.xp;
   final String? progressKey;
   final int? progressTarget;
   final String progressLabel;
@@ -75,8 +73,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'العب أول مباراة في اللعبة.',
         icon: Icons.sports_esports_rounded,
         color: Color(0xFF34D399),
-        rewardCoins: 50,
-        rewardXp: 30,
         progressKey: 'gamesPlayed',
         progressTarget: 1,
         progressLabel: 'مباراة',
@@ -87,8 +83,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'حقق أول فوز كامل.',
         icon: Icons.emoji_events_rounded,
         color: Color(0xFFFACC15),
-        rewardCoins: 80,
-        rewardXp: 50,
         progressKey: 'wins',
         progressTarget: 1,
         progressLabel: 'فوز',
@@ -99,8 +93,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'ادخل أول مباراة أونلاين.',
         icon: Icons.public_rounded,
         color: Color(0xFF38BDF8),
-        rewardCoins: 80,
-        rewardXp: 50,
       ),
       _AchDef(
         key: 'ACH_BUY_POWERUP',
@@ -108,8 +100,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'اشتر وسيلة مساعدة من المتجر.',
         icon: Icons.shopping_bag_rounded,
         color: Color(0xFFA78BFA),
-        rewardCoins: 60,
-        rewardXp: 40,
       ),
     ],
   ),
@@ -125,8 +115,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'بلغ المستوى 5 وافتح رتبة المتعلم.',
         icon: Icons.shield_rounded,
         color: Color(0xFFB45309),
-        rewardCoins: 80,
-        rewardXp: 50,
         progressKey: 'level',
         progressTarget: 5,
         progressLabel: 'مستوى',
@@ -137,8 +125,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'بلغ المستوى 10 وافتح رتبة العارف.',
         icon: Icons.shield_moon_rounded,
         color: Color(0xFF94A3B8),
-        rewardCoins: 120,
-        rewardXp: 80,
         progressKey: 'level',
         progressTarget: 10,
         progressLabel: 'مستوى',
@@ -149,8 +135,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'بلغ المستوى 20 وافتح رتبة الباحث.',
         icon: Icons.military_tech_rounded,
         color: Color(0xFFFACC15),
-        rewardCoins: 200,
-        rewardXp: 120,
         progressKey: 'level',
         progressTarget: 20,
         progressLabel: 'مستوى',
@@ -161,8 +145,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'بلغ المستوى 30 وافتح رتبة الموسوعي.',
         icon: Icons.diamond_rounded,
         color: Color(0xFF38BDF8),
-        rewardCoins: 300,
-        rewardXp: 180,
         progressKey: 'level',
         progressTarget: 30,
         progressLabel: 'مستوى',
@@ -173,10 +155,18 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'بلغ المستوى 45 وافتح رتبة الحكيم.',
         icon: Icons.workspace_premium_rounded,
         color: Color(0xFF8B5CF6),
-        rewardCoins: 450,
-        rewardXp: 250,
         progressKey: 'level',
         progressTarget: 45,
+        progressLabel: 'مستوى',
+      ),
+      _AchDef(
+        key: 'ACH_LEVEL_50',
+        titleAr: 'خبير المعرفة',
+        descAr: 'بلغ المستوى 50.',
+        icon: Icons.workspace_premium_rounded,
+        color: Color(0xFF8B5CF6),
+        progressKey: 'level',
+        progressTarget: 50,
         progressLabel: 'مستوى',
       ),
       _AchDef(
@@ -185,8 +175,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'بلغ المستوى 60 وافتح رتبة أسطورة المعرفة.',
         icon: Icons.local_fire_department_rounded,
         color: Color(0xFFEF4444),
-        rewardCoins: 600,
-        rewardXp: 400,
         progressKey: 'level',
         progressTarget: 60,
         progressLabel: 'مستوى',
@@ -205,8 +193,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'العب 10 مباريات.',
         icon: Icons.sports_esports_rounded,
         color: Color(0xFF818CF8),
-        rewardCoins: 60,
-        rewardXp: 40,
         progressKey: 'gamesPlayed',
         progressTarget: 10,
         progressLabel: 'مباراة',
@@ -217,8 +203,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'العب 25 مباراة.',
         icon: Icons.timeline_rounded,
         color: Color(0xFF60A5FA),
-        rewardCoins: 100,
-        rewardXp: 60,
         progressKey: 'gamesPlayed',
         progressTarget: 25,
         progressLabel: 'مباراة',
@@ -229,8 +213,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'العب 50 مباراة.',
         icon: Icons.timer_rounded,
         color: Color(0xFF38BDF8),
-        rewardCoins: 150,
-        rewardXp: 90,
         progressKey: 'gamesPlayed',
         progressTarget: 50,
         progressLabel: 'مباراة',
@@ -241,8 +223,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'العب 100 مباراة.',
         icon: Icons.verified_rounded,
         color: Color(0xFFF97316),
-        rewardCoins: 250,
-        rewardXp: 140,
         progressKey: 'gamesPlayed',
         progressTarget: 100,
         progressLabel: 'مباراة',
@@ -253,8 +233,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'العب 250 مباراة.',
         icon: Icons.auto_graph_rounded,
         color: Color(0xFFE879F9),
-        rewardCoins: 400,
-        rewardXp: 220,
         progressKey: 'gamesPlayed',
         progressTarget: 250,
         progressLabel: 'مباراة',
@@ -265,8 +243,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'العب 500 مباراة.',
         icon: Icons.military_tech_rounded,
         color: Color(0xFFFBBF24),
-        rewardCoins: 600,
-        rewardXp: 350,
         progressKey: 'gamesPlayed',
         progressTarget: 500,
         progressLabel: 'مباراة',
@@ -285,8 +261,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'حقق 5 انتصارات.',
         icon: Icons.thumb_up_rounded,
         color: Color(0xFF34D399),
-        rewardCoins: 80,
-        rewardXp: 50,
         progressKey: 'wins',
         progressTarget: 5,
         progressLabel: 'فوز',
@@ -297,8 +271,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'حقق 10 انتصارات.',
         icon: Icons.emoji_events_rounded,
         color: Color(0xFFFACC15),
-        rewardCoins: 140,
-        rewardXp: 80,
         progressKey: 'wins',
         progressTarget: 10,
         progressLabel: 'فوز',
@@ -309,8 +281,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'حقق 25 انتصارا.',
         icon: Icons.shield_rounded,
         color: Color(0xFFF97316),
-        rewardCoins: 220,
-        rewardXp: 120,
         progressKey: 'wins',
         progressTarget: 25,
         progressLabel: 'فوز',
@@ -321,8 +291,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'حقق 50 انتصارا.',
         icon: Icons.local_fire_department_rounded,
         color: Color(0xFFEF4444),
-        rewardCoins: 350,
-        rewardXp: 180,
         progressKey: 'wins',
         progressTarget: 50,
         progressLabel: 'فوز',
@@ -333,8 +301,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'حقق 100 انتصار.',
         icon: Icons.workspace_premium_rounded,
         color: Color(0xFFE879F9),
-        rewardCoins: 500,
-        rewardXp: 260,
         progressKey: 'wins',
         progressTarget: 100,
         progressLabel: 'فوز',
@@ -345,8 +311,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'حقق 250 انتصارا.',
         icon: Icons.auto_awesome_rounded,
         color: Color(0xFFFBBF24),
-        rewardCoins: 750,
-        rewardXp: 400,
         progressKey: 'wins',
         progressTarget: 250,
         progressLabel: 'فوز',
@@ -365,8 +329,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'أجب 10 أسئلة بشكل صحيح.',
         icon: Icons.lightbulb_outline_rounded,
         color: Color(0xFFFBBF24),
-        rewardCoins: 50,
-        rewardXp: 30,
         progressKey: 'correctAnswers',
         progressTarget: 10,
         progressLabel: 'إجابة',
@@ -377,8 +339,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'أجب 50 سؤالا بشكل صحيح.',
         icon: Icons.lightbulb_rounded,
         color: Color(0xFFFBBF24),
-        rewardCoins: 90,
-        rewardXp: 50,
         progressKey: 'correctAnswers',
         progressTarget: 50,
         progressLabel: 'إجابة',
@@ -389,8 +349,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'أجب 100 سؤال بشكل صحيح.',
         icon: Icons.menu_book_rounded,
         color: Color(0xFF34D399),
-        rewardCoins: 150,
-        rewardXp: 80,
         progressKey: 'correctAnswers',
         progressTarget: 100,
         progressLabel: 'إجابة',
@@ -401,8 +359,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'أجب 500 سؤال بشكل صحيح.',
         icon: Icons.psychology_rounded,
         color: Color(0xFF38BDF8),
-        rewardCoins: 300,
-        rewardXp: 150,
         progressKey: 'correctAnswers',
         progressTarget: 500,
         progressLabel: 'إجابة',
@@ -413,8 +369,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'أجب 1,000 سؤال بشكل صحيح.',
         icon: Icons.school_rounded,
         color: Color(0xFF818CF8),
-        rewardCoins: 450,
-        rewardXp: 250,
         progressKey: 'correctAnswers',
         progressTarget: 1000,
         progressLabel: 'إجابة',
@@ -425,8 +379,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'أجب 2,500 سؤال بشكل صحيح.',
         icon: Icons.auto_stories_rounded,
         color: Color(0xFFE879F9),
-        rewardCoins: 650,
-        rewardXp: 350,
         progressKey: 'correctAnswers',
         progressTarget: 2500,
         progressLabel: 'إجابة',
@@ -437,8 +389,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'أجب 5,000 سؤال بشكل صحيح.',
         icon: Icons.workspace_premium_rounded,
         color: Color(0xFFF43F5E),
-        rewardCoins: 850,
-        rewardXp: 500,
         progressKey: 'correctAnswers',
         progressTarget: 5000,
         progressLabel: 'إجابة',
@@ -449,8 +399,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'حافظ على دقة 70% بعد 50 سؤالا.',
         icon: Icons.task_alt_rounded,
         color: Color(0xFF34D399),
-        rewardCoins: 150,
-        rewardXp: 80,
         progressKey: 'accuracy',
         progressTarget: 70,
         progressLabel: 'الدقة',
@@ -465,8 +413,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'حافظ على دقة 80% بعد 100 سؤال.',
         icon: Icons.verified_rounded,
         color: Color(0xFF38BDF8),
-        rewardCoins: 250,
-        rewardXp: 140,
         progressKey: 'accuracy',
         progressTarget: 80,
         progressLabel: 'الدقة',
@@ -481,8 +427,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'حافظ على دقة 90% بعد 250 سؤالا.',
         icon: Icons.diamond_rounded,
         color: Color(0xFFA78BFA),
-        rewardCoins: 450,
-        rewardXp: 250,
         progressKey: 'accuracy',
         progressTarget: 90,
         progressLabel: 'الدقة',
@@ -505,8 +449,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'حقق جائزة 1,000 أو أكثر في مباراة واحدة.',
         icon: Icons.payments_rounded,
         color: Color(0xFF4ADE80),
-        rewardCoins: 50,
-        rewardXp: 30,
         progressKey: 'highestMoney',
         progressTarget: 1000,
         progressLabel: 'أعلى جائزة',
@@ -518,8 +460,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'حقق جائزة 32,000 في مباراة واحدة.',
         icon: Icons.monetization_on_rounded,
         color: Color(0xFFFACC15),
-        rewardCoins: 100,
-        rewardXp: 60,
         progressKey: 'highestMoney',
         progressTarget: 32000,
         progressLabel: 'أعلى جائزة',
@@ -531,8 +471,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'حقق جائزة 500,000 في مباراة واحدة.',
         icon: Icons.diamond_rounded,
         color: Color(0xFF38BDF8),
-        rewardCoins: 250,
-        rewardXp: 140,
         progressKey: 'highestMoney',
         progressTarget: 500000,
         progressLabel: 'أعلى جائزة',
@@ -544,8 +482,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'اربح المليون كاملا في مباراة واحدة.',
         icon: Icons.workspace_premium_rounded,
         color: Color(0xFFFBBF24),
-        rewardCoins: 500,
-        rewardXp: 250,
         progressKey: 'highestMoney',
         progressTarget: 1000000,
         progressLabel: 'أعلى جائزة',
@@ -557,8 +493,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'اجمع 100,000 من أرباح المباريات.',
         icon: Icons.account_balance_wallet_rounded,
         color: Color(0xFF34D399),
-        rewardCoins: 120,
-        rewardXp: 70,
         progressKey: 'totalEarnings',
         progressTarget: 100000,
         progressLabel: 'الأرباح',
@@ -570,8 +504,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'اجمع 1,000,000 من أرباح المباريات.',
         icon: Icons.savings_rounded,
         color: Color(0xFF38BDF8),
-        rewardCoins: 300,
-        rewardXp: 160,
         progressKey: 'totalEarnings',
         progressTarget: 1000000,
         progressLabel: 'الأرباح',
@@ -583,8 +515,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'اجمع 10,000,000 من أرباح المباريات.',
         icon: Icons.auto_awesome_rounded,
         color: Color(0xFFFBBF24),
-        rewardCoins: 600,
-        rewardXp: 350,
         progressKey: 'totalEarnings',
         progressTarget: 10000000,
         progressLabel: 'الأرباح',
@@ -604,8 +534,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'أجب 3 أسئلة متتالية بشكل صحيح.',
         icon: Icons.flash_on_rounded,
         color: Color(0xFFFBBF24),
-        rewardCoins: 50,
-        rewardXp: 30,
         progressKey: 'bestStreak',
         progressTarget: 3,
         progressLabel: 'إجابة متتالية',
@@ -616,8 +544,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'أجب 5 أسئلة متتالية بشكل صحيح.',
         icon: Icons.bolt_rounded,
         color: Color(0xFFF97316),
-        rewardCoins: 80,
-        rewardXp: 50,
         progressKey: 'bestStreak',
         progressTarget: 5,
         progressLabel: 'إجابة متتالية',
@@ -628,8 +554,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'أجب 10 أسئلة متتالية بشكل صحيح.',
         icon: Icons.local_fire_department_rounded,
         color: Color(0xFFEF4444),
-        rewardCoins: 180,
-        rewardXp: 100,
         progressKey: 'bestStreak',
         progressTarget: 10,
         progressLabel: 'إجابة متتالية',
@@ -640,8 +564,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'أجب 15 سؤالا متتاليا بشكل صحيح.',
         icon: Icons.whatshot_rounded,
         color: Color(0xFFF43F5E),
-        rewardCoins: 350,
-        rewardXp: 180,
         progressKey: 'bestStreak',
         progressTarget: 15,
         progressLabel: 'إجابة متتالية',
@@ -652,8 +574,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'حقق 3 انتصارات متتالية.',
         icon: Icons.trending_up_rounded,
         color: Color(0xFF34D399),
-        rewardCoins: 120,
-        rewardXp: 70,
         progressKey: 'bestWinStreak',
         progressTarget: 3,
         progressLabel: 'فوز متتال',
@@ -664,8 +584,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'حقق 5 انتصارات متتالية.',
         icon: Icons.waterfall_chart_rounded,
         color: Color(0xFF38BDF8),
-        rewardCoins: 250,
-        rewardXp: 140,
         progressKey: 'bestWinStreak',
         progressTarget: 5,
         progressLabel: 'فوز متتال',
@@ -676,8 +594,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'حقق 10 انتصارات متتالية.',
         icon: Icons.military_tech_rounded,
         color: Color(0xFFFACC15),
-        rewardCoins: 500,
-        rewardXp: 250,
         progressKey: 'bestWinStreak',
         progressTarget: 10,
         progressLabel: 'فوز متتال',
@@ -696,8 +612,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'امتلك 1,000 كوين.',
         icon: Icons.savings_rounded,
         color: Color(0xFFFACC15),
-        rewardCoins: 50,
-        rewardXp: 30,
         progressKey: 'coins',
         progressTarget: 1000,
         progressLabel: 'كوين',
@@ -708,8 +622,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'امتلك 5,000 كوين.',
         icon: Icons.monetization_on_rounded,
         color: Color(0xFFF97316),
-        rewardCoins: 100,
-        rewardXp: 60,
         progressKey: 'coins',
         progressTarget: 5000,
         progressLabel: 'كوين',
@@ -720,8 +632,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'امتلك 10,000 كوين.',
         icon: Icons.account_balance_wallet_rounded,
         color: Color(0xFFEF4444),
-        rewardCoins: 180,
-        rewardXp: 100,
         progressKey: 'coins',
         progressTarget: 10000,
         progressLabel: 'كوين',
@@ -732,8 +642,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'امتلك 50,000 كوين.',
         icon: Icons.account_balance_rounded,
         color: Color(0xFFFBBF24),
-        rewardCoins: 400,
-        rewardXp: 200,
         progressKey: 'coins',
         progressTarget: 50000,
         progressLabel: 'كوين',
@@ -744,8 +652,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'امتلك 50 جوهرة.',
         icon: Icons.diamond_outlined,
         color: Color(0xFF38BDF8),
-        rewardCoins: 100,
-        rewardXp: 60,
         progressKey: 'gems',
         progressTarget: 50,
         progressLabel: 'جوهرة',
@@ -756,8 +662,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'امتلك 500 جوهرة.',
         icon: Icons.diamond_rounded,
         color: Color(0xFF818CF8),
-        rewardCoins: 300,
-        rewardXp: 160,
         progressKey: 'gems',
         progressTarget: 500,
         progressLabel: 'جوهرة',
@@ -768,8 +672,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'امتلك 1,000 جوهرة.',
         icon: Icons.diamond_rounded,
         color: Color(0xFFA78BFA),
-        rewardCoins: 500,
-        rewardXp: 250,
         progressKey: 'gems',
         progressTarget: 1000,
         progressLabel: 'جوهرة',
@@ -780,8 +682,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'امتلك 5 وسائل مساعدة في المخزون.',
         icon: Icons.inventory_2_rounded,
         color: Color(0xFF34D399),
-        rewardCoins: 70,
-        rewardXp: 40,
         progressKey: 'inventoryTotal',
         progressTarget: 5,
         progressLabel: 'وسيلة',
@@ -792,8 +692,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'امتلك 15 وسيلة مساعدة في المخزون.',
         icon: Icons.business_center_rounded,
         color: Color(0xFF38BDF8),
-        rewardCoins: 150,
-        rewardXp: 80,
         progressKey: 'inventoryTotal',
         progressTarget: 15,
         progressLabel: 'وسيلة',
@@ -804,8 +702,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'امتلك 30 وسيلة مساعدة في المخزون.',
         icon: Icons.all_inbox_rounded,
         color: Color(0xFFFACC15),
-        rewardCoins: 280,
-        rewardXp: 150,
         progressKey: 'inventoryTotal',
         progressTarget: 30,
         progressLabel: 'وسيلة',
@@ -824,8 +720,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'استخدم وسيلة 50:50 مرة واحدة.',
         icon: Icons.filter_2_rounded,
         color: Color(0xFF60A5FA),
-        rewardCoins: 40,
-        rewardXp: 25,
       ),
       _AchDef(
         key: 'ACH_USE_AUDIENCE',
@@ -833,8 +727,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'استخدم استشارة الجمهور مرة واحدة.',
         icon: Icons.groups_rounded,
         color: Color(0xFFA78BFA),
-        rewardCoins: 40,
-        rewardXp: 25,
       ),
       _AchDef(
         key: 'ACH_USE_CALL',
@@ -842,8 +734,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'استخدم الاتصال بصديق مرة واحدة.',
         icon: Icons.phone_rounded,
         color: Color(0xFF34D399),
-        rewardCoins: 40,
-        rewardXp: 25,
       ),
       _AchDef(
         key: 'ACH_USE_ALL_HELPS',
@@ -851,8 +741,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'استخدم وسائل المساعدة الثلاث في مباراة واحدة.',
         icon: Icons.handyman_rounded,
         color: Color(0xFFF97316),
-        rewardCoins: 150,
-        rewardXp: 80,
       ),
       _AchDef(
         key: 'ACH_PERFECT_GAME',
@@ -860,8 +748,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'افز دون استخدام أي وسيلة مساعدة.',
         icon: Icons.star_rounded,
         color: Color(0xFFFBBF24),
-        rewardCoins: 400,
-        rewardXp: 200,
       ),
     ],
   ),
@@ -877,8 +763,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'حقق 5 انتصارات أونلاين.',
         icon: Icons.wifi_rounded,
         color: Color(0xFF38BDF8),
-        rewardCoins: 120,
-        rewardXp: 70,
         progressKey: 'onlineWins',
         progressTarget: 5,
         progressLabel: 'فوز أونلاين',
@@ -889,8 +773,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'حقق 10 انتصارات أونلاين.',
         icon: Icons.public_rounded,
         color: Color(0xFF818CF8),
-        rewardCoins: 200,
-        rewardXp: 110,
         progressKey: 'onlineWins',
         progressTarget: 10,
         progressLabel: 'فوز أونلاين',
@@ -901,8 +783,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'حقق 25 انتصارا أونلاين.',
         icon: Icons.travel_explore_rounded,
         color: Color(0xFFE879F9),
-        rewardCoins: 400,
-        rewardXp: 200,
         progressKey: 'onlineWins',
         progressTarget: 25,
         progressLabel: 'فوز أونلاين',
@@ -913,8 +793,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'أكمل 5 مباريات في تحدي السرعة.',
         icon: Icons.flash_on_rounded,
         color: Color(0xFFF97316),
-        rewardCoins: 140,
-        rewardXp: 80,
         progressKey: 'blitzFinishes',
         progressTarget: 5,
         progressLabel: 'مباراة سرعة',
@@ -925,8 +803,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'أكمل 15 مباراة في تحدي السرعة.',
         icon: Icons.speed_rounded,
         color: Color(0xFFEF4444),
-        rewardCoins: 300,
-        rewardXp: 160,
         progressKey: 'blitzFinishes',
         progressTarget: 15,
         progressLabel: 'مباراة سرعة',
@@ -937,8 +813,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'افز 3 مرات في طور الإقصاء.',
         icon: Icons.gpp_good_rounded,
         color: Color(0xFFEF4444),
-        rewardCoins: 150,
-        rewardXp: 80,
         progressKey: 'eliminationWins',
         progressTarget: 3,
         progressLabel: 'فوز',
@@ -949,8 +823,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'افز 10 مرات في طور الإقصاء.',
         icon: Icons.security_rounded,
         color: Color(0xFFF43F5E),
-        rewardCoins: 380,
-        rewardXp: 200,
         progressKey: 'eliminationWins',
         progressTarget: 10,
         progressLabel: 'فوز',
@@ -961,8 +833,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'افز 3 مرات في طور البقاء.',
         icon: Icons.favorite_rounded,
         color: Color(0xFF34D399),
-        rewardCoins: 150,
-        rewardXp: 80,
         progressKey: 'survivalWins',
         progressTarget: 3,
         progressLabel: 'فوز',
@@ -973,8 +843,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'افز 10 مرات في طور البقاء.',
         icon: Icons.health_and_safety_rounded,
         color: Color(0xFF4ADE80),
-        rewardCoins: 380,
-        rewardXp: 200,
         progressKey: 'survivalWins',
         progressTarget: 10,
         progressLabel: 'فوز',
@@ -985,8 +853,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'احسم 3 سلاسل كاملة لصالحك.',
         icon: Icons.stacked_line_chart_rounded,
         color: Color(0xFF38BDF8),
-        rewardCoins: 160,
-        rewardXp: 90,
         progressKey: 'seriesWins',
         progressTarget: 3,
         progressLabel: 'سلسلة',
@@ -997,8 +863,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'احسم 10 سلاسل كاملة لصالحك.',
         icon: Icons.query_stats_rounded,
         color: Color(0xFF60A5FA),
-        rewardCoins: 420,
-        rewardXp: 220,
         progressKey: 'seriesWins',
         progressTarget: 10,
         progressLabel: 'سلسلة',
@@ -1009,8 +873,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'افز 5 مرات في طور مواجهة الفرق.',
         icon: Icons.groups_rounded,
         color: Color(0xFF4ADE80),
-        rewardCoins: 180,
-        rewardXp: 100,
         progressKey: 'teamBattleWins',
         progressTarget: 5,
         progressLabel: 'فوز',
@@ -1021,8 +883,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'افز 15 مرة في طور مواجهة الفرق.',
         icon: Icons.diversity_3_rounded,
         color: Color(0xFFFACC15),
-        rewardCoins: 450,
-        rewardXp: 250,
         progressKey: 'teamBattleWins',
         progressTarget: 15,
         progressLabel: 'فوز',
@@ -1041,8 +901,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'أكمل 5 مراحل في الحملة.',
         icon: Icons.route_rounded,
         color: Color(0xFF14B8A6),
-        rewardCoins: 150,
-        rewardXp: 80,
         progressKey: 'campaignCompletedStages',
         progressTarget: 5,
         progressLabel: 'مرحلة',
@@ -1053,8 +911,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'أكمل 20 مرحلة في الحملة.',
         icon: Icons.flag_rounded,
         color: Color(0xFF60A5FA),
-        rewardCoins: 350,
-        rewardXp: 180,
         progressKey: 'campaignCompletedStages',
         progressTarget: 20,
         progressLabel: 'مرحلة',
@@ -1065,8 +921,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'أكمل 50 مرحلة في الحملة.',
         icon: Icons.travel_explore_rounded,
         color: Color(0xFFFACC15),
-        rewardCoins: 700,
-        rewardXp: 350,
         progressKey: 'campaignCompletedStages',
         progressTarget: 50,
         progressLabel: 'مرحلة',
@@ -1077,8 +931,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'اجمع 30 نجمة من مراحل الحملة.',
         icon: Icons.star_rounded,
         color: Color(0xFFFBBF24),
-        rewardCoins: 250,
-        rewardXp: 120,
         progressKey: 'campaignStars',
         progressTarget: 30,
         progressLabel: 'نجمة',
@@ -1089,8 +941,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'اجمع 100 نجمة من مراحل الحملة.',
         icon: Icons.stars_rounded,
         color: Color(0xFF38BDF8),
-        rewardCoins: 500,
-        rewardXp: 260,
         progressKey: 'campaignStars',
         progressTarget: 100,
         progressLabel: 'نجمة',
@@ -1101,8 +951,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'اجمع 200 نجمة من مراحل الحملة.',
         icon: Icons.auto_awesome_rounded,
         color: Color(0xFFE879F9),
-        rewardCoins: 850,
-        rewardXp: 450,
         progressKey: 'campaignStars',
         progressTarget: 200,
         progressLabel: 'نجمة',
@@ -1113,8 +961,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'أكمل 3 مراحل سرعة في الحملة.',
         icon: Icons.speed_rounded,
         color: Color(0xFFF97316),
-        rewardCoins: 180,
-        rewardXp: 100,
         progressKey: 'campaignBlitzCompletions',
         progressTarget: 3,
         progressLabel: 'مرحلة سرعة',
@@ -1125,8 +971,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'أكمل 3 مراحل بقاء في الحملة.',
         icon: Icons.health_and_safety_rounded,
         color: Color(0xFF4ADE80),
-        rewardCoins: 180,
-        rewardXp: 100,
         progressKey: 'campaignSurvivalCompletions',
         progressTarget: 3,
         progressLabel: 'مرحلة بقاء',
@@ -1137,8 +981,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'اهزم خصمك في 3 مراحل مواجهة داخل الحملة.',
         icon: Icons.sports_mma_rounded,
         color: Color(0xFFEF4444),
-        rewardCoins: 180,
-        rewardXp: 100,
         progressKey: 'campaignRivalCompletions',
         progressTarget: 3,
         progressLabel: 'مواجهة',
@@ -1149,8 +991,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'أكمل 3 مراحل سلسلة في الحملة.',
         icon: Icons.stacked_line_chart_rounded,
         color: Color(0xFF818CF8),
-        rewardCoins: 180,
-        rewardXp: 100,
         progressKey: 'campaignSeriesCompletions',
         progressTarget: 3,
         progressLabel: 'سلسلة',
@@ -1161,8 +1001,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'أكمل 3 مراحل معركة فرق في الحملة.',
         icon: Icons.diversity_3_rounded,
         color: Color(0xFF22D3EE),
-        rewardCoins: 180,
-        rewardXp: 100,
         progressKey: 'campaignTeamCompletions',
         progressTarget: 3,
         progressLabel: 'معركة فرق',
@@ -1173,8 +1011,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'أكمل 5 مراحل بدون وسائل مساعدة في الحملة.',
         icon: Icons.do_not_disturb_on_rounded,
         color: Color(0xFFF43F5E),
-        rewardCoins: 380,
-        rewardXp: 200,
         progressKey: 'campaignNoHelpCompletions',
         progressTarget: 5,
         progressLabel: 'مرحلة',
@@ -1185,8 +1021,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'اهزم أول زعيم في الحملة.',
         icon: Icons.workspace_premium_rounded,
         color: Color(0xFFFBBF24),
-        rewardCoins: 300,
-        rewardXp: 150,
         progressKey: 'campaignBossWins',
         progressTarget: 1,
         progressLabel: 'زعيم',
@@ -1197,8 +1031,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'اهزم 5 زعماء في الحملة.',
         icon: Icons.military_tech_rounded,
         color: Color(0xFFA78BFA),
-        rewardCoins: 650,
-        rewardXp: 350,
         progressKey: 'campaignBossWins',
         progressTarget: 5,
         progressLabel: 'زعيم',
@@ -1209,8 +1041,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'أنهِ 10 مراحل بثلاث نجوم وبدون وسائل مساعدة.',
         icon: Icons.diamond_rounded,
         color: Color(0xFF34D399),
-        rewardCoins: 750,
-        rewardXp: 400,
         progressKey: 'campaignPerfectCompletions',
         progressTarget: 10,
         progressLabel: 'مرحلة مثالية',
@@ -1229,8 +1059,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'خض أول مباراة في التحدي الرئيسي المحلي بين فريقين.',
         icon: Icons.groups_2_rounded,
         color: Color(0xFFF59E0B),
-        rewardCoins: 100,
-        rewardXp: 50,
         progressKey: 'localTeamsPlayed',
         progressTarget: 1,
         progressLabel: 'مباراة',
@@ -1241,8 +1069,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'خض 5 مباريات في التحدي الرئيسي المحلي.',
         icon: Icons.military_tech_rounded,
         color: Color(0xFFD97706),
-        rewardCoins: 250,
-        rewardXp: 120,
         progressKey: 'localTeamsPlayed',
         progressTarget: 5,
         progressLabel: 'مباراة',
@@ -1253,8 +1079,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'استخدم ميزة بث المباراة على التلفزيون أو المتصفح.',
         icon: Icons.tv_rounded,
         color: Color(0xFF38BDF8),
-        rewardCoins: 120,
-        rewardXp: 60,
         progressKey: 'tvCastCount',
         progressTarget: 1,
         progressLabel: 'بث',
@@ -1265,8 +1089,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'ابدأ أول مباراة أوف لاين على لوحة التحدي التنافسية.',
         icon: Icons.casino_rounded,
         color: Color(0xFF10B981),
-        rewardCoins: 100,
-        rewardXp: 50,
         progressKey: 'offlineBoardPlayed',
         progressTarget: 1,
         progressLabel: 'مباراة',
@@ -1277,8 +1099,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'حقق الفوز في مباراة أوف لاين على اللوحة التنافسية.',
         icon: Icons.emoji_events_rounded,
         color: Color(0xFF059669),
-        rewardCoins: 220,
-        rewardXp: 110,
         progressKey: 'offlineBoardWins',
         progressTarget: 1,
         progressLabel: 'فوز',
@@ -1289,8 +1109,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'خض مواجهة سرعة مباشرة برمز الصديق.',
         icon: Icons.person_add_alt_1_rounded,
         color: Color(0xFFA855F7),
-        rewardCoins: 120,
-        rewardXp: 60,
         progressKey: 'friendMatchesPlayed',
         progressTarget: 1,
         progressLabel: 'مواجهة',
@@ -1301,8 +1119,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'العب 3 مباريات في مواجهات التحدي السريع العشوائي.',
         icon: Icons.shuffle_rounded,
         color: Color(0xFFEC4899),
-        rewardCoins: 180,
-        rewardXp: 90,
         progressKey: 'randomMatchesPlayed',
         progressTarget: 3,
         progressLabel: 'مباراة',
@@ -1313,8 +1129,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'افتح شخصيتين أو أكثر في ملفك التعريفي.',
         icon: Icons.face_retouching_natural_rounded,
         color: Color(0xFF8B5CF6),
-        rewardCoins: 150,
-        rewardXp: 70,
         progressKey: 'unlockedCharactersCount',
         progressTarget: 2,
         progressLabel: 'شخصية',
@@ -1333,8 +1147,6 @@ const List<_Category> _kCategories = <_Category>[
         descAr: 'أكمل جميع الإنجازات الأخرى.',
         icon: Icons.auto_awesome_rounded,
         color: Color(0xFFF43F5E),
-        rewardCoins: 1200,
-        rewardXp: 600,
       ),
     ],
   ),
@@ -1354,25 +1166,57 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
   Map<String, dynamic> _data = <String, dynamic>{};
   bool _loading = true;
   String? _claimingKey;
+  bool _isClaimingAll = false;
+  bool _claimsReady = false;
+  String? _claimError;
+  int _loadVersion = 0;
+  String? _screenAccount;
+  bool _accountInitialized = false;
 
   @override
   void initState() {
     super.initState();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-    _loadAchievements();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final uid = context.watch<AppState>().currentUser?.uid;
+    if (!_accountInitialized || uid != _screenAccount) {
+      _accountInitialized = true;
+      _screenAccount = uid;
+      _data = {};
+      _loading = true;
+      _claimsReady = false;
+      _claimingKey = null;
+      _isClaimingAll = false;
+      ++_loadVersion;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _loadAchievements();
+      });
+    }
   }
 
   Future<void> _loadAchievements() async {
+    final version = ++_loadVersion;
     try {
-      final data = await context.read<NativeBridgeService>().getAchievements();
-      if (!mounted) return;
+      final data = await context.read<AppState>().loadAchievementState();
+      if (!mounted || version != _loadVersion) return;
       setState(() {
         _data = data;
         _loading = false;
+        _claimsReady = true;
+        _claimError = null;
       });
     } catch (_) {
-      if (!mounted) return;
-      setState(() => _loading = false);
+      if (!mounted || version != _loadVersion) return;
+      setState(() {
+        _loading = false;
+        _claimsReady = false;
+        _claimError =
+            'تعذّرت مزامنة الإنجازات. تحقق من الاتصال ثم أعد المحاولة.';
+      });
     }
   }
 
@@ -1455,9 +1299,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
       .where((achievement) => _status(achievement) == _AchStatus.locked)
       .length;
 
-  int get _unclaimedCount =>
-      (_data['unclaimedAchievements'] as num?)?.toInt() ??
-      _all.where(_canClaim).length;
+  int get _unclaimedCount => _all.where(_canClaim).length;
 
   int get _earnedCoins => _all
       .where((achievement) => _isDone(achievement) && _isClaimed(achievement))
@@ -1467,112 +1309,70 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
       .where((achievement) => _isDone(achievement) && _isClaimed(achievement))
       .fold(0, (sum, achievement) => sum + achievement.rewardXp);
 
-  Future<void> _claimReward(_AchDef achievement) async {
-    if (!_canClaim(achievement) || _claimingKey != null) return;
-    final native = context.read<NativeBridgeService>();
-    final appState = context.read<AppState>();
-    setState(() => _claimingKey = achievement.key);
+  Future<void> _claimReward(_AchDef achievement) =>
+      _performClaim(achievement: achievement);
 
-    final result = await native.claimAchievementReward(achievement.key);
-    if (!mounted) return;
+  Future<void> _claimAll() => _performClaim();
 
-    if (result['success'] == 1) {
-      await appState.loadCurrency();
-      await appState.checkAndAwardXpForGames();
-      await _loadAchievements();
-      if (!mounted) return;
-      final coins = result['coins'] ?? achievement.rewardCoins;
-      final xp = result['xp'] ?? achievement.rewardXp;
-      showCurrencyRewardOverlay(context, coins: coins, gems: 0);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'تم تحصيل ${achievement.titleAr}: +${_compactNumber(coins)} كوين و +${_compactNumber(xp)} XP',
-            textDirection: TextDirection.rtl,
-          ),
-          backgroundColor: const Color(0xFF047857),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'تعذر تحصيل المكافأة الآن.',
-            textDirection: TextDirection.rtl,
-          ),
-          backgroundColor: Color(0xFFB91C1C),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+  Future<void> _performClaim({_AchDef? achievement}) async {
+    if (!_claimsReady ||
+        _loading ||
+        _isClaimingAll ||
+        _claimingKey != null ||
+        (achievement == null
+            ? _unclaimedCount == 0
+            : !_canClaim(achievement))) {
+      return;
     }
-
-    if (mounted) {
-      setState(() => _claimingKey = null);
-    }
-  }
-
-  bool _isClaimingAll = false;
-
-  Future<void> _claimAll() async {
-    if (_unclaimedCount <= 0 || _isClaimingAll || _claimingKey != null) return;
-    final native = context.read<NativeBridgeService>();
     final appState = context.read<AppState>();
-    setState(() => _isClaimingAll = true);
-
+    final owner = _screenAccount;
+    ++_loadVersion; // An older load must not restore pre-claim flags.
+    setState(() {
+      _claimingKey = achievement?.key;
+      _isClaimingAll = achievement == null;
+      _claimError = null;
+    });
     try {
-      final result = await native.claimAllAchievementRewards();
-      if (!mounted) return;
-
-      final claimedCount = result['claimedCount'] ?? 0;
-      if (claimedCount > 0 || result['success'] == 1) {
-        await appState.loadCurrency();
-        await appState.checkAndAwardXpForGames();
-        await _loadAchievements();
-        if (!mounted) return;
-        final coins = result['coins'] ?? 0;
-        final xp = result['xp'] ?? 0;
-        if (coins > 0) {
-          showCurrencyRewardOverlay(context, coins: coins, gems: 0);
-        }
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '🎉 تم تحصيل جميع الجوائز بنجاح ($claimedCount إنجاز): +${_compactNumber(coins)} كوين و +${_compactNumber(xp)} XP',
-              textDirection: TextDirection.rtl,
-            ),
-            backgroundColor: const Color(0xFF047857),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'لا توجد إنجازات جاهزة للتحصيل حالياً.',
-              textDirection: TextDirection.rtl,
-            ),
-            backgroundColor: Color(0xFF475569),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+      final result =
+          await appState.claimAchievementRewards(key: achievement?.key);
+      if (!mounted || owner != _screenAccount) return;
+      if (result == null) {
+        setState(() => _claimError = appState.achievementRewardError ??
+            'تعذّر إتمام التحصيل. أعد المحاولة.');
+        return;
       }
+      setState(() {
+        for (final id in result.unlockedIds) {
+          _data[id] = true;
+        }
+        for (final id in result.claimedIds) {
+          _data['${id}_CLAIMED'] = true;
+        }
+      });
+      if (result.coins > 0) {
+        showCurrencyRewardOverlay(context, coins: result.coins, gems: 0);
+      }
+      final count = result.newlyClaimedIds.length;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(
+            count > 0
+                ? 'تم تحصيل $count إنجاز: +${_compactNumber(result.coins)} عملة و +${_compactNumber(result.xp)} XP'
+                : 'تمت مزامنة الجوائز المستلمة مسبقًا؛ لم تُضف مكافآت مكررة.',
+            textDirection: TextDirection.rtl),
+        backgroundColor: const Color(0xFF047857),
+        behavior: SnackBarBehavior.floating,
+      ));
+      await _loadAchievements();
     } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'تعذر تحصيل الإنجازات الآن، يرجى المحاولة لاحقاً.',
-              textDirection: TextDirection.rtl,
-            ),
-            backgroundColor: Color(0xFFB91C1C),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+      if (mounted && owner == _screenAccount) {
+        setState(() => _claimError = 'تعذّر إتمام التحصيل. أعد المحاولة.');
       }
     } finally {
-      if (mounted) {
-        setState(() => _isClaimingAll = false);
+      if (mounted && owner == _screenAccount) {
+        setState(() {
+          _claimingKey = null;
+          _isClaimingAll = false;
+        });
       }
     }
   }
@@ -1607,9 +1407,36 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                 children: <Widget>[
                   _Header(
                     onBack: () => Navigator.of(context).pop(),
-                    unclaimedCount: _unclaimedCount,
+                    unclaimedCount: _claimsReady && _claimingKey == null
+                        ? _unclaimedCount
+                        : 0,
                     isClaimingAll: _isClaimingAll,
                     onClaimAll: _claimAll,
+                  ),
+                  if (_claimError != null)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Row(children: [
+                        Expanded(
+                            child: Semantics(
+                                liveRegion: true,
+                                child: Text(_claimError!,
+                                    style: const TextStyle(
+                                        color: Color(0xFFFFB2AA),
+                                        fontSize: 12)))),
+                        TextButton(
+                            onPressed: _claimingKey != null || _isClaimingAll
+                                ? null
+                                : _loadAchievements,
+                            child: const Text('إعادة المزامنة')),
+                      ]),
+                    ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    child: Text(
+                        'تُستلم كل جائزة مرة واحدة للحساب. قد تفتح المكافآت إنجازات جديدة تظهر بعدها للتحصيل.',
+                        style: TextStyle(color: Colors.white54, fontSize: 11),
+                        textAlign: TextAlign.center),
                   ),
                   Expanded(
                     child: AnimatedSwitcher(
@@ -1623,14 +1450,21 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                               progressOf: _progress,
                               progressTextOf: _progressText,
                               isClaimed: _isClaimed,
-                              canClaim: _canClaim,
+                              canClaim: (achievement) =>
+                                  _claimsReady &&
+                                  !_isClaimingAll &&
+                                  (_claimingKey == null ||
+                                      _claimingKey == achievement.key) &&
+                                  _canClaim(achievement),
                               claimingKey: _claimingKey,
                               onClaim: _claimReward,
                               done: _doneCount,
                               inProgress: _progressCount,
                               locked: _lockedCount,
                               total: _totalCount,
-                              unclaimed: _unclaimedCount,
+                              unclaimed: _claimsReady && _claimingKey == null
+                                  ? _unclaimedCount
+                                  : 0,
                               earnedCoins: _earnedCoins,
                               earnedXp: _earnedXp,
                               onClaimAll: _claimAll,
@@ -1833,7 +1667,8 @@ class _Header extends StatelessWidget {
                 onTap: isClaimingAll ? null : onClaimAll,
                 borderRadius: BorderRadius.circular(10),
                 child: Ink(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       colors: <Color>[Color(0xFF059669), Color(0xFF10B981)],
@@ -1860,10 +1695,13 @@ class _Header extends StatelessWidget {
                           ),
                         )
                       else
-                        const Icon(Icons.redeem_rounded, color: Colors.white, size: 16),
+                        const Icon(Icons.redeem_rounded,
+                            color: Colors.white, size: 16),
                       const SizedBox(width: 6),
                       Text(
-                        isClaimingAll ? 'جاري التحصيل...' : 'تحصيل الكل ($unclaimedCount)',
+                        isClaimingAll
+                            ? 'جاري التحصيل...'
+                            : 'تحصيل الكل ($unclaimedCount)',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 12,
@@ -2050,18 +1888,23 @@ class _OverviewPanel extends StatelessWidget {
                       child: Ink(
                         decoration: BoxDecoration(
                           gradient: const LinearGradient(
-                            colors: <Color>[Color(0xFF047857), Color(0xFF10B981)],
+                            colors: <Color>[
+                              Color(0xFF047857),
+                              Color(0xFF10B981)
+                            ],
                           ),
                           borderRadius: BorderRadius.circular(10),
                           boxShadow: <BoxShadow>[
                             BoxShadow(
-                              color: const Color(0xFF10B981).withValues(alpha: 0.35),
+                              color: const Color(0xFF10B981)
+                                  .withValues(alpha: 0.35),
                               blurRadius: 10,
                               offset: const Offset(0, 3),
                             ),
                           ],
                         ),
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 10),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: <Widget>[
@@ -2075,7 +1918,8 @@ class _OverviewPanel extends StatelessWidget {
                                 ),
                               )
                             else
-                              const Icon(Icons.redeem_rounded, color: Colors.white, size: 18),
+                              const Icon(Icons.redeem_rounded,
+                                  color: Colors.white, size: 18),
                             const SizedBox(width: 8),
                             Text(
                               isClaimingAll

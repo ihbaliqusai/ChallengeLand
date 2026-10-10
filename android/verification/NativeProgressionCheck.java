@@ -23,8 +23,37 @@ public final class NativeProgressionCheck {
         verifyInstallationBackupIsolation();
         verifyPendingCampaignOwnership();
         verifyLevelBoundariesAndClaims();
+        verifyAchievementReceiptRestore();
         verifyConcurrentAnswersAndResults();
         System.out.println("Native progression regression checks passed (" + assertions + " assertions)");
+    }
+
+    private static void verifyAchievementReceiptRestore() {
+        VerificationContext device = new VerificationContext();
+        device.switchAccount("receipt-owner");
+        device.account().values.put("coins", 500);
+        device.account().values.put("xp", 100);
+        PlayerProgress.getUnclaimedAchievementCount(device); // Initialize legacy migration.
+        java.util.List<String> ids = java.util.Arrays.asList(PlayerProgress.ACH_FIRST_GAME);
+        check(PlayerProgress.hydrateAchievementClaims(device, "receipt-owner", ids, ids), "cloud receipts restored");
+        check(PlayerProgress.isAchievementRewardClaimed(device, PlayerProgress.ACH_FIRST_GAME), "restored reward remains claimed");
+        equal(PlayerProgress.getCoins(device), 500, "receipt restore never grants coins");
+        equal(PlayerProgress.getXp(device), 100, "receipt restore never grants XP");
+        check(PlayerProgress.hydrateAchievementClaims(device, "receipt-owner", java.util.Collections.emptyList(), java.util.Collections.emptyList()), "empty restore accepted");
+        check(PlayerProgress.isAchievementRewardClaimed(device, PlayerProgress.ACH_FIRST_GAME), "stale restore cannot erase a claim");
+        check(!PlayerProgress.claimAchievementReward(device, PlayerProgress.ACH_FIRST_GAME).success, "legacy endpoint cannot repay restored receipt");
+        device.account().failNextCommit = true;
+        java.util.List<String> next = java.util.Arrays.asList(PlayerProgress.ACH_FIRST_WIN);
+        try {
+            PlayerProgress.hydrateAchievementClaims(device, "receipt-owner", next, next);
+            throw new AssertionError("receipt disk failure must be reported");
+        } catch (IllegalStateException expected) {
+            check(!PlayerProgress.isAchievementRewardClaimed(device, PlayerProgress.ACH_FIRST_WIN), "failed receipt rolled back");
+        }
+        check(PlayerProgress.hydrateAchievementClaims(device, "receipt-owner", next, next), "receipt retry succeeds");
+        device.switchAccount("other-owner");
+        check(!PlayerProgress.hydrateAchievementClaims(device, "receipt-owner", ids, ids), "wrong account rejected");
+        check(!PlayerProgress.isAchievementRewardClaimed(device, PlayerProgress.ACH_FIRST_GAME), "claims do not cross accounts");
     }
 
     private static void verifyAllModes() {

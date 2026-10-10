@@ -1841,15 +1841,8 @@ class _LeftSidebar extends StatelessWidget {
                   clipBehavior: Clip.none,
                   children: <Widget>[
                     _ChestCounter(
-                      current: () {
-                        final completed = appState.claimedToday
-                            ? appState.streakDay
-                            : (appState.streakDay > 1
-                                ? appState.streakDay - 1
-                                : 0);
-                        return completed > 0 ? (completed - 1) % 7 + 1 : 0;
-                      }(),
-                      total: 7,
+                      current: appState.rewardWeekCompleted,
+                      total: appState.rewardWeekLength,
                     ),
                     if (isOnline &&
                         appState.streakDay > 0 &&
@@ -2731,10 +2724,7 @@ class _DailyChests extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final completed = appState.claimedToday
-        ? appState.streakDay
-        : (appState.streakDay > 1 ? appState.streakDay - 1 : 0);
-    final opened = completed > 0 ? (completed - 1) % 7 + 1 : 0;
+    final opened = appState.rewardWeekCompleted;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
@@ -2759,7 +2749,7 @@ class _DailyChests extends StatelessWidget {
           const SizedBox(height: 6),
           Row(
             mainAxisSize: MainAxisSize.min,
-            children: List.generate(7, (i) {
+            children: List.generate(appState.rewardWeekLength, (i) {
               final isOpened = i < opened;
               const closedBoxImages = [
                 'assets/ui/box1.png',

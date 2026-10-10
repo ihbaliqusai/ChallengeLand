@@ -7,6 +7,8 @@ import 'package:flutter/foundation.dart';
 import '../models/game_character.dart';
 import '../models/game_category.dart';
 import '../services/auth_service.dart';
+import '../services/achievement_reward_service.dart';
+import '../services/daily_reward_service.dart';
 import '../services/campaign_currency_service.dart';
 import '../services/native_bridge_service.dart';
 import '../services/progression_service.dart';
@@ -61,6 +63,16 @@ class AppState extends ChangeNotifier {
   bool claimedToday = false;
   bool dailyStreakLoaded = false;
   bool _claimingStreak = false;
+  bool _dailyRewardWalletPending = false;
+  bool _achievementWalletPending = false;
+  bool _achievementOperation = false;
+  bool claimingAchievementRewards = false;
+  String? achievementRewardError;
+  int get rewardWeekStart => ((streakDay.clamp(1, 30) - 1) ~/ 7) * 7 + 1;
+  int get rewardWeekLength => (31 - rewardWeekStart).clamp(1, 7);
+  int get rewardWeekCompleted =>
+      (streakDay.clamp(1, 30) - rewardWeekStart + (claimedToday ? 1 : 0))
+          .clamp(0, rewardWeekLength);
 
   User? get currentUser => user ?? _authService.currentUser;
 
@@ -316,38 +328,7 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  static const List<Map<String, int>> streakRewards = [
-    {'coins': 100, 'gems': 0},
-    {'coins': 150, 'gems': 0},
-    {'coins': 200, 'gems': 1},
-    {'coins': 250, 'gems': 0},
-    {'coins': 300, 'gems': 1},
-    {'coins': 400, 'gems': 2},
-    {'coins': 500, 'gems': 3},
-    {'coins': 300, 'gems': 1},
-    {'coins': 350, 'gems': 1},
-    {'coins': 400, 'gems': 2},
-    {'coins': 450, 'gems': 2},
-    {'coins': 500, 'gems': 3},
-    {'coins': 600, 'gems': 3},
-    {'coins': 800, 'gems': 5},
-    {'coins': 400, 'gems': 2},
-    {'coins': 450, 'gems': 2},
-    {'coins': 500, 'gems': 3},
-    {'coins': 550, 'gems': 3},
-    {'coins': 600, 'gems': 4},
-    {'coins': 700, 'gems': 4},
-    {'coins': 1000, 'gems': 7},
-    {'coins': 600, 'gems': 3},
-    {'coins': 650, 'gems': 4},
-    {'coins': 700, 'gems': 4},
-    {'coins': 750, 'gems': 5},
-    {'coins': 800, 'gems': 5},
-    {'coins': 900, 'gems': 6},
-    {'coins': 1000, 'gems': 7},
-    {'coins': 1200, 'gems': 8},
-    {'coins': 2000, 'gems': 15},
-  ];
+  static const streakRewards = DailyRewardService.rewards;
 
   /// Get the streak reward map for a specific day (1-30).
   static Map<String, int> getRewardForDay(int day) {
@@ -358,52 +339,68 @@ class AppState extends ChangeNotifier {
   Map<String, int> get todayReward =>
       getRewardForDay(streakDay > 0 ? streakDay : 1);
 
-  /// Returns the reward {coins, gems} if claimed, or null if already claimed / error.
+  String? dailyRewardError;
+  bool get claimingDailyReward => _claimingStreak;
+
   Future<Map<String, int>?> claimDailyStreak() async {
-    if (claimedToday || _claimingStreak) return null;
+    if (_claimingStreak) return null;
+    final uid = currentUser?.uid;
+    if (uid == null || _commerceHydratedUid != uid) {
+      dailyRewardError = uid == null
+          ? 'سجّل الدخول لاستلام مكافأتك.'
+          : 'جارٍ مزامنة حسابك، حاول مجددًا بعد لحظات.';
+      notifyListeners();
+      return null;
+    }
+    final generation = _authGeneration;
     _claimingStreak = true;
+    dailyRewardError = null;
     notifyListeners();
-
-    final uid = user?.uid;
-    if (uid == null) {
-      _claimingStreak = false;
-      notifyListeners();
-      return null;
-    }
-
-    final day = streakDay > 0 ? streakDay : 1;
-    final reward = getRewardForDay(day);
-    final rewardCoins = reward['coins'] ?? 0;
-    final rewardGems = reward['gems'] ?? 0;
-
+    final previousSnapshot = _snapshotTail;
+    final deliveryFinished = Completer<void>();
+    _snapshotTail = previousSnapshot.then((_) => deliveryFinished.future);
     try {
-      await _firestore.collection('users').doc(uid).set(
-        {
-          'streakDay': day,
-          'lastStreakClaimDate': Timestamp.fromDate(DateTime.now()),
-        },
-        SetOptions(merge: true),
-      );
-
-      final balances = await _nativeBridgeService.grantCurrency(
-        coins: rewardCoins,
-        gems: rewardGems,
-      );
-
-      coins = balances['coins'] ?? (coins + rewardCoins);
-      gems = balances['gems'] ?? (gems + rewardGems);
-      unawaited(_saveCurrencySnapshot(uid));
+      await previousSnapshot;
+      if (generation != _authGeneration || currentUser?.uid != uid) return null;
+      _dailyRewardWalletPending = true;
+      final result = await DailyRewardService(firestore: _firestore)
+          .claim(
+            uid: uid,
+            now: DateTime.now(),
+            fallbackCoins: coins,
+            fallbackGems: gems,
+          )
+          .timeout(const Duration(seconds: 20));
+      if (generation != _authGeneration || currentUser?.uid != uid) return null;
+      // A retry after interrupted delivery restores the committed totals.
+      final balances = await _nativeBridgeService
+          .setUserCurrency(
+            coins: result.balances['coins']!,
+            gems: result.balances['gems']!,
+            expectedUid: uid,
+          )
+          .timeout(const Duration(seconds: 8));
+      if (generation != _authGeneration || currentUser?.uid != uid) return null;
+      coins = balances['coins']!;
+      gems = balances['gems']!;
+      streakDay = result.day;
       claimedToday = true;
-      streakDay = day;
+      dailyStreakLoaded = true;
+      _dailyRewardWalletPending = false;
+      return result.reward;
     } catch (_) {
-      _claimingStreak = false;
-      notifyListeners();
+      if (generation == _authGeneration) {
+        dailyRewardError =
+            'تعذّر إتمام الاستلام. تحقق من الاتصال وأعد المحاولة.';
+      }
       return null;
+    } finally {
+      deliveryFinished.complete();
+      if (generation == _authGeneration) {
+        _claimingStreak = false;
+        notifyListeners();
+      }
     }
-
-    _claimingStreak = false;
-    notifyListeners();
-    return reward;
   }
 
   // ── Level / XP ──────────────────────────────────────────────────────────────
@@ -453,32 +450,9 @@ class AppState extends ChangeNotifier {
       if (generation != _authGeneration || currentUser?.uid != uid) return;
       final data = doc.data() ?? {};
 
-      // Streak data
-      final lastClaimTs = data['lastStreakClaimDate'] as Timestamp?;
-      final savedStreakDay = (data['streakDay'] as num?)?.toInt() ?? 0;
-      if (lastClaimTs == null) {
-        streakDay = 1;
-        claimedToday = false;
-      } else {
-        final lastClaim = lastClaimTs.toDate();
-        final now = DateTime.now();
-        final today = DateTime(now.year, now.month, now.day);
-        final lastDay =
-            DateTime(lastClaim.year, lastClaim.month, lastClaim.day);
-        final diff = today.difference(lastDay).inDays;
-        if (diff == 0) {
-          streakDay = savedStreakDay.clamp(1, 30);
-          claimedToday = true;
-        } else if (diff == 1) {
-          streakDay =
-              savedStreakDay >= 30 ? 1 : (savedStreakDay + 1).clamp(1, 30);
-          claimedToday = false;
-        } else {
-          // Streak broken — reset to day 1
-          streakDay = 1;
-          claimedToday = false;
-        }
-      }
+      final progress = DailyRewardProgress.fromData(data, DateTime.now());
+      streakDay = progress.day;
+      claimedToday = progress.claimed && !_dailyRewardWalletPending;
       dailyStreakLoaded = true;
       notifyListeners();
     } catch (e) {
@@ -503,6 +477,133 @@ class AppState extends ChangeNotifier {
     } finally {
       if (identical(_progressionSyncFuture, operation)) {
         _progressionSyncFuture = null;
+      }
+    }
+  }
+
+  Future<Map<String, dynamic>> loadAchievementState() async {
+    final restored = await _runAchievementOperation(pay: false);
+    return restored.$2;
+  }
+
+  Future<AchievementPayout?> claimAchievementRewards({String? key}) async {
+    if (_achievementOperation) return null;
+    final generation = _authGeneration;
+    achievementRewardError = null;
+    try {
+      return (await _runAchievementOperation(pay: true, key: key)).$1;
+    } catch (_) {
+      if (generation != _authGeneration) return null;
+      achievementRewardError =
+          'تعذّر إتمام التحصيل. تحقق من الاتصال وأعد المحاولة؛ لن تُضاف الجائزة مرتين.';
+      notifyListeners();
+      return null;
+    }
+  }
+
+  Future<(AchievementPayout, Map<String, dynamic>)> _runAchievementOperation(
+      {required bool pay, String? key}) async {
+    final account = currentUser;
+    final uid = account?.uid;
+    final generation = _authGeneration;
+    if (_achievementOperation ||
+        account == null ||
+        uid == null ||
+        !isCommerceReady) {
+      throw StateError('Achievement account is not ready');
+    }
+    bool active() => generation == _authGeneration && currentUser?.uid == uid;
+    void requireActive() {
+      if (!active()) throw StateError('Achievement account changed');
+    }
+
+    _achievementOperation = true;
+    claimingAchievementRewards = pay;
+    notifyListeners();
+    try {
+      return await _enqueueProgression(() async {
+        requireActive();
+        if (!await _synchronizeProgression()) {
+          throw StateError('Progression sync failed');
+        }
+        requireActive();
+        final previousSnapshot = _snapshotTail;
+        final deliveryFinished = Completer<void>();
+        _snapshotTail = previousSnapshot.then((_) => deliveryFinished.future);
+        try {
+          await previousSnapshot;
+          requireActive();
+          final native = await _nativeBridgeService
+              .getAchievements()
+              .timeout(const Duration(seconds: 8));
+          requireActive();
+          if (pay) _achievementWalletPending = true;
+          final service = AchievementRewardService(firestore: _firestore);
+          final result = await (pay
+                  ? service.claim(
+                      uid: uid,
+                      native: native,
+                      key: key,
+                      identity: _publicIdentity(account))
+                  : service.synchronize(uid: uid, native: native))
+              .timeout(const Duration(seconds: 20));
+          requireActive();
+          final balances = await _nativeBridgeService
+              .setUserCurrency(
+                coins: result.balances['coins']!,
+                gems: result.balances['gems']!,
+                expectedUid: uid,
+              )
+              .timeout(const Duration(seconds: 8));
+          requireActive();
+          final progression = await _nativeBridgeService
+              .hydrateProgression(
+                accountUid: uid,
+                stats: result.stats,
+                acknowledged: _lastProgressionAcknowledged,
+              )
+              .timeout(const Duration(seconds: 8));
+          requireActive();
+          if (progression['accountUid'] != uid) {
+            throw StateError('Progression account changed');
+          }
+          await _nativeBridgeService
+              .hydrateAchievementClaims(
+                accountUid: uid,
+                unlockedIds: result.unlockedIds,
+                claimedIds: result.claimedIds,
+              )
+              .timeout(const Duration(seconds: 8));
+          requireActive();
+          coins = balances['coins']!;
+          gems = balances['gems']!;
+          _applyProgression(_snapshotNumbers(progression['stats']));
+          _achievementWalletPending = false;
+          final refreshed = await _nativeBridgeService
+              .getAchievements()
+              .timeout(const Duration(seconds: 8));
+          requireActive();
+          if (refreshed['accountUid'] != uid) {
+            throw StateError('Achievement account changed');
+          }
+          // The committed receipts also protect the view from a stale platform read.
+          for (final id in result.unlockedIds) {
+            refreshed[id] = true;
+          }
+          for (final id in result.claimedIds) {
+            refreshed['${id}_CLAIMED'] = true;
+          }
+          notifyListeners();
+          return (result, refreshed);
+        } finally {
+          deliveryFinished.complete();
+        }
+      });
+    } finally {
+      if (active()) {
+        _achievementOperation = false;
+        claimingAchievementRewards = false;
+        notifyListeners();
       }
     }
   }
@@ -859,9 +960,9 @@ class AppState extends ChangeNotifier {
       // Bind the native account before reading its verified entitlements.
       await _syncLegacyUser().timeout(const Duration(seconds: 3));
       if (!isActive()) return;
-      final commerce = await _nativeBridgeService
-          .getCommerceState()
-          .timeout(const Duration(seconds: 3), onTimeout: () => <String, dynamic>{});
+      final commerce = await _nativeBridgeService.getCommerceState().timeout(
+          const Duration(seconds: 3),
+          onTimeout: () => <String, dynamic>{});
       if (!isActive()) return;
       _applyCommerceState(commerce);
       final rawRemoteIds = data?['appliedCommerceDeliveryIds'];
@@ -918,30 +1019,57 @@ class AppState extends ChangeNotifier {
 
       await _syncLegacyUser().timeout(const Duration(seconds: 3));
       if (!isActive()) return;
-      await _nativeBridgeService.hydrateCommerceWallet(
-        accountUid: uid,
-        coins: coins,
-        gems: gems,
-        deliveryIds: remoteDeliveryIds.toList(),
-      ).timeout(const Duration(seconds: 3), onTimeout: () => true);
+      await _nativeBridgeService
+          .hydrateCommerceWallet(
+            accountUid: uid,
+            coins: coins,
+            gems: gems,
+            deliveryIds: remoteDeliveryIds.toList(),
+          )
+          .timeout(const Duration(seconds: 3), onTimeout: () => true);
 
       if (!isActive()) return;
       try {
-        await _nativeBridgeService.setCategoryState(
-          unlocked: unlockedCategories,
-          isVip: isVip,
-        ).timeout(const Duration(seconds: 2));
+        await _nativeBridgeService
+            .setCategoryState(
+              unlocked: unlockedCategories,
+              isVip: isVip,
+            )
+            .timeout(const Duration(seconds: 2));
       } catch (_) {}
 
       try {
-        await _nativeBridgeService.setCharacterState(
-          selected: selectedCharacterIndex,
-          unlocked: purchasedCharacters.toList(),
-        ).timeout(const Duration(seconds: 2));
+        await _nativeBridgeService
+            .setCharacterState(
+              selected: selectedCharacterIndex,
+              unlocked: purchasedCharacters.toList(),
+            )
+            .timeout(const Duration(seconds: 2));
       } catch (_) {}
 
       if (!isActive()) return;
       _commerceHydratedUid = uid;
+      // Restore permanent achievement receipts before home reads its badge.
+      final remoteClaims = data?['claimedAchievementIds'];
+      final remoteUnlocks = data?['unlockedAchievementIds'];
+      if (remoteClaims is List || remoteUnlocks is List) {
+        try {
+          await _nativeBridgeService
+              .hydrateAchievementClaims(
+                accountUid: uid,
+                claimedIds: remoteClaims is List
+                    ? remoteClaims.whereType<String>()
+                    : const <String>[],
+                unlockedIds: remoteUnlocks is List
+                    ? remoteUnlocks.whereType<String>()
+                    : const <String>[],
+              )
+              .timeout(const Duration(seconds: 3));
+        } catch (_) {
+          // The achievements screen retries this restore before enabling claims.
+        }
+      }
+      if (!isActive()) return;
       try {
         await checkAndAwardXpForGames().timeout(const Duration(seconds: 3));
       } catch (_) {}
@@ -1014,6 +1142,8 @@ class AppState extends ChangeNotifier {
 
   Future<void> _writeFullUserSnapshot(String uid) async {
     try {
+      // An interrupted reward delivery must not be erased by an older wallet.
+      if (_dailyRewardWalletPending || _achievementWalletPending) return;
       if (currentUser?.uid != uid || _commerceHydratedUid != uid) return;
       final commerce = await _nativeBridgeService.getCommerceState();
       if (currentUser?.uid != uid ||
@@ -1117,6 +1247,13 @@ class AppState extends ChangeNotifier {
     streakDay = 0;
     claimedToday = false;
     dailyStreakLoaded = false;
+    _claimingStreak = false;
+    dailyRewardError = null;
+    _dailyRewardWalletPending = false;
+    _achievementWalletPending = false;
+    _achievementOperation = false;
+    claimingAchievementRewards = false;
+    achievementRewardError = null;
     level = 1;
     xp = 0;
     xpInCurrentLevel = 0;

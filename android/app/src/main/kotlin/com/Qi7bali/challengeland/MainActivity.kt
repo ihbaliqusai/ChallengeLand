@@ -701,6 +701,7 @@ class MainActivity : FlutterActivity() {
                             PlayerProgress.getInventoryAudience(this) +
                             PlayerProgress.getInventoryCall(this)
                         val map = mutableMapOf<String, Any>()
+                        map["accountUid"] = ProgressionAccount.uid(this)
                         for (k in PlayerProgress.getAllAchievementKeys()) {
                             map[k] = PlayerProgress.isAchievementUnlocked(this, k)
                             map["${k}_CLAIMED"] = PlayerProgress.isAchievementRewardClaimed(this, k)
@@ -770,6 +771,17 @@ class MainActivity : FlutterActivity() {
                             call.argument<Int>("usedLifelines") ?: 0
                         )
                         result.success(true)
+                    }
+                    "hydrateAchievementClaims" -> {
+                        val owner = call.argument<String>("accountUid") ?: ""
+                        val authenticatedUid = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
+                        if (owner.isEmpty() || owner != AppPrefs.getUserId(this) || owner != authenticatedUid) {
+                            result.error("ACCOUNT_CHANGED", "The achievement account changed", null)
+                            return@setMethodCallHandler
+                        }
+                        result.success(PlayerProgress.hydrateAchievementClaims(this, owner,
+                            call.argument<List<String>>("unlockedIds") ?: emptyList(),
+                            call.argument<List<String>>("claimedIds") ?: emptyList()))
                     }
                     "claimAchievementReward" -> {
                         PlayerProgress.checkMilestoneAchievements(this)
