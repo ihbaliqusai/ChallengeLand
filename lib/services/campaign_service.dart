@@ -220,7 +220,35 @@ class CampaignService {
       for (final stage in defaults) stage.id: stage,
     };
     for (final stage in remoteStages) {
-      merged[stage.id] = stage;
+      final builtIn = merged[stage.id];
+      if (builtIn != null &&
+          stage.campaignId == CampaignDefaults.mainCampaignId &&
+          stage.order == builtIn.order &&
+          (stage.boardKind == 'solo' || stage.boardKind == 'boss') &&
+          stage.campaignMode == CampaignMode.classic &&
+          stage.boardDesignVersion < CampaignDefaults.boardDesignVersion) {
+        // Upgrade old stock mechanics and their objective text while retaining
+        // cloud titles and rewards. Versioned designs remain configurable.
+        merged[stage.id] = stage.copyWith(
+          subtitle: builtIn.subtitle,
+          boardSoloCols: builtIn.boardSoloCols,
+          boardSoloPicks: builtIn.boardSoloPicks,
+          questionCount: builtIn.questionCount,
+          categoryPolicy: builtIn.categoryPolicy,
+          boardTargetScore: builtIn.boardTargetScore,
+          starRules: builtIn.starRules,
+          timeLimitSeconds: builtIn.timeLimitSeconds,
+          maxWrongAnswers: builtIn.maxWrongAnswers ?? 0,
+          boardRequiredCategoryCount: builtIn.boardRequiredCategoryCount,
+          bossStyle: builtIn.bossStyle,
+          boardAllowRevealOptions: builtIn.boardAllowRevealOptions,
+          boardDesignVersion: builtIn.boardDesignVersion,
+          categories: builtIn.categories,
+          allowedLevels: builtIn.allowedLevels,
+        );
+      } else {
+        merged[stage.id] = stage;
+      }
     }
     return merged.values.toList(growable: false)
       ..sort((left, right) {
@@ -671,8 +699,19 @@ class CampaignService {
       wrongAnswers: wrongAnswers,
     );
     final score = scoreFromResult(nativeResult);
+    final savedTwo = _readInt(nativeResult['boardTwoStarScore']);
+    final savedThree = _readInt(nativeResult['boardThreeStarScore']);
+    final savedMaximum = _readInt(nativeResult['boardMaxScore']);
+    final scoringStage = _isBoardResult(nativeResult) &&
+            savedTwo > 0 &&
+            savedThree > savedTwo &&
+            savedThree <= savedMaximum
+        ? stage.copyWith(
+            starRules: stage.starRules.copyWith(
+                twoStarsMinScore: savedTwo, threeStarsMinScore: savedThree))
+        : stage;
     final stars = calculateStars(
-      stage: stage,
+      stage: scoringStage,
       campaignMode: campaignMode,
       completed: completed,
       score: score,

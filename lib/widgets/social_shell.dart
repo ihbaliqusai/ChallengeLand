@@ -17,12 +17,15 @@ class SocialShell extends StatefulWidget {
 
 class _SocialShellState extends State<SocialShell> with WidgetsBindingObserver {
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _subscription;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _friendSubscription;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _blockSubscription;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
       _presenceSubscription;
   Timer? _timer;
   String? _uid;
   List<QueryDocumentSnapshot<Map<String, dynamic>>> _requests = [];
+  List<QueryDocumentSnapshot<Map<String, dynamic>>> _friendRequests = [];
+  final _dismissedFriends = <String>{};
   bool _foreground = true;
   bool _working = false;
   final _handled = <String>{};
@@ -49,16 +52,26 @@ class _SocialShellState extends State<SocialShell> with WidgetsBindingObserver {
     final uid = user == null || user.isAnonymous ? null : user.uid;
     if (_uid == uid) return;
     _subscription?.cancel();
+    _friendSubscription?.cancel();
     _blockSubscription?.cancel();
     _presenceSubscription?.cancel();
     _uid = uid;
     _requests = [];
+    _friendRequests = [];
+    _dismissedFriends.clear();
     _handled.clear();
     _error = null;
     _blocked = {};
     _presence = null;
     if (uid != null) {
       final service = context.read<SocialService>();
+      _friendSubscription = service.links(uid).listen((snapshot) {
+        if (!mounted || _uid != uid) return;
+        setState(() => _friendRequests =
+            snapshot.docs.where((d) => !d.metadata.hasPendingWrites).toList());
+      }, onError: (Object _) {
+        if (mounted && _uid == uid) setState(() => _friendRequests = []);
+      });
       service.syncClock();
       _blockSubscription = service.blocks(uid).listen((snapshot) {
         if (mounted && _uid == uid) {
@@ -92,6 +105,7 @@ class _SocialShellState extends State<SocialShell> with WidgetsBindingObserver {
   @override
   void dispose() {
     _subscription?.cancel();
+    _friendSubscription?.cancel();
     _blockSubscription?.cancel();
     _presenceSubscription?.cancel();
     _timer?.cancel();
@@ -174,13 +188,17 @@ class _SocialShellState extends State<SocialShell> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _respond(String id, String status) async {
+  Future<void> _respond(String id, String status,
+      {bool challenge = true}) async {
     if (_working || _uid == null) return;
-    setState(() => _working = true);
+    setState(() {
+      _working = true;
+      _error = null;
+    });
     try {
       await context
           .read<SocialService>()
-          .respond(_uid!, id, status, challenge: true);
+          .respond(_uid!, id, status, challenge: challenge);
     } catch (error) {
       if (mounted) {
         setState(() => _error = error is SocialException
@@ -203,17 +221,28 @@ class _SocialShellState extends State<SocialShell> with WidgetsBindingObserver {
         d.data()['fromUid'] == _uid &&
         !_blocked.contains(d.data()['toUid']) &&
         SocialService.pending(d.data(), context.read<SocialService>().now));
-    final request = incoming.isNotEmpty
+    final friends = _friendRequests.where((d) =>
+        d.data()['toUid'] == _uid &&
+        !_blocked.contains(d.data()['fromUid']) &&
+        !_dismissedFriends.contains('${d.id}:${d.data()['createdAt']}') &&
+        SocialService.pending(d.data(), context.read<SocialService>().now));
+    final challengeRequest = incoming.isNotEmpty
         ? incoming.first
         : outgoing.isNotEmpty
             ? outgoing.first
             : null;
+    final canShowChallenge = _presence?['state'] == 'available';
+    final request = canShowChallenge && challengeRequest != null
+        ? challengeRequest
+        : friends.isNotEmpty
+            ? friends.first
+            : null;
+    final isFriend = request != null &&
+        request == (friends.isNotEmpty ? friends.first : null);
     final isIncoming = request?.data()['toUid'] == _uid;
     return Stack(children: [
       widget.child,
-      if (_foreground &&
-          ((_presence?['state'] == 'available' && request != null) ||
-              _error != null))
+      if (_foreground && ((request != null) || _error != null))
         Positioned(
             top: 12,
             left: 20,
@@ -228,46 +257,83 @@ class _SocialShellState extends State<SocialShell> with WidgetsBindingObserver {
                           horizontal: 16, vertical: 8),
                       child: Directionality(
                           textDirection: TextDirection.rtl,
-                          child: Row(children: [
-                            const Icon(Icons.sports_esports_rounded,
-                                color: Color(0xFF38BDF8)),
-                            const SizedBox(width: 12),
-                            Expanded(
-                                child: request == null
-                                    ? Text(_error!)
-                                    : FutureBuilder<Map<String, dynamic>>(
-                                        future: context
-                                            .read<SocialService>()
-                                            .profile(request.data()[isIncoming
-                                                ? 'fromUid'
-                                                : 'toUid'] as String),
-                                        builder: (context, snapshot) => Text(
-                                            '${isIncoming ? '${snapshot.data?['username'] ?? 'لاعب'} يدعوك لمواجهة' : 'بانتظار قبول ${snapshot.data?['username'] ?? 'اللاعب'}'} • ${(request.data()['expiresAt'] as Timestamp).toDate().difference(context.read<SocialService>().now).inSeconds.clamp(0, 30)} ث',
-                                            maxLines: 2,
-                                            overflow: TextOverflow.ellipsis))),
-                            if (request != null && isIncoming) ...[
-                              FilledButton(
-                                  onPressed: _working
-                                      ? null
-                                      : () => _respond(request.id, 'accepted'),
-                                  child: const Text('قبول')),
-                              TextButton(
-                                  onPressed: _working
-                                      ? null
-                                      : () => _respond(request.id, 'declined'),
-                                  child: const Text('رفض')),
-                            ],
-                            if (request != null && !isIncoming)
-                              TextButton(
-                                  onPressed: _working
-                                      ? null
-                                      : () => _respond(request.id, 'cancelled'),
-                                  child: const Text('إلغاء الدعوة')),
-                            if (_error != null)
-                              IconButton(
-                                  onPressed: () =>
-                                      setState(() => _error = null),
-                                  icon: const Icon(Icons.close)),
+                          child:
+                              Column(mainAxisSize: MainAxisSize.min, children: [
+                            Row(children: [
+                              Icon(
+                                  isFriend
+                                      ? Icons.person_add_alt_1_rounded
+                                      : Icons.sports_esports_rounded,
+                                  color: const Color(0xFF38BDF8)),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                  child: request == null
+                                      ? Text(_error!)
+                                      : FutureBuilder<Map<String, dynamic>>(
+                                          future: context
+                                              .read<SocialService>()
+                                              .profile(request.data()[isIncoming
+                                                  ? 'fromUid'
+                                                  : 'toUid'] as String),
+                                          builder: (context, snapshot) => Text(
+                                              isFriend
+                                                  ? '${snapshot.data?['username'] ?? 'لاعب'} أرسل لك طلب صداقة'
+                                                  : '${isIncoming ? '${snapshot.data?['username'] ?? 'لاعب'} يدعوك لمواجهة' : 'بانتظار قبول ${snapshot.data?['username'] ?? 'اللاعب'}'} • ${(request.data()['expiresAt'] as Timestamp).toDate().difference(context.read<SocialService>().now).inSeconds.clamp(0, 30)} ث',
+                                              maxLines: 2,
+                                              overflow:
+                                                  TextOverflow.ellipsis))),
+                              if (isFriend)
+                                Semantics(
+                                    label: 'لاحقًا',
+                                    child: IconButton(
+                                      key: const ValueKey(
+                                          'dismissFriendRequest'),
+                                      onPressed: () => setState(() =>
+                                          _dismissedFriends.add(
+                                              '${request.id}:${request.data()['createdAt']}')),
+                                      icon: const Icon(Icons.close_rounded),
+                                    )),
+                            ]),
+                            if (_error != null && request != null)
+                              Padding(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 6),
+                                  child: Text(_error!,
+                                      style: const TextStyle(
+                                          color: Color(0xFFFDA4AF)))),
+                            Wrap(
+                                alignment: WrapAlignment.end,
+                                spacing: 8,
+                                children: [
+                                  if (request != null && isIncoming) ...[
+                                    FilledButton(
+                                        onPressed: _working
+                                            ? null
+                                            : () => _respond(
+                                                request.id, 'accepted',
+                                                challenge: !isFriend),
+                                        child: const Text('قبول')),
+                                    TextButton(
+                                        onPressed: _working
+                                            ? null
+                                            : () => _respond(
+                                                request.id, 'declined',
+                                                challenge: !isFriend),
+                                        child: const Text('رفض')),
+                                  ],
+                                  if (request != null && !isIncoming)
+                                    TextButton(
+                                        onPressed: _working
+                                            ? null
+                                            : () => _respond(
+                                                request.id, 'cancelled'),
+                                        child: const Text('إلغاء الدعوة')),
+                                  if (_error != null)
+                                    IconButton(
+                                        onPressed: () =>
+                                            setState(() => _error = null),
+                                        icon: const Icon(Icons.close)),
+                                ])
                           ])),
                     )))),
     ]);

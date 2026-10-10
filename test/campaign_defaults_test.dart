@@ -50,8 +50,10 @@ void main() {
         expect(stage.campaignMode, CampaignMode.classic, reason: stage.id);
         expect(stage.allowedLevels, isNotEmpty, reason: stage.id);
         expect(stage.categories, isNotEmpty, reason: stage.id);
-        expect(stage.boardSoloPicks, inInclusiveRange(5, 7), reason: stage.id);
-        expect(stage.boardSoloCols, 4, reason: stage.id);
+        expect(stage.boardSoloPicks, inInclusiveRange(4, 8), reason: stage.id);
+        expect(stage.boardSoloCols, inInclusiveRange(1, 8), reason: stage.id);
+        expect(stage.boardSoloPicks, lessThanOrEqualTo(stage.boardSoloCols * 6),
+            reason: stage.id);
         expect(stage.boardTargetScore, greaterThan(0), reason: stage.id);
         expect(stage.rewardCoins, greaterThan(0), reason: stage.id);
         expect(stage.rewardGems, greaterThanOrEqualTo(0), reason: stage.id);
@@ -90,17 +92,17 @@ void main() {
       }
     });
 
-    test('solo category policy follows the world tier', () {
+    test('every world mixes player and computer category choices', () {
       final byOrder = {
         for (final stage in CampaignDefaults.stages()) stage.order: stage,
       };
-      // Worlds 1-2 let the player pick, 3-6 are curated, 7-10 are random.
+      // Every world combines manual single/dual choices and computer choices.
       expect(byOrder[1]!.categoryPolicy, 'playerPick');
-      expect(byOrder[15]!.categoryPolicy, 'playerPick');
-      expect(byOrder[21]!.categoryPolicy, 'curated');
-      expect(byOrder[55]!.categoryPolicy, 'curated');
-      expect(byOrder[61]!.categoryPolicy, 'random');
-      expect(byOrder[91]!.categoryPolicy, 'random');
+      expect(byOrder[12]!.categoryPolicy, 'playerPick');
+      expect(byOrder[21]!.categoryPolicy, 'playerPick');
+      expect(byOrder[54]!.categoryPolicy, 'worldThemed');
+      expect(byOrder[68]!.categoryPolicy, 'random');
+      expect(byOrder[94]!.categoryPolicy, 'worldThemed');
     });
 
     test('board target score rises across the journey', () {
@@ -117,6 +119,7 @@ void main() {
         final maximum = CampaignDefaults.maxScoreForBoard(
           columns: stage.isBossStage ? stage.botCount + 1 : stage.boardSoloCols,
           picks: stage.boardSoloPicks,
+          bossStyle: stage.isBossStage ? stage.bossStyle : null,
         );
         expect(stage.boardTargetScore, lessThan(maximum), reason: stage.id);
         expect(stage.starRules.twoStarsMinScore,
@@ -137,7 +140,17 @@ void main() {
       final stages = CampaignDefaults.stages();
       for (var world = 0; world < 10; world++) {
         final chapter = stages.skip(world * 10).take(10);
-        expect(chapter.map((stage) => stage.boardSoloPicks).toSet(), {5, 6, 7});
+        expect(
+            chapter.map((stage) => stage.boardSoloPicks).toSet(),
+            world < 3
+                ? {4, 5, 6, 7}
+                : world < 7
+                    ? {5, 6, 7, 8}
+                    : {5, 6, 7, 8});
+        expect(chapter.first.boardSoloCols, 1);
+        expect(chapter.elementAt(1).boardSoloCols, 2);
+        expect(chapter.elementAt(3).boardSoloCols, 1);
+        expect(chapter.elementAt(3).categoryPolicy, 'worldThemed');
         expect(chapter.last.boardSoloPicks, 6);
       }
     });
@@ -155,6 +168,35 @@ void main() {
   });
 
   group('CampaignService stage loading', () {
+    test('old cloud boards upgrade while versioned custom boards stay intact',
+        () async {
+      final firestore = FakeFirebaseFirestore();
+      final first = CampaignDefaults.stages().first;
+      final old = first.toMap()
+        ..remove('boardDesignVersion')
+        ..['boardSoloCols'] = 4
+        ..['boardSoloPicks'] = 6
+        ..['boardTargetScore'] = 520
+        ..['title'] = 'عنوان مخصص'
+        ..['rewardCoins'] = 999;
+      await firestore
+          .doc('campaigns/main_campaign/stages/${first.id}')
+          .set(old);
+      final second = CampaignDefaults.stages()[1]
+          .copyWith(boardSoloCols: 3, boardTargetScore: 1000);
+      await firestore
+          .doc('campaigns/main_campaign/stages/${second.id}')
+          .set(second.toMap());
+      final loaded = await CampaignService(firestore: firestore).loadStages();
+      expect(loaded.first.boardSoloCols, 1);
+      expect(loaded.first.boardSoloPicks, 4);
+      expect(loaded.first.boardTargetScore, first.boardTargetScore);
+      expect(loaded.first.boardDesignVersion, 2);
+      expect(loaded.first.title, 'عنوان مخصص');
+      expect(loaded.first.rewardCoins, 999);
+      expect(loaded[1].boardSoloCols, 3);
+      expect(loaded[1].boardTargetScore, 1000);
+    });
     test('remote stages override defaults without hiding missing defaults',
         () async {
       final firestore = FakeFirebaseFirestore();
@@ -194,7 +236,7 @@ void main() {
       expect(stages, hasLength(100));
       expect(byId['stage_001']!.title, 'عنوان مخصص');
       expect(byId['stage_040']!.title, 'حارس مخصص');
-      expect(byId['stage_041']!.title, 'المرحلة 41');
+      expect(byId['stage_041']!.title, CampaignDefaults.stages()[40].title);
       expect(byId, contains('stage_031'));
       expect(byId, contains('stage_050'));
       expect(byId, contains('stage_051'));
@@ -332,7 +374,7 @@ void main() {
       );
       expect(
         _stars(service, stage,
-            completed: true, score: (stage.boardTargetScore * 1.7).round()),
+            completed: true, score: stage.starRules.threeStarsMinScore),
         3,
       );
     });
@@ -343,7 +385,7 @@ void main() {
       final stage = byOrder[31]!;
       final oneStarScore =
           stage.boardTargetScore; // exactly the target -> 1 star
-      final threeStarScore = (stage.boardTargetScore * 1.7).round();
+      final threeStarScore = stage.starRules.threeStarsMinScore;
 
       final failed = await campaignService.submitStageResult(
         uid: 'qa_user',

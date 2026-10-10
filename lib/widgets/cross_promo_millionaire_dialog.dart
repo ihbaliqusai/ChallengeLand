@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../core/app_state.dart';
@@ -25,8 +27,9 @@ class _CrossPromoMillionaireDialogState
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late final AnimationController _pulseCtrl;
   final ScrollController _scrollController = ScrollController();
-  bool _loadingStatus = true;
   bool _isInstalled = false;
+  bool _isOpening = false;
+  bool _checkingStatus = false;
 
   @override
   void initState() {
@@ -48,16 +51,47 @@ class _CrossPromoMillionaireDialogState
   }
 
   Future<void> _checkInstall() async {
+    if (!mounted || _checkingStatus) return;
+    _checkingStatus = true;
     final promoService = context.read<CrossPromoService>();
     final uid = context.read<AppState>().currentUser?.uid;
-    final installed = await promoService.checkInstallation();
-    await promoService.checkRewardClaimed(uid: uid);
-    if (mounted) {
-      setState(() {
-        _isInstalled = installed;
-        _loadingStatus = false;
-      });
+    _isInstalled = promoService.isMillionaireInstalled;
+    try {
+      final installed = await promoService.checkInstallation();
+      if (mounted) setState(() => _isInstalled = installed);
+      unawaited(promoService.checkRewardClaimed(uid: uid));
+    } finally {
+      _checkingStatus = false;
     }
+  }
+
+  Future<void> _openGame() async {
+    if (_isOpening) return;
+    setState(() => _isOpening = true);
+    final result = await context.read<CrossPromoService>().openMillionaireApp();
+    if (!mounted) return;
+    setState(() => _isOpening = false);
+    if (result == 'launched_app') {
+      Navigator.of(context).pop();
+    } else if (result != 'opened_market' && result != 'opened_web') {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('تعذّر فتح اللعبة أو المتجر. حاول مرة أخرى.'),
+      ));
+    }
+  }
+
+  Future<void> _claimReward(CrossPromoService promoService) async {
+    final result = await promoService.claimDownloadReward(context);
+    if (!mounted) return;
+    final message = switch (result) {
+      CrossPromoClaimResult.success => 'تمت إضافة 80 جوهرة إلى رصيدك 🎉',
+      CrossPromoClaimResult.alreadyClaimed => 'سبق استلام هذه المكافأة.',
+      CrossPromoClaimResult.notInstalled =>
+        'حمّل اللعبة ثم عد لاستلام المكافأة.',
+      CrossPromoClaimResult.failed => 'تعذّر استلام المكافأة. حاول مرة أخرى.',
+    };
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -72,7 +106,7 @@ class _CrossPromoMillionaireDialogState
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
     final isLandscape = media.orientation == Orientation.landscape;
-    final promoService = context.read<CrossPromoService>();
+    final promoService = context.watch<CrossPromoService>();
 
     final double dialogWidth = isLandscape
         ? (media.size.width * 0.75).clamp(420.0, 560.0)
@@ -261,8 +295,7 @@ class _CrossPromoMillionaireDialogState
                               _buildGameModeCard(
                                 emoji: '⚡',
                                 title: 'وضع البرق',
-                                description:
-                                    'أجب بأسرع ما يمكن قبل نفاد الوقت',
+                                description: 'أجب بأسرع ما يمكن قبل نفاد الوقت',
                                 badgeText: 'سرعة فائقة',
                                 primaryColor: const Color(0xFFF59E0B),
                                 secondaryColor: const Color(0xFFEAB308),
@@ -272,8 +305,7 @@ class _CrossPromoMillionaireDialogState
                               _buildGameModeCard(
                                 emoji: '💪',
                                 title: 'وضع البقاء',
-                                description:
-                                    'استمر دون أخطاء أطول فترة ممكنة',
+                                description: 'استمر دون أخطاء أطول فترة ممكنة',
                                 badgeText: 'تحدي الصمود',
                                 primaryColor: const Color(0xFF10B981),
                                 secondaryColor: const Color(0xFF059669),
@@ -294,8 +326,7 @@ class _CrossPromoMillionaireDialogState
                               _buildGameModeCard(
                                 emoji: '🤝',
                                 title: 'وضع فريق المعركة',
-                                description:
-                                    'تعاون مع فريقك لتحقيق الفوز',
+                                description: 'تعاون مع فريقك لتحقيق الفوز',
                                 badgeText: 'لعب جماعي',
                                 primaryColor: const Color(0xFF0EA5E9),
                                 secondaryColor: const Color(0xFF0284C7),
@@ -305,8 +336,7 @@ class _CrossPromoMillionaireDialogState
                               _buildGameModeCard(
                                 emoji: '🔗',
                                 title: 'وضع السلسلة',
-                                description:
-                                    'تحديات متتالية تختبر صمودك',
+                                description: 'تحديات متتالية تختبر صمودك',
                                 badgeText: 'سلسلة إجابات',
                                 primaryColor: const Color(0xFF8B5CF6),
                                 secondaryColor: const Color(0xFF7C3AED),
@@ -316,8 +346,7 @@ class _CrossPromoMillionaireDialogState
                               _buildGameModeCard(
                                 emoji: '🏆',
                                 title: 'وضع الإقصاء',
-                                description:
-                                    'خطأ واحد يُخرجك من اللعبة',
+                                description: 'خطأ واحد يُخرجك من اللعبة',
                                 badgeText: 'البقاء للأقوى',
                                 primaryColor: const Color(0xFFF59E0B),
                                 secondaryColor: const Color(0xFFD97706),
@@ -338,7 +367,26 @@ class _CrossPromoMillionaireDialogState
                     // Fixed Footer CTA Button
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                      child: _buildCtaButton(promoService),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _buildCtaButton(promoService),
+                          if (_isInstalled &&
+                              !promoService.isRewardClaimed) ...[
+                            const SizedBox(height: 6),
+                            TextButton.icon(
+                              onPressed: promoService.isClaiming
+                                  ? null
+                                  : () => _claimReward(promoService),
+                              icon: const Icon(Icons.diamond_rounded),
+                              label: Text(promoService.isClaiming
+                                  ? 'جاري استلام الجواهر...'
+                                  : 'استلام 80 جوهرة الآن! 💎'),
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -624,12 +672,14 @@ class _CrossPromoMillionaireDialogState
               children: [
                 Row(
                   children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w900,
+                    Flexible(
+                      child: Text(
+                        title,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -829,20 +879,22 @@ class _CrossPromoMillionaireDialogState
                   children: [
                     Row(
                       children: [
-                        Text(
-                          claimed
-                              ? 'تم استلام الجائزة ✓'
-                              : 'هدية خاصة: 80 جوهرة 💎',
-                          style: TextStyle(
-                            color: claimed
-                                ? const Color(0xFF34D399)
-                                : const Color(0xFFFBBF24),
-                            fontSize: 14.5,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 0.2,
+                        Expanded(
+                          child: Text(
+                            claimed
+                                ? 'تم استلام الجائزة ✓'
+                                : 'هدية خاصة: 80 جوهرة 💎',
+                            style: TextStyle(
+                              color: claimed
+                                  ? const Color(0xFF34D399)
+                                  : const Color(0xFFFBBF24),
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.2,
+                            ),
                           ),
                         ),
-                        const Spacer(),
+                        const SizedBox(width: 6),
                         Container(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 8, vertical: 3),
@@ -913,28 +965,14 @@ class _CrossPromoMillionaireDialogState
       builder: (context, _) {
         final glowValue = 0.30 + _pulseCtrl.value * 0.45;
         final isInst = _isInstalled;
-        final isClaimed = promoService.isRewardClaimed;
-        final isClaiming = promoService.isClaiming;
+        final Color primaryGlow =
+            isInst ? const Color(0xFF22C55E) : const Color(0xFF38BDF8);
 
-        final bool isClaimAction = isInst && !isClaimed;
+        final Color btnBg =
+            isInst ? const Color(0xFF16A34A) : const Color(0xFF0284C7);
 
-        final Color primaryGlow = isClaimAction
-            ? const Color(0xFFF59E0B)
-            : isInst
-                ? const Color(0xFF22C55E)
-                : const Color(0xFF38BDF8);
-
-        final Color btnBg = isClaimAction
-            ? const Color(0xFFD97706)
-            : isInst
-                ? const Color(0xFF16A34A)
-                : const Color(0xFF0284C7);
-
-        final Color btnBorder = isClaimAction
-            ? const Color(0xFFFDE68A)
-            : isInst
-                ? const Color(0xFF86EFAC)
-                : const Color(0xFF7DD3FC);
+        final Color btnBorder =
+            isInst ? const Color(0xFF86EFAC) : const Color(0xFF7DD3FC);
 
         return Container(
           decoration: BoxDecoration(
@@ -949,42 +987,7 @@ class _CrossPromoMillionaireDialogState
             ],
           ),
           child: ElevatedButton(
-            onPressed: isClaiming || _loadingStatus
-                ? null
-                : () async {
-                    if (isClaimAction) {
-                      final res = await promoService.claimDownloadReward(context);
-                      if (res == CrossPromoClaimResult.success && context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: const Row(
-                              children: [
-                                Icon(Icons.diamond_rounded, color: Color(0xFF38BDF8)),
-                                SizedBox(width: 10),
-                                Text(
-                                  'مبروك! تمت إضافة 80 جوهرة إلى رصيدك بنجاح 🎉',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            backgroundColor: const Color(0xFF065F46),
-                            behavior: SnackBarBehavior.floating,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                        );
-                      }
-                    } else {
-                      await promoService.openMillionaireApp();
-                      if (context.mounted && isInst) {
-                        Navigator.of(context).pop();
-                      }
-                    }
-                  },
+            onPressed: _isOpening ? null : _openGame,
             style: ElevatedButton.styleFrom(
               backgroundColor: btnBg,
               foregroundColor: Colors.white,
@@ -1001,7 +1004,7 @@ class _CrossPromoMillionaireDialogState
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                if (isClaiming) ...[
+                if (_isOpening) ...[
                   const SizedBox(
                     width: 20,
                     height: 20,
@@ -1012,7 +1015,7 @@ class _CrossPromoMillionaireDialogState
                   ),
                   const SizedBox(width: 10),
                   const Text(
-                    'جاري استلام الجواهر...',
+                    'جاري الفتح...',
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w900,
@@ -1020,26 +1023,23 @@ class _CrossPromoMillionaireDialogState
                   ),
                 ] else ...[
                   Icon(
-                    isClaimAction
-                        ? Icons.card_giftcard_rounded
-                        : isInst
-                            ? Icons.sports_esports_rounded
-                            : Icons.file_download_outlined,
+                    isInst
+                        ? Icons.sports_esports_rounded
+                        : Icons.file_download_outlined,
                     size: 22,
                   ),
                   const SizedBox(width: 10),
-                  Text(
-                    _loadingStatus
-                        ? 'جاري التحقق...'
-                        : isClaimAction
-                            ? 'استلام 80 جوهرة الآن! 💎✨'
-                            : isInst
-                                ? 'فتح اللعبة واللعب الآن 🎮'
-                                : 'تحميل اللعبة واحصل على 80 💎',
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 0.3,
+                  Flexible(
+                    child: Text(
+                      isInst
+                          ? 'فتح اللعبة واللعب الآن 🎮'
+                          : 'تحميل اللعبة واحصل على 80 💎',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.3,
+                      ),
                     ),
                   ),
                 ],

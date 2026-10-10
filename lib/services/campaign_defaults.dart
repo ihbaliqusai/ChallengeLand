@@ -4,7 +4,7 @@ import '../models/campaign_stage.dart';
 ///
 /// * Normal stages (order not a multiple of 10): a SOLO board. The lone player
 ///   takes [CampaignStage.boardSoloPicks] picks and must reach
-///   [CampaignStage.boardTargetScore] (which rises each stage) to pass.
+///   [CampaignStage.boardTargetScore], scaled to the board and its constraints.
 /// * Boss stages (every 10th): a competitive board against [CampaignStage.botCount]
 ///   bots (= world number, capped at 7). Worlds 8-10 keep 7 bots but stronger.
 ///   Win = finish strictly first (beat every boss).
@@ -14,6 +14,7 @@ import '../models/campaign_stage.dart';
 /// honours the board result (no legacy single-question / boss-defeat gate).
 class CampaignDefaults {
   static const String mainCampaignId = 'main_campaign';
+  static const int boardDesignVersion = 2;
 
   static const List<String> worldNames = <String>[
     'غابة البداية',
@@ -165,29 +166,62 @@ class CampaignDefaults {
     final levels = worldLevels[world];
     final themed = worldCategories[world];
     final picks = isBoss ? 6 : soloPicksForOrder(order);
-    final target = _targetFor(order, picks);
+    final columns =
+        isBoss ? (worldNum > 7 ? 8 : worldNum + 1) : soloColumnsForOrder(order);
+    final chapterPosition = order % 10;
+    // Introduce one rule at a time; the first two stages remain introductory.
+    final finalTrial = chapterPosition == 9 && worldNum >= 7;
+    final timed = !isBoss && (chapterPosition == 3 || finalTrial);
+    final precision = !isBoss && (chapterPosition == 7 || finalTrial);
+    final categoryChallenge = !isBoss && (chapterPosition == 6 || finalTrial);
+    final allowReveal = chapterPosition != 9 || worldNum < 3;
+    final bossStyle = isBoss
+        ? (worldNum >= 8
+            ? 'mixed'
+            : const ['specialist', 'speed', 'highValue'][(worldNum - 1) % 3])
+        : 'balanced';
     // Bosses scale with the world but the board caps at 8 players (you + 7 bots).
     final botCount = isBoss ? (worldNum > 7 ? 7 : worldNum) : 0;
     final botIntelligence = isBoss ? _bossIntelligenceFor(worldNum) : 0;
-    final policy = isBoss
-        ? 'worldThemed'
-        : (worldNum <= 2
-            ? 'playerPick'
-            : (worldNum <= 6 ? 'curated' : 'random'));
+    final policy = categoryPolicyForOrder(order);
+    final maximum = maxScoreForBoard(
+        columns: columns, picks: picks, bossStyle: isBoss ? bossStyle : null);
+    // Compare difficulty as a fraction of this board's attainable score rather
+    // than a fixed score shared by boards with different category counts.
+    final pressure = 0.30 +
+        world * 0.038 +
+        (chapterPosition == 0 ? 9 : chapterPosition - 1) * 0.006;
+    final adjustment = isBoss
+        ? 0.06
+        : finalTrial
+            ? -0.07
+            : timed || precision
+                ? -0.04
+                : !allowReveal
+                    ? -0.03
+                    : 0.0;
+    final target = _scoreThreshold(maximum, pressure + adjustment);
 
     return CampaignStage(
       id: 'stage_${order.toString().padLeft(3, '0')}',
       campaignId: campaignId,
       order: order,
       title: _titleFor(order, isBoss, worldNum),
-      subtitle: _subtitleFor(worldNum, isBoss, target, botCount),
+      subtitle: '${_subtitleFor(worldNum, isBoss, target, botCount)} '
+          '${policy == 'playerPick' ? 'اختيارك' : 'اختيار الكمبيوتر'}: $columns فئات.',
       type: CampaignStageType.classic,
       campaignMode: CampaignMode.classic,
       winCondition: isBoss
           ? CampaignWinCondition.beatOpponent
           : CampaignWinCondition.beatTargetScore,
       questionCount: picks,
-      timeLimitSeconds: 0,
+      timeLimitSeconds: timed ? (finalTrial ? picks * 32 : 210 - world * 6) : 0,
+      maxWrongAnswers: precision ? (finalTrial || worldNum <= 5 ? 2 : 1) : null,
+      boardRequiredCategoryCount:
+          categoryChallenge ? (finalTrial ? columns : 2) : 0,
+      bossStyle: bossStyle,
+      boardAllowRevealOptions: allowReveal,
+      boardDesignVersion: boardDesignVersion,
       categories: themed,
       allowedLevels: levels,
       minDifficulty: _minLevel(levels),
@@ -202,14 +236,11 @@ class CampaignDefaults {
       boardKind: isBoss ? 'boss' : 'solo',
       boardTargetScore: target,
       boardSoloPicks: picks,
-      boardSoloCols: 4,
+      boardSoloCols: columns,
       botCount: botCount,
       botIntelligence: botIntelligence,
       categoryPolicy: policy,
-      starRules: _boardStarRules(
-        target,
-        maxScoreForBoard(columns: isBoss ? botCount + 1 : 4, picks: picks),
-      ),
+      starRules: _boardStarRules(target, maximum, world),
     );
   }
 
@@ -220,9 +251,11 @@ class CampaignDefaults {
   /// Score thresholds. 1★ is granted on completion (reaching the pass target);
   /// 2★/3★ require scoring further above it. The correct-answer thresholds are
   /// disabled (set very high) so stars are purely score driven for the board.
-  static StageStarRules _boardStarRules(int target, int maxScore) {
-    final two = (target * 1.25).round().clamp(target, maxScore - 400);
-    final three = (target * 1.55).round().clamp(two + 100, maxScore - 200);
+  static StageStarRules _boardStarRules(int target, int maxScore, int world) {
+    final two = _scoreThreshold(maxScore, 0.65 + world * 0.02)
+        .clamp(target + 200, maxScore - 200);
+    final three = _scoreThreshold(maxScore, 0.85 + world * 0.01)
+        .clamp(two + 200, maxScore);
     return StageStarRules(
       oneStarMinScore: 1,
       twoStarsMinScore: two,
@@ -234,18 +267,22 @@ class CampaignDefaults {
     );
   }
 
-  /// A steeper climb toward the million: later stages demand a near-perfect board
-  /// to clear. Boss stages ask for a little more. Rounded to 20 and held below
-  /// [maxBoardScore] so every stage stays winnable.
-  static int _targetFor(int order, int picks) {
-    final base = (500 + order * 22 + (order % 10 == 0 ? 180 : 0)) * picks / 6;
-    final rounded = (base / 20).round() * 20;
-    final ceiling = maxScoreForBoard(columns: 4, picks: picks) - 600;
-    return rounded > ceiling ? ceiling : rounded;
-  }
+  /// Keep every threshold on the board's 200-point scoring lattice.
+  static int _scoreThreshold(int maximum, double fraction) =>
+      (maximum * fraction / 200).ceil() * 200;
 
   /// Two cells per value (200/400/600) in each column. Cells cannot be reused.
-  static int maxScoreForBoard({required int columns, required int picks}) {
+  static int maxScoreForBoard(
+      {required int columns, required int picks, String? bossStyle}) {
+    // With one column per contestant and all bots choosing the highest value,
+    // each round consumes one complete value band. The player can take only
+    // two 600s, two 400s and two 200s over the six boss rounds.
+    if (bossStyle == 'highValue') {
+      final values = [600, 600, 400, 400, 200, 200];
+      return values
+          .take(picks.clamp(0, 6))
+          .fold(0, (sum, value) => sum + value);
+    }
     var remaining = picks.clamp(0, columns * 6);
     var total = 0;
     for (final value in const [600, 400, 200]) {
@@ -258,15 +295,59 @@ class CampaignDefaults {
 
   /// Short tactical boards and longer exploration boards break up the journey.
   static int soloPicksForOrder(int order) {
+    final world = (order - 1) ~/ 10;
     switch (order % 10) {
+      case 1:
+      case 4:
+        return world < 3
+            ? 4
+            : world < 7
+                ? 5
+                : 6;
       case 3:
       case 7:
         return 5;
       case 5:
-      case 8:
         return 7;
+      case 8:
+        return world < 3 ? 7 : 8;
       default:
         return 6;
+    }
+  }
+
+  static int soloColumnsForOrder(int order) {
+    switch (order % 10) {
+      case 1:
+      case 4:
+      case 7:
+        return 1;
+      case 2:
+      case 3:
+      case 6:
+        return 2;
+      case 5:
+        return 3;
+      case 8:
+        return 4;
+      case 9:
+        return order <= 60 ? 2 : 3;
+      default:
+        return 4;
+    }
+  }
+
+  static String categoryPolicyForOrder(int order) {
+    switch (order % 10) {
+      case 1:
+      case 2:
+      case 5:
+      case 7:
+        return 'playerPick';
+      case 8:
+        return 'random';
+      default:
+        return 'worldThemed';
     }
   }
 
@@ -280,6 +361,16 @@ class CampaignDefaults {
 
   static String _titleFor(int order, bool isBoss, int worldNum) {
     if (isBoss) return 'زعيم ${worldNames[worldNum - 1]}';
+    if (order % 10 == 3) return 'المرحلة $order • سباق الوقت';
+    if (order % 10 == 6) return 'المرحلة $order • تحدي الفئات';
+    if (order % 10 == 7) return 'المرحلة $order • دقة الإجابة';
+    if (order % 10 == 1) return 'المرحلة $order • فئتك المفضلة';
+    if (order % 10 == 2) return 'المرحلة $order • ثنائي المعرفة';
+    if (order % 10 == 4) return 'المرحلة $order • اختيار الكمبيوتر';
+    if (order % 10 == 8) return 'المرحلة $order • اللوحة المفاجئة';
+    if (order % 10 == 9) {
+      return 'المرحلة $order • ${worldNum < 3 ? 'الاستعداد للزعيم' : worldNum < 7 ? 'خبير بلا خيارات' : 'الاختبار الشامل'}';
+    }
     if (soloPicksForOrder(order) == 5) {
       return 'المرحلة $order • اختيارات محسوبة';
     }

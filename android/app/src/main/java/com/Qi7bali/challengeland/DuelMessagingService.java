@@ -19,12 +19,15 @@ public final class DuelMessagingService extends FirebaseMessagingService {
     @Override public void onMessageReceived(RemoteMessage message) {
         Map<String, String> data = message.getData();
         FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
-        if (!"duel_invite".equals(data.get("type")) || user == null
+        boolean friendRequest = "friend_request".equals(data.get("type"));
+        boolean socialInvite = "social_invite".equals(data.get("type"));
+        boolean social = friendRequest || socialInvite;
+        if ((!social && !"duel_invite".equals(data.get("type"))) || user == null
                 || !user.getUid().equals(data.get("recipientUid"))
                 || !AppPrefs.isNotificationsEnabled(this)
                 || !NotificationManagerCompat.from(this).areNotificationsEnabled()) return;
         String code = data.get("friendCode"), id = data.get("inviteId");
-        if (code == null || !code.matches("[A-Za-z0-9]{4,128}") || id == null) return;
+        if (id == null || (!social && (code == null || !code.matches("[A-Za-z0-9]{4,128}")))) return;
         try {
             if (Long.parseLong(data.getOrDefault("expiresAt", "0")) < System.currentTimeMillis()) return;
         } catch (NumberFormatException error) { return; }
@@ -33,14 +36,15 @@ public final class DuelMessagingService extends FirebaseMessagingService {
         DuelNotifications.createChannel(this);
         Intent intent = new Intent(this, MainActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        intent.setData(new Uri.Builder().scheme("challengeland").authority("friend")
+        if (social) intent.putExtra("launchAction", "social:requests");
+        else intent.setData(new Uri.Builder().scheme("challengeland").authority("friend")
                 .appendQueryParameter("code", code).build());
         intent.putExtra("duelRecipientUid", user.getUid());
         PendingIntent tap = PendingIntent.getActivity(this, id.hashCode(), intent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         NotificationCompat.Builder notification = new NotificationCompat.Builder(this, DuelNotifications.CHANNEL)
-                .setSmallIcon(R.mipmap.ic_launcher).setContentTitle("دعوة لعب جديدة ⚔️")
-                .setContentText(data.getOrDefault("senderName", "لاعب") + " يدعوك إلى تحدي 1 ضد 1")
+                .setSmallIcon(R.mipmap.ic_launcher).setContentTitle(friendRequest ? "طلب صداقة جديد" : "دعوة لعب جديدة ⚔️")
+                .setContentText(data.getOrDefault("senderName", "لاعب") + (friendRequest ? " أرسل لك طلب صداقة" : " يدعوك إلى تحدي 1 ضد 1"))
                 .setAutoCancel(true).setContentIntent(tap).setPriority(NotificationCompat.PRIORITY_HIGH);
         try {
             getSystemService(NotificationManager.class).notify(id, 7503, notification.build());

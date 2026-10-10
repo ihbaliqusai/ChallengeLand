@@ -40,14 +40,18 @@ class CrossPromoService extends ChangeNotifier {
   static const String challengeLandStoreUrl =
       'https://play.google.com/store/apps/details?id=com.qi7bali.landchallengeonline';
 
-  static const String _prefsKeyLastPromoDismissed = 'cross_promo.millionaire.last_dismissed';
+  static const String _prefsKeyLastPromoDismissed =
+      'cross_promo.millionaire.last_dismissed';
   static const String _prefsKeyPromoClicks = 'cross_promo.millionaire.clicks';
-  static const String _prefsKeyRewardClaimed = 'cross_promo.millionaire.reward_claimed';
+  static const String _prefsKeyRewardClaimed =
+      'cross_promo.millionaire.reward_claimed';
 
   bool _isMillionaireInstalled = false;
   bool _checkedStatus = false;
   bool _isRewardClaimed = false;
   bool _isClaiming = false;
+  Future<String?>? _pendingLaunch;
+  bool _disposed = false;
 
   bool get isMillionaireInstalled => _isMillionaireInstalled;
   bool get checkedStatus => _checkedStatus;
@@ -61,15 +65,17 @@ class CrossPromoService extends ChangeNotifier {
 
   Future<bool> checkInstallation() async {
     try {
-      final installed = await _bridge.isAppInstalled(millionairePackage);
+      final installed = await _bridge
+          .isAppInstalled(millionairePackage)
+          .timeout(const Duration(seconds: 5), onTimeout: () => false);
       _isMillionaireInstalled = installed;
       _checkedStatus = true;
-      notifyListeners();
+      if (!_disposed) notifyListeners();
       return installed;
     } catch (_) {
       _isMillionaireInstalled = false;
       _checkedStatus = true;
-      notifyListeners();
+      if (!_disposed) notifyListeners();
       return false;
     }
   }
@@ -81,8 +87,12 @@ class CrossPromoService extends ChangeNotifier {
 
       if (!claimed && uid != null && uid.isNotEmpty) {
         try {
-          final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
-          if (doc.exists && doc.data()?['claimedMillionaireDownloadReward'] == true) {
+          final doc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(uid)
+              .get();
+          if (doc.exists &&
+              doc.data()?['claimedMillionaireDownloadReward'] == true) {
             claimed = true;
             await prefs.setBool(_prefsKeyRewardClaimed, true);
           }
@@ -91,7 +101,7 @@ class CrossPromoService extends ChangeNotifier {
 
       if (_isRewardClaimed != claimed) {
         _isRewardClaimed = claimed;
-        notifyListeners();
+        if (!_disposed) notifyListeners();
       }
       return claimed;
     } catch (_) {
@@ -99,7 +109,8 @@ class CrossPromoService extends ChangeNotifier {
     }
   }
 
-  Future<CrossPromoClaimResult> claimDownloadReward(BuildContext context) async {
+  Future<CrossPromoClaimResult> claimDownloadReward(
+      BuildContext context) async {
     if (_isClaiming) return CrossPromoClaimResult.failed;
     _isClaiming = true;
     notifyListeners();
@@ -144,7 +155,8 @@ class CrossPromoService extends ChangeNotifier {
             'claimedMillionaireDownloadRewardAt': FieldValue.serverTimestamp(),
           }, SetOptions(merge: true));
         } catch (e) {
-          debugPrint('[CrossPromoService] Failed to record claim in firestore: $e');
+          debugPrint(
+              '[CrossPromoService] Failed to record claim in firestore: $e');
         }
       }
 
@@ -169,22 +181,47 @@ class CrossPromoService extends ChangeNotifier {
     }
   }
 
-  Future<String?> openMillionaireApp() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final clicks = prefs.getInt(_prefsKeyPromoClicks) ?? 0;
-      await prefs.setInt(_prefsKeyPromoClicks, clicks + 1);
+  Future<String?> openMillionaireApp() {
+    return _pendingLaunch ??= _launchMillionaireApp().whenComplete(() {
+      _pendingLaunch = null;
+    });
+  }
 
-      final result = await _bridge.launchAppOrPlayStore(
-        packageName: millionairePackage,
-        playStoreUrl: millionaireStoreUrl,
-      );
-      // Re-verify installation status after launch attempt
-      checkInstallation();
+  Future<String?> _launchMillionaireApp() async {
+    try {
+      // Launch immediately. Analytics and reward checks must never gate opening.
+      final result = await _bridge
+          .launchAppOrPlayStore(
+            packageName: millionairePackage,
+            playStoreUrl: millionaireStoreUrl,
+          )
+          .timeout(const Duration(seconds: 8));
+      if (result == 'launched_app' ||
+          result == 'opened_market' ||
+          result == 'opened_web') {
+        unawaited(_recordPromoClick());
+      }
+      unawaited(checkInstallation());
       return result;
     } catch (_) {
       return null;
     }
+  }
+
+  Future<void> _recordPromoClick() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final clicks = prefs.getInt(_prefsKeyPromoClicks) ?? 0;
+      await prefs.setInt(_prefsKeyPromoClicks, clicks + 1);
+    } catch (_) {
+      // Opening the game does not depend on saving the click counter.
+    }
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
   }
 
   Future<void> markDismissed() async {

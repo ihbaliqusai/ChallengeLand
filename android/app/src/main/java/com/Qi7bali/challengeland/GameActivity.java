@@ -398,6 +398,13 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     int boardThreeStarScore = 0;
     int boardBotCount = 0;
     int boardBotIntelligence = 0;
+    int boardRequiredCategoryCount = 0;
+    String boardBossStyle = "balanced";
+    boolean boardAllowRevealOptions = true;
+    int boardDesignVersion = 0;
+    private final Set<String> boardCorrectCategories = new HashSet<>();
+    private long boardCampaignDeadlineMs = 0L;
+    private TextView boardCampaignRuleView;
     String boardCategoryPolicy = "playerPick";  // playerPick | curated | random | worldThemed
     final ArrayList<String> boardWorldCategories = new ArrayList<>();
 
@@ -1253,7 +1260,9 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         if (wasCampaignStageTimerRunningBeforePause && campaignMode && !campaignResultPersisted && campaignTimeLimitSeconds > 0) {
             wasCampaignStageTimerRunningBeforePause = false;
             long elapsedMs = System.currentTimeMillis() - campaignStartedAtMs;
-            long remainingMs = (campaignTimeLimitSeconds * 1000L) - elapsedMs;
+            long remainingMs = campaignBoard
+                    ? boardCampaignDeadlineMs - System.currentTimeMillis()
+                    : (campaignTimeLimitSeconds * 1000L) - elapsedMs;
             if (remainingMs <= 0L) {
                 if (txtCampaignTimer != null) {
                     txtCampaignTimer.setText(formatCampaignRemaining(0));
@@ -1862,6 +1871,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                 if (EXITING) return;
                 if (boardOnline && !boardRoomMatch
                         && (boardDuelFinished || answeredDuelTurn != boardOnlineTurn)) return;
+                if (boardCampaignMatch && campaignResultPersisted) return;
                 t++;
                 switch (t) {
                     case 1:
@@ -1884,8 +1894,17 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                             if (playerCorrect) {
                                 offlineContestants.awardCell(localSeat, currentBoardAwardValue());
                                 if (boardRoomMatch || boardCampaignMatch) boardMyCorrectCount++;
+                                if (boardCampaignMatch && boardPickedCol >= 0
+                                        && boardPickedCol < boardSelectedCategories.size()) {
+                                    boardCorrectCategories.add(boardSelectedCategories.get(boardPickedCol));
+                                }
                             }
                             offlineContestants.showSlotResult(localSeat, playerCorrect);
+                            if (boardCampaignMatch) {
+                                campaignAnsweredQuestions++;
+                                campaignCorrectAnswers = boardMyCorrectCount;
+                                campaignWrongAnswers = campaignAnsweredQuestions - campaignCorrectAnswers;
+                            }
                             // Reveal the options so the player sees the correct answer
                             // (they were hidden behind the text box for a typed turn).
                             showBoardTypedPanel(false);
@@ -2197,6 +2216,8 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
      *  Bridges into the campaign pipeline so Flutter awards stars/rewards/progress. */
     private void finishCampaignBoardMatch() {
         if (campaignResultPersisted) return;
+        cancelBoardSelectTimer();
+        cancelPendingBoardReveal();
         stopTimer(false);
         CAN_PLAY = false;
         CAN_HOME = false;
@@ -2205,8 +2226,8 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         final int count = Math.max(1, offlineContestants.contestantCount());
         final int myScore = offlineContestants.scoreForSlot(0);
         final boolean[] seatWon = new boolean[count];
-        final boolean completed;
-        final String headline;
+        boolean completed;
+        String headline;
 
         if ("boss".equals(boardCampaignKind)) {
             boolean beat = count > 1;
@@ -2230,11 +2251,21 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         }
 
         // Feed the campaign result pipeline (score/correct counts -> stars in Flutter).
-        campaignAnsweredQuestions = CampaignBoardRules.playerTurns(boardTurnIndex, count);
-        campaignCorrectAnswers = Math.max(0, Math.min(campaignAnsweredQuestions, boardMyCorrectCount));
-        campaignWrongAnswers = Math.max(0, campaignAnsweredQuestions - campaignCorrectAnswers);
-        campaignFailureReason = completed ? "" : ("boss".equals(boardCampaignKind)
-                ? "boss_not_defeated" : "target_score_not_reached");
+        String constraint = CampaignBoardRules.constraintFailure(campaignWrongAnswers,
+                campaignMaxWrongAnswers, CampaignBoardRules.themedCategoryCount(
+                        new ArrayList<>(boardCorrectCategories), boardWorldCategories),
+                boardRequiredCategoryCount, boardCampaignDeadlineMs, System.currentTimeMillis());
+        if (!constraint.isEmpty()) {
+            completed = false;
+            java.util.Arrays.fill(seatWon, false);
+            campaignFailureReason = constraint;
+            headline = "timeExpired".equals(constraint) ? "⏱ انتهى وقت المرحلة"
+                    : "eliminated".equals(constraint) ? "💔 تجاوزت عدد الأخطاء المسموح"
+                    : "💔 لم تكمل الإجابات الصحيحة في فئات العالم المطلوبة";
+        } else {
+            campaignFailureReason = completed ? "" : ("boss".equals(boardCampaignKind)
+                    ? "boss_not_defeated" : "target_score_not_reached");
+        }
         persistPendingCampaignStageResult(completed, myScore, campaignWrongAnswers);
 
         try {
@@ -2848,7 +2879,35 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
             usedHelpCall = record.optBoolean("usedHelpCall", usedHelpCall);
 
             if (campaignBoard) {
+                // A saved attempt keeps the rules it started with. Legacy saves
+                // predate these constraints and must remain playable unchanged.
+                campaignTimeLimitSeconds = record.optInt("boardTimeLimitSeconds", 0);
+                campaignMaxWrongAnswers = record.optInt("boardMaxWrongAnswers", 0);
+                boardRequiredCategoryCount = record.optInt("boardRequiredCategoryCount", 0);
+                boardBossStyle = record.optString("boardBossStyle", "balanced");
+                boardAllowRevealOptions = record.optBoolean("boardAllowRevealOptions", true);
+                boardDesignVersion = record.optInt("boardDesignVersion", 0);
+                JSONObject savedBoard = record.optJSONObject("state");
+                int legacyOrder = 1;
+                try { legacyOrder = Integer.parseInt(campaignStageId.replace("stage_", "")); } catch (Exception ignored) { }
+                int legacyPicks = legacyOrder % 10 == 0 ? 6 : legacyOrder % 10 == 3 || legacyOrder % 10 == 7 ? 5 : legacyOrder % 10 == 5 || legacyOrder % 10 == 8 ? 7 : 6;
+                boardSoloCols = record.optInt("boardSoloCols", savedBoard == null ? 4 : savedBoard.optInt("boardCols", 4));
+                boardSoloPicks = record.optInt("boardSoloPicks", legacyPicks);
+                int legacyMaximum = CampaignBoardRules.maximumScore("boss".equals(boardCampaignKind) ? Math.min(8, (legacyOrder - 1) / 10 + 2) : 4, legacyPicks);
+                int legacyTarget = Math.min(Math.round((500 + legacyOrder * 22 + (legacyOrder % 10 == 0 ? 180 : 0)) * legacyPicks / 120f) * 20,
+                        CampaignBoardRules.maximumScore(4, legacyPicks) - 600);
+                boardTargetScore = record.optInt("boardTargetScore", legacyTarget);
+                boardTwoStarScore = record.optInt("boardTwoStarScore", Math.min(Math.round(boardTargetScore * 1.25f), legacyMaximum - 400));
+                boardThreeStarScore = record.optInt("boardThreeStarScore", Math.min(Math.round(boardTargetScore * 1.55f), legacyMaximum - 200));
+                boardCategoryPolicy = record.optString("boardCategoryPolicy", "playerPick");
                 boardMyCorrectCount = record.optInt("boardMyCorrectCount", boardMyCorrectCount);
+                boardCampaignDeadlineMs = record.optLong("boardDeadlineMs", 0L);
+                JSONArray wonCategories = record.optJSONArray("boardCorrectCategories");
+                if (wonCategories != null) {
+                    for (int i = 0; i < wonCategories.length(); i++) {
+                        boardCorrectCategories.add(wonCategories.optString(i));
+                    }
+                }
                 pendingCampaignBoardRestore = record;
             } else {
                 int resumeIndex = record.optInt("currentQuestion", -1);
@@ -2905,6 +2964,20 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
             record.put("turnIndex", Math.max(0, boardTurnIndex));
             record.put("totalTurns", Math.max(0, boardTotalTurns));
             record.put("boardMyCorrectCount", Math.max(0, boardMyCorrectCount));
+            record.put("boardDeadlineMs", boardCampaignDeadlineMs);
+            record.put("boardTimeLimitSeconds", campaignTimeLimitSeconds);
+            record.put("boardMaxWrongAnswers", campaignMaxWrongAnswers);
+            record.put("boardRequiredCategoryCount", boardRequiredCategoryCount);
+            record.put("boardBossStyle", boardBossStyle);
+            record.put("boardAllowRevealOptions", boardAllowRevealOptions);
+            record.put("boardDesignVersion", boardDesignVersion);
+            record.put("boardSoloCols", boardSoloCols);
+            record.put("boardSoloPicks", boardSoloPicks);
+            record.put("boardTargetScore", boardTargetScore);
+            record.put("boardTwoStarScore", boardTwoStarScore);
+            record.put("boardThreeStarScore", boardThreeStarScore);
+            record.put("boardCategoryPolicy", boardCategoryPolicy);
+            record.put("boardCorrectCategories", new JSONArray(boardCorrectCategories));
             record.put("correctAnswers", Math.max(0, campaignCorrectAnswers));
             record.put("wrongAnswers", Math.max(0, campaignWrongAnswers));
             record.put("answeredQuestions", Math.max(0, campaignAnsweredQuestions));
@@ -3098,6 +3171,14 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         campaignLivesRemaining = record.optInt("livesRemaining", campaignLivesRemaining);
         campaignStartedAtMs = record.optLong("startedAtMs", campaignStartedAtMs);
 
+        // Older board saves only tracked the player's correct-answer count.
+        campaignAnsweredQuestions = Math.max(campaignAnsweredQuestions,
+                CampaignBoardRules.playerTurns(boardTurnIndex, count));
+        campaignCorrectAnswers = boardMyCorrectCount;
+        campaignWrongAnswers = Math.max(0, campaignAnsweredQuestions - campaignCorrectAnswers);
+
+        nameCampaignBosses();
+        if (!startCampaignBoardTimer()) return true;
         String phase = state.optString("phase", record.optString("phase", OfflineBoardGameStore.PHASE_BOARD));
         if (OfflineBoardGameStore.PHASE_QUESTION.equals(phase)
                 && boardPickedCol >= 0 && boardPickedCol < boardCols
@@ -3332,8 +3413,22 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
             return;
         }
         boardCols = requiredColumns;
+        if (boardRequiredCategoryCount > 0 && CampaignBoardRules.themedCategoryCount(
+                new ArrayList<>(campaignEligibleQuestionPool.keySet()), boardWorldCategories)
+                < boardRequiredCategoryCount) {
+            campaignFailureReason = "question_pool_unavailable";
+            persistPendingCampaignStageResult(false, 0, 0);
+            Toast.makeText(this, "أسئلة فئات هذه المرحلة غير متاحة الآن", Toast.LENGTH_LONG).show();
+            finishCampaignAndReturnToFlutter();
+            return;
+        }
         configureCampaignBoardStarThresholds();
-        if ("playerPick".equals(boardCategoryPolicy) || boardPool.size() < requiredColumns) {
+        if (!"playerPick".equals(boardCategoryPolicy) && (boardPool.size() < requiredColumns
+                || CampaignBoardRules.themedCategoryCount(new ArrayList<>(boardPool.keySet()), boardWorldCategories) < boardRequiredCategoryCount)) {
+            pauseCampaignForLockedCategories();
+            return;
+        }
+        if ("playerPick".equals(boardCategoryPolicy)) {
             if (boardPool.size() < requiredColumns) {
                 Toast.makeText(this, "تحتاج " + requiredColumns + " فئات مفتوحة لهذه المرحلة. اختر من فئاتك أو افتح فئات إضافية", Toast.LENGTH_LONG).show();
             }
@@ -3345,8 +3440,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     }
 
     private void configureCampaignBoardStarThresholds() {
-        int picks = "boss".equals(boardCampaignKind) ? BOARD_ROWS : boardSoloPicks;
-        int maximum = CampaignBoardRules.maximumScore(boardCols, picks);
+        int maximum = getCampaignBoardMaximumScore();
         if (boardTwoStarScore <= 0) {
             boardTwoStarScore = Math.min(Math.round(boardTargetScore * 1.25f), Math.max(1, maximum - 600));
         }
@@ -3359,18 +3453,86 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         return CampaignBoardRules.earnedStars(score, boardTargetScore, boardTwoStarScore, boardThreeStarScore);
     }
 
+    int getCampaignBoardMaximumScore() {
+        if (boardDesignVersion < 2) {
+            return CampaignBoardRules.maximumScore(boardCols, "boss".equals(boardCampaignKind) ? BOARD_ROWS : boardSoloPicks);
+        }
+        return "boss".equals(boardCampaignKind)
+                ? CampaignBoardRules.bossMaximumScore(boardCols, boardBossStyle)
+                : CampaignBoardRules.maximumScore(boardCols, boardSoloPicks);
+    }
+
     /** Auto-picks {@code n} categories for a campaign stage. worldThemed/curated prefer
      *  boardWorldCategories (the world's themed set) and top up with unlocked categories;
      *  random uses the unlocked eligible pool. */
     private ArrayList<String> pickCampaignCategories(int n) {
         refreshCampaignCategoryAccess();
         return CampaignBoardRules.pickCategories(new ArrayList<>(boardPool.keySet()),
-                "random".equals(boardCategoryPolicy) ? null : boardWorldCategories, n, boardRandom);
+                "random".equals(boardCategoryPolicy) ? null : boardWorldCategories, n,
+                new Random((campaignId + "|" + campaignStageId).hashCode()));
     }
 
     private void refreshCampaignCategoryAccess() {
         boardPool = CampaignBoardRules.accessiblePool(campaignEligibleQuestionPool,
                 category -> AppPrefs.isCategoryUnlocked(this, category));
+    }
+
+    /** Begins after category selection, preserves the deadline across every resume. */
+    private boolean startCampaignBoardTimer() {
+        if (campaignTimeLimitSeconds <= 0) return true;
+        if (boardCampaignDeadlineMs == 0L) {
+            boardCampaignDeadlineMs = System.currentTimeMillis() + campaignTimeLimitSeconds * 1000L;
+        }
+        long remaining = boardCampaignDeadlineMs - System.currentTimeMillis();
+        if (remaining <= 0) {
+            handleCampaignTimeExpired();
+            return false;
+        }
+        if (campaignStageTimer == null) startCampaignStageTimerWithDuration(remaining);
+        return true;
+    }
+
+    private String campaignBoardRulesLine() {
+        String text = "";
+        if (campaignTimeLimitSeconds > 0 && boardCampaignDeadlineMs > 0) {
+            text += "⏱ " + formatCampaignRemaining((int) Math.max(0,
+                    (boardCampaignDeadlineMs - System.currentTimeMillis() + 999) / 1000));
+        }
+        if (campaignMaxWrongAnswers > 0) {
+            text += "  •  الأخطاء: " + campaignWrongAnswers + "/" + campaignMaxWrongAnswers;
+        }
+        if (boardRequiredCategoryCount > 0) {
+            text += "  •  فئات العالم الصحيحة: " + CampaignBoardRules.themedCategoryCount(
+                    new ArrayList<>(boardCorrectCategories), boardWorldCategories)
+                    + "/" + boardRequiredCategoryCount;
+        }
+        return text;
+    }
+
+    private void nameCampaignBosses() {
+        if (!boardCampaignMatch || !"boss".equals(boardCampaignKind)) return;
+        for (int slot = 1; slot < offlineContestants.contestantCount(); slot++) {
+            String name = "الزعيم " + slot;
+            String style = campaignBossStyleForSlot(slot);
+            if ("specialist".equals(style) && !boardSelectedCategories.isEmpty()) {
+                name = "خبير " + boardSelectedCategories.get((slot - 1) % boardSelectedCategories.size());
+            } else if ("speed".equals(style)) name = "الخاطف " + slot;
+            else if ("highValue".equals(style)) name = "صيّاد النقاط " + slot;
+            offlineContestants.setContestantName(slot, name);
+        }
+    }
+
+    boolean isCampaignBossSpecialtyCell(int slot) {
+        return boardCols > 0 && boardPickedCol == (slot - 1) % boardCols;
+    }
+
+    String campaignBossStyleForSlot(int slot) {
+        return CampaignBoardRules.bossStyleForSlot(boardBossStyle, slot);
+    }
+
+    int getCampaignBoardCategoryWins() {
+        return CampaignBoardRules.themedCategoryCount(
+                new ArrayList<>(boardCorrectCategories), boardWorldCategories);
     }
 
     private void pauseCampaignForLockedCategories() {
@@ -3381,7 +3543,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         stopTimer(false);
         cancelPendingBoardReveal();
         cancelBoardSelectTimer();
-        Toast.makeText(this, "توقفت المحاولة لأن بعض تصنيفاتها مقفلة الآن. افتحها مجددًا ثم عد لإكمال محاولتك", Toast.LENGTH_LONG).show();
+        Toast.makeText(this, "هذه المرحلة تحتاج فئات مفتوحة كافية من فئات عالمها. افتح الفئات المطلوبة ثم عد؛ محاولتك محفوظة", Toast.LENGTH_LONG).show();
         finish();
     }
 
@@ -3738,10 +3900,19 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                 showCategorySelect();
                 return;
             }
+            if (CampaignBoardRules.themedCategoryCount(chosen, boardWorldCategories)
+                    < boardRequiredCategoryCount) {
+                Toast.makeText(this, "اختر على الأقل " + boardRequiredCategoryCount
+                        + " فئات من فئات العالم: " + android.text.TextUtils.join("، ", boardWorldCategories),
+                        Toast.LENGTH_LONG).show();
+                showCategorySelect();
+                return;
+            }
         }
         stopCategorySelectMusicIfPlaying();
         boardSelectedCategories.clear();
         boardSelectedCategories.addAll(chosen);
+        nameCampaignBosses();
         boardCellQuestion = new Question[boardCols][BOARD_ROWS];
         boardCellConsumed = new boolean[boardCols][BOARD_ROWS];
         Set<Question> used = new HashSet<>();
@@ -3767,6 +3938,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         if (boardCampaignMatch && "solo".equals(boardCampaignKind)) {
             boardTotalTurns = Math.max(1, Math.min(boardSoloPicks, boardCellsRemaining));
         }
+        if (boardCampaignMatch && !startCampaignBoardTimer()) return;
         if (boardLocalTeams) {
             saveLocalTeamsProgress(LocalTeamsGameStore.PHASE_BOARD);
         }
@@ -3860,6 +4032,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     // ---- Turn loop -------------------------------------------------------
 
     private void beginBoardTurn() {
+        if (boardCampaignMatch && campaignResultPersisted) return;
         if (boardCampaignMatch && !ensureCampaignBoardCategoryAccess()) return;
         boardStealActive = false;
         boardRefereeOverrideApplied = false;
@@ -3889,11 +4062,12 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                 public void run() {
                     if (!EXITING && boardMode) runBotTurn();
                 }
-            }, boardCampaignMatch ? 500 : 1500);
+            }, boardCampaignMatch ? ("speed".equals(campaignBossStyleForSlot(boardPickerSlot)) ? 200 : 500) : 1500);
         }
     }
 
     private void runBotTurn() {
+        if (boardCampaignMatch && campaignResultPersisted) return;
         int[] cell = pickRandomRemainingCell();
         if (cell == null) {
             finishBoardMatch();
@@ -3919,10 +4093,15 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
             }
         }
         if (remaining.isEmpty()) return null;
+        if (boardCampaignMatch && !boardPickerIsHuman && "boss".equals(boardCampaignKind)) {
+            return CampaignBoardRules.pickBossCell(remaining, campaignBossStyleForSlot(boardPickerSlot),
+                    (boardPickerSlot - 1) % Math.max(1, boardCols), boardRandom);
+        }
         return remaining.get(boardRandom.nextInt(remaining.size()));
     }
 
     private void onCellPicked(int col, int row) {
+        if (boardCampaignMatch && campaignResultPersisted) return;
         if (boardCampaignMatch && !ensureCampaignBoardCategoryAccess()) return;
         if (boardOnline && !boardRoomMatch) {
             if (!boardPickerIsHuman || boardPickPending || boardPickedCol >= 0
@@ -3974,6 +4153,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     }
 
     private void endBoardTurn() {
+        if (boardCampaignMatch && campaignResultPersisted) return;
         if (boardOnline && boardDuelFinished) return;
         showBoardRefereePanel(false);
         if (boardLocalTeams && offlineContestants != null) {
@@ -3991,6 +4171,11 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         }
         boardCellsRemaining--;
         boardTurnIndex++;
+        if (boardCampaignMatch && campaignMaxWrongAnswers > 0
+                && campaignWrongAnswers > campaignMaxWrongAnswers) {
+            finishCampaignBoardMatch();
+            return;
+        }
         if (boardCellsRemaining <= 0 || boardTurnIndex >= boardTotalTurns) {
             finishBoardMatch();
             return;
@@ -5651,6 +5836,12 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
             banner.setLayoutParams(blp);
             root.addView(banner);
 
+            if (boardCampaignMatch && !campaignBoardRulesLine().isEmpty()) {
+                boardCampaignRuleView = makeBoardText(campaignBoardRulesLine(), 14f,
+                        0xFFFFD761, Gravity.CENTER);
+                root.addView(boardCampaignRuleView);
+            }
+
             // 30-second pick timer (human turn only); auto-picks a cell on timeout.
             if (shouldUseBoardSelectTimer()) {
                 boardSelectCountdownView = makeBoardText("⏱ " + BOARD_SELECT_SECONDS, 16f, 0xFF61FF39, Gravity.CENTER);
@@ -6309,7 +6500,11 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
             boardAnswerInput.setText("");
             boardAnswerInput.setEnabled(true);
             if (btnBoardSubmitAnswer != null) btnBoardSubmitAnswer.setEnabled(true);
-            if (btnBoardRevealOptions != null) btnBoardRevealOptions.setEnabled(true);
+            if (btnBoardRevealOptions != null) {
+                boolean allowed = !boardCampaignMatch || boardAllowRevealOptions;
+                btnBoardRevealOptions.setVisibility(allowed ? View.VISIBLE : View.GONE);
+                btnBoardRevealOptions.setEnabled(allowed);
+            }
             if (btnBoardConcedeSteal != null) {
                 boolean showConcede = boardLocalTeams && boardStealActive;
                 btnBoardConcedeSteal.setVisibility(showConcede ? View.VISIBLE : View.GONE);
@@ -6685,6 +6880,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     /** Player chose to reveal the four options: switch to multiple-choice. Each reveal
      *  halves the cell's award (carried across a التحدي الرئيسي steal). */
     private void onBoardRevealOptions() {
+        if (boardCampaignMatch && !boardAllowRevealOptions) return;
         if (!boardMode || !boardAwaitingTypedInput) return;
         hideKeyboard();
         boardAwaitingTypedInput = false;
@@ -6765,13 +6961,15 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         new Handler().postDelayed(new Runnable() {
             @Override
             public void run() {
-                if (EXITING || q != boardCurrentQuestion) return;
+                if (EXITING || q != boardCurrentQuestion
+                        || (boardCampaignMatch && campaignResultPersisted)) return;
                 resolveBotBoardAnswer(slot);
             }
-        }, boardCampaignMatch ? 900 : 1800);
+        }, boardCampaignMatch ? ("speed".equals(campaignBossStyleForSlot(boardPickerSlot)) ? 300 : 900) : 1800);
     }
 
     private void resolveBotBoardAnswer(final int slot) {
+        if (boardCampaignMatch && campaignResultPersisted) return;
         final boolean correct = offlineContestants.rollCorrectForSlot(slot,
                 boardCurrentQuestion != null ? boardCurrentQuestion.getLevel() : "0");
         int pickIdx = correct ? rightAnswer : pickRandomWrongIndex(rightAnswer);
@@ -6782,7 +6980,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         new Handler().postDelayed(new Runnable() {
             @Override
             public void run() {
-                if (EXITING) return;
+                if (EXITING || (boardCampaignMatch && campaignResultPersisted)) return;
                 if (correct) {
                     if (imgPick != null) imgPick.setImageResource(R.drawable.frame_right);
                     offlineContestants.awardCell(slot, CampaignBoardRules.botAwardValue(
@@ -9150,6 +9348,9 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         campaignStageTimer = new CountDownTimer(durationMs, 1000L) {
             @Override
             public void onTick(long millisUntilFinished) {
+                if (boardCampaignMatch && boardCampaignRuleView != null) {
+                    boardCampaignRuleView.setText(campaignBoardRulesLine());
+                }
                 if (txtCampaignTimer != null) {
                     int secondsLeft = (int) Math.ceil(millisUntilFinished / 1000.0);
                     txtCampaignTimer.setText(formatCampaignRemaining(secondsLeft));
@@ -9185,6 +9386,10 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
 
     private void handleCampaignTimeExpired() {
         if (!campaignMode || campaignResultPersisted || EXITING) {
+            return;
+        }
+        if (boardCampaignMatch) {
+            finishCampaignBoardMatch();
             return;
         }
         CAN_PLAY = false;
@@ -9516,7 +9721,9 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         int randomTime = 15;
         if (!EXITING) {
             if (start) {
-                int startTicks = boardMode ? 450 : 300; // board answer timer is 45s (others 30s)
+                int startTicks = boardMode ? 450 : 300;
+                if (boardCampaignMatch && "boss".equals(boardCampaignKind)
+                        && "speed".equals(boardBossStyle)) startTicks = 300;
                 PROGRESS_VALUE = startTicks;
                 //TIMER_VALUE = 10000;
                 pbTime.setMax(startTicks);

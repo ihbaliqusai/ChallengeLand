@@ -20,6 +20,22 @@ void main() {
   });
 
   group('Campaign result compatibility', () {
+    test('resumed board awards stars using its saved score thresholds',
+        () async {
+      final result = await service.submitStageResult(
+        uid: 'player',
+        stage: stage,
+        nativeResult: {
+          ..._boardResult(stage, completed: true, score: 1200),
+          'boardTwoStarScore': 1000,
+          'boardThreeStarScore': 1200,
+          'boardMaxScore': 3600,
+          'boardDesignVersion': 0,
+        },
+      );
+      expect(stage.starRules.threeStarsMinScore, greaterThan(1200));
+      expect(result.newStars, 3);
+    });
     test(
         'a result captured by another account cannot create progress or claims',
         () async {
@@ -122,7 +138,8 @@ void main() {
         campaignMode: CampaignMode.bossBattle,
         boardKind: 'boss',
       );
-      final payload = _boardResult(boss, completed: true, score: 1200);
+      final payload = _boardResult(boss,
+          completed: true, score: boss.starRules.threeStarsMinScore);
       expect(service.campaignModeForResult(stage: boss, nativeResult: payload),
           CampaignMode.classic);
       expect(

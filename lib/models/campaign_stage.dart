@@ -401,6 +401,10 @@ class CampaignStage {
     this.botCount = 0,
     this.botIntelligence = 0,
     this.categoryPolicy = 'playerPick',
+    this.boardRequiredCategoryCount = 0,
+    this.bossStyle = 'balanced',
+    this.boardAllowRevealOptions = true,
+    this.boardDesignVersion = 0,
   })  : campaignMode = campaignMode ?? type._defaultCampaignMode,
         winCondition = winCondition ??
             (campaignMode == null
@@ -441,13 +445,67 @@ class CampaignStage {
   final String? teamAllyName;
   final String? teamEnemyName;
   // ---- تحدي المراحل board stage (التحدي) ----
-  final String boardKind;        // 'solo' | 'boss'
-  final int boardTargetScore;    // solo: points needed to pass (rises each stage)
-  final int boardSoloPicks;      // solo: number of cells the player may pick
-  final int boardSoloCols;       // solo: number of category columns on the board
-  final int botCount;            // boss: number of boss bots (= world number, capped 7)
-  final int botIntelligence;     // boss: bot answer skill (0 = engine default)
-  final String categoryPolicy;   // playerPick | curated | random | worldThemed
+  final String boardKind; // 'solo' | 'boss'
+  final int boardTargetScore; // solo: points needed to pass (rises each stage)
+  final int boardSoloPicks; // solo: number of cells the player may pick
+  final int boardSoloCols; // solo: number of category columns on the board
+  final int botCount; // boss: number of boss bots (= world number, capped 7)
+  final int botIntelligence; // boss: bot answer skill (0 = engine default)
+  final String categoryPolicy; // playerPick | curated | random | worldThemed
+  final int boardRequiredCategoryCount;
+  final String bossStyle; // balanced | specialist | speed | highValue
+  final bool boardAllowRevealOptions;
+  final int boardDesignVersion;
+
+  String get boardCategorySelectionText {
+    final count = isBossStage ? botCount + 1 : boardSoloCols;
+    final label = count == 1
+        ? 'فئة واحدة'
+        : count == 2
+            ? 'فئتين'
+            : '$count فئات';
+    return categoryPolicy == 'playerPick'
+        ? 'اختر $label بنفسك'
+        : 'الكمبيوتر يحدد $label لهذه المرحلة';
+  }
+
+  String get boardRulesText {
+    final rules = <String>[boardCategorySelectionText];
+    if (!boardAllowRevealOptions) {
+      rules.add('أجب بالكتابة؛ كشف خيارات الإجابة غير متاح');
+    }
+    if (timeLimitSeconds > 0) {
+      rules.add(
+          'أنهِ اللوحة خلال $timeLimitSeconds ثانية؛ يستمر الوقت عند المغادرة');
+    }
+    if ((maxWrongAnswers ?? 0) > 0) {
+      rules
+          .add('المسموح ${maxWrongAnswers!} أخطاء؛ الخطأ التالي ينهي المحاولة');
+    }
+    if (boardRequiredCategoryCount > 0) {
+      rules.add(
+          'أجب صحيحًا في $boardRequiredCategoryCount فئات مختلفة من فئات العالم: ${categories.join('، ')}');
+    }
+    if (isBossStage) {
+      switch (bossStyle) {
+        case 'specialist':
+          rules.add('زعيم متخصص: يفضّل فئته ويجيب فيها بدقة أعلى');
+          break;
+        case 'speed':
+          rules.add('زعيم سريع: يتحرك بسرعة، ومهلة إجابتك 30 ثانية');
+          break;
+        case 'highValue':
+          rules.add('صيّاد النقاط: يفضّل الأسئلة الأعلى قيمة');
+          break;
+        case 'mixed':
+          rules.add(
+              'مجلس الزعماء: متخصصون وسريعون وصيّادو نقاط في مواجهة واحدة');
+          break;
+      }
+    }
+    return rules.join('\n');
+  }
+
   final StageStarRules starRules;
 
   /// Boss stages gate each world (every 10th stage).
@@ -528,7 +586,13 @@ class CampaignStage {
       boardSoloCols: _readInt(map['boardSoloCols'], defaultValue: 4),
       botCount: _readInt(map['botCount']),
       botIntelligence: _readInt(map['botIntelligence']),
-      categoryPolicy: _readString(map['categoryPolicy'], defaultValue: 'playerPick'),
+      categoryPolicy:
+          _readString(map['categoryPolicy'], defaultValue: 'playerPick'),
+      boardRequiredCategoryCount: _readInt(map['boardRequiredCategoryCount']),
+      bossStyle: _readString(map['bossStyle'], defaultValue: 'balanced'),
+      boardAllowRevealOptions:
+          _readBool(map['boardAllowRevealOptions'], defaultValue: true),
+      boardDesignVersion: _readInt(map['boardDesignVersion']),
       starRules: StageStarRules.fromMap(_readMap(map['starRules'])),
     );
   }
@@ -574,6 +638,10 @@ class CampaignStage {
         'botCount': botCount,
         'botIntelligence': botIntelligence,
         'categoryPolicy': categoryPolicy,
+        'boardRequiredCategoryCount': boardRequiredCategoryCount,
+        'bossStyle': bossStyle,
+        'boardAllowRevealOptions': boardAllowRevealOptions,
+        'boardDesignVersion': boardDesignVersion,
         'starRules': starRules.toMap(),
       };
 
@@ -618,6 +686,10 @@ class CampaignStage {
     int? botCount,
     int? botIntelligence,
     String? categoryPolicy,
+    int? boardRequiredCategoryCount,
+    String? bossStyle,
+    bool? boardAllowRevealOptions,
+    int? boardDesignVersion,
     StageStarRules? starRules,
   }) {
     final effectiveMode = campaignMode ?? this.campaignMode;
@@ -663,6 +735,12 @@ class CampaignStage {
       botCount: botCount ?? this.botCount,
       botIntelligence: botIntelligence ?? this.botIntelligence,
       categoryPolicy: categoryPolicy ?? this.categoryPolicy,
+      boardRequiredCategoryCount:
+          boardRequiredCategoryCount ?? this.boardRequiredCategoryCount,
+      bossStyle: bossStyle ?? this.bossStyle,
+      boardAllowRevealOptions:
+          boardAllowRevealOptions ?? this.boardAllowRevealOptions,
+      boardDesignVersion: boardDesignVersion ?? this.boardDesignVersion,
       starRules: starRules ?? this.starRules,
     );
   }

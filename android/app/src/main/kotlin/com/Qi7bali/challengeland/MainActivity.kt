@@ -214,38 +214,49 @@ class MainActivity : FlutterActivity() {
                         val targetPackage = call.argument<String>("packageName") ?: ""
                         val fallbackUrl = call.argument<String>("playStoreUrl")
                             ?: "https://play.google.com/store/apps/details?id=$targetPackage"
-                        var launched = false
-                        if (targetPackage.isNotBlank()) {
-                            val launchIntent = packageManager.getLaunchIntentForPackage(targetPackage)
-                            if (launchIntent != null) {
-                                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                startActivity(launchIntent)
-                                launched = true
-                                result.success("launched_app")
-                            }
-                        }
-                        if (!launched && targetPackage.isNotBlank()) {
-                            try {
-                                val marketIntent = Intent(
-                                    Intent.ACTION_VIEW,
-                                    Uri.parse("market://details?id=$targetPackage")
-                                ).apply {
-                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        if (targetPackage.isBlank()) {
+                            result.error("APP_LAUNCH_FAILED", "No target package was provided", null)
+                        } else {
+                            // Every launch can fail (disabled app, missing store,
+                            // unavailable browser). Keep trying the next destination
+                            // and always complete the Flutter method call.
+                            val appOpened = try {
+                                val launchIntent = packageManager.getLaunchIntentForPackage(targetPackage)
+                                if (launchIntent == null) false else {
+                                    launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    startActivity(launchIntent)
+                                    true
                                 }
-                                startActivity(marketIntent)
-                                result.success("opened_market")
                             } catch (e: Exception) {
-                                val webIntent = Intent(
-                                    Intent.ACTION_VIEW,
-                                    Uri.parse(fallbackUrl)
-                                ).apply {
-                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                }
-                                startActivity(webIntent)
-                                result.success("opened_web")
+                                Log.w("CrossPromo", "Unable to launch target app", e)
+                                false
                             }
-                        } else if (!launched) {
-                            result.success("error_no_package")
+                            val marketOpened = if (appOpened) false else try {
+                                startActivity(Intent(Intent.ACTION_VIEW,
+                                    Uri.parse("market://details?id=$targetPackage")).apply {
+                                    setPackage("com.android.vending")
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                })
+                                true
+                            } catch (e: Exception) {
+                                Log.w("CrossPromo", "Unable to open Play Store", e)
+                                false
+                            }
+                            val webOpened = if (appOpened || marketOpened) false else try {
+                                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(fallbackUrl)).apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                })
+                                true
+                            } catch (e: Exception) {
+                                Log.w("CrossPromo", "Unable to open store website", e)
+                                false
+                            }
+                            when {
+                                appOpened -> result.success("launched_app")
+                                marketOpened -> result.success("opened_market")
+                                webOpened -> result.success("opened_web")
+                                else -> result.error("APP_LAUNCH_FAILED", "No available app could open the game or store", null)
+                            }
                         }
                     }
                     "openStoreRating" -> {
@@ -427,6 +438,10 @@ class MainActivity : FlutterActivity() {
                                 putExtra("boardThreeStarScore", intArg(call.argument<Any>("boardThreeStarScore"), 0))
                                 putExtra("boardBotCount", intArg(call.argument<Any>("boardBotCount"), 0))
                                 putExtra("boardBotIntelligence", intArg(call.argument<Any>("boardBotIntelligence"), 0))
+                                putExtra("boardRequiredCategoryCount", intArg(call.argument<Any>("boardRequiredCategoryCount"), 0))
+                                putExtra("bossStyle", stringArg(call.argument<Any>("bossStyle"), "balanced"))
+                                putExtra("boardAllowRevealOptions", call.argument<Boolean>("boardAllowRevealOptions") ?: true)
+                                putExtra("boardDesignVersion", intArg(call.argument<Any>("boardDesignVersion"), 0))
                                 putExtra("categoryPolicy", stringArg(call.argument<Any>("categoryPolicy"), "playerPick"))
                                 putStringArrayListExtra("worldCategories", stringArrayListArg(call.argument<Any>("worldCategories")))
                                 // The player's chosen character is the single source of truth (set

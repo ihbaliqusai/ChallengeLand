@@ -200,6 +200,12 @@ class _StageIntroScreenState extends State<StageIntroScreen>
         boardSoloCols: launchConfig['boardSoloCols'] as int? ?? 4,
         boardBotCount: launchConfig['boardBotCount'] as int? ?? 0,
         boardBotIntelligence: launchConfig['boardBotIntelligence'] as int? ?? 0,
+        boardRequiredCategoryCount:
+            launchConfig['boardRequiredCategoryCount'] as int? ?? 0,
+        bossStyle: launchConfig['bossStyle'] as String? ?? 'balanced',
+        boardAllowRevealOptions:
+            launchConfig['boardAllowRevealOptions'] as bool? ?? true,
+        boardDesignVersion: launchConfig['boardDesignVersion'] as int? ?? 0,
         categoryPolicy:
             launchConfig['categoryPolicy'] as String? ?? 'playerPick',
         worldCategories: (launchConfig['worldCategories'] as List<dynamic>? ??
@@ -814,9 +820,11 @@ class _MissionAndStarsCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        isBoss
-                            ? 'اجمع أعلى مجموع نقاط في نهاية الأدوار لفتح العالم التالي'
-                            : 'اختر الأسئلة بذكاء من اللوحة لتحقيق هذا المجموع أو أكثر',
+                        stage.boardRulesText.isNotEmpty
+                            ? stage.boardRulesText
+                            : isBoss
+                                ? 'اجمع أعلى مجموع نقاط في نهاية الأدوار لفتح العالم التالي'
+                                : 'اختر الأسئلة بذكاء من اللوحة لتحقيق هذا المجموع أو أكثر',
                         style: const TextStyle(
                           color: Colors.white70,
                           fontSize: 11.5,

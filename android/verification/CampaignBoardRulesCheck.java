@@ -14,7 +14,73 @@ public final class CampaignBoardRulesCheck {
         verifyDifficultyPool();
         verifyRelativeCellRisk();
         verifyCategoryAccess();
+        verifyStageChallenges();
+        verifyBossStyles();
         System.out.println("Campaign board regression checks passed");
+    }
+
+    private static void verifyStageChallenges() {
+        if (!CampaignBoardRules.constraintFailure(2, 2, 2, 2, 1000, 999).isEmpty())
+            throw new AssertionError("the allowed error count and category goal must pass");
+        if (!"eliminated".equals(CampaignBoardRules.constraintFailure(3, 2, 2, 2, 0, 0)))
+            throw new AssertionError("the next error must fail even with enough points");
+        if (!"timeExpired".equals(CampaignBoardRules.constraintFailure(0, 0, 2, 2, 1000, 1000)))
+            throw new AssertionError("the deadline is exclusive");
+        if (!"timeExpired".equals(CampaignBoardRules.constraintFailure(0, 0, 2, 2, 1000, 1500)))
+            throw new AssertionError("resuming with the same expired deadline cannot restart the clock");
+        if (!"required_categories_not_completed".equals(
+                CampaignBoardRules.constraintFailure(0, 0, 1, 2, 0, 0)))
+            throw new AssertionError("points cannot replace the distinct-category requirement");
+        if (!CampaignBoardRules.constraintFailure(99, 0, 0, 0, 0, 999).isEmpty())
+            throw new AssertionError("legacy stages have no optional constraints");
+        equal(2, CampaignBoardRules.themedCategoryCount(
+                Arrays.asList("الأنمي", "nature", "movies", "nature"),
+                Arrays.asList("أنمي", "nature", "أنمي")), "only distinct themed categories count, including aliases");
+    }
+
+    private static void verifyBossStyles() {
+        for (int columns = 2; columns <= 8; columns++) {
+            equal(2400, CampaignBoardRules.bossMaximumScore(columns, "highValue"), "hunters share the high-value supply with the player");
+            ArrayList<int[]> shared = new ArrayList<>();
+            for (int column = 0; column < columns; column++) {
+                for (int row = 0; row < 6; row++) shared.add(new int[]{column, row});
+            }
+            int humanScore = 0;
+            for (int turn = 0; turn < 6 * columns; turn++) {
+                int[] chosen = CampaignBoardRules.pickBossCell(shared, "highValue", 0, new java.util.Random(turn));
+                if (turn % columns == 0) humanScore += (chosen[1] % 3 + 1) * 200;
+                shared.remove(chosen);
+            }
+            equal(CampaignBoardRules.bossMaximumScore(columns, "highValue"), humanScore, "six simulated hunter rounds reach the fair star ceiling");
+        }
+        String[] styles = {"specialist", "speed", "highValue"};
+        for (int slot = 1; slot <= 7; slot++) {
+            if (!styles[(slot - 1) % 3].equals(CampaignBoardRules.bossStyleForSlot("mixed", slot)))
+                throw new AssertionError("mixed council must give each boss its own style");
+            if (!"speed".equals(CampaignBoardRules.bossStyleForSlot("speed", slot)))
+                throw new AssertionError("a uniform boss encounter keeps its style");
+        }
+        ArrayList<int[]> cells = new ArrayList<>();
+        cells.add(new int[]{0, 0});
+        cells.add(new int[]{0, 2});
+        cells.add(new int[]{1, 1});
+        cells.add(new int[]{1, 5});
+        for (int seed = 0; seed < 50; seed++) {
+            int[] expert = CampaignBoardRules.pickBossCell(cells, "specialist", 1, new java.util.Random(seed));
+            equal(1, expert[0], "expert picks the specialty column");
+            int[] hunter = CampaignBoardRules.pickBossCell(cells, "highValue", 0, new java.util.Random(seed));
+            equal(2, hunter[1] % 3, "hunter prioritizes both rows worth 600");
+            int[] fallback = CampaignBoardRules.pickBossCell(cells, "specialist", 8, new java.util.Random(seed));
+            if (!cells.contains(fallback)) throw new AssertionError("exhausted specialty falls back to a remaining cell");
+        }
+        if (CampaignBoardRules.pickBossCell(new ArrayList<>(), "highValue", 0, new java.util.Random()) != null)
+            throw new AssertionError("an empty board has no legal move");
+        int baseline = CampaignBoardRules.campaignBotCorrectChance("5", 68);
+        equal(baseline + 12, CampaignBoardRules.styledBotCorrectChance("5", 68, "specialist", true), "specialty bonus");
+        equal(baseline - 8, CampaignBoardRules.styledBotCorrectChance("5", 68, "specialist", false), "outside-specialty weakness");
+        equal(baseline, CampaignBoardRules.styledBotCorrectChance("5", 68, "balanced", true), "legacy skill unchanged");
+        equal(97, CampaignBoardRules.styledBotCorrectChance("0", 99, "specialist", true), "accuracy has a ceiling");
+        equal(18, CampaignBoardRules.styledBotCorrectChance("3", 1, "specialist", false), "accuracy has a floor");
     }
 
     private static void verifyCategoryAccess() {

@@ -7,6 +7,8 @@ const { getMessaging } = require("firebase-admin/messaging");
 const { createDuelNotifications, InviteError } = require("./duel_notifications");
 const { setGlobalOptions } = require("firebase-functions/v2");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onDocumentWritten } = require("firebase-functions/v2/firestore");
+const { createSocialNotifications } = require("./social_notifications");
 const { onMessagePublished } = require("firebase-functions/v2/pubsub");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { defineString, defineBoolean } = require("firebase-functions/params");
@@ -80,6 +82,14 @@ function duelCallable(method) {
 }
 exports.registerDuelDevice = duelCallable("register");
 exports.sendDuelInvite = duelCallable("send");
+
+let socialNotifications;
+for (const [name, collection] of [["notifyFriendRequest", "social_links"], ["notifySocialInvite", "social_challenges"]]) {
+  exports[name] = onDocumentWritten({ document: `${collection}/{id}`, retry: true }, async event => {
+    socialNotifications ||= createSocialNotifications({ db: getFirestore(), messaging: getMessaging() });
+    await socialNotifications(collection, event.params.id, event.data?.before.data(), event.data?.after.data());
+  });
+}
 
 // Eventarc authenticates the Pub/Sub trigger. There is no public RTDN webhook.
 // Only Google's Play notification publisher should be granted publish on topic.

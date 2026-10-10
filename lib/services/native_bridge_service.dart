@@ -211,6 +211,10 @@ class NativeBridgeService {
     int boardSoloCols = 4,
     int boardBotCount = 0,
     int boardBotIntelligence = 0,
+    int boardRequiredCategoryCount = 0,
+    bool boardAllowRevealOptions = true,
+    int boardDesignVersion = 0,
+    String bossStyle = 'balanced',
     String categoryPolicy = 'playerPick',
     List<String> worldCategories = const <String>[],
   }) async {
@@ -248,6 +252,10 @@ class NativeBridgeService {
       'boardSoloCols': boardSoloCols,
       'boardBotCount': boardBotCount,
       'boardBotIntelligence': boardBotIntelligence,
+      'boardRequiredCategoryCount': boardRequiredCategoryCount,
+      'boardAllowRevealOptions': boardAllowRevealOptions,
+      'boardDesignVersion': boardDesignVersion,
+      'bossStyle': bossStyle,
       'categoryPolicy': categoryPolicy,
       'worldCategories': worldCategories,
     });

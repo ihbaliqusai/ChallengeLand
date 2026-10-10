@@ -61,6 +61,13 @@ final class GameCampaignResultStore {
             payload.put("boardKind", activity.boardCampaignKind);
             payload.put("boardTargetScore", Math.max(0, activity.boardTargetScore));
             payload.put("boardBotCount", Math.max(0, activity.boardBotCount));
+            payload.put("boardRequiredCategoryCount", activity.boardRequiredCategoryCount);
+            payload.put("boardCategoryWins", activity.getCampaignBoardCategoryWins());
+            payload.put("bossStyle", activity.boardBossStyle);
+            payload.put("boardDesignVersion", activity.boardDesignVersion);
+            payload.put("boardTwoStarScore", activity.boardTwoStarScore);
+            payload.put("boardThreeStarScore", activity.boardThreeStarScore);
+            payload.put("boardMaxScore", activity.getCampaignBoardMaximumScore());
             payload.put("failureReason", effectiveCompleted ? "" : activity.safeString(activity.campaignFailureReason));
             payload.put("lives", Math.max(0, activity.campaignLives));
             payload.put("livesRemaining", Math.max(0, activity.campaignLivesRemaining));

@@ -19,6 +19,10 @@ idempotent currency claims. Currency checks also exercise a failed preference
 commit, a successful retry, and simultaneous requests for the same claim.
 Category access checks cover automatic themed/random picks, expired ownership,
 resume validation, insufficient unlocked categories, and anime purchase aliases.
+Stage challenge checks cover error limits, the deadline boundary (including an
+expired saved deadline), distinct themed-category goals and legacy unconstrained
+stages. Boss checks cover specialty choices, accuracy bonuses and weaknesses,
+high-value choices, exhausted-category fallback and accuracy bounds.
 
 Progression checks cover all ten game modes, XP and rank boundaries, local team
 completion trophies, human opponent bonuses, ties, abandoning, empty lobbies,

@@ -17,6 +17,7 @@ StageSubmissionResult _result({
   int score = 300,
   int previousScore = 700,
   int coins = 0,
+  String failureReason = '',
 }) {
   final stage = CampaignDefaults.stages().first;
   final previous = StageProgress.empty().copyWith(
@@ -33,6 +34,7 @@ StageSubmissionResult _result({
       'score': score,
       'completed': completed,
       'stars': attemptStars,
+      'failureReason': failureReason,
     }),
     previousProgress: previous,
     updatedProgress: previous.copyWith(bestScore: score, attempts: 2),
@@ -68,6 +70,31 @@ Widget _host(Widget child, {double textScale = 1}) => MaterialApp(
     );
 
 void main() {
+  testWidgets(
+      'failed stage challenges explain the rule even above the score goal',
+      (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(320, 640);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    final stages = CampaignDefaults.stages();
+    for (final item in <(int, String)>[
+      (2, 'timeExpired'),
+      (5, 'required_categories_not_completed'),
+      (6, 'eliminated'),
+    ]) {
+      await tester.pumpWidget(_host(
+          ResultReplayGoalCard(
+            stage: stages[item.$1],
+            result: _result(score: 5000, failureReason: item.$2),
+          ),
+          textScale: 1.4));
+      expect(find.text(stages[item.$1].boardRulesText), findsOneWidget);
+      expect(find.textContaining('هدفك القادم:'), findsOneWidget);
+      expect(find.byType(LinearProgressIndicator), findsNothing);
+      expect(tester.takeException(), isNull);
+    }
+  });
   testWidgets('failed replay still shows settled gameplay XP and trophy loss',
       (tester) async {
     await tester.pumpWidget(_host(ResultRewardPanel(
@@ -76,7 +103,8 @@ void main() {
       gameplayXp: 53,
       trophyDelta: -18,
     )));
-    expect(find.textContaining('+53 XP من اللعب', findRichText: true), findsOneWidget);
+    expect(find.textContaining('+53 XP من اللعب', findRichText: true),
+        findsOneWidget);
     expect(find.textContaining('-18 كأس', findRichText: true), findsOneWidget);
     expect(find.text('تقدم اللعب المحتسب'), findsOneWidget);
     expect(tester.takeException(), isNull);

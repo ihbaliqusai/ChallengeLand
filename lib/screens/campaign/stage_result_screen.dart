@@ -416,15 +416,21 @@ class _StageResultScreenState extends State<StageResultScreen>
                                       const SizedBox(height: 10),
                                       _GuestVictoryBanner(
                                         stars: attempt.stars,
-                                        coins: submissionResult.rewardCoinsGranted > 0
-                                            ? submissionResult.rewardCoinsGranted
+                                        coins: submissionResult
+                                                    .rewardCoinsGranted >
+                                                0
+                                            ? submissionResult
+                                                .rewardCoinsGranted
                                             : (attempt.score > 0 ? 500 : 100),
-                                        gems: submissionResult.rewardGemsGranted > 0
+                                        gems: submissionResult
+                                                    .rewardGemsGranted >
+                                                0
                                             ? submissionResult.rewardGemsGranted
                                             : 50,
                                         score: attempt.score,
                                         onClaim: () =>
-                                            _openSaveGuestProgressModal(context),
+                                            _openSaveGuestProgressModal(
+                                                context),
                                       ),
                                     ],
                                     const SizedBox(height: 12),
@@ -510,7 +516,8 @@ class _StageResultScreenState extends State<StageResultScreen>
                                       _ClaimGuestRewardsButton(
                                         busy: _savingResult,
                                         onPressed: () =>
-                                            _openSaveGuestProgressModal(context),
+                                            _openSaveGuestProgressModal(
+                                                context),
                                       ),
                                     ],
                                     const SizedBox(height: 8),
@@ -845,6 +852,12 @@ class _StageResultScreenState extends State<StageResultScreen>
         boardSoloCols: launchConfig['boardSoloCols'] as int? ?? 4,
         boardBotCount: launchConfig['boardBotCount'] as int? ?? 0,
         boardBotIntelligence: launchConfig['boardBotIntelligence'] as int? ?? 0,
+        boardRequiredCategoryCount:
+            launchConfig['boardRequiredCategoryCount'] as int? ?? 0,
+        bossStyle: launchConfig['bossStyle'] as String? ?? 'balanced',
+        boardAllowRevealOptions:
+            launchConfig['boardAllowRevealOptions'] as bool? ?? true,
+        boardDesignVersion: launchConfig['boardDesignVersion'] as int? ?? 0,
         categoryPolicy:
             launchConfig['categoryPolicy'] as String? ?? 'playerPick',
         worldCategories: (launchConfig['worldCategories'] as List<dynamic>? ??
@@ -1720,7 +1733,9 @@ class _ClaimGuestRewardsButton extends StatelessWidget {
         onPressed: busy ? null : onPressed,
         icon: const Icon(Icons.stars_rounded, size: 22),
         label: Text(
-          busy ? 'جارٍ حفظ التقدم...' : '✨ احفظ إنجازك وجوائزك الآن (تسجيل سريع)',
+          busy
+              ? 'جارٍ حفظ التقدم...'
+              : '✨ احفظ إنجازك وجوائزك الآن (تسجيل سريع)',
         ),
         style: FilledButton.styleFrom(
           backgroundColor: const Color(0xFFFACC15),
@@ -1801,6 +1816,13 @@ String _resultTitle({
   required String failureReason,
   required bool bossDefeated,
 }) {
+  if (!completed) {
+    if (failureReason == 'timeExpired') return 'انتهى وقت المرحلة';
+    if (failureReason == 'eliminated') return 'تجاوزت عدد الأخطاء المسموح';
+    if (failureReason == 'required_categories_not_completed') {
+      return 'لم تكمل فئات العالم المطلوبة';
+    }
+  }
   switch (mode) {
     case CampaignMode.classic:
     case CampaignMode.noLifeline:

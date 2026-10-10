@@ -99,8 +99,12 @@ void main() {
     }
   });
   Future<void> pump(WidgetTester tester, _App app,
-      {bool screen = false, bool settle = true}) async {
-    tester.view.physicalSize = const Size(640, 360);
+      {bool screen = false,
+      bool settle = true,
+      int initialTab = 0,
+      Size size = const Size(640, 360),
+      double textScale = 1}) async {
+    tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     await tester.pumpWidget(MultiProvider(
         providers: [
@@ -108,9 +112,14 @@ void main() {
           Provider<SocialService>.value(value: service),
         ],
         child: MaterialApp(
-            builder: (_, child) => SocialShell(child: child!),
+            builder: (context, child) => MediaQuery(
+                data: MediaQuery.of(context)
+                    .copyWith(textScaler: TextScaler.linear(textScale)),
+                child: Directionality(
+                    textDirection: TextDirection.rtl,
+                    child: SocialShell(child: child!))),
             home: screen
-                ? const SocialScreen()
+                ? SocialScreen(initialTab: initialTab)
                 : const Scaffold(body: Text('home')))));
     if (settle) await tester.pumpAndSettle();
   }
@@ -123,6 +132,8 @@ void main() {
     await pump(tester, _App('alice'), screen: true);
     expect(find.text('bob'), findsOneWidget);
     expect(tester.takeException(), isNull);
+    await tester.ensureVisible(find.text('إضافة صديق'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('إضافة صديق'));
     await tester.pumpAndSettle();
     expect((await db.doc('social_links/alice:bob').get()).data()?['status'],
@@ -132,6 +143,77 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
     await tester.pumpAndSettle();
     expect(find.text('bob'), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets(
+      'an online stranger can receive a play invitation without a friend request',
+      (tester) async {
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await pump(tester, _App('alice'),
+        screen: true, size: const Size(320, 640), textScale: 1.5);
+    await tester.ensureVisible(find.text('دعوة للعب'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('دعوة للعب'));
+    await tester.pumpAndSettle();
+    expect(
+        (await db.doc('social_challenges/alice:bob').get()).data()?['status'],
+        'pending');
+    expect((await db.doc('social_links/alice:bob').get()).exists, isFalse);
+    expect(find.textContaining('بانتظار قبول bob'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  for (final tab in [1, 2, 3]) {
+    testWidgets('social tab $tab fits a narrow RTL phone with larger text',
+        (tester) async {
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await service.send('alice', 'bob', challenge: false);
+      await service.respond('bob', 'alice:bob', 'accepted', challenge: false);
+      await pump(tester, _App('alice'),
+          screen: true,
+          initialTab: tab,
+          size: const Size(320, 640),
+          textScale: 1.5);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    });
+  }
+
+  testWidgets(
+      'incoming friendship shows sender and can be accepted from any route',
+      (tester) async {
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await service.send('alice', 'bob', challenge: false);
+    final app = _App('bob');
+    await pump(tester, app, size: const Size(320, 640), textScale: 1.5);
+    expect(find.text('alice أرسل لك طلب صداقة'), findsOneWidget);
+    await tester.tap(find.text('قبول'));
+    await tester.pumpAndSettle();
+    expect((await db.doc('social_links/alice:bob').get()).data()?['status'],
+        'accepted');
+    expect(find.textContaining('أرسل لك طلب صداقة'), findsNothing);
+    expect(app.launched, isEmpty);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets(
+      'dismissed friend request remains in the inbox without reappearing every tick',
+      (tester) async {
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await service.send('alice', 'bob', challenge: false);
+    await pump(tester, _App('bob'));
+    await tester.tap(find.byKey(const ValueKey('dismissFriendRequest')));
+    await tester.pump(const Duration(seconds: 2));
+    expect(find.textContaining('أرسل لك طلب صداقة'), findsNothing);
+    expect((await db.doc('social_links/alice:bob').get()).data()?['status'],
+        'pending');
     await tester.pumpWidget(const SizedBox());
   });
 

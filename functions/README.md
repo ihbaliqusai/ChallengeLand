@@ -98,6 +98,20 @@ RTDN always re-queries Play; the notification is a trigger rather than proof of 
 
 ## Release verification
 
+### Social notifications
+
+`notifyFriendRequest` and `notifySocialInvite` observe committed pending requests in
+`social_links` and `social_challenges`. They reuse registered notification devices,
+check the current request and both block directions, and deduplicate each request
+generation. The Android notification opens the requests tab; acceptance remains
+explicit. The global Flutter shell also shows friend requests while the app is open.
+
+Deploy the two new triggers from the repository root with
+`firebase deploy --only functions:commerce:notifyFriendRequest,functions:commerce:notifySocialInvite`.
+This deployment has not been run locally. Existing `registerDuelDevice` must already
+be deployed, and the recipient must enable system notifications. Verify receipt
+on two accounts with the app open, backgrounded and closed before release.
+
 Automated isolated tests cover catalog amounts, aliases, account binding and migration, idempotency, concurrent starter purchases, pending payments, expired/canceled/paused/on-hold subscriptions, entitlement-only restore, ownership of replacement subscriptions, refunds, and sanitized API errors. They do not contact a real Play account or prove deployment IAM.
 
 Use license testers and the internal Play testing track to verify:

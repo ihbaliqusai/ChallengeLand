@@ -612,7 +612,9 @@ final class GameOfflineContestantsController {
     boolean rollCorrectForSlot(int slot, String level) {
         if (intelligence == null || slot < 0 || slot >= count) return false;
         if (activity.boardCampaignMatch) {
-            return random.nextInt(100) < CampaignBoardRules.campaignBotCorrectChance(level, intelligence[slot]);
+            return random.nextInt(100) < CampaignBoardRules.styledBotCorrectChance(
+                    level, intelligence[slot], activity.campaignBossStyleForSlot(slot),
+                    activity.isCampaignBossSpecialtyCell(slot));
         }
         return rollCorrect(level, intelligence[slot]);
     }

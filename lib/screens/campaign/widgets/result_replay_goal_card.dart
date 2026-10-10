@@ -31,15 +31,27 @@ class ResultReplayGoalCard extends StatelessWidget {
             : stage.starRules.threeStarsMinScore;
     final needsWin = !attempt.completed && stage.isBossStage;
     final remaining = (nextTarget - attempt.score).clamp(0, nextTarget);
-    final goal = needsWin
-        ? 'هدفك القادم: المركز الأول أمام جميع الزعماء.'
-        : !attempt.completed
-            ? remaining > 0
-                ? 'بقيت $remaining نقطة للوصول إلى هدف المرحلة.'
-                : 'حقّق الفوز في المحاولة القادمة لاحتساب النجوم.'
-            : bestStars < 3
-                ? 'هدفك القادم: $nextTarget نقطة للوصول إلى $nextStars نجوم.'
-                : 'أتقنت المرحلة! حسّن ترتيبك أو اكتشف التحدي التالي.';
+    final ruleGoal = attempt.completed
+        ? null
+        : switch (attempt.failureReason) {
+            'timeExpired' =>
+              'هدفك القادم: حقّق نقاط المرحلة وأنهِ اللوحة قبل انتهاء الوقت.',
+            'eliminated' =>
+              'هدفك القادم: حقّق نقاط المرحلة دون تجاوز عدد الأخطاء المسموح.',
+            'required_categories_not_completed' =>
+              'هدفك القادم: أجب صحيحًا في ${stage.boardRequiredCategoryCount} فئات مختلفة من فئات العالم، وحقّق نقاط المرحلة.',
+            _ => null,
+          };
+    final goal = ruleGoal ??
+        (needsWin
+            ? 'هدفك القادم: المركز الأول أمام جميع الزعماء.'
+            : !attempt.completed
+                ? remaining > 0
+                    ? 'بقيت $remaining نقطة للوصول إلى هدف المرحلة.'
+                    : 'حقّق الفوز في المحاولة القادمة لاحتساب النجوم.'
+                : bestStars < 3
+                    ? 'هدفك القادم: $nextTarget نقطة للوصول إلى $nextStars نجوم.'
+                    : 'أتقنت المرحلة! حسّن ترتيبك أو اكتشف التحدي التالي.');
     final color = isRecord ? const Color(0xFFFFD66B) : const Color(0xFF7DD3FC);
 
     return Container(
@@ -97,6 +109,7 @@ class ResultReplayGoalCard extends StatelessWidget {
                   fontWeight: FontWeight.w900,
                   height: 1.4)),
           if (!needsWin &&
+              ruleGoal == null &&
               nextTarget > 0 &&
               (!attempt.completed || bestStars < 3)) ...[
             const SizedBox(height: 9),
@@ -120,6 +133,13 @@ class ResultReplayGoalCard extends StatelessWidget {
               style: const TextStyle(
                   color: Colors.white70, fontSize: 12, height: 1.4),
             ),
+          ],
+          if (stage.boardRulesText.isNotEmpty &&
+              (!attempt.completed || bestStars < 3)) ...[
+            const SizedBox(height: 9),
+            Text(stage.boardRulesText,
+                style: const TextStyle(
+                    color: Colors.white70, fontSize: 12, height: 1.4)),
           ],
         ],
       ),

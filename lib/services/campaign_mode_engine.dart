@@ -133,7 +133,12 @@ class CampaignModeEngine {
       'campaignMode': 'board',
       'winCondition': isBoss ? 'beatOpponent' : 'beatTargetScore',
       'questionCount': stage.questionCount,
-      'timeLimitSeconds': 0,
+      'timeLimitSeconds': stage.timeLimitSeconds,
+      'maxWrongAnswers': stage.maxWrongAnswers ?? 0,
+      'boardRequiredCategoryCount': stage.boardRequiredCategoryCount,
+      'bossStyle': stage.bossStyle,
+      'boardAllowRevealOptions': stage.boardAllowRevealOptions,
+      'boardDesignVersion': stage.boardDesignVersion,
       'allowedLevels': stage.allowedLevels,
       'allow5050': false,
       'allowAudience': false,
@@ -155,12 +160,14 @@ class CampaignModeEngine {
 
   /// Short objective shown on the stage intro, in board terms.
   String boardObjectiveText(CampaignStage stage) {
+    final rules = stage.boardRulesText;
+    final suffix = rules.isEmpty ? '' : '\n$rules';
     if (stage.isBossStage) {
       final n = stage.botCount > 0 ? stage.botCount : 1;
       return n == 1
-          ? 'تغلّب على الزعيم على اللوحة'
-          : 'تغلّب على $n زعماء على اللوحة';
+          ? 'تغلّب على الزعيم على اللوحة$suffix'
+          : 'تغلّب على $n زعماء على اللوحة$suffix';
     }
-    return 'اجمع ${stage.boardTargetScore} نقطة على اللوحة';
+    return 'اجمع ${stage.boardTargetScore} نقطة على اللوحة$suffix';
   }
 }

@@ -18,6 +18,56 @@ final class CampaignBoardRules {
     private static final int[] BOT_BASE_CHANCES = {90, 78, 62, 40, 34, 28, 24, 20, 18};
     private CampaignBoardRules() {}
 
+    static String bossStyleForSlot(String style, int slot) {
+        if (!"mixed".equals(style)) return style;
+        return new String[]{"specialist", "speed", "highValue"}[Math.floorMod(slot - 1, 3)];
+    }
+
+    static int bossMaximumScore(int columns, String style) {
+        return "highValue".equals(style) ? 2400 : maximumScore(columns, 6);
+    }
+
+    /** Zero disables a rule. Exactly the permitted error count is still playable. */
+    static String constraintFailure(int wrong, int maxWrong, int categoryWins,
+                                    int requiredCategories, long deadline, long now) {
+        if (deadline > 0 && now >= deadline) return "timeExpired";
+        if (maxWrong > 0 && wrong > maxWrong) return "eliminated";
+        if (categoryWins < requiredCategories) return "required_categories_not_completed";
+        return "";
+    }
+
+    static int styledBotCorrectChance(String level, int intelligence, String style, boolean specialty) {
+        int chance = campaignBotCorrectChance(level, intelligence);
+        if ("specialist".equals(style)) chance += specialty ? 12 : -8;
+        return Math.max(18, Math.min(97, chance));
+    }
+
+    /** Prefer the specialty column or the largest value; fall back when exhausted. */
+    static int[] pickBossCell(List<int[]> remaining, String style, int specialtyColumn, Random random) {
+        if (remaining.isEmpty()) return null;
+        ArrayList<int[]> preferred = new ArrayList<>();
+        int highestValue = 0;
+        for (int[] cell : remaining) {
+            if ("specialist".equals(style) && cell[0] == specialtyColumn) preferred.add(cell);
+            if ("highValue".equals(style)) {
+                int value = (cell[1] % 3 + 1) * 200;
+                if (value > highestValue) { highestValue = value; preferred.clear(); }
+                if (value == highestValue) preferred.add(cell);
+            }
+        }
+        List<int[]> choices = preferred.isEmpty() ? remaining : preferred;
+        return choices.get(random.nextInt(choices.size()));
+    }
+
+    static int themedCategoryCount(List<String> chosen, List<String> themed) {
+        Set<String> matching = new HashSet<>();
+        for (String category : themed) {
+            String resolved = resolveCategory(category, chosen);
+            if (resolved != null) matching.add(resolved);
+        }
+        return matching.size();
+    }
+
     static int playerTurns(int completedTurns, int playerCount) {
         int count = Math.max(1, playerCount);
         int turns = Math.max(0, completedTurns);

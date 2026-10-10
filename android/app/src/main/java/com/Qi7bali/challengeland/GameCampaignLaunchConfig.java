@@ -55,12 +55,17 @@ final class GameCampaignLaunchConfig {
         activity.boardCampaignKind = activity.safeIntentString("boardKind", "solo");
         activity.boardTargetScore = Math.max(0, activity.getIntent().getIntExtra("boardTargetScore", 0));
         activity.boardSoloPicks = Math.max(1, activity.getIntent().getIntExtra("boardSoloPicks", 6));
-        activity.boardSoloCols = Math.max(2, activity.getIntent().getIntExtra("boardSoloCols", 4));
+        activity.boardSoloCols = Math.max(1, Math.min(8, activity.getIntent().getIntExtra("boardSoloCols", 4)));
         activity.boardTwoStarScore = Math.max(0, activity.getIntent().getIntExtra("boardTwoStarScore", 0));
         activity.boardThreeStarScore = Math.max(0, activity.getIntent().getIntExtra("boardThreeStarScore", 0));
         activity.boardBotCount = Math.max(0, Math.min(7, activity.getIntent().getIntExtra("boardBotCount", 0)));
         activity.boardBotIntelligence = Math.max(0, Math.min(99, activity.getIntent().getIntExtra("boardBotIntelligence", 0)));
         activity.boardCategoryPolicy = activity.safeIntentString("categoryPolicy", "playerPick");
+        activity.boardRequiredCategoryCount = Math.max(0, Math.min(activity.boardSoloCols,
+                activity.getIntent().getIntExtra("boardRequiredCategoryCount", 0)));
+        activity.boardBossStyle = activity.safeIntentString("bossStyle", "balanced");
+        activity.boardAllowRevealOptions = activity.getIntent().getBooleanExtra("boardAllowRevealOptions", true);
+        activity.boardDesignVersion = activity.getIntent().getIntExtra("boardDesignVersion", 0);
         ArrayList<String> worldCats = activity.getIntent().getStringArrayListExtra("worldCategories");
         if (worldCats != null) {
             for (String c : worldCats) {

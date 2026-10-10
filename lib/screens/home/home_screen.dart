@@ -395,6 +395,10 @@ class _HomeScreenState extends State<HomeScreen>
         Navigator.of(context).push(
           MaterialPageRoute<void>(builder: (_) => const StoreScreen()),
         );
+      } else if (action == 'social:requests') {
+        Navigator.of(context).push(MaterialPageRoute<void>(
+          builder: (_) => const SocialScreen(initialTab: 2),
+        ));
       } else if (action.startsWith('challenge:')) {
         final code = action.substring('challenge:'.length).trim();
         if (code.isNotEmpty) {

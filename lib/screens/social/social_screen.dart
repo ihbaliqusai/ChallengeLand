@@ -8,7 +8,8 @@ import '../../widgets/friend_challenge_modal.dart';
 import '../../widgets/social_stream_builder.dart';
 
 class SocialScreen extends StatefulWidget {
-  const SocialScreen({super.key});
+  const SocialScreen({super.key, this.initialTab = 0});
+  final int initialTab;
   @override
   State<SocialScreen> createState() => _SocialScreenState();
 }
@@ -47,14 +48,15 @@ class _SocialScreenState extends State<SocialScreen> {
     super.dispose();
   }
 
-  Future<void> _action(String key, Future<void> Function() action) async {
+  Future<void> _action(String key, Future<void> Function() action,
+      {String successMessage = 'تم تحديث الطلب.'}) async {
     if (_busy.contains(key)) return;
     setState(() => _busy.add(key));
     try {
       await action();
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('تم تحديث الطلب.')));
+            .showSnackBar(SnackBar(content: Text(successMessage)));
       }
     } catch (error) {
       if (mounted) {
@@ -87,9 +89,23 @@ class _SocialScreenState extends State<SocialScreen> {
           });
 
   Widget _empty(String label) => Center(
-      child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(label, textAlign: TextAlign.center)));
+      child: SingleChildScrollView(
+          child: Padding(
+              padding: const EdgeInsets.all(28),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Container(
+                    padding: const EdgeInsets.all(22),
+                    decoration: BoxDecoration(
+                        color: const Color(0xFF172554),
+                        borderRadius: BorderRadius.circular(28)),
+                    child: const Icon(Icons.people_outline_rounded,
+                        size: 44, color: Color(0xFF7DD3FC))),
+                const SizedBox(height: 18),
+                Text(label,
+                    textAlign: TextAlign.center,
+                    style:
+                        const TextStyle(color: Color(0xFFCBD5E1), height: 1.6)),
+              ]))));
 
   Widget _discoveryStream(
           Stream<List<QueryDocumentSnapshot<Map<String, dynamic>>>> stream,
@@ -117,42 +133,83 @@ class _SocialScreenState extends State<SocialScreen> {
             final data = snapshot.data ?? {};
             final photo = data['photoUrl']?.toString();
             return Card(
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+              color: const Color(0xFF111D38),
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  side: const BorderSide(color: Color(0xFF243454))),
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
               child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Row(children: [
-                    CircleAvatar(
-                        backgroundImage:
-                            photo != null && photo.startsWith('https://')
-                                ? NetworkImage(photo)
-                                : null,
-                        child: photo == null || !photo.startsWith('https://')
-                            ? const Icon(Icons.person_rounded)
-                            : null),
-                    const SizedBox(width: 12),
-                    Expanded(
-                        child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                          Text((data['username'] ?? 'لاعب').toString(),
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.bold)),
-                          Text(
-                              'المستوى ${data['level'] ?? 1} • ${data['trophies'] ?? 0} كأس',
-                              style: const TextStyle(
-                                  fontSize: 12, color: Colors.white70)),
-                          Text(subtitle,
-                              style: const TextStyle(
-                                  fontSize: 12, color: Color(0xFF38BDF8))),
-                        ])),
-                    Wrap(spacing: 6, children: actions),
-                  ])),
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(children: [
+                          CircleAvatar(
+                              radius: 27,
+                              backgroundColor: const Color(0xFF233B63),
+                              backgroundImage:
+                                  photo != null && photo.startsWith('https://')
+                                      ? NetworkImage(photo)
+                                      : null,
+                              child:
+                                  photo == null || !photo.startsWith('https://')
+                                      ? const Icon(Icons.person_rounded)
+                                      : null),
+                          const SizedBox(width: 12),
+                          Expanded(
+                              child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                Text((data['username'] ?? 'لاعب').toString(),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold)),
+                                Text(
+                                    'المستوى ${data['level'] ?? 1} • ${data['trophies'] ?? 0} كأس',
+                                    style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Color(0xFF94A3B8))),
+                                const SizedBox(height: 5),
+                                Text(subtitle,
+                                    style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Color(0xFF6EE7B7))),
+                              ])),
+                        ]),
+                        if (actions.isNotEmpty) ...[
+                          const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 10),
+                              child:
+                                  Divider(height: 1, color: Color(0xFF243454))),
+                          Wrap(
+                              alignment: WrapAlignment.end,
+                              spacing: 8,
+                              runSpacing: 6,
+                              children: actions),
+                        ],
+                      ])),
             );
           });
 
   Widget _button(String key, String label, Future<void> Function() action) =>
-      TextButton(
-          onPressed: _busy.contains(key) ? null : () => _action(key, action),
+      OutlinedButton(
+          style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFFBAE6FD),
+              side: const BorderSide(color: Color(0xFF38527B)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12))),
+          onPressed: _busy.contains(key)
+              ? null
+              : () => _action(key, action,
+                  successMessage: label == 'دعوة للعب'
+                      ? 'أُرسلت الدعوة؛ تبدأ المواجهة بعد قبول اللاعب.'
+                      : label == 'إضافة صديق' || label == 'إضافة'
+                          ? 'أُرسل طلب الصداقة؛ سيصل إشعار إلى اللاعب.'
+                          : 'تم تحديث الطلب.'),
           child: Text(_busy.contains(key) ? '…' : label));
 
   @override
@@ -171,20 +228,36 @@ class _SocialScreenState extends State<SocialScreen> {
     final uid = user.uid;
     return DefaultTabController(
         length: 4,
+        initialIndex: widget.initialTab.clamp(0, 3),
         child: Scaffold(
+          backgroundColor: const Color(0xFF091226),
           appBar: AppBar(
+              backgroundColor: const Color(0xFF101E3A),
+              foregroundColor: Colors.white,
+              toolbarHeight: 72,
               title: const Text('الأصدقاء والتحديات'),
               actions: [
-                TextButton(
+                IconButton(
+                    tooltip: 'مشاركة رمز التحدي',
                     onPressed: () => FriendChallengeModal.show(context),
-                    child: const Text('مشاركة رمز التحدي')),
+                    icon: const Icon(Icons.qr_code_rounded)),
               ],
-              bottom: const TabBar(tabs: [
-                Tab(text: 'المتصلون'),
-                Tab(text: 'أصدقائي'),
-                Tab(text: 'الطلبات'),
-                Tab(text: 'الخصوصية')
-              ])),
+              bottom: const TabBar(
+                  isScrollable: true,
+                  tabAlignment: TabAlignment.start,
+                  indicatorColor: Color(0xFF38BDF8),
+                  labelColor: Color(0xFF7DD3FC),
+                  unselectedLabelColor: Color(0xFF94A3B8),
+                  tabs: [
+                    Tab(
+                        icon: Icon(Icons.wifi_tethering_rounded),
+                        text: 'المتصلون'),
+                    Tab(icon: Icon(Icons.people_alt_rounded), text: 'أصدقائي'),
+                    Tab(
+                        icon: Icon(Icons.notifications_active_outlined),
+                        text: 'الطلبات'),
+                    Tab(icon: Icon(Icons.shield_outlined), text: 'الخصوصية')
+                  ])),
           body: !app.isOnline
               ? _empty(
                   'تحتاج إلى الاتصال بالإنترنت لاستخدام الأصدقاء والتحديات.')
@@ -228,37 +301,62 @@ class _SocialScreenState extends State<SocialScreen> {
                                 'لا يوجد لاعبون متصلون الآن. يمكنك إضافة صديق باستخدام رمزه.');
                           }
                           return ListView(
-                              children: visible
-                                  .map((d) => _player(d.id,
-                                          subtitle:
-                                              d.data()['state'] == 'available'
-                                                  ? 'متصل • متاح للتحدي'
-                                                  : 'متصل • في مباراة',
-                                          actions: [
-                                            if (d.data()['state'] ==
-                                                'available')
-                                              _button(
-                                                  d.id,
-                                                  'تحدَّ',
-                                                  () => service.send(uid, d.id,
-                                                      challenge: true)),
-                                            if (!friendIds.contains(d.id) &&
-                                                !pendingIds.contains(d.id))
-                                              _button(
-                                                  'friend:${d.id}',
-                                                  'إضافة صديق',
-                                                  () => service.send(uid, d.id,
-                                                      challenge: false)),
-                                            if (pendingIds.contains(d.id))
-                                              const Chip(
-                                                  label: Text('طلب قائم')),
-                                          ]))
-                                  .toList());
+                              padding:
+                                  const EdgeInsets.only(top: 12, bottom: 24),
+                              children: [
+                                Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                        20, 4, 20, 12),
+                                    child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text('${visible.length} لاعب متصل',
+                                              style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 22,
+                                                  fontWeight: FontWeight.bold)),
+                                          const SizedBox(height: 6),
+                                          const Text(
+                                              'ادعُ أي لاعب متاح لمواجهة، حتى إن لم يكن ضمن أصدقائك.',
+                                              style: TextStyle(
+                                                  color: Color(0xFF94A3B8),
+                                                  height: 1.5)),
+                                        ])),
+                                ...visible.map((d) => _player(d.id,
+                                        subtitle:
+                                            d.data()['state'] == 'available'
+                                                ? 'متصل • متاح للتحدي'
+                                                : 'متصل • في مباراة',
+                                        actions: [
+                                          if (d.data()['state'] == 'available')
+                                            _button(
+                                                d.id,
+                                                'دعوة للعب',
+                                                () => service.send(uid, d.id,
+                                                    challenge: true)),
+                                          if (!friendIds.contains(d.id) &&
+                                              !pendingIds.contains(d.id))
+                                            _button(
+                                                'friend:${d.id}',
+                                                'إضافة صديق',
+                                                () => service.send(uid, d.id,
+                                                    challenge: false)),
+                                          if (pendingIds.contains(d.id))
+                                            const Chip(label: Text('طلب قائم')),
+                                        ]))
+                              ]);
                         }),
                         Column(children: [
-                          Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 8),
+                          Container(
+                              margin: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 12),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                  color: const Color(0xFF111D38),
+                                  borderRadius: BorderRadius.circular(18),
+                                  border: Border.all(
+                                      color: const Color(0xFF243454))),
                               child: Row(children: [
                                 Expanded(
                                     child: TextField(
@@ -267,9 +365,13 @@ class _SocialScreenState extends State<SocialScreen> {
                                         maxLength: 10,
                                         decoration: const InputDecoration(
                                             labelText: 'رمز الصديق',
+                                            prefixIcon: Icon(
+                                                Icons.person_add_alt_1_rounded,
+                                                color: Color(0xFF7DD3FC)),
                                             counterText: ''),
                                         textCapitalization:
                                             TextCapitalization.characters)),
+                                const SizedBox(width: 8),
                                 _button('lookup', 'إضافة', () async {
                                   final peer =
                                       await service.findCode(_code.text);
@@ -307,7 +409,7 @@ class _SocialScreenState extends State<SocialScreen> {
                                                       if (available)
                                                         _button(
                                                             peer,
-                                                            'تحدَّ',
+                                                            'دعوة للعب',
                                                             () => service.send(
                                                                 uid, peer,
                                                                 challenge:
@@ -350,6 +452,16 @@ class _SocialScreenState extends State<SocialScreen> {
                           const Padding(
                               padding: EdgeInsets.all(12),
                               child: Text('طلبات الصداقة')),
+                          if (!links.any((d) =>
+                              SocialService.pending(d.data(), service.now)))
+                            const Padding(
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: 20, vertical: 12),
+                                child: Text(
+                                    'لا توجد طلبات صداقة معلّقة. يمكنك دعوة اللاعبين من قائمة المتصلين.',
+                                    style: TextStyle(
+                                        color: Color(0xFF94A3B8),
+                                        height: 1.5))),
                           ...links
                               .where((d) =>
                                   SocialService.pending(d.data(), service.now))
@@ -458,33 +570,45 @@ class _SocialScreenState extends State<SocialScreen> {
                                             'settings',
                                             () => service.setSettings(
                                                 uid, value, policy))),
-                                ListTile(
-                                    title: const Text('من يمكنه تحديك؟'),
-                                    trailing: DropdownButton<String>(
-                                        value: policy,
-                                        items: const [
-                                          DropdownMenuItem(
-                                              value: 'everyone',
-                                              child: Text('الجميع')),
-                                          DropdownMenuItem(
-                                              value: 'friends',
-                                              child: Text('الأصدقاء فقط')),
-                                          DropdownMenuItem(
-                                              value: 'none',
-                                              child: Text('لا أحد')),
-                                        ],
-                                        onChanged: _busy.contains('settings')
-                                            ? null
-                                            : (value) {
-                                                if (value != null) {
-                                                  _action(
-                                                      'settings',
-                                                      () => service.setSettings(
-                                                          uid,
-                                                          discoverable,
-                                                          value));
-                                                }
-                                              })),
+                                Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 20, vertical: 12),
+                                    child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
+                                        children: [
+                                          const Text('من يمكنه تحديك؟'),
+                                          const SizedBox(height: 8),
+                                          DropdownButton<String>(
+                                              isExpanded: true,
+                                              value: policy,
+                                              items: const [
+                                                DropdownMenuItem(
+                                                    value: 'everyone',
+                                                    child: Text('الجميع')),
+                                                DropdownMenuItem(
+                                                    value: 'friends',
+                                                    child:
+                                                        Text('الأصدقاء فقط')),
+                                                DropdownMenuItem(
+                                                    value: 'none',
+                                                    child: Text('لا أحد')),
+                                              ],
+                                              onChanged:
+                                                  _busy.contains('settings')
+                                                      ? null
+                                                      : (value) {
+                                                          if (value != null) {
+                                                            _action(
+                                                                'settings',
+                                                                () => service
+                                                                    .setSettings(
+                                                                        uid,
+                                                                        discoverable,
+                                                                        value));
+                                                          }
+                                                        }),
+                                        ])),
                                 const ListTile(
                                     leading: Icon(Icons.shield_outlined),
                                     title: Text('أصدقاء للمنافسة'),
