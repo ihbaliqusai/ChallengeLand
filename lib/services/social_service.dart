@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
+import '../models/social_player_activity.dart';
 
 /// Shared social protocol. Membership, deadlines and transitions are also
 /// enforced by Firestore rules; UI state is never the authority.
@@ -57,7 +58,7 @@ class SocialService {
       <String, Stream<DocumentSnapshot<Map<String, dynamic>>>>{};
   final _profiles = <String, Future<Map<String, dynamic>>>{};
   final _profileTimes = <String, DateTime>{};
-  static const presenceLease = Duration(seconds: 75);
+  static const presenceLease = SocialActivity.presenceLease;
   static const invitationLifetime = Duration(seconds: 30);
   static const profileTimeout = Duration(seconds: 8);
 
@@ -120,6 +121,29 @@ class SocialService {
               .orderBy('heartbeatAt', descending: true)
               .limit(60)
               .snapshots());
+
+  /// Includes today's discoverable players plus six hours before midnight.
+  /// The fixed daily bound tolerates a server clock correction after opening
+  /// the page. UI activity groups filter this bounded feed as time advances;
+  /// the stream itself remains stable throughout the day.
+  Stream<QuerySnapshot<Map<String, dynamic>>> recentPlayers() {
+    final current = now;
+    final midnight = current.isUtc
+        ? DateTime.utc(current.year, current.month, current.day)
+        : DateTime(current.year, current.month, current.day);
+    final cutoff = midnight.subtract(const Duration(hours: 6));
+    return _queryStreams.putIfAbsent(
+        'recentPlayers:${midnight.toIso8601String()}',
+        () => db
+            .collection('player_presence')
+            .where('discoverable', isEqualTo: true)
+            .where('heartbeatAt',
+                isGreaterThanOrEqualTo: Timestamp.fromDate(cutoff))
+            .orderBy('heartbeatAt', descending: true)
+            .limit(120)
+            .snapshots());
+  }
+
   Stream<DocumentSnapshot<Map<String, dynamic>>> presence(String uid) =>
       _documentStreams.putIfAbsent('presence:$uid',
           () => db.collection('player_presence').doc(uid).snapshots());
@@ -133,9 +157,12 @@ class SocialService {
               .collection('social_blocks')
               .where('ownerUid', isEqualTo: uid)
               .snapshots());
-  Future<Map<String, dynamic>> profile(String uid) {
+  Future<Map<String, dynamic>> profile(String uid,
+      {bool forceRefresh = false}) {
     final loaded = _profileTimes[uid];
-    if (loaded == null || now.difference(loaded).inSeconds >= 60) {
+    if (forceRefresh ||
+        loaded == null ||
+        now.difference(loaded).inSeconds >= 60) {
       _profileTimes[uid] = now;
       _profiles[uid] = _readProfile(uid);
     }
@@ -152,7 +179,7 @@ class SocialService {
       {
         'uid': uid,
         'username': 'لاعب',
-        'friendCode': uid.substring(0, uid.length.clamp(0, 10)).toUpperCase()
+        '_profileMissing': true,
       };
 
   Future<String> findCode(String code) async {

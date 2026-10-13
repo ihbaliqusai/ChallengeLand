@@ -537,7 +537,13 @@ class MainActivity : FlutterActivity() {
                         result.success(PlayerStats.snapshot(this))
                     }
                     "getProgressionSnapshot" -> {
-                        result.success(ProgressionSyncState.capture(this))
+                        OnlineDuelResultStore.replayPending(this) {
+                            try {
+                                result.success(ProgressionSyncState.capture(this))
+                            } catch (error: RuntimeException) {
+                                result.error("PROGRESSION_UNAVAILABLE", "Unable to persist player progression", null)
+                            }
+                        }
                     }
                     "hydrateProgression" -> {
                         val accountUid = call.argument<String>("accountUid") ?: ""

@@ -29,10 +29,10 @@ import '../../services/native_bridge_service.dart';
 import '../../widgets/friend_challenge_modal.dart';
 import '../social/social_screen.dart';
 import '../../widgets/cross_promo_millionaire_badge.dart';
-import '../../widgets/cross_promo_millionaire_dialog.dart';
 import '../../widgets/special_offer_dialog.dart';
 import '../../widgets/special_offer_badge.dart';
 import '../../widgets/daily_reward_dialog.dart';
+import '../../widgets/home_quick_action.dart';
 import '../../services/rate_game_service.dart';
 import '../../services/cross_promo_service.dart';
 
@@ -664,6 +664,56 @@ class _HomeScreenState extends State<HomeScreen>
                 user: user,
               ),
             ),
+            Positioned(
+              top: MediaQuery.paddingOf(context).top + 70,
+              right: MediaQuery.paddingOf(context).right + 12,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  HomeQuickAction(
+                    key: const ValueKey('home-friends-shortcut'),
+                    label: 'الأصدقاء واللاعبون',
+                    icon: Icons.people_alt_rounded,
+                    color: const Color(0xFF7DD3FC),
+                    animation: _idleCtrl,
+                    showGreenDot: true,
+                    isAvailable: appState.isOnline,
+                    onPressed: () {
+                      if (!appState.isOnline) {
+                        _showOnlineRequiredToast(context);
+                        return;
+                      }
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const SocialScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  HomeQuickAction(
+                    key: const ValueKey('home-store-shortcut'),
+                    label: 'المتجر',
+                    icon: Icons.shopping_basket_rounded,
+                    color: const Color(0xFFFFD761),
+                    animation: _idleCtrl,
+                    animationPhase: math.pi / 3,
+                    isAvailable: appState.isOnline,
+                    onPressed: () {
+                      if (!appState.isOnline) {
+                        _showOnlineRequiredToast(context);
+                        return;
+                      }
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const StoreScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
             const Positioned(
               bottom: 12,
               left: 14,
@@ -1173,17 +1223,6 @@ class _HomeMenuSheet extends StatelessWidget {
                           ),
                         ),
                         _MenuActionTile(
-                          icon: Icons.storefront_rounded,
-                          color: const Color(0xFF38BDF8),
-                          title: 'المتجر',
-                          enabled: isOnline,
-                          onTap: () => _openScreen(
-                            context,
-                            const StoreScreen(),
-                            enabled: isOnline,
-                          ),
-                        ),
-                        _MenuActionTile(
                           icon: Icons.bar_chart_rounded,
                           color: const Color(0xFF60A5FA),
                           title: 'الإحصائيات',
@@ -1203,15 +1242,6 @@ class _HomeMenuSheet extends StatelessWidget {
                           ),
                         ),
                         _MenuActionTile(
-                          icon: Icons.people_alt_rounded,
-                          color: const Color(0xFF38BDF8),
-                          title: 'الأصدقاء',
-                          enabled: isOnline,
-                          onTap: () => _openScreen(
-                              context, const SocialScreen(),
-                              enabled: isOnline),
-                        ),
-                        _MenuActionTile(
                           icon: Icons.settings_rounded,
                           color: const Color(0xFF94A3B8),
                           title: 'الإعدادات',
@@ -1222,9 +1252,9 @@ class _HomeMenuSheet extends StatelessWidget {
                     ),
                   ),
                   FutureBuilder<bool>(
-                    future: RateGameService.instance.hasRated(),
+                    future: RateGameService.instance.shouldShowRatingEntry(),
                     builder: (context, snapshot) {
-                      if (snapshot.data == true) {
+                      if (snapshot.data != true) {
                         return const SizedBox.shrink();
                       }
                       return Padding(
@@ -1329,108 +1359,6 @@ class _HomeMenuSheet extends StatelessWidget {
                         ),
                       );
                     },
-                  ),
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.of(context).pop();
-                      CrossPromoMillionaireDialog.show(rootContext);
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            const Color(0xFFF59E0B).withValues(alpha: 0.18),
-                            const Color(0xFF1E293B).withValues(alpha: 0.70),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color:
-                              const Color(0xFFF59E0B).withValues(alpha: 0.40),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 28,
-                            height: 28,
-                            decoration: const BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  Color(0xFFFDE68A),
-                                  Color(0xFFD97706),
-                                ],
-                              ),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.emoji_events_rounded,
-                              color: Color(0xFF451A03),
-                              size: 17,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'لعبة تحدي المليون 🏆',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                                ),
-                                Consumer<CrossPromoService>(
-                                  builder: (context, promo, _) {
-                                    return Text(
-                                      promo.isRewardClaimed
-                                          ? 'المسابقة الثقافية الشهيرة بأكثر من 50,000 سؤال'
-                                          : 'حمّل اللعبة واحصل على 80 جوهرة مجاناً!',
-                                      style: const TextStyle(
-                                        color: Color(0xFFFDE68A),
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ],
-                            ),
-                          ),
-                          Consumer<CrossPromoService>(
-                            builder: (context, promo, _) {
-                              final claimed = promo.isRewardClaimed;
-                              return Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: claimed
-                                      ? const Color(0xFFF59E0B)
-                                      : const Color(0xFF10B981),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  claimed ? 'عرض اللعبة' : '+80 💎 هدية',
-                                  style: const TextStyle(
-                                    color: Color(0xFF0F172A),
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
                   ),
                 ],
               ),

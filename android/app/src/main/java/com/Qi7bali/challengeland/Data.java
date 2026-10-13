@@ -484,6 +484,10 @@ public class Data {
             }
         }
         payload.put(myID + "/status", "active");
+        if (sessionId != null && opponentIds != null && opponentIds.size() == 1) {
+            payload.put("board/ownerId", myID);
+            payload.put("board/joinerId", opponentIds.get(0));
+        }
 
         int index = 0;
         for (Question question : questions) {
@@ -494,6 +498,32 @@ public class Data {
             payload.put(key + "/W1", question.getW1());
             payload.put(key + "/W2", question.getW2());
             payload.put(key + "/W3", question.getW3());
+        }
+
+        if (sessionId != null) {
+            // Reopening a reserved duel must preserve its board, answers and
+            // both players' presence. Initialize an uncreated session atomically.
+            gameRef.runTransaction(new Transaction.Handler() {
+                @Override
+                public Transaction.Result doTransaction(MutableData data) {
+                    if (data.child("meta").child("ownerId").getValue() != null) {
+                        return Transaction.abort();
+                    }
+                    for (Map.Entry<String, Object> entry : payload.entrySet()) {
+                        data.child(entry.getKey()).setValue(entry.getValue());
+                    }
+                    return Transaction.success(data);
+                }
+
+                @Override
+                public void onComplete(DatabaseError error, boolean committed,
+                                       DataSnapshot snapshot) {
+                    if (listener == null) return;
+                    if (error != null) listener.onFailed(error);
+                    else listener.onSuccess(gameID);
+                }
+            }, false);
+            return;
         }
 
         gameRef.updateChildren(payload, (error, ref) -> {

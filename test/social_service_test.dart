@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:challenge_land/models/social_player_activity.dart';
 import 'package:challenge_land/services/social_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:clock/clock.dart';
@@ -9,7 +10,9 @@ class _DelayedProfiles extends SocialService {
   _DelayedProfiles({required super.firestore, required super.clock});
   final pending = Completer<Map<String, dynamic>>();
   @override
-  Future<Map<String, dynamic>> profile(String uid) => pending.future;
+  Future<Map<String, dynamic>> profile(String uid,
+          {bool forceRefresh = false}) =>
+      pending.future;
 }
 
 void main() {
@@ -93,6 +96,21 @@ void main() {
         (await db.doc('social_challenges/alice:bob').get()).data()?['status'],
         'pending');
   });
+  test('discoverable players accept direct challenges without a friendship',
+      () async {
+    await service.setSettings('bob', true, 'everyone');
+    await service.send('alice', 'bob', challenge: true);
+    expect((await db.doc('social_links/alice:bob').get()).exists, isFalse);
+    expect(
+        (await db.doc('social_challenges/alice:bob').get()).data()?['status'],
+        'pending');
+  });
+  test('direct challenges still respect disabled invitations', () async {
+    await service.setSettings('bob', true, 'none');
+    await expectLater(service.send('alice', 'bob', challenge: true),
+        throwsA(isA<SocialException>()));
+    expect((await db.doc('social_challenges/alice:bob').get()).exists, isFalse);
+  });
   test(
       'accepting a challenge reserves both players and prevents a second acceptance',
       () async {
@@ -153,5 +171,92 @@ void main() {
     } finally {
       delayed.pending.complete({});
     }
+  });
+  test('recent discovery includes today, excludes hidden and older players',
+      () async {
+    now = DateTime.utc(2026, 10, 12, 12);
+    final feedDb = FakeFirebaseFirestore(clock: Clock(() => now));
+    final feed = SocialService(firestore: feedDb, clock: () => now);
+    for (final entry in {
+      'online': const Duration(seconds: 1),
+      'hour': const Duration(minutes: 30),
+      'six': const Duration(hours: 3),
+      'today': const Duration(hours: 8),
+      'yesterday': const Duration(hours: 25),
+      'hidden': Duration.zero,
+    }.entries) {
+      await feedDb.doc('player_presence/${entry.key}').set({
+        'uid': entry.key,
+        'discoverable': entry.key != 'hidden',
+        'state': entry.key == 'online' ? 'available' : 'away',
+        'heartbeatAt': Timestamp.fromDate(now.subtract(entry.value)),
+      });
+    }
+    final documents = (await feed.recentPlayers().first).docs;
+    expect(documents.map((doc) => doc.id), ['online', 'hour', 'six', 'today']);
+  });
+  test('recent discovery crosses midnight and keeps its stream stable',
+      () async {
+    now = DateTime.utc(2026, 10, 12, 0, 30);
+    final feedDb = FakeFirebaseFirestore(clock: Clock(() => now));
+    final feed = SocialService(firestore: feedDb, clock: () => now);
+    for (final entry in {
+      'hour': const Duration(minutes: 45),
+      'six': const Duration(hours: 3),
+      'old': const Duration(hours: 7),
+    }.entries) {
+      await feedDb.doc('player_presence/${entry.key}').set({
+        'discoverable': true,
+        'state': 'away',
+        'heartbeatAt': Timestamp.fromDate(now.subtract(entry.value)),
+      });
+    }
+    final stream = feed.recentPlayers();
+    expect((await stream.first).docs.map((doc) => doc.id), ['hour', 'six']);
+    now = now.add(const Duration(hours: 7));
+    expect(identical(feed.recentPlayers(), stream), isTrue);
+    now = now.add(const Duration(days: 1));
+    expect(identical(feed.recentPlayers(), stream), isFalse);
+    final nextDay = feed.recentPlayers();
+    feed.refreshReads();
+    expect(identical(feed.recentPlayers(), nextDay), isFalse);
+  });
+  test('recent discovery bounds reads and prioritizes the newest presence',
+      () async {
+    now = DateTime.utc(2026, 10, 12, 12);
+    final feedDb = FakeFirebaseFirestore(clock: Clock(() => now));
+    final feed = SocialService(firestore: feedDb, clock: () => now);
+    for (var index = 0; index < 125; index++) {
+      await feedDb.doc('player_presence/player-$index').set({
+        'discoverable': true,
+        'state': 'available',
+        'heartbeatAt':
+            Timestamp.fromDate(now.subtract(Duration(seconds: index))),
+      });
+    }
+    final documents = (await feed.recentPlayers().first).docs;
+    expect(documents, hasLength(120));
+    expect(documents.first.id, 'player-0');
+    expect(documents.last.id, 'player-119');
+  });
+  test('server clock correction keeps previous-day recent players discoverable',
+      () async {
+    now = DateTime.utc(2026, 10, 12, 0, 30);
+    final feedDb = FakeFirebaseFirestore(clock: Clock(() => now));
+    final feed = SocialService(firestore: feedDb, clock: () => now);
+    await feedDb.doc('player_presence/recent').set({
+      'discoverable': true,
+      'state': 'away',
+      'heartbeatAt': Timestamp.fromDate(DateTime.utc(2026, 10, 11, 18, 20)),
+    });
+    final stream = feed.recentPlayers();
+    final initial = (await stream.first).docs.single;
+    expect(SocialActivity.classify(initial.data(), now), isNull);
+    now = DateTime.utc(2026, 10, 12, 0, 10);
+    expect(identical(feed.recentPlayers(), stream), isTrue);
+    final corrected = (await feed.recentPlayers().first).docs.single;
+    expect(corrected.id, 'recent');
+    expect(SocialActivity.classify(corrected.data(), now),
+        SocialPlayerActivity.lastSixHours);
   });
 }

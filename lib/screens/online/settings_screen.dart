@@ -820,22 +820,24 @@ class _ActionsPanel extends StatelessWidget {
             ),
             SizedBox(height: compact ? 8 : 10),
             FutureBuilder<bool>(
-              future: RateGameService.instance.hasRated(),
+              future: RateGameService.instance.shouldShowRatingEntry(),
               builder: (context, snapshot) {
-                final rated = snapshot.data == true;
-                return _ActionLineButton(
-                  icon: Icons.star_rounded,
-                  label: rated
-                      ? _t('تقييم أرض التحدي ⭐', 'Rate Challenge Land ⭐')
-                      : _t('تقييم أرض التحدي ⭐ (+مكافأة)',
-                          'Rate Challenge Land ⭐ (+Bonus)'),
-                  color: const Color(0xFFFACC15),
-                  onTap: onRateGame,
-                  compact: compact,
+                if (snapshot.data != true) {
+                  return const SizedBox.shrink();
+                }
+                return Padding(
+                  padding: EdgeInsets.only(bottom: compact ? 6 : 8),
+                  child: _ActionLineButton(
+                    icon: Icons.star_rounded,
+                    label: _t('تقييم أرض التحدي ⭐ (+مكافأة)',
+                        'Rate Challenge Land ⭐ (+Bonus)'),
+                    color: const Color(0xFFFACC15),
+                    onTap: onRateGame,
+                    compact: compact,
+                  ),
                 );
               },
             ),
-            SizedBox(height: compact ? 6 : 8),
             Consumer<CrossPromoService>(
               builder: (context, promo, _) {
                 final claimed = promo.isRewardClaimed;

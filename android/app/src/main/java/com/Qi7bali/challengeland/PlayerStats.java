@@ -109,6 +109,19 @@ public class PlayerStats {
     }
 
     public static synchronized void recordGameEnd(Context c, String outcome, int prizeMoney) {
+        recordGameEnd(c, outcome, prizeMoney, false);
+    }
+
+    /** An accepted human duel has a real winner/loser even before the first answer. */
+    public static synchronized void recordOnlineDuelForfeit(Context c, boolean won, int prizeMoney) {
+        if (!NativeProgression.activeAccount(c) || !NativeProgression.online(c)
+                || !NativeProgression.humanOnline(c) || !"board".equals(NativeProgression.mode(c))) return;
+        String id = NativeProgression.matchId(c);
+        if (id == null || !id.startsWith("duel:") || id.length() <= "duel:".length()) return;
+        recordGameEnd(c, won ? ProgressionRules.WIN : ProgressionRules.LOSS, prizeMoney, true);
+    }
+
+    private static void recordGameEnd(Context c, String outcome, int prizeMoney, boolean duelForfeit) {
         if (!NativeProgression.activeAccount(c)) return;
         SharedPreferences p = prefs(c);
         String id = NativeProgression.matchId(c), receipt = "match:" + id;
@@ -119,15 +132,19 @@ public class PlayerStats {
         int answered = ProgressionRules.safeAdd(correct, p.getInt("session:" + id + ":wrong", 0));
         // An empty lobby or a result reached before gameplay is not a played
         // match and must not unlock wins, milestones, XP or trophies.
-        if (answered == 0) return;
+        if (answered == 0 && !duelForfeit) return;
+        if (answered == 0 && duelForfeit
+                && !p.contains("pendingDuel:" + id.substring("duel:".length()))) return;
         int games = p.getInt("gamesPlayed", 0);
         boolean won = ProgressionRules.WIN.equals(outcome);
         int streak = won ? ProgressionRules.safeAdd(p.getInt("currentWinStreak", 0), 1) : 0;
         String mode = NativeProgression.mode(c);
         if (mode == null || mode.isEmpty()) mode = "offline";
         int oldTrophies = p.getInt("trophies", 0);
-        int requestedDelta = ProgressionRules.trophyDelta(mode, outcome,
-                p.getBoolean("session:" + id + ":humanOnline", false) || NativeProgression.humanOnline(c), games, streak, correct, answered);
+        int requestedDelta = duelForfeit
+                ? ProgressionRules.onlineDuelForfeitTrophyDelta(won, games, streak, correct, answered)
+                : ProgressionRules.trophyDelta(mode, outcome,
+                        p.getBoolean("session:" + id + ":humanOnline", false) || NativeProgression.humanOnline(c), games, streak, correct, answered);
         int nextTrophies = ProgressionRules.safeAdd(oldTrophies, requestedDelta);
         int delta = nextTrophies - oldTrophies;
         int xp = answered == 0 ? 0 : ProgressionRules.completionXp(outcome, NativeProgression.online(c));

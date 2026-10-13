@@ -23,10 +23,25 @@ class RateGameService {
   static const int rewardCoins = 500;
   static const int rewardGems = 10;
   static const int minVictoriesForPrompt = 2; // ظهور فقط بعد فوزين على الأقل
-  static const int cooldownHours = 72; // فاصل 3 أيام بين طلبات التقييم التلقائية
-  static const int maxAutoPrompts = 3; // حد أقصى 3 مرات تلقائياً حتى لا يزعج اللاعب
+  static const int cooldownHours =
+      72; // فاصل 3 أيام بين طلبات التقييم التلقائية
+  static const int maxAutoPrompts =
+      3; // حد أقصى 3 مرات تلقائياً حتى لا يزعج اللاعب
 
   bool _isDialogShowing = false;
+
+  /// Hide the home entry once rating or its reward has been completed. An
+  /// unavailable preference store should not redisplay a completed invitation.
+  Future<bool> shouldShowRatingEntry() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final rated = prefs.getBool(_keyHasRated) ?? false;
+      final claimed = prefs.getBool(_keyRewardClaimed) ?? false;
+      return !rated && !claimed;
+    } catch (_) {
+      return false;
+    }
+  }
 
   /// هل قام اللاعب بتقييم اللعبة سابقاً؟
   Future<bool> hasRated() async {
@@ -54,7 +69,8 @@ class RateGameService {
     try {
       final prefs = await SharedPreferences.getInstance();
       final rated = prefs.getBool(_keyHasRated) ?? false;
-      if (rated) return false;
+      final claimed = prefs.getBool(_keyRewardClaimed) ?? false;
+      if (rated || claimed) return false;
 
       final count = prefs.getInt(_keyPromptCount) ?? 0;
       if (count >= maxAutoPrompts) return false;
@@ -128,7 +144,8 @@ class RateGameService {
       final prefs = await SharedPreferences.getInstance();
       final count = (prefs.getInt(_keyPromptCount) ?? 0) + 1;
       await prefs.setInt(_keyPromptCount, count);
-      await prefs.setInt(_keyLastPromptTime, DateTime.now().millisecondsSinceEpoch);
+      await prefs.setInt(
+          _keyLastPromptTime, DateTime.now().millisecondsSinceEpoch);
     } catch (_) {}
   }
 
@@ -232,7 +249,8 @@ class RateGameService {
         transitionDuration: const Duration(milliseconds: 380),
         pageBuilder: (ctx, anim1, anim2) => RateGameDialog(isManual: isManual),
         transitionBuilder: (ctx, anim1, anim2, child) {
-          final curve = CurvedAnimation(parent: anim1, curve: Curves.easeOutBack);
+          final curve =
+              CurvedAnimation(parent: anim1, curve: Curves.easeOutBack);
           return ScaleTransition(
             scale: Tween<double>(begin: 0.82, end: 1.0).animate(curve),
             child: FadeTransition(opacity: anim1, child: child),

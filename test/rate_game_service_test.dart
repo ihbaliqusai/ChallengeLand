@@ -16,7 +16,37 @@ void main() {
       expect(await service.hasClaimedReward(), isFalse);
     });
 
-    test('shouldPromptAuto returns false if victories are below minimum', () async {
+    test('home rating entry is visible before rating or claiming its reward',
+        () async {
+      expect(await RateGameService.instance.shouldShowRatingEntry(), isTrue);
+    });
+
+    for (final flags in [
+      (rated: true, claimed: false),
+      (rated: false, claimed: true),
+      (rated: true, claimed: true),
+    ]) {
+      test(
+          'home rating entry hides for rated=${flags.rated}, claimed=${flags.claimed}',
+          () async {
+        SharedPreferences.setMockInitialValues({
+          'has_rated_challenge_land': flags.rated,
+          'rate_reward_claimed': flags.claimed,
+        });
+        expect(await RateGameService.instance.shouldShowRatingEntry(), isFalse);
+      });
+    }
+
+    test('home rating entry hides when persisted flags cannot be read',
+        () async {
+      SharedPreferences.setMockInitialValues({
+        'has_rated_challenge_land': 'invalid',
+      });
+      expect(await RateGameService.instance.shouldShowRatingEntry(), isFalse);
+    });
+
+    test('shouldPromptAuto returns false if victories are below minimum',
+        () async {
       final service = RateGameService.instance;
       // 0 victories
       expect(await service.shouldPromptAuto(), isFalse);
@@ -27,7 +57,9 @@ void main() {
       expect(await service.shouldPromptAuto(), isFalse);
     });
 
-    test('shouldPromptAuto returns true if victories >= 2 and never prompted before', () async {
+    test(
+        'shouldPromptAuto returns true if victories >= 2 and never prompted before',
+        () async {
       final service = RateGameService.instance;
       final prefs = await SharedPreferences.getInstance();
       await prefs.setInt('rate_victories_count', 2);
@@ -43,7 +75,17 @@ void main() {
       expect(await service.shouldPromptAuto(), isFalse);
     });
 
-    test('shouldPromptAuto returns false if max auto prompts exceeded', () async {
+    test('shouldPromptAuto excludes legacy claimed-only rewards', () async {
+      SharedPreferences.setMockInitialValues({
+        'rate_victories_count': 5,
+        'rate_reward_claimed': true,
+        'has_rated_challenge_land': false,
+      });
+      expect(await RateGameService.instance.shouldPromptAuto(), isFalse);
+    });
+
+    test('shouldPromptAuto returns false if max auto prompts exceeded',
+        () async {
       final service = RateGameService.instance;
       final prefs = await SharedPreferences.getInstance();
       await prefs.setInt('rate_victories_count', 5);
@@ -51,7 +93,8 @@ void main() {
       expect(await service.shouldPromptAuto(), isFalse);
     });
 
-    test('markPromptShown increments prompt count and updates last prompt time', () async {
+    test('markPromptShown increments prompt count and updates last prompt time',
+        () async {
       final service = RateGameService.instance;
       await service.markPromptShown();
 

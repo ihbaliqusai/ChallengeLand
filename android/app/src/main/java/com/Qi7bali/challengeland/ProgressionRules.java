@@ -26,6 +26,12 @@ public final class ProgressionRules {
         return trophyDelta(outcome, humanOnline, gamesBefore, winStreak, correct, answered);
     }
 
+    /** Only a confirmed human duel forfeit can resolve without an answered question. */
+    public static int onlineDuelForfeitTrophyDelta(boolean won, int gamesBefore,
+                                                 int winStreak, int correct, int answered) {
+        return trophyDelta(won ? WIN : LOSS, true, gamesBefore, winStreak, correct, answered);
+    }
+
     public static int completionXp(String outcome, boolean online) {
         if (ABANDON.equals(outcome)) return 0;
         if (WIN.equals(outcome)) return online ? 100 : 80;
