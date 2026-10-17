@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'social_artwork.dart';
 
 /// Compact player identity; tapping opens the screen's player options.
 class SocialPlayerCard extends StatelessWidget {
@@ -89,115 +90,119 @@ class SocialPlayerCard extends StatelessWidget {
                         : const [Color(0xFFF1F5FA), Color(0xFFCAD5E2)],
                   ),
                   borderRadius: BorderRadius.circular(13),
-                  border:
-                      Border.all(color: selected ? gold : purple, width: 2.5),
+                  border: Border.all(
+                      color: selected ? gold : socialGold, width: 2.5),
                 ),
-                child: InkWell(
-                  onTap: onTap,
-                  borderRadius: BorderRadius.circular(13),
-                  splashColor: purple.withValues(alpha: .12),
-                  focusColor: gold.withValues(alpha: .22),
-                  child: ConstrainedBox(
-                    // Ink adds the 5 px border, producing a 76 px row face.
-                    constraints: const BoxConstraints(minHeight: 71),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 10),
-                      child: Row(children: [
-                        SizedBox(
-                          width: 40,
-                          height: 40,
-                          child: Stack(clipBehavior: Clip.none, children: [
-                            Positioned.fill(
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                      color: purple.withValues(alpha: .3),
-                                      width: 1.5),
-                                ),
-                                padding: const EdgeInsets.all(1.5),
-                                child: ClipOval(
-                                  child: hasPhoto
-                                      ? Image.network(rawPhoto,
-                                          fit: BoxFit.cover,
-                                          errorBuilder: (_, __, ___) =>
-                                              _avatar())
-                                      : _avatar(),
-                                ),
-                              ),
-                            ),
-                            PositionedDirectional(
-                              bottom: -1,
-                              end: -1,
-                              child: Container(
-                                key: const ValueKey('player-status-dot'),
-                                width: 11,
-                                height: 11,
-                                decoration: BoxDecoration(
-                                  color: accent,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                      color: const Color(0xFFEAF0F6), width: 2),
+                child: Stack(children: [
+                  const Positioned.fill(child: SocialPlayerArtwork()),
+                  InkWell(
+                    onTap: onTap,
+                    borderRadius: BorderRadius.circular(13),
+                    splashColor: purple.withValues(alpha: .12),
+                    focusColor: gold.withValues(alpha: .22),
+                    child: ConstrainedBox(
+                      // Ink adds the 5 px border, producing a 76 px row face.
+                      constraints: const BoxConstraints(minHeight: 71),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 10),
+                        child: Row(children: [
+                          SizedBox(
+                            width: 40,
+                            height: 40,
+                            child: Stack(clipBehavior: Clip.none, children: [
+                              Positioned.fill(
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                        color: socialGold, width: 1.5),
+                                  ),
+                                  padding: const EdgeInsets.all(1.5),
+                                  child: ClipOval(
+                                    child: hasPhoto
+                                        ? Image.network(rawPhoto,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (_, __, ___) =>
+                                                _avatar())
+                                        : _avatar(),
+                                  ),
                                 ),
                               ),
-                            ),
-                          ]),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(name,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                      color: Color(0xFF25243D),
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w900,
-                                      height: 1.2)),
-                              const SizedBox(height: 4),
-                              Text(subtitle,
-                                  maxLines: 3,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                      color: Color(0xFF586178),
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w700,
-                                      height: 1.3)),
-                            ],
+                              PositionedDirectional(
+                                bottom: -1,
+                                end: -1,
+                                child: Container(
+                                  key: const ValueKey('player-status-dot'),
+                                  width: 11,
+                                  height: 11,
+                                  decoration: BoxDecoration(
+                                    color: accent,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                        color: const Color(0xFFEAF0F6),
+                                        width: 2),
+                                  ),
+                                ),
+                              ),
+                            ]),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        SizedBox(
-                          width: 44,
-                          child:
-                              Column(mainAxisSize: MainAxisSize.min, children: [
-                            const Icon(Icons.emoji_events_rounded,
-                                color: Color(0xFFC58B12), size: 20),
-                            const SizedBox(height: 2),
-                            FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Text(trophies,
-                                  textDirection: TextDirection.ltr,
-                                  maxLines: 1,
-                                  style: const TextStyle(
-                                      color: Color(0xFF675227),
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w900,
-                                      height: 1.2)),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                        color: Color(0xFF25243D),
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w900,
+                                        height: 1.2)),
+                                const SizedBox(height: 4),
+                                Text(subtitle,
+                                    maxLines: 3,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                        color: Color(0xFF586178),
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        height: 1.3)),
+                              ],
                             ),
-                          ]),
-                        ),
-                        const SizedBox(width: 5),
-                        Icon(Icons.chevron_left_rounded,
-                            color: purple.withValues(alpha: .75), size: 18),
-                      ]),
+                          ),
+                          const SizedBox(width: 8),
+                          SizedBox(
+                            width: 44,
+                            child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.emoji_events_rounded,
+                                      color: Color(0xFFC58B12), size: 20),
+                                  const SizedBox(height: 2),
+                                  FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(trophies,
+                                        textDirection: TextDirection.ltr,
+                                        maxLines: 1,
+                                        style: const TextStyle(
+                                            color: Color(0xFF675227),
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w900,
+                                            height: 1.2)),
+                                  ),
+                                ]),
+                          ),
+                          const SizedBox(width: 5),
+                          Icon(Icons.chevron_left_rounded,
+                              color: purple.withValues(alpha: .75), size: 18),
+                        ]),
+                      ),
                     ),
                   ),
-                ),
+                ]),
               ),
             ),
           ),

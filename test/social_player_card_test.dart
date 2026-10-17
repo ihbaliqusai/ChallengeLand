@@ -76,7 +76,7 @@ void main() {
           tester.widget<Ink>(find.byType(Ink)).decoration! as BoxDecoration;
       final border = decoration.border! as Border;
       expect(border.top.color,
-          selected ? const Color(0xFFE7AF28) : const Color(0xFF6540A5));
+          selected ? const Color(0xFFE7AF28) : const Color(0xFFE7C27C));
       expect(border.top.width, 2.5);
       final semantics = tester.widget<Semantics>(find
           .descendant(
@@ -125,7 +125,10 @@ void main() {
       ..._profile,
       'photoUrl': 'http://example.test/avatar.png',
     }));
-    expect(find.byType(Image), findsNothing);
+    expect(
+        find.byWidgetPredicate(
+            (widget) => widget is Image && widget.image is NetworkImage),
+        findsNothing);
     expect(find.byIcon(Icons.person_rounded), findsOneWidget);
     expect(find.byType(ClipOval), findsOneWidget);
     final avatar = tester.getSize(find.byType(ClipOval));

@@ -8,8 +8,11 @@ import 'package:challenge_land/models/game_character.dart';
 import 'package:challenge_land/models/store_catalog.dart';
 import 'package:challenge_land/screens/home/store_screen.dart';
 import 'package:challenge_land/services/ad_service.dart';
+import 'package:challenge_land/services/cross_promo_service.dart';
 import 'package:challenge_land/services/in_app_purchase_service.dart';
 import 'package:challenge_land/services/native_bridge_service.dart';
+import 'package:challenge_land/widgets/game_store_widgets.dart';
+import 'package:challenge_land/widgets/special_offer_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -21,6 +24,8 @@ import 'package:provider/provider.dart';
 // real authentication, ads, or payment credentials.
 class _StoreAppState extends ChangeNotifier implements AppState {
   bool commerceReady = true;
+  bool claimedDaily = false;
+  bool membershipActive = false;
   @override
   bool get isCommerceReady => commerceReady;
   @override
@@ -30,7 +35,7 @@ class _StoreAppState extends ChangeNotifier implements AppState {
   @override
   int get level => 7;
   @override
-  bool get isVip => false;
+  bool get isVip => membershipActive;
   @override
   bool get hasPermanentCategoryPass => false;
   @override
@@ -44,7 +49,7 @@ class _StoreAppState extends ChangeNotifier implements AppState {
   @override
   bool get dailyStreakLoaded => true;
   @override
-  bool get claimedToday => false;
+  bool get claimedToday => claimedDaily;
   @override
   bool get isOnline => true;
   @override
@@ -56,8 +61,11 @@ class _StoreAppState extends ChangeNotifier implements AppState {
   @override
   GameCharacter get selectedCharacter => CharacterCatalog.byIndex(1);
   @override
+  final Set<int> purchasedCharacters = <int>{};
+  @override
   bool isCharacterUnlocked(GameCharacter character) =>
       character.unlock.isFree ||
+      purchasedCharacters.contains(character.index) ||
       (character.unlock.isLevelGated && character.unlock.value <= level);
   @override
   bool isCategoryUnlocked(String categoryName) => false;
@@ -91,6 +99,50 @@ class _StoreSettings extends ChangeNotifier implements AppSettings {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class _StoreAds extends AdService {
+  bool available = true;
+  int remaining = 5;
+  int watchRequests = 0;
+  @override
+  bool get canWatchAd => available && remaining > 0;
+  @override
+  int get watchesLeft => remaining;
+  @override
+  Duration get cooldownRemaining =>
+      available ? Duration.zero : const Duration(minutes: 30);
+  @override
+  Future<Map<String, int>?> showRewardedAd() async {
+    watchRequests++;
+    return null;
+  }
+}
+
+class _StorePromo extends ChangeNotifier implements CrossPromoService {
+  bool installed = false;
+  bool claimed = false;
+  bool claiming = false;
+  int claimRequests = 0;
+  @override
+  bool get isMillionaireInstalled => installed;
+  @override
+  bool get isRewardClaimed => claimed;
+  @override
+  bool get isClaiming => claiming;
+  @override
+  Future<bool> checkInstallation() async => installed;
+  @override
+  Future<bool> checkRewardClaimed({String? uid}) async => claimed;
+  @override
+  Future<CrossPromoClaimResult> claimDownloadReward(
+      BuildContext context) async {
+    claimRequests++;
+    return CrossPromoClaimResult.failed;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   const channel = MethodChannel('millionaire/native');
@@ -101,6 +153,7 @@ void main() {
   late _StoreAppState app;
   late _StoreSettings settings;
   late AdService ads;
+  late _StorePromo promo;
   late List<MethodCall> calls;
   late Future<Map<String, dynamic>> Function() loadCatalog;
 
@@ -141,6 +194,7 @@ void main() {
       calls.add(call);
       if (call.method == 'getBillingProducts') return loadCatalog();
       if (call.method == 'launchBilling') return {'success': true};
+      if (call.method == 'manageSubscriptions') return true;
       return null;
     });
     bridge = NativeBridgeService();
@@ -148,6 +202,7 @@ void main() {
     app = _StoreAppState();
     settings = _StoreSettings();
     ads = AdService();
+    promo = _StorePromo();
   });
 
   tearDown(() {
@@ -155,6 +210,7 @@ void main() {
     app.dispose();
     settings.dispose();
     ads.dispose();
+    promo.dispose();
     messenger.setMockMethodCallHandler(channel, null);
   });
 
@@ -171,6 +227,7 @@ void main() {
         ChangeNotifierProvider<AppState>.value(value: app),
         ChangeNotifierProvider<AppSettings>.value(value: settings),
         ChangeNotifierProvider<AdService>.value(value: ads),
+        ChangeNotifierProvider<CrossPromoService>.value(value: promo),
         ChangeNotifierProvider<InAppPurchaseService>.value(value: purchases),
         Provider<NativeBridgeService>.value(value: bridge),
       ],
@@ -205,9 +262,26 @@ void main() {
     expect(tester.takeException(), isNull, reason: location);
   }
 
+  void assertCenteredTitles(WidgetTester tester) {
+    final titles = find.byWidgetPredicate((widget) =>
+        widget is GameStoreText && widget.size == 23 && widget.maxLines == 2);
+    expect(titles, findsWidgets);
+    for (final title in titles.evaluate()) {
+      expect(tester.getCenter(find.byWidget(title.widget)).dx,
+          closeTo(tester.view.physicalSize.width / 2, .5),
+          reason: 'Section title: ${(title.widget as GameStoreText).text}');
+    }
+  }
+
   Future<void> select(WidgetTester tester, String tab) async {
-    final label = find.text(tab).first;
-    await tester.ensureVisible(label);
+    if (find.byTooltip(tab).evaluate().isEmpty &&
+        (tab == 'Coins' || tab == 'النقود')) {
+      await tester.tap(find.byTooltip(tab == 'Coins' ? 'Featured' : 'المميزة'));
+      await assertClean(tester, 'Open featured currency section');
+    }
+    final label = find.byTooltip(tab).first;
+    await Scrollable.ensureVisible(tester.element(label), alignment: 0.1);
+    await tester.pumpAndSettle();
     await tester.tap(label);
     await assertClean(tester, 'Tab $tab');
   }
@@ -222,7 +296,8 @@ void main() {
         (tester) async {
       await mount(tester, viewport);
       await assertClean(tester, 'Featured initial layout');
-      expect(find.text('Challenge Store'), findsOneWidget);
+      assertCenteredTitles(tester);
+      expect(find.text('SPECIAL OFFERS'), findsOneWidget);
       expect(find.text('Starter bundle'), findsOneWidget);
 
       for (final entry in const <String, String>{
@@ -233,6 +308,7 @@ void main() {
         'Featured': 'Starter bundle',
       }.entries) {
         await select(tester, entry.key);
+        assertCenteredTitles(tester);
         expect(find.text(entry.value), findsOneWidget);
         // Exercise the bottom of the page too, including optional rewards,
         // exchanges, category cards, and footer actions.
@@ -245,6 +321,401 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     });
   }
+
+  testWidgets('offer carousel changes the bundle without starting a purchase',
+      (tester) async {
+    await mount(tester, const Size(390, 780));
+    await assertClean(tester, 'Offer carousel');
+    expect(find.text('Starter bundle'), findsOneWidget);
+    expect(
+        tester
+            .widget<Image>(
+                find.byKey(const ValueKey('store-offer-pack_starter')))
+            .image,
+        isA<AssetImage>().having((image) => image.assetName, 'asset',
+            'assets/store/offer_starter.webp'));
+    await tester.tap(find.byTooltip('Next offer').first);
+    await assertClean(tester, 'Next bundle');
+    expect(find.text('Explorer bundle'), findsOneWidget);
+    expect(
+        tester
+            .widget<Image>(find.byKey(const ValueKey('store-offer-pack_value')))
+            .image,
+        isA<AssetImage>().having((image) => image.assetName, 'asset',
+            'assets/store/offer_explorer.webp'));
+    expect(find.textContaining('35,000'), findsOneWidget);
+    expect(find.text(' 600'), findsOneWidget);
+    await tester.tap(find.byTooltip('Next offer').first);
+    await assertClean(tester, 'Champion bundle');
+    expect(
+        tester
+            .widget<Image>(
+                find.byKey(const ValueKey('store-offer-pack_champion')))
+            .image,
+        isA<AssetImage>().having((image) => image.assetName, 'asset',
+            'assets/store/offer_champion.webp'));
+    expect(find.text('Champion bundle'), findsOneWidget);
+    expect(calls.where((call) => call.method == 'launchBilling'), isEmpty);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets(
+      'supplied banner uses its live price and opens the matching review',
+      (tester) async {
+    loadCatalog = () async {
+      final catalog = availableCatalog();
+      for (final product in catalog['products'] as List) {
+        if (product['id'] == 'pack_value') product['price'] = '₺79,99';
+      }
+      return catalog;
+    };
+    await mount(tester, const Size(1100, 600));
+    await assertClean(tester, 'Supplied banner prices');
+    await tester.tap(find.byTooltip('Next offer').first);
+    await assertClean(tester, 'Explorer artwork price');
+    expect(find.widgetWithText(FilledButton, '₺79,99'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('store-offer-pack_value')));
+    await assertClean(tester, 'Explorer review');
+    expect(find.text('Explorer bundle'), findsWidgets);
+    expect(find.text('₺79,99'), findsWidgets);
+    expect(find.text('Continue to payment'), findsOneWidget);
+    expect(calls.where((call) => call.method == 'launchBilling'), isEmpty);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  for (final kind in [StoreProductKind.coins, StoreProductKind.gems]) {
+    testWidgets('$kind cards and price buttons have matching bounds',
+        (tester) async {
+      await mount(tester, const Size(800, 360), initialKind: kind);
+      await assertClean(tester, 'Currency artwork alignment');
+      final ids = kind == StoreProductKind.coins
+          ? ['coins_5000', 'coins_25000', 'coins_100000']
+          : ['gems_80', 'gems_500', 'gems_1200'];
+      final firstCard = tester
+          .getRect(find.byKey(ValueKey('store-currency-card-${ids.first}')));
+      final firstPrice =
+          tester.getRect(find.byKey(ValueKey('store-price-${ids.first}')));
+      for (final id in ids) {
+        final artwork = find.byKey(ValueKey('store-product-$id'));
+        expect(
+            tester.widget<Image>(artwork).image,
+            isA<AssetImage>().having(
+                (image) => image.assetName, 'asset', 'assets/store/$id.webp'));
+        final card =
+            tester.getRect(find.byKey(ValueKey('store-currency-card-$id')));
+        final price = tester.getRect(find.byKey(ValueKey('store-price-$id')));
+        expect(card.size, firstCard.size);
+        expect(card.top, firstCard.top);
+        expect(card.bottom, firstCard.bottom);
+        expect(price.size, firstPrice.size);
+        expect(price.top, firstPrice.top);
+        expect(price.bottom, firstPrice.bottom);
+        expect(card.height, lessThan(360 - 100));
+      }
+      expect(
+          find.descendant(
+              of: find.byType(GameStoreCurrencyCard),
+              matching: find.byType(GameStoreGlossySurface)),
+          findsNWidgets(3));
+      expect(calls.where((call) => call.method == 'launchBilling'), isEmpty);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
+  testWidgets('coin and gem rows share card and price dimensions on mobile',
+      (tester) async {
+    await mount(tester, const Size(390, 780));
+    await assertClean(tester, 'Mobile shared card sizing');
+    Size? cardSize;
+    Size? priceSize;
+    double? priceOffset;
+    for (final id in [
+      'coins_5000',
+      'coins_25000',
+      'coins_100000',
+      'gems_80',
+      'gems_500',
+      'gems_1200'
+    ]) {
+      final card =
+          tester.getRect(find.byKey(ValueKey('store-currency-card-$id')));
+      final price = tester.getRect(find.byKey(ValueKey('store-price-$id')));
+      cardSize ??= card.size;
+      priceSize ??= price.size;
+      priceOffset ??= price.top - card.top;
+      expect(card.width, closeTo(cardSize.width, .001));
+      expect(card.height, closeTo(cardSize.height, .001));
+      expect(price.width, closeTo(priceSize.width, .001));
+      expect(price.height, closeTo(priceSize.height, .001));
+      expect(price.top - card.top, closeTo(priceOffset, .001));
+    }
+    expect(
+        find.descendant(
+            of: find.byType(GameStoreCurrencyCard),
+            matching: find.byType(GameStoreGlossySurface)),
+        findsNWidgets(6));
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets(
+      'reward artwork is aligned and reflects claim and cooldown states',
+      (tester) async {
+    ads.dispose();
+    final rewardAds = _StoreAds();
+    ads = rewardAds;
+    await mount(tester, const Size(800, 600));
+    await assertClean(tester, 'Reward artwork');
+    for (final id in ['daily', 'watch']) {
+      expect(
+          tester
+              .widget<Image>(find.byKey(ValueKey('store-reward-art-$id')))
+              .image,
+          isA<AssetImage>().having((image) => image.assetName, 'asset',
+              'assets/store/reward_$id.webp'));
+    }
+    final daily =
+        tester.getRect(find.byKey(const ValueKey('store-reward-daily')));
+    final watch =
+        tester.getRect(find.byKey(const ValueKey('store-reward-watch')));
+    expect(daily.top, watch.top);
+    expect(daily.height, watch.height);
+    final dailyButton = find.descendant(
+        of: find.byKey(const ValueKey('store-reward-action-daily')),
+        matching: find.byType(FilledButton));
+    expect(tester.widget<FilledButton>(dailyButton).onPressed, isNull);
+    expect(find.text('SIGN IN'), findsOneWidget);
+    expect(find.text('CLAIMED'), findsNothing);
+    app.claimedDaily = true;
+    app.notifyListeners();
+    rewardAds.available = false;
+    rewardAds.notifyListeners();
+    await assertClean(tester, 'Claimed and cooldown states');
+    expect(find.text('CLAIMED'), findsOneWidget);
+    expect(find.text('30 min'), findsOneWidget);
+    final watchButton = find.descendant(
+        of: find.byKey(const ValueKey('store-reward-action-watch')),
+        matching: find.byType(FilledButton));
+    expect(tester.widget<FilledButton>(watchButton).onPressed, isNull);
+    rewardAds.remaining = 0;
+    rewardAds.notifyListeners();
+    await assertClean(tester, 'Daily ad limit');
+    expect(find.text('TOMORROW'), findsOneWidget);
+    expect(rewardAds.watchRequests, 0);
+    expect(calls.where((call) => call.method == 'grantCurrency'), isEmpty);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('reward artwork launches ads without granting an unearned reward',
+      (tester) async {
+    ads.dispose();
+    final rewardAds = _StoreAds();
+    ads = rewardAds;
+    await mount(tester, const Size(800, 600));
+    await assertClean(tester, 'Watch reward artwork');
+    final banner = find.byKey(const ValueKey('store-reward-watch'));
+    await Scrollable.ensureVisible(tester.element(banner), alignment: .3);
+    await tester.pumpAndSettle();
+    await tester.tap(banner);
+    await assertClean(tester, 'Ad returned without a reward');
+    expect(rewardAds.watchRequests, 1);
+    expect(calls.where((call) => call.method == 'grantCurrency'), isEmpty);
+    expect(calls.where((call) => call.method == 'launchBilling'), isEmpty);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets(
+      'return reward cards use live amounts, counters and claimed states',
+      (tester) async {
+    ads.dispose();
+    final rewardAds = _StoreAds()..remaining = 3;
+    ads = rewardAds;
+    await mount(tester, const Size(800, 360),
+        initialKind: StoreProductKind.gems);
+    await assertClean(tester, 'Return reward designs');
+    expect(find.text('A reason to come back'), findsOneWidget);
+    Rect? first;
+    for (final id in ['daily', 'watch', 'download']) {
+      final image = find.byKey(ValueKey('store-return-art-$id'));
+      expect(
+          tester.widget<Image>(image).image,
+          isA<AssetImage>().having((image) => image.assetName, 'asset',
+              'assets/store/return_$id.webp'));
+      final bounds = tester.getRect(find.byKey(ValueKey('store-return-$id')));
+      first ??= bounds;
+      expect(bounds.width, closeTo(first.width, .001));
+      expect(bounds.height, closeTo(first.height, .001));
+      expect(bounds.top, closeTo(first.top, .001));
+    }
+    expect(find.text('Day 3 of your streak'), findsOneWidget);
+    expect(find.text('200 coins'), findsOneWidget);
+    expect(find.text('3 of 5 watches left today'), findsOneWidget);
+    expect(find.text('Download & earn 80 gems'), findsOneWidget);
+    expect(find.text('Reward claimed ✓'), findsNothing);
+    app.claimedDaily = true;
+    app.notifyListeners();
+    promo.claimed = true;
+    promo.notifyListeners();
+    rewardAds.available = false;
+    rewardAds.notifyListeners();
+    await assertClean(tester, 'Return reward account states');
+    expect(find.text('Claimed • Come back tomorrow'), findsOneWidget);
+    expect(find.text('Reward claimed ✓'), findsOneWidget);
+    expect(find.text('Available in 30 min'), findsOneWidget);
+    for (final id in ['daily', 'watch', 'download']) {
+      final button = find.descendant(
+          of: find.byKey(ValueKey('store-return-action-$id')),
+          matching: find.byType(FilledButton));
+      expect(tester.widget<FilledButton>(button).onPressed, isNull);
+    }
+    expect(calls.where((call) => call.method == 'grantCurrency'), isEmpty);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets(
+      'download reward design uses verified claiming without a false success',
+      (tester) async {
+    promo.installed = true;
+    await mount(tester, const Size(800, 600),
+        initialKind: StoreProductKind.gems);
+    await assertClean(tester, 'Installed download reward');
+    final claim = find.byKey(const ValueKey('store-return-action-download'));
+    await Scrollable.ensureVisible(tester.element(claim), alignment: .5);
+    await tester.pumpAndSettle();
+    await tester.tap(claim);
+    await assertClean(tester, 'Download reward verification failed');
+    expect(promo.claimRequests, 1);
+    expect(find.text('80 Gems Claimed ✓'), findsNothing);
+    expect(find.text('Claim 80 Gems Now'), findsOneWidget);
+    expect(calls.where((call) => call.method == 'grantCurrency'), isEmpty);
+    expect(calls.where((call) => call.method == 'launchBilling'), isEmpty);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets(
+      'gem artwork uses the live price and opens its own purchase review',
+      (tester) async {
+    loadCatalog = () async {
+      final catalog = availableCatalog();
+      for (final product in catalog['products'] as List) {
+        if (product['id'] == 'gems_500') product['price'] = '₺99,99';
+      }
+      return catalog;
+    };
+    await mount(tester, const Size(800, 600),
+        initialKind: StoreProductKind.gems);
+    await assertClean(tester, 'Gem artwork live price');
+    expect(find.widgetWithText(FilledButton, '₺99,99'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('store-product-gems_500')));
+    await assertClean(tester, 'Gem chest review');
+    expect(find.text('Gem chest'), findsOneWidget);
+    expect(find.text('₺99,99'), findsWidgets);
+    expect(find.text('Continue to payment'), findsOneWidget);
+    expect(calls.where((call) => call.method == 'launchBilling'), isEmpty);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets(
+      'coin card opens the matching review and cancellation skips billing',
+      (tester) async {
+    await mount(tester, const Size(800, 600),
+        initialKind: StoreProductKind.coins);
+    await assertClean(tester, 'Coin cards');
+    await tester.tap(find.widgetWithText(FilledButton, '₺39,99').first);
+    await assertClean(tester, 'Coin review');
+    expect(find.text('Coin pouch'), findsOneWidget);
+    expect(find.text('Continue to payment'), findsOneWidget);
+    expect(calls.where((call) => call.method == 'launchBilling'), isEmpty);
+    final cancel = find.text('Cancel');
+    await tester.ensureVisible(cancel);
+    await tester.tap(cancel);
+    await assertClean(tester, 'Coin review cancelled');
+    expect(calls.where((call) => call.method == 'launchBilling'), isEmpty);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets(
+      'full-width top navigation stays fixed without a home or bottom bar',
+      (tester) async {
+    await mount(tester, const Size(390, 780));
+    await assertClean(tester, 'Mobile navigation');
+    final navigation = find.byKey(const ValueKey('store-top-navigation'));
+    final navigationBounds = tester.getRect(navigation);
+    expect(navigationBounds.left, 0);
+    expect(navigationBounds.right, 390);
+    expect(navigationBounds.top, 0);
+    expect(find.byType(GameStoreTopBarArtwork), findsOneWidget);
+    expect(find.byType(GameStoreNavigationBack), findsOneWidget);
+    for (final tab in [
+      'Featured',
+      'Gems',
+      'Membership',
+      'Categories & characters',
+    ]) {
+      await select(tester, tab);
+      expect(
+          find.descendant(
+              of: find.byTooltip(tab),
+              matching: find.byType(GameStoreNavigationSelection)),
+          findsOneWidget);
+      expect(find.byType(GameStoreNavigationSelection), findsOneWidget);
+    }
+    await select(tester, 'Featured');
+    expect(find.byTooltip('Home'), findsNothing);
+    expect(find.text('12,500'), findsNothing);
+    expect(find.text('450'), findsNothing);
+    final back = find.byKey(const ValueKey('store-back-button'));
+    final backPosition = tester.getCenter(back);
+    expect(navigationBounds.contains(backPosition), isTrue);
+    expect(
+        tester
+            .widgetList<GameStoreNavIcon>(find.byType(GameStoreNavIcon))
+            .map((icon) => icon.index),
+        [0, 1, 3, 4]);
+    expect(tester.getRect(find.byType(ListView)).bottom, 780);
+    final list = tester.widget<ListView>(find.byType(ListView));
+    list.controller!.jumpTo(list.controller!.position.maxScrollExtent);
+    await assertClean(tester, 'Scrolled shop');
+    expect(tester.getRect(navigation), navigationBounds);
+    expect(tester.getCenter(back), backPosition);
+    await select(tester, 'Coins');
+    expect(find.text('Coins for your collection'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('top navigation background spans landscape safe-area insets',
+      (tester) async {
+    await mount(tester, const Size(800, 360));
+    tester.view.padding = const FakeViewPadding(left: 36, right: 16, top: 12);
+    addTearDown(tester.view.resetPadding);
+    await assertClean(tester, 'Landscape safe area');
+    final navigation =
+        tester.getRect(find.byKey(const ValueKey('store-top-navigation')));
+    expect(navigation.left, 0);
+    expect(navigation.right, 800);
+    expect(navigation.top, 0);
+    final firstTab = tester.getRect(find.byTooltip('Featured'));
+    expect(firstTab.left, greaterThanOrEqualTo(36));
+    expect(firstTab.top, greaterThanOrEqualTo(12));
+    expect(tester.getRect(find.byType(ListView)).bottom, 360);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('top bar back button returns to the previous route',
+      (tester) async {
+    await mount(tester, const Size(800, 360));
+    await assertClean(tester, 'Store entry route');
+    final navigator = tester.state<NavigatorState>(find.byType(Navigator));
+    unawaited(navigator.push<void>(MaterialPageRoute(
+        builder: (_) =>
+            const StoreScreen(initialKind: StoreProductKind.gems))));
+    await assertClean(tester, 'Pushed gems store');
+    expect(find.text('More gems. More possibilities.'), findsOneWidget);
+    await tester.tap(find.byTooltip('Back'));
+    await assertClean(tester, 'Returned from store');
+    expect(find.text('SPECIAL OFFERS'), findsOneWidget);
+    expect(find.text('More gems. More possibilities.'), findsNothing);
+    expect(calls.where((call) => call.method == 'launchBilling'), isEmpty);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 
   testWidgets('loading real prices shows progress and cannot open checkout',
       (tester) async {
@@ -319,8 +790,16 @@ void main() {
     await mount(tester, const Size(800, 360),
         initialKind: StoreProductKind.subscription);
     await assertClean(tester, 'Membership layout');
+    expect(
+        tester
+            .widget<Image>(find.byKey(const ValueKey('store-membership-art')))
+            .image,
+        isA<AssetImage>().having((image) => image.assetName, 'asset',
+            'assets/store/membership.webp'));
+    expect(find.byType(GameStoreMembershipPrice), findsOneWidget);
     final price = find.text('₺149,99 / month');
-    await tester.ensureVisible(price);
+    await Scrollable.ensureVisible(tester.element(price), alignment: 0.5);
+    await tester.pumpAndSettle();
     await tester.tap(price);
     await assertClean(tester, 'Subscription review sheet');
     expect(find.text('Continue to payment'), findsOneWidget);
@@ -337,6 +816,26 @@ void main() {
     await tester.tap(cancel);
     await assertClean(tester, 'Review cancelled');
     expect(calls.where((call) => call.method == 'launchBilling'), isEmpty);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets(
+      'active membership artwork button manages the existing subscription',
+      (tester) async {
+    app.membershipActive = true;
+    await mount(tester, const Size(800, 360),
+        initialKind: StoreProductKind.subscription);
+    await assertClean(tester, 'Active membership artwork');
+    expect(find.text('Your membership is active'), findsOneWidget);
+    final manage = find.text('Manage membership');
+    await Scrollable.ensureVisible(tester.element(manage), alignment: .5);
+    await tester.pumpAndSettle();
+    await tester.tap(manage);
+    await assertClean(tester, 'Membership management');
+    expect(calls.where((call) => call.method == 'manageSubscriptions'),
+        hasLength(1));
+    expect(calls.where((call) => call.method == 'launchBilling'), isEmpty);
+    expect(find.text('Continue to payment'), findsNothing);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
@@ -371,6 +870,101 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
+  Future<void> openMembershipPreview(WidgetTester tester) async {
+    unawaited(showDialog<void>(
+        context: tester.element(find.byType(StoreScreen).last),
+        builder: (_) => const SpecialOfferDialog()));
+    await tester.pump();
+    await tester.runAsync(() => precacheImage(
+        const AssetImage('assets/store/champions_club_preview.webp'),
+        tester.element(find.byType(SpecialOfferDialog))));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(tester.takeException(), isNull);
+  }
+
+  testWidgets('membership preview artwork fits and closes on both orientations',
+      (tester) async {
+    settings.dispose();
+    settings = _StoreSettings(arabic: true);
+    for (final viewport in [
+      const Size(800, 360),
+      const Size(390, 780),
+      const Size(640, 320),
+    ]) {
+      await mount(tester, viewport, textScale: viewport.width == 640 ? 1.5 : 1);
+      await assertClean(tester, 'Preview host');
+      await openMembershipPreview(tester);
+      expect(
+          find.text(
+              '${purchases.getProductDetails('vip_monthly')!.price} / شهر'),
+          findsOneWidget);
+      final preview = find.byKey(const ValueKey('champions-club-preview'));
+      final bounds = tester.getRect(preview);
+      expect(bounds.left, greaterThanOrEqualTo(0));
+      expect(bounds.right, lessThanOrEqualTo(viewport.width));
+      expect(bounds.top, greaterThanOrEqualTo(0));
+      expect(bounds.bottom, lessThanOrEqualTo(viewport.height));
+      final close = find.byTooltip('إغلاق');
+      expect(tester.getSize(close).shortestSide, greaterThanOrEqualTo(48));
+      if (viewport.width != 640) {
+        final boundary = tester.renderObject<RenderRepaintBoundary>(preview);
+        await tester.runAsync(() async {
+          final rendered = await boundary.toImage(pixelRatio: 2);
+          final bytes =
+              await rendered.toByteData(format: ui.ImageByteFormat.png);
+          final name = viewport.width == 800 ? 'landscape' : 'mobile';
+          await File('build/champions-club-$name-ar.png')
+              .writeAsBytes(bytes!.buffer.asUint8List());
+          rendered.dispose();
+        });
+      }
+      await tester.tap(close);
+      await assertClean(tester, 'Preview closed');
+      expect(find.byType(SpecialOfferDialog), findsNothing);
+      expect(calls.where((call) => call.method == 'launchBilling'), isEmpty);
+      await tester.pumpWidget(const SizedBox.shrink());
+    }
+  });
+
+  testWidgets('membership preview opens subscription without starting billing',
+      (tester) async {
+    await mount(tester, const Size(800, 360));
+    await assertClean(tester, 'Membership preview host');
+    await openMembershipPreview(tester);
+    await tester.tap(find.byTooltip('استكشاف العضوية'));
+    await assertClean(tester, 'Preview opens membership');
+    expect(find.byType(SpecialOfferDialog), findsNothing);
+    expect(find.byType(GameStoreMembershipCard), findsOneWidget);
+    expect(calls.where((call) => call.method == 'launchBilling'), isEmpty);
+
+    app.membershipActive = true;
+    app.notifyListeners();
+    await openMembershipPreview(tester);
+    expect(find.text('عضويتك فعّالة'), findsOneWidget);
+    expect(find.byTooltip('إدارة العضوية'), findsOneWidget);
+    await tester.tap(find.byTooltip('إدارة العضوية'));
+    await assertClean(tester, 'Active preview opens membership');
+    expect(find.text('Manage membership'), findsOneWidget);
+    expect(calls.where((call) => call.method == 'launchBilling'), isEmpty);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('membership preview never displays the printed placeholder price',
+      (tester) async {
+    final pending = Completer<Map<String, dynamic>>();
+    loadCatalog = () => pending.future;
+    await mount(tester, const Size(800, 360));
+    await tester.pump(const Duration(milliseconds: 100));
+    await openMembershipPreview(tester);
+    expect(find.text('جارٍ تحميل السعر…'), findsOneWidget);
+    pending.complete({'available': false, 'products': []});
+    await assertClean(tester, 'Preview with unavailable billing');
+    expect(find.text('السعر غير متاح حالياً'), findsOneWidget);
+    expect(find.byTooltip('استكشاف العضوية'), findsOneWidget);
+    expect(calls.where((call) => call.method == 'launchBilling'), isEmpty);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('export rendered store preview', (tester) async {
     final boundaryKey = GlobalKey();
     await mount(tester, const Size(1100, 600), repaintKey: boundaryKey);
@@ -390,6 +984,13 @@ void main() {
     }
 
     await capture('build/store-preview.png');
+    await Scrollable.ensureVisible(
+        tester.element(find.byKey(const ValueKey('store-character-showcase'))),
+        alignment: .2);
+    await assertClean(tester, 'English character artwork');
+    expect(find.text('12,000 coins'), findsOneWidget);
+    expect(find.text('800 gems'), findsOneWidget);
+    await capture('build/store-expression-en.png');
     await select(tester, 'Membership');
     await capture('build/store-membership-preview.png');
     await tester.pumpWidget(const SizedBox.shrink());
@@ -398,6 +999,117 @@ void main() {
     await mount(tester, const Size(1100, 600), repaintKey: boundaryKey);
     await assertClean(tester, 'Arabic preview layout');
     await capture('build/store-preview-ar.png');
+    await tester.tap(find.byTooltip('العرض التالي').first);
+    await assertClean(tester, 'Explorer artwork preview');
+    await capture('build/store-offer-explorer-ar.png');
+    await tester.tap(find.byTooltip('العرض التالي').first);
+    await assertClean(tester, 'Champion artwork preview');
+    await capture('build/store-offer-champion-ar.png');
+    await Scrollable.ensureVisible(
+        tester.element(find.byKey(const ValueKey('store-reward-daily'))),
+        alignment: .2);
+    await assertClean(tester, 'Reward artwork desktop preview');
+    await capture('build/store-rewards-ar.png');
+    await Scrollable.ensureVisible(
+        tester.element(find.byKey(const ValueKey('store-character-showcase'))),
+        alignment: .2);
+    await assertClean(tester, 'Arabic character artwork desktop preview');
+    await capture('build/store-expression-ar.png');
+    await select(tester, 'العضوية');
+    await capture('build/store-membership-ar.png');
+    await tester.pumpWidget(const SizedBox.shrink());
+    await mount(tester, const Size(800, 360), repaintKey: boundaryKey);
+    await assertClean(tester, 'Arabic landscape preview');
+    await capture('build/store-landscape-ar.png');
+    await Scrollable.ensureVisible(
+        tester.element(find.byKey(const ValueKey('store-reward-daily'))),
+        alignment: .2);
+    await assertClean(tester, 'Reward artwork landscape preview');
+    await capture('build/store-landscape-rewards-ar.png');
+    await Scrollable.ensureVisible(
+        tester.element(find.byKey(const ValueKey('store-character-showcase'))),
+        alignment: .65);
+    await assertClean(tester, 'Character showcase landscape preview');
+    await capture('build/store-landscape-expression-ar.png');
+    final fahad = find.byKey(const ValueKey('store-character-fahad'));
+    final talia = find.byKey(const ValueKey('store-character-talia'));
+    expect(tester.getSize(fahad), tester.getSize(talia));
+    expect(find.text('12,000 نقود'), findsOneWidget);
+    expect(find.text('800 جواهر'), findsOneWidget);
+    for (final card in [fahad, talia]) {
+      final action =
+          find.descendant(of: card, matching: find.byType(FilledButton));
+      expect(tester.getSize(action).shortestSide, greaterThanOrEqualTo(48));
+      expect(tester.widget<FilledButton>(action).onPressed, isNotNull);
+    }
+    app.purchasedCharacters.add(2);
+    app.notifyListeners();
+    await assertClean(tester, 'Owned character updates its original button');
+    expect(find.descendant(of: fahad, matching: find.text('تم الامتلاك')),
+        findsOneWidget);
+    expect(find.text('12,000 نقود'), findsNothing);
+    await capture('build/store-expression-owned-ar.png');
+    app.purchasedCharacters.clear();
+    app.notifyListeners();
+    await select(tester, 'النقود');
+    await Scrollable.ensureVisible(
+        tester.element(find.byKey(const ValueKey('store-product-coins_25000'))),
+        alignment: .1);
+    await assertClean(tester, 'Landscape coin artwork');
+    await capture('build/store-landscape-coins-ar.png');
+    await select(tester, 'الجواهر');
+    await Scrollable.ensureVisible(
+        tester.element(find.byKey(const ValueKey('store-product-gems_500'))),
+        alignment: .1);
+    await assertClean(tester, 'Landscape gem artwork');
+    await capture('build/store-landscape-gems-ar.png');
+    await Scrollable.ensureVisible(
+        tester.element(find.byKey(const ValueKey('store-return-daily'))),
+        alignment: 1);
+    await assertClean(tester, 'Return reward landscape preview');
+    await capture('build/store-landscape-return-ar.png');
+    await select(tester, 'العضوية');
+    await Scrollable.ensureVisible(
+        tester.element(find.byType(GameStoreMembershipCard)),
+        alignment: .1);
+    await assertClean(tester, 'Membership artwork landscape preview');
+    await capture('build/store-landscape-membership-ar.png');
+    await tester.pumpWidget(const SizedBox.shrink());
+    await mount(tester, const Size(390, 780), repaintKey: boundaryKey);
+    await assertClean(tester, 'Arabic mobile preview');
+    await capture('build/store-mobile-ar.png');
+    await Scrollable.ensureVisible(
+        tester.element(find.byKey(const ValueKey('store-reward-daily'))),
+        alignment: .2);
+    await assertClean(tester, 'Reward artwork mobile preview');
+    await capture('build/store-mobile-rewards-ar.png');
+    await Scrollable.ensureVisible(
+        tester.element(find.byKey(const ValueKey('store-character-showcase'))),
+        alignment: .1);
+    await assertClean(tester, 'Character artwork mobile preview');
+    expect(tester.getSize(fahad), tester.getSize(talia));
+    expect(tester.getRect(fahad).bottom, lessThan(tester.getRect(talia).top));
+    await capture('build/store-mobile-expression-ar.png');
+    await Scrollable.ensureVisible(
+        tester.element(find.byKey(const ValueKey('store-product-coins_25000'))),
+        alignment: .1);
+    await assertClean(tester, 'Arabic mobile currency cards');
+    await capture('build/store-mobile-coins-ar.png');
+    await select(tester, 'الجواهر');
+    await capture('build/store-mobile-gems-ar.png');
+    await Scrollable.ensureVisible(
+        tester.element(find.byKey(const ValueKey('store-return-daily'))),
+        alignment: .2);
+    await assertClean(tester, 'Return reward mobile preview');
+    await capture('build/store-mobile-return-ar.png');
+    await select(tester, 'العضوية');
+    await capture('build/store-mobile-membership-ar.png');
+    await tester.pumpWidget(const SizedBox.shrink());
+    settings.dispose();
+    settings = _StoreSettings();
+    await mount(tester, const Size(390, 780), repaintKey: boundaryKey);
+    await assertClean(tester, 'English mobile preview');
+    await capture('build/store-mobile.png');
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
@@ -406,6 +1118,7 @@ void main() {
     settings = _StoreSettings(arabic: true);
     await mount(tester, const Size(360, 640));
     await assertClean(tester, 'Arabic featured portrait');
+    assertCenteredTitles(tester);
     for (final tab in <String>[
       'الجواهر',
       'النقود',

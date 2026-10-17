@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui' as ui;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -10,6 +9,7 @@ import '../../models/social_player_activity.dart';
 import '../../services/social_service.dart';
 import '../../widgets/friend_challenge_modal.dart';
 import '../../widgets/social_player_card.dart';
+import '../../widgets/social_artwork.dart';
 import '../../widgets/social_stream_builder.dart';
 import 'player_profile_screen.dart';
 
@@ -251,7 +251,7 @@ class _SocialScreenState extends State<SocialScreen>
                   Text(title,
                       style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 13,
+                          fontSize: 15,
                           fontWeight: FontWeight.w800)),
                   if (subtitle != null)
                     Text(subtitle,
@@ -264,7 +264,9 @@ class _SocialScreenState extends State<SocialScreen>
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                     color: color.withValues(alpha: .1),
-                    borderRadius: BorderRadius.circular(9)),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                        color: color.withValues(alpha: .7), width: 1.5)),
                 child: Text('$count',
                     style:
                         TextStyle(color: color, fontWeight: FontWeight.w800))),
@@ -275,81 +277,14 @@ class _SocialScreenState extends State<SocialScreen>
       child: Text(text,
           style: const TextStyle(color: _muted, fontSize: 12, height: 1.7)));
 
-  Widget _discoveryHero(int online, int available, {bool compact = false}) =>
-      Container(
-          margin: const EdgeInsets.symmetric(horizontal: 10),
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            color: const Color(0xFFE2EBF7),
-            borderRadius: BorderRadius.circular(15),
-            border: Border.all(color: const Color(0xFFAD8CE8), width: 2),
-            boxShadow: const [
-              BoxShadow(color: Color(0x66211640), offset: Offset(0, 3))
-            ],
-          ),
-          child:
-              Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-                decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                        colors: [Color(0xFF8A5CDA), Color(0xFF6944BB)])),
-                child: Row(children: [
-                  const Icon(Icons.shield_rounded,
-                      color: Color(0xFFE6DCFF), size: 26),
-                  const SizedBox(width: 8),
-                  Expanded(
-                      child: Text(
-                          compact ? 'اختر منافسك' : 'أصدقاء أكثر، تحديات أقوى',
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w900,
-                              shadows: [
-                                Shadow(
-                                    color: Color(0xFF30204D),
-                                    offset: Offset(0, 1))
-                              ]))),
-                ])),
-            Padding(
-                padding: const EdgeInsets.all(11),
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (!compact) ...[
-                        const Text('اضغط على اللاعب للتحدي مباشرة أو عرض ملفه.',
-                            style: TextStyle(
-                                color: Color(0xFF625F7D),
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700)),
-                        const SizedBox(height: 8),
-                      ],
-                      Wrap(spacing: 8, runSpacing: 6, children: [
-                        if (!compact)
-                          _heroCount('$online متصل الآن', Icons.circle,
-                              const Color(0xFF168D56)),
-                        _heroCount('$available متاح للتحدي', Icons.bolt_rounded,
-                            const Color(0xFF345E9C)),
-                      ]),
-                    ])),
-          ]));
-
-  Widget _heroCount(String label, IconData icon, Color color) => Container(
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-      decoration: BoxDecoration(
-          color: const Color(0xFFC5D3E5).withValues(alpha: .65),
-          borderRadius: BorderRadius.circular(10)),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(icon, size: icon == Icons.circle ? 8 : 16, color: color),
-        const SizedBox(width: 7),
-        Flexible(
-          child: Text(label,
-              style: TextStyle(
-                  color: color, fontSize: 11, fontWeight: FontWeight.w700)),
-        )
-      ]));
-
+  Widget _discoveryHero(int online, int available) =>
+      Center(
+          child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 380),
+              child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: SocialDiscoveryArtwork(
+                      online: online, available: available))));
   String _filterLabel(SocialPlayerActivity? activity) => switch (activity) {
         null => 'الكل',
         SocialPlayerActivity.online => 'متصل الآن',
@@ -375,13 +310,14 @@ class _SocialScreenState extends State<SocialScreen>
                 onSelected: (_) => setState(() => _activity = value),
                 showCheckmark: false,
                 selectedColor: const Color(0xFFFFDB74),
-                backgroundColor: const Color(0xFF6043AC),
+                backgroundColor: const Color(0xFF281548),
                 side: BorderSide(
                     color: _activity == value
                         ? const Color(0xFFF0BB4A)
-                        : const Color(0xFF9272D7)),
+                        : const Color(0xFF8253B4),
+                    width: 1.5),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
+                    borderRadius: BorderRadius.circular(16)),
                 labelStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
                     color: _activity == value
                         ? const Color(0xFF4D351D)
@@ -477,11 +413,16 @@ class _SocialScreenState extends State<SocialScreen>
             return Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  SizedBox(
+                  Container(
+                      margin: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                              color: const Color(0xFF704692), width: 1.5),
+                          color: const Color(0x2223104A)),
                       width: constraints.maxWidth >= 800 ? 260 : 220,
                       child: _list([
-                        (_) => _discoveryHero(online.length, available,
-                            compact: true),
+                        (_) => _discoveryHero(online.length, available),
                         (_) => _activityFilters(counts, wrapped: true),
                       ], storageKey: 'social-discovery-controls')),
                   Expanded(
@@ -526,7 +467,10 @@ class _SocialScreenState extends State<SocialScreen>
       margin: const EdgeInsets.fromLTRB(18, 0, 18, 12),
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-          color: const Color(0xFF503786),
+          gradient: const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFF43236F), Color(0xFF271746)]),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: const Color(0xFF9675D6), width: 1.5)),
       child: child);
@@ -801,34 +745,6 @@ class _SocialScreenState extends State<SocialScreen>
         },
       );
 
-  Widget _gameButton(
-          String label, IconData icon, Color color, VoidCallback? action) =>
-      Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(13),
-            boxShadow: const [
-              BoxShadow(color: Color(0xAA20124A), offset: Offset(0, 3))
-            ],
-          ),
-          child: FilledButton.icon(
-            onPressed: action,
-            icon: Icon(icon, size: 21),
-            label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
-            style: FilledButton.styleFrom(
-              backgroundColor: color,
-              foregroundColor: const Color(0xFF1B2942),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-              side: BorderSide(
-                  color: Colors.white.withValues(alpha: .65), width: 2),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(13)),
-              textStyle: Theme.of(context)
-                  .textTheme
-                  .labelLarge
-                  ?.copyWith(fontSize: 13, fontWeight: FontWeight.w900),
-            ),
-          ));
-
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
@@ -844,6 +760,7 @@ class _SocialScreenState extends State<SocialScreen>
     final signedIn = user != null && !user.isAnonymous;
     final enabled = signedIn && app.isOnline;
     final theme = Theme.of(context);
+    final compact = MediaQuery.sizeOf(context).height < 500;
     return Directionality(
         textDirection: TextDirection.rtl,
         child: Theme(
@@ -853,144 +770,95 @@ class _SocialScreenState extends State<SocialScreen>
                   brightness: Brightness.dark,
                   primary: const Color(0xFFD0B4FF),
                   onPrimary: const Color(0xFF251844),
-                  surface: const Color(0xFF44317B),
+                  surface: const Color(0xFF28164C),
                   onSurface: Colors.white),
               textTheme: theme.textTheme
                   .apply(bodyColor: Colors.white, displayColor: Colors.white)),
           child: Scaffold(
-              backgroundColor: const Color(0xFF23164A),
-              body: Stack(children: [
-                Positioned.fill(
-                    child: ImageFiltered(
-                        imageFilter: ui.ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-                        child: Image.asset('assets/ui/bg_main.png',
-                            fit: BoxFit.cover))),
-                Positioned.fill(
-                    child: DecoratedBox(
-                        decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    const Color(0xFF2E224B).withValues(alpha: .5),
-                    const Color(0xFF120A2D).withValues(alpha: .82)
-                  ],
-                )))),
-                SafeArea(
-                    child: Center(
-                        child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 1100),
-                  child: Container(
-                    margin: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [Color(0xFF7952D4), Color(0xFF5636A9)]),
-                      borderRadius: BorderRadius.circular(22),
-                      border: Border.all(
-                          color: const Color(0xFF211239), width: 2.5),
-                      boxShadow: const [
-                        BoxShadow(
-                            color: Color(0x990B061C),
-                            blurRadius: 24,
-                            offset: Offset(0, 8))
-                      ],
-                    ),
-                    child: Column(children: [
-                      Padding(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 3),
-                          child: Row(children: [
-                            IconButton(
-                                tooltip: 'رجوع',
-                                onPressed: () =>
-                                    Navigator.of(context).maybePop(),
-                                icon: const Icon(Icons.arrow_back_rounded,
-                                    color: Colors.white)),
-                            Expanded(
-                                child: Text('الأصدقاء والتحديات',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                        fontSize:
-                                            MediaQuery.sizeOf(context).width <
-                                                    360
-                                                ? 15
-                                                : 19,
-                                        fontWeight: FontWeight.w900,
-                                        color: Colors.white,
-                                        shadows: const [
-                                          Shadow(
-                                              color: Color(0xFF2A173F),
-                                              offset: Offset(0, 2),
-                                              blurRadius: 1)
-                                        ]))),
-                            IconButton(
-                                tooltip: 'تحديث اللاعبين',
-                                onPressed: enabled ? _retry : null,
-                                icon: const Icon(Icons.refresh_rounded)),
-                          ])),
-                      Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
+              backgroundColor: const Color(0xFF160D36),
+              body: SafeArea(
+                  child: Center(
+                      child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1600),
+                child: Padding(
+                  padding: const EdgeInsets.all(6),
+                  child: RepaintBoundary(
+                    key: const ValueKey('social-screen-artwork'),
+                    child: SocialArtworkFrame(
+                        child: Column(children: [
+                      SocialArtworkHeader(
+                          onBack: () => Navigator.of(context).maybePop(),
+                          onRefresh: enabled ? _retry : null),
+                      SizedBox(
+                          height: 40,
                           child: TabBar(
                             controller: _tabs,
                             isScrollable: true,
                             tabAlignment: TabAlignment.start,
                             labelColor: Colors.white,
-                            unselectedLabelColor: const Color(0xFFD9CDF9),
+                            unselectedLabelColor: const Color(0xFFD1CBE8),
                             labelStyle: theme.textTheme.titleSmall?.copyWith(
-                                fontSize: 12, fontWeight: FontWeight.w800),
+                                fontSize: 13, fontWeight: FontWeight.w800),
                             labelPadding:
                                 const EdgeInsets.symmetric(horizontal: 13),
                             dividerColor: Colors.transparent,
                             indicatorSize: TabBarIndicatorSize.tab,
                             indicator: BoxDecoration(
-                                color: const Color(0xFF9B77E4),
-                                borderRadius: BorderRadius.circular(11),
-                                border: Border.all(
-                                    color: const Color(0xFFCEB4FF),
-                                    width: 1.5)),
+                                borderRadius: BorderRadius.circular(13),
+                                gradient: const LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                                      Color(0xFF7544B5),
+                                      Color(0xFF9E41C6)
+                                    ]),
+                                border: Border.all(color: socialGold, width: 2),
+                                boxShadow: const [
+                                  BoxShadow(
+                                      color: Color(0xFF61356D),
+                                      offset: Offset(0, 3))
+                                ]),
                             tabs: const [
-                              Tab(height: 38, text: 'ساحة اللاعبين'),
-                              Tab(height: 38, text: 'أصدقائي'),
-                              Tab(height: 38, text: 'الطلبات'),
-                              Tab(height: 38, text: 'الخصوصية')
+                              Tab(text: 'ساحة اللاعبين'),
+                              Tab(text: 'أصدقائي'),
+                              Tab(text: 'الطلبات'),
+                              Tab(text: 'الخصوصية')
                             ],
                           )),
+                      const SizedBox(height: 6),
                       Expanded(
                           child: Container(
-                        margin: const EdgeInsets.fromLTRB(7, 8, 7, 0),
-                        clipBehavior: Clip.antiAlias,
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [Color(0xFF2B205D), Color(0xFF483195)]),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                              color:
-                                  const Color(0xFFAB82EE).withValues(alpha: .5),
-                              width: 1.5),
-                        ),
-                        child: !signedIn
-                            ? _empty(
-                                'سجّل الدخول لحفظ أصدقائك وإرسال التحديات.')
-                            : !app.isOnline
-                                ? _empty(
-                                    'تحتاج إلى الاتصال بالإنترنت لاستخدام الأصدقاء والتحديات.',
-                                    icon: Icons.wifi_off_rounded)
-                                : _connectedBody(user.uid),
-                      )),
-                      Padding(
-                          padding: const EdgeInsets.all(9),
+                              clipBehavior: Clip.antiAlias,
+                              decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                      color: const Color(0xFF7850AD),
+                                      width: 1.5),
+                                  gradient: const LinearGradient(
+                                      begin: Alignment.topCenter,
+                                      end: Alignment.bottomCenter,
+                                      colors: [
+                                Color(0x7733205D),
+                                Color(0x77351B69)
+                                      ])),
+                              child: !signedIn
+                                  ? _empty(
+                                      'سجّل الدخول لحفظ أصدقائك وإرسال التحديات.')
+                                  : !app.isOnline
+                                      ? _empty(
+                                          'تحتاج إلى الاتصال بالإنترنت لاستخدام الأصدقاء والتحديات.',
+                                          icon: Icons.wifi_off_rounded)
+                                      : _connectedBody(user.uid))),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                          height: compact ? 48 : 54,
                           child: Row(children: [
                             Expanded(
-                                child: _gameButton(
-                                    'المتصلون',
-                                    Icons.bolt_rounded,
-                                    const Color(0xFF72CEFF),
-                                    enabled
+                                child: SocialActionButton(
+                                    label: 'المتصلون',
+                                    icon: Icons.bolt_rounded,
+                                    green: false,
+                                    onPressed: enabled
                                         ? () {
                                             setState(() => _activity =
                                                 SocialPlayerActivity.online);
@@ -999,24 +867,28 @@ class _SocialScreenState extends State<SocialScreen>
                                         : null)),
                             const SizedBox(width: 8),
                             Expanded(
-                                child: _gameButton(
-                                    'إضافة أصدقاء',
-                                    Icons.person_add_alt_1_rounded,
-                                    const Color(0xFF67E09A),
-                                    enabled ? () => _tabs.animateTo(1) : null)),
-                            const SizedBox(width: 6),
+                                child: SocialActionButton(
+                                    label: 'إضافة أصدقاء',
+                                    icon: Icons.person_add_alt_1_rounded,
+                                    green: true,
+                                    onPressed: enabled
+                                        ? () => _tabs.animateTo(1)
+                                        : null)),
+                            const SizedBox(width: 4),
                             IconButton(
                                 tooltip: 'مشاركة رمز التحدي',
                                 onPressed: enabled
                                     ? () => FriendChallengeModal.show(context)
                                     : null,
-                                icon: const Icon(Icons.qr_code_rounded,
-                                    color: Colors.white)),
+                                icon: Icon(Icons.qr_code_rounded,
+                                    color: enabled
+                                        ? socialGold
+                                        : socialGold.withValues(alpha: .4))),
                           ])),
-                    ]),
+                    ])),
                   ),
-                ))),
-              ])),
+                ),
+              )))),
         ));
   }
 }

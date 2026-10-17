@@ -14,16 +14,64 @@ import '../../services/in_app_purchase_service.dart';
 import '../../services/native_bridge_service.dart';
 import '../../widgets/cross_promo_millionaire_dialog.dart';
 import '../../widgets/currency_reward_overlay.dart';
+import '../../widgets/game_store_widgets.dart';
 import '../character/character_select_screen.dart';
 import '../legal/privacy_policy_screen.dart';
 
-const _background = Color(0xFF080D1B);
-const _surface = Color(0xFF121A2E);
-const _muted = Color(0xFF9EABC5);
-const _purple = Color(0xFFA78BFA);
-const _gold = Color(0xFFFFD166);
-const _cyan = Color(0xFF64DEF5);
-const _green = Color(0xFF76E0B2);
+const _background = storeNavy;
+const _surface = Color(0xFF26105C);
+const _muted = Color(0xFFCCBDE8);
+const _purple = Color(0xFFE3ADFF);
+const _gold = storeGold;
+const _cyan = Color(0xFF74EEFF);
+const _green = Color(0xFF64F119);
+
+// These supplied banners include price artwork; cover that area with live billing
+// UI so a price baked into an image can never become the checkout price label.
+const _offerArtwork = {
+  'pack_starter': (
+    asset: 'assets/store/offer_starter.webp',
+    aspectRatio: 2640 / 604,
+    price: Rect.fromLTRB(.610, .650, .844, .925),
+  ),
+  'pack_value': (
+    asset: 'assets/store/offer_explorer.webp',
+    aspectRatio: 2572 / 684,
+    price: Rect.fromLTRB(.589, .707, .857, .935),
+  ),
+  'pack_champion': (
+    asset: 'assets/store/offer_champion.webp',
+    aspectRatio: 2544 / 656,
+    price: Rect.fromLTRB(.598, .719, .817, .952),
+  ),
+};
+
+const _currencyArtwork = {
+  'coins_5000': (
+    asset: 'assets/store/coins_5000.webp',
+    art: Rect.fromLTRB(.054, .047, .960, .758),
+  ),
+  'coins_25000': (
+    asset: 'assets/store/coins_25000.webp',
+    art: Rect.fromLTRB(.048, .033, .955, .765),
+  ),
+  'coins_100000': (
+    asset: 'assets/store/coins_100000.webp',
+    art: Rect.fromLTRB(.034, .028, .960, .765),
+  ),
+  'gems_80': (
+    asset: 'assets/store/gems_80.webp',
+    art: Rect.fromLTRB(.028, .019, .972, .785),
+  ),
+  'gems_500': (
+    asset: 'assets/store/gems_500.webp',
+    art: Rect.fromLTRB(.036, .024, .966, .785),
+  ),
+  'gems_1200': (
+    asset: 'assets/store/gems_1200.webp',
+    art: Rect.fromLTRB(.037, .026, .967, .787),
+  ),
+};
 
 enum _StoreSection { featured, gems, coins, membership, collection }
 
@@ -39,6 +87,8 @@ class _StoreScreenState extends State<StoreScreen> {
   _StoreSection _section = _StoreSection.featured;
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
+  final PageController _offerController = PageController();
+  int _offerIndex = 0;
   InAppPurchaseService? _purchaseService;
   Timer? _refreshTimer;
   bool _busy = false;
@@ -74,6 +124,7 @@ class _StoreScreenState extends State<StoreScreen> {
     _refreshTimer?.cancel();
     _scrollController.dispose();
     _searchController.dispose();
+    _offerController.dispose();
     super.dispose();
   }
 
@@ -625,249 +676,233 @@ class _StoreScreenState extends State<StoreScreen> {
         body: DecoratedBox(
           decoration: const BoxDecoration(
               gradient: LinearGradient(
-                  begin: Alignment.topRight,
-                  end: Alignment.bottomLeft,
-                  colors: [Color(0xFF16152F), _background, Color(0xFF071826)],
-                  stops: [0, 0.55, 1])),
-          child: SafeArea(
-              child: Column(children: [
-            _header(app),
-            if (_showStatus(iap)) _purchaseStatus(iap),
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                Color(0xFF100A32),
+                Color(0xFF171044),
+                Color(0xFF0C0829)
+              ])),
+          child: Column(children: [
             _tabs(),
             Expanded(
-                child: RefreshIndicator(
-              color: _cyan,
-              backgroundColor: _surface,
-              onRefresh: _refresh,
-              child: LayoutBuilder(builder: (context, constraints) {
-                final padding = constraints.maxWidth >= 800 ? 28.0 : 16.0;
-                return ListView(
-                  controller: _scrollController,
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: EdgeInsets.fromLTRB(padding, 18, padding, 24),
-                  children: [
-                    Center(
-                        child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 1180),
-                      child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            if (_section == _StoreSection.featured) ...[
-                              _featured(iap, app, disabled),
-                              const SizedBox(height: 22),
-                              _sectionTitle(
-                                  _tr('اختر طريقتك للعب', 'Make it your game'),
-                                  _tr('عملات، عضوية، وفئات تملكها',
-                                      'Currency, membership and a collection of your own')),
-                              const SizedBox(height: 12),
-                              _discoveryTiles(),
-                              const SizedBox(height: 22),
-                              _sectionTitle(
-                                  _tr('باقات تجمع النقود والجواهر',
-                                      'Coins and gems, together'),
-                                  _tr('المحتويات واضحة قبل كل عملية شراء',
-                                      'See exactly what is included before you buy')),
-                              const SizedBox(height: 12),
-                              _productGrid(
-                                  StoreCatalog.products
-                                      .where((p) =>
-                                          p.kind == StoreProductKind.bundle &&
-                                          p.id != 'pack_starter')
-                                      .toList(),
-                                  iap,
-                                  app,
-                                  disabled),
-                              const SizedBox(height: 22),
-                              _freeRewards(app, ads, disabled),
-                            ],
-                            if (_section == _StoreSection.gems) ...[
-                              _sectionTitle(
-                                  _tr('رصيدك من الجواهر، خيارات أكثر',
-                                      'More gems. More possibilities.'),
-                                  _tr('لفتح الفئات وشراء الشخصيات وتحويلها إلى نقود',
-                                      'Unlock categories, collect characters or exchange for coins')),
-                              const SizedBox(height: 16),
-                              _productGrid(
-                                  StoreCatalog.products
-                                      .where((p) =>
-                                          p.kind == StoreProductKind.gems)
-                                      .toList(),
-                                  iap,
-                                  app,
-                                  disabled),
-                              const SizedBox(height: 22),
-                              _freeRewards(app, ads, disabled),
-                            ],
-                            if (_section == _StoreSection.coins) ...[
-                              _sectionTitle(
-                                  _tr('نقود لتوسيع مجموعتك',
-                                      'Coins for your collection'),
-                                  _tr('شراء مباشر من المتجر أو تحويل جواهرك',
-                                      'Buy through the store or exchange your gems')),
-                              const SizedBox(height: 16),
-                              _productGrid(
-                                  StoreCatalog.products
-                                      .where((p) =>
-                                          p.kind == StoreProductKind.coins)
-                                      .toList(),
-                                  iap,
-                                  app,
-                                  disabled),
-                              const SizedBox(height: 24),
-                              _sectionTitle(
-                                  _tr('تحويل الجواهر إلى نقود',
-                                      'Exchange gems for coins'),
-                                  _tr('تستخدم رصيدك داخل اللعبة، دون دفعة مالية',
-                                      'Spend your in-game gems, with no cash payment')),
-                              const SizedBox(height: 12),
-                              _exchanges(app, disabled),
-                            ],
-                            if (_section == _StoreSection.membership)
-                              _membership(iap, app, disabled),
-                            if (_section == _StoreSection.collection)
-                              _collection(iap, app, disabled),
-                            const SizedBox(height: 24),
-                            _footer(iap),
-                          ]),
-                    ))
-                  ],
-                );
-              }),
-            )),
-          ])),
+                child: SafeArea(
+                    top: false,
+                    child: RefreshIndicator(
+                      color: _cyan,
+                      backgroundColor: _surface,
+                      onRefresh: _refresh,
+                      child: ListView(
+                        controller: _scrollController,
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.fromLTRB(12, 18, 12, 28),
+                        children: [
+                          Center(
+                              child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 960),
+                            child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  if (_showStatus(iap)) _purchaseStatus(iap),
+                                  if (_section == _StoreSection.featured) ...[
+                                    _sectionTitle(
+                                        _tr('عروض المتجر', 'SPECIAL OFFERS'),
+                                        _tr('باقات لمغامرتك القادمة',
+                                            'GEAR UP FOR YOUR NEXT ADVENTURE')),
+                                    const SizedBox(height: 12),
+                                    _featured(iap, app, disabled),
+                                    const SizedBox(height: 24),
+                                    _quickRewards(app, ads, disabled),
+                                    const SizedBox(height: 24),
+                                    _sectionTitle(_tr('النقود', 'COINS'), '',
+                                        action: Tooltip(
+                                            message: _tr('النقود', 'Coins'),
+                                            child: TextButton(
+                                                onPressed: () => _selectSection(
+                                                    _StoreSection.coins),
+                                                child: Text(
+                                                    _tr('عرض الكل', 'View all'),
+                                                    style: const TextStyle(
+                                                        color: _purple))))),
+                                    const SizedBox(height: 14),
+                                    _productGrid(
+                                        StoreCatalog.products
+                                            .where((p) =>
+                                                p.kind ==
+                                                StoreProductKind.coins)
+                                            .toList(),
+                                        iap,
+                                        app,
+                                        disabled),
+                                    const SizedBox(height: 24),
+                                    _sectionTitle(_tr('الجواهر', 'GEMS'), ''),
+                                    const SizedBox(height: 14),
+                                    _productGrid(
+                                        StoreCatalog.products
+                                            .where((p) =>
+                                                p.kind == StoreProductKind.gems)
+                                            .toList(),
+                                        iap,
+                                        app,
+                                        disabled),
+                                    const SizedBox(height: 24),
+                                    _sectionTitle(
+                                        _tr('عبّر عن نفسك', 'EXPRESS YOURSELF'),
+                                        ''),
+                                    const SizedBox(height: 14),
+                                    _characterShowcase(app, disabled),
+                                  ],
+                                  if (_section == _StoreSection.gems) ...[
+                                    _sectionTitle(
+                                        _tr('رصيدك من الجواهر، خيارات أكثر',
+                                            'More gems. More possibilities.'),
+                                        _tr('افتح الفئات واجمع شخصياتك المفضلة',
+                                            'Unlock categories and collect your favorites')),
+                                    const SizedBox(height: 16),
+                                    _productGrid(
+                                        StoreCatalog.products
+                                            .where((p) =>
+                                                p.kind == StoreProductKind.gems)
+                                            .toList(),
+                                        iap,
+                                        app,
+                                        disabled),
+                                    const SizedBox(height: 24),
+                                    _freeRewards(app, ads, disabled),
+                                  ],
+                                  if (_section == _StoreSection.coins) ...[
+                                    _sectionTitle(
+                                        _tr('نقود لتوسيع مجموعتك',
+                                            'Coins for your collection'),
+                                        _tr('شراء مباشر أو تحويل جواهرك',
+                                            'Buy directly or exchange your gems')),
+                                    const SizedBox(height: 16),
+                                    _productGrid(
+                                        StoreCatalog.products
+                                            .where((p) =>
+                                                p.kind ==
+                                                StoreProductKind.coins)
+                                            .toList(),
+                                        iap,
+                                        app,
+                                        disabled),
+                                    const SizedBox(height: 24),
+                                    _sectionTitle(
+                                        _tr('تحويل الجواهر إلى نقود',
+                                            'Exchange gems for coins'),
+                                        _tr('استخدم جواهرك داخل اللعبة',
+                                            'Use your in-game gems')),
+                                    const SizedBox(height: 14),
+                                    _exchanges(app, disabled),
+                                  ],
+                                  if (_section == _StoreSection.membership)
+                                    _membership(iap, app, disabled),
+                                  if (_section == _StoreSection.collection)
+                                    _collection(iap, app, disabled),
+                                  const SizedBox(height: 28),
+                                  _footer(iap),
+                                ]),
+                          ))
+                        ],
+                      ),
+                    ))),
+          ]),
         ),
       ),
     );
   }
 
-  Widget _header(AppState app) => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 9, 16, 8),
-        child: Row(children: [
-          IconButton(
-              tooltip: _tr('العودة', 'Back'),
-              onPressed: () => Navigator.of(context).maybePop(),
-              style: IconButton.styleFrom(
-                  backgroundColor: Colors.white.withValues(alpha: 0.06),
-                  foregroundColor: Colors.white),
-              icon: Icon(_arabic
-                  ? Icons.arrow_forward_rounded
-                  : Icons.arrow_back_rounded)),
-          const SizedBox(width: 10),
-          Expanded(
-              child: Text(_tr('متجر التحدّي', 'Challenge Store'),
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 21,
-                      fontWeight: FontWeight.w800))),
-          _walletChip(app.coins, Icons.monetization_on_rounded, _gold,
-              _tr('نقود', 'coins'), () => _selectSection(_StoreSection.coins)),
-          const SizedBox(width: 8),
-          _walletChip(app.gems, Icons.diamond_rounded, _cyan,
-              _tr('جواهر', 'gems'), () => _selectSection(_StoreSection.gems)),
-        ]),
-      );
-
-  Widget _walletChip(int amount, IconData icon, Color color, String label,
-          VoidCallback onTap) =>
-      Semantics(
-        label: '$label ${_number(amount)}',
-        button: true,
-        child: Material(
-          color: color.withValues(alpha: 0.09),
-          borderRadius: BorderRadius.circular(14),
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(14),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(icon, color: color, size: 19),
-                const SizedBox(width: 6),
-                Text(_number(amount),
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 13)),
-                const SizedBox(width: 5),
-                Icon(Icons.add_rounded, size: 15, color: color),
-              ]),
-            ),
-          ),
-        ),
-      );
-
   Widget _tabs() {
-    final tabs = <(_StoreSection, String, IconData)>[
-      (
-        _StoreSection.featured,
-        _tr('المميزة', 'Featured'),
-        Icons.auto_awesome_rounded
-      ),
-      (_StoreSection.gems, _tr('الجواهر', 'Gems'), Icons.diamond_rounded),
-      (
-        _StoreSection.coins,
-        _tr('النقود', 'Coins'),
-        Icons.monetization_on_rounded
-      ),
-      (
-        _StoreSection.membership,
-        _tr('العضوية', 'Membership'),
-        Icons.workspace_premium_rounded
-      ),
+    final tabs = <(_StoreSection, String, int)>[
+      (_StoreSection.featured, _tr('المميزة', 'Featured'), 0),
+      (_StoreSection.gems, _tr('الجواهر', 'Gems'), 1),
+      (_StoreSection.membership, _tr('العضوية', 'Membership'), 3),
       (
         _StoreSection.collection,
         _tr('الفئات والشخصيات', 'Categories & characters'),
-        Icons.grid_view_rounded
+        4
       ),
     ];
-    return Container(
-      decoration: BoxDecoration(
-          border: Border(
-              bottom: BorderSide(color: Colors.white.withValues(alpha: 0.08)))),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(18, 0, 18, 8),
-        child: Row(
-            children: tabs.map((tab) {
-          final selected = _section == tab.$1;
-          return Padding(
-            padding: const EdgeInsetsDirectional.only(end: 8),
-            child: Semantics(
-              selected: selected,
-              button: true,
-              child: Material(
-                color: selected
-                    ? _purple.withValues(alpha: 0.16)
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(12),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(12),
-                  onTap: () => _selectSection(tab.$1),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 10),
-                    decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                            color: selected
-                                ? _purple.withValues(alpha: 0.5)
-                                : Colors.transparent)),
-                    child: Row(children: [
-                      Icon(tab.$3,
-                          size: 17, color: selected ? _purple : _muted),
-                      const SizedBox(width: 7),
-                      Text(tab.$2,
-                          style: TextStyle(
-                              color: selected ? Colors.white : _muted,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 13))
-                    ]),
-                  ),
-                ),
-              ),
-            ),
-          );
-        }).toList()),
+    final compact = MediaQuery.sizeOf(context).height < 500;
+    final height = compact ? 80.0 : 92.0;
+    return SizedBox(
+      key: const ValueKey('store-top-navigation'),
+      width: double.infinity,
+      child: Stack(children: [
+        const Positioned.fill(child: GameStoreTopBarArtwork()),
+        SafeArea(
+            bottom: false,
+            child: SizedBox(
+                height: height,
+                child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SizedBox(
+                          width: compact ? 58 : 66,
+                          child: Center(
+                              child: IconButton(
+                            key: const ValueKey('store-back-button'),
+                            tooltip: _tr('العودة', 'Back'),
+                            onPressed: () => Navigator.of(context).maybePop(),
+                            padding: const EdgeInsets.all(4),
+                            icon: SizedBox(
+                                width: height * .54,
+                                height: height * .64,
+                                child: GameStoreNavigationBack(
+                                    pointRight: _arabic)),
+                          ))),
+                      for (final tab in tabs)
+                        Expanded(
+                            flex: tab.$1 == _section ||
+                                    (tab.$1 == _StoreSection.featured &&
+                                        _section == _StoreSection.coins)
+                                ? 6
+                                : 5,
+                            child: _navigationTab(tab, height)),
+                    ]))),
+      ]),
+    );
+  }
+
+  Widget _navigationTab((_StoreSection, String, int) tab, double height) {
+    final selected = tab.$1 == _section ||
+        (tab.$1 == _StoreSection.featured && _section == _StoreSection.coins);
+    return Semantics(
+      selected: selected,
+      button: true,
+      child: Tooltip(
+        message: tab.$2,
+        child: InkWell(
+          onTap: () => _selectSection(tab.$1),
+          child: Stack(children: [
+            if (selected)
+              const Positioned.fill(
+                  top: 3, bottom: 3, child: GameStoreNavigationSelection()),
+            if (!selected)
+              PositionedDirectional(
+                  end: 0,
+                  top: height * .1,
+                  bottom: height * .1,
+                  child: Container(width: 1, color: const Color(0x4478DDF8))),
+            Positioned.fill(
+                child: Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+                    child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          GameStoreNavIcon(
+                              index: tab.$3,
+                              size: selected ? height * .57 : height * .61),
+                          if (selected)
+                            SizedBox(
+                                height: height * .21,
+                                child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: GameStoreText(tab.$2, size: 16))),
+                        ]))),
+          ]),
+        ),
       ),
     );
   }
@@ -953,168 +988,364 @@ class _StoreScreenState extends State<StoreScreen> {
   }
 
   Widget _featured(InAppPurchaseService iap, AppState app, bool disabled) {
-    final product = StoreCatalog.byId('pack_starter')!;
-    return _panel(
-      accent: _purple,
-      gradient: const [Color(0xFF292247), Color(0xFF172036)],
-      child: LayoutBuilder(builder: (context, constraints) {
-        final compact = constraints.maxWidth < 440;
-        return Row(children: [
-          Expanded(
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                _pill(
-                    _tr('بداية جديدة • شراء لمرة واحدة',
-                        'A fresh start • One-time purchase'),
-                    _purple),
-                const SizedBox(height: 12),
-                Text(_title(product),
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 26,
-                        fontWeight: FontWeight.w800,
-                        height: 1.3)),
-                const SizedBox(height: 6),
-                Text(_subtitle(product),
-                    style: const TextStyle(
-                        color: Color(0xFFB9B2D3), fontSize: 13, height: 1.6)),
-                const SizedBox(height: 15),
-                _rewardSummary(product.coins, product.gems),
-                const SizedBox(height: 18),
+    final offers = StoreCatalog.products
+        .where((p) => p.kind == StoreProductKind.bundle)
+        .toList();
+    return LayoutBuilder(builder: (context, constraints) {
+      // Keep the complete supplied artwork visible, including characters above
+      // its frame, and give every carousel page the same height.
+      final artworkHeight = constraints.maxWidth / (2572 / 684);
+      return Column(children: [
+        SizedBox(
+          height: artworkHeight + 40,
+          child: PageView.builder(
+            controller: _offerController,
+            itemCount: offers.length,
+            onPageChanged: (index) => setState(() => _offerIndex = index),
+            itemBuilder: (context, index) {
+              final product = offers[index];
+              final artwork = _offerArtwork[product.id]!;
+              final price = iap.getProductDetails(product.id)?.price;
+              final canBuy = !disabled &&
+                  !iap.isLoading &&
+                  app.isCommerceReady &&
+                  iap.isAvailable &&
+                  price != null &&
+                  price.isNotEmpty &&
+                  !_owned(product, app);
+              return Column(children: [
                 SizedBox(
-                    width: compact ? double.infinity : 290,
-                    child: _purchaseButton(product, iap, disabled,
-                        owned: _owned(product, app))),
-              ])),
-          if (!compact) ...[
-            const SizedBox(width: 18),
-            _ProductArt(
-                icon: Icons.inventory_2_rounded,
-                accent: _purple,
-                size: constraints.maxWidth > 750 ? 156 : 110,
-                bundle: true)
-          ],
-        ]);
-      }),
-    );
-  }
-
-  Widget _discoveryTiles() => _responsiveWrap(minWidth: 210, children: [
-        _discovery(Icons.diamond_rounded, _cyan, _tr('الجواهر', 'Gems'),
-            _tr('افتح ما تحب', 'Unlock what you love'), _StoreSection.gems),
-        _discovery(
-            Icons.workspace_premium_rounded,
-            _gold,
-            _tr('العضوية المميزة', 'Plus membership'),
-            _tr('فئات أكثر، دون إعلانات إجبارية',
-                'More categories, no forced ads'),
-            _StoreSection.membership),
-        _discovery(
-            Icons.auto_awesome_motion_rounded,
-            _green,
-            _tr('مجموعتك', 'Your collection'),
-            _tr('فئات وشخصيات بطابعك', 'Categories and characters, your way'),
-            _StoreSection.collection),
-      ]);
-
-  Widget _discovery(IconData icon, Color color, String title, String subtitle,
-          _StoreSection section) =>
-      Material(
-        color: _surface,
-        borderRadius: BorderRadius.circular(18),
-        child: InkWell(
-          onTap: () => _selectSection(section),
-          borderRadius: BorderRadius.circular(18),
-          child: Padding(
-              padding: const EdgeInsets.all(15),
-              child: Row(children: [
-                _iconTile(icon, color, size: 40),
-                const SizedBox(width: 12),
-                Expanded(
-                    child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                      Text(title,
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 14)),
-                      const SizedBox(height: 3),
-                      Text(subtitle,
-                          style: const TextStyle(
-                              color: _muted, fontSize: 11, height: 1.4))
-                    ])),
-                Icon(Icons.chevron_right_rounded,
-                    textDirection:
-                        _arabic ? TextDirection.rtl : TextDirection.ltr,
-                    color: _muted,
-                    size: 20),
-              ])),
+                  height: artworkHeight,
+                  child: Align(
+                    alignment: Alignment.bottomCenter,
+                    child: AspectRatio(
+                      aspectRatio: artwork.aspectRatio,
+                      child: LayoutBuilder(builder: (context, banner) {
+                        final priceRect = Rect.fromLTRB(
+                          banner.maxWidth * artwork.price.left,
+                          banner.maxHeight * artwork.price.top,
+                          banner.maxWidth * artwork.price.right,
+                          banner.maxHeight * artwork.price.bottom,
+                        );
+                        return Semantics(
+                          label: _title(product),
+                          child: Stack(children: [
+                            Positioned.fill(
+                                child: InkWell(
+                                    onTap: canBuy
+                                        ? () => _buyProduct(product)
+                                        : null,
+                                    child: Image.asset(artwork.asset,
+                                        key: ValueKey(
+                                            'store-offer-${product.id}'),
+                                        fit: BoxFit.contain,
+                                        excludeFromSemantics: true))),
+                            Positioned.fromRect(
+                                rect: priceRect,
+                                child: _purchaseButton(product, iap, disabled,
+                                    owned: _owned(product, app),
+                                    compact: true,
+                                    glossy: true)),
+                            Positioned(
+                                right: 0,
+                                top: 0,
+                                bottom: 0,
+                                child: Center(
+                                    child: IconButton(
+                                        tooltip:
+                                            _tr('العرض التالي', 'Next offer'),
+                                        onPressed: () =>
+                                            _offerController.animateToPage(
+                                                (index + 1) % offers.length,
+                                                duration: const Duration(
+                                                    milliseconds: 300),
+                                                curve: Curves.easeOutCubic),
+                                        // The arrow is already part of the supplied image.
+                                        icon: const SizedBox(
+                                            width: 24, height: 24)))),
+                          ]),
+                        );
+                      }),
+                    ),
+                  ),
+                ),
+                SizedBox(
+                    height: 40,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      child: Row(children: [
+                        Expanded(
+                            child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: AlignmentDirectional.centerStart,
+                                child:
+                                    GameStoreText(_title(product), size: 16))),
+                        const SizedBox(width: 12),
+                        Expanded(
+                            child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: AlignmentDirectional.centerEnd,
+                                child: Row(children: [
+                                  const Icon(Icons.monetization_on_rounded,
+                                      color: _gold, size: 17),
+                                  GameStoreText(
+                                      ' ${_number(product.coins)}  +  ',
+                                      size: 15),
+                                  const Icon(Icons.diamond_rounded,
+                                      color: _cyan, size: 17),
+                                  GameStoreText(' ${_number(product.gems)}',
+                                      size: 15),
+                                ]))),
+                      ]),
+                    )),
+              ]);
+            },
+          ),
         ),
-      );
+        const SizedBox(height: 10),
+        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          for (var i = 0; i < offers.length; i++)
+            Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Semantics(
+                    label: _tr('العرض ${i + 1}', 'Offer ${i + 1}'),
+                    selected: i == _offerIndex,
+                    button: true,
+                    child: InkResponse(
+                        onTap: () => _offerController.animateToPage(i,
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeOutCubic),
+                        child: Container(
+                            width: 9,
+                            height: 9,
+                            decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: i == _offerIndex
+                                    ? Colors.white
+                                    : const Color(0xFF78718A)))))),
+        ]),
+      ]);
+    });
+  }
 
   Widget _productGrid(List<StoreProduct> products, InAppPurchaseService iap,
           AppState app, bool disabled) =>
-      _responsiveWrap(
-          minWidth: 220,
-          children: products
-              .map((product) => _productCard(product, iap, app, disabled))
-              .toList());
+      LayoutBuilder(builder: (context, constraints) {
+        final columns = constraints.maxWidth < 300 ||
+                MediaQuery.textScalerOf(context).scale(1) > 1.3
+            ? 2
+            : 3;
+        final cellWidth = (constraints.maxWidth - (columns - 1) * 10) / columns;
+        final viewport = MediaQuery.sizeOf(context);
+        // Every card uses the same frame and footer, including on short screens.
+        final maxWidth = viewport.height < 500
+            ? ((viewport.height - 110) * .71).clamp(110.0, 240.0)
+            : 320.0;
+        final width = cellWidth.clamp(0.0, maxWidth);
+        return Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 10,
+          runSpacing: 16,
+          children: [
+            for (final product in products)
+              SizedBox(
+                  width: width,
+                  child: _productCard(product, iap, app, disabled)),
+          ],
+        );
+      });
 
   Widget _productCard(StoreProduct product, InAppPurchaseService iap,
       AppState app, bool disabled) {
-    final accent = _accent(product);
+    final artwork = _currencyArtwork[product.id]!;
+    final price = iap.getProductDetails(product.id)?.price;
     final owned = _owned(product, app);
-    return _panel(
-      accent: accent,
-      padding: 18,
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Flexible(
-              child: _pill(
-                  product.oneTime
-                      ? _tr('شراء لمرة واحدة', 'One-time purchase')
-                      : product.kind == StoreProductKind.bundle
-                          ? _tr('نقود + جواهر', 'Coins + gems')
-                          : _tr('رصيد داخل اللعبة', 'In-game currency'),
-                  accent)),
-          if (owned)
-            const Icon(Icons.check_circle_rounded, color: _green, size: 20)
-        ]),
-        const SizedBox(height: 10),
-        Center(
-            child: _ProductArt(
-                icon: _icon(product),
-                accent: accent,
-                size: 84,
-                bundle: product.kind == StoreProductKind.bundle)),
-        const SizedBox(height: 12),
-        Text(_title(product),
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-                color: Colors.white,
-                fontSize: 17,
-                fontWeight: FontWeight.w800)),
-        const SizedBox(height: 6),
-        Text(_subtitle(product),
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: _muted, fontSize: 12, height: 1.6)),
-        const SizedBox(height: 13),
-        _rewardSummary(product.coins, product.gems, centered: true),
-        const SizedBox(height: 18),
-        _purchaseButton(product, iap, disabled, owned: owned),
-      ]),
+    final canBuy = !disabled &&
+        !iap.isLoading &&
+        app.isCommerceReady &&
+        iap.isAvailable &&
+        price != null &&
+        price.isNotEmpty &&
+        !owned;
+    final amount =
+        product.kind == StoreProductKind.gems ? product.gems : product.coins;
+    final unit = product.kind == StoreProductKind.gems
+        ? _tr('جوهرة', 'gems')
+        : _tr('نقود', 'coins');
+    return Semantics(
+      label:
+          '${_title(product)}, ${_number(amount)} $unit, ${_subtitle(product)}',
+      child: GameStoreCurrencyCard(
+        key: ValueKey('store-currency-card-${product.id}'),
+        asset: artwork.asset,
+        art: artwork.art,
+        imageKey: ValueKey('store-product-${product.id}'),
+        priceKey: ValueKey('store-price-${product.id}'),
+        onPressed: canBuy ? () => _buyProduct(product) : null,
+        priceButton: _purchaseButton(product, iap, disabled,
+            owned: owned, compact: true, glossy: true),
+      ),
     );
   }
 
+  Widget _quickRewards(AppState app, AdService ads, bool disabled) {
+    final dailyAvailable = app.dailyStreakLoaded &&
+        !app.claimedToday &&
+        app.isOnline &&
+        app.user != null;
+    final dailyLabel = app.claimedToday
+        ? _tr('تم', 'CLAIMED')
+        : !app.dailyStreakLoaded
+            ? _tr('تحميل…', 'LOADING…')
+            : app.user == null
+                ? _tr('دخول', 'SIGN IN')
+                : !app.isOnline
+                    ? _tr('اتصل', 'OFFLINE')
+                    : _tr('مجاناً', 'FREE');
+    final dailyHint = app.claimedToday
+        ? _tr('تم استلام هدية اليوم', 'Today’s gift claimed')
+        : !app.dailyStreakLoaded
+            ? _tr('جارٍ تحميل الهدية اليومية', 'Loading your daily gift')
+            : app.user == null
+                ? _tr(
+                    'سجّل الدخول لاستلام الهدية', 'Sign in to claim your gift')
+                : !app.isOnline
+                    ? _tr(
+                        'تحتاج اتصالاً بالإنترنت', 'Internet connection needed')
+                    : _tr('استلام الهدية اليومية', 'Claim your daily gift');
+    final watchLabel = ads.watchesLeft == 0
+        ? _tr('غداً', 'TOMORROW')
+        : !ads.canWatchAd
+            ? _duration(ads.cooldownRemaining)
+            : '+${AdService.rewardCoins}';
+    final watchHint = ads.watchesLeft == 0
+        ? _tr('تم الوصول للحد اليومي', 'Daily limit reached')
+        : !ads.canWatchAd
+            ? _tr('بعد ${_duration(ads.cooldownRemaining)}',
+                'Available in ${_duration(ads.cooldownRemaining)}')
+            : _tr('مشاهدة إعلان للحصول على المكافأة',
+                'Watch an ad to earn your reward');
+    return Column(children: [
+      _sectionTitle(_tr('هدايا ومكافآت', 'FEELING LUCKY?'), ''),
+      const SizedBox(height: 12),
+      LayoutBuilder(builder: (context, constraints) {
+        final stacked = constraints.maxWidth < 600 ||
+            MediaQuery.textScalerOf(context).scale(1) > 1.3;
+        final width =
+            stacked ? constraints.maxWidth : (constraints.maxWidth - 12) / 2;
+        return Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              SizedBox(
+                  width: width,
+                  child: _rewardTicket(
+                      id: 'daily',
+                      title: _tr('هدية يومية', 'Daily gift'),
+                      asset: 'assets/store/reward_daily.webp',
+                      frame: const Rect.fromLTRB(.10, .21, .90, .909),
+                      button: const Rect.fromLTRB(.125, .291, .486, .780),
+                      label: dailyLabel,
+                      tooltip: dailyHint,
+                      available: dailyAvailable && !disabled,
+                      onTap: _claimDailyReward)),
+              SizedBox(
+                  width: width,
+                  child: _rewardTicket(
+                      id: 'watch',
+                      title: _tr('شاهد واربح', 'Watch and earn'),
+                      asset: 'assets/store/reward_watch.webp',
+                      frame: const Rect.fromLTRB(.044, .05, .946, .925),
+                      button: const Rect.fromLTRB(.07, .15, .477, .75),
+                      label: watchLabel,
+                      tooltip: watchHint,
+                      available: ads.canWatchAd && !disabled,
+                      onTap: _watchAd)),
+            ]);
+      }),
+    ]);
+  }
+
+  Widget _rewardTicket(
+          {required String id,
+          required String title,
+          required String asset,
+          required Rect frame,
+          required Rect button,
+          required String label,
+          required bool available,
+          required VoidCallback onTap,
+          required String tooltip}) =>
+      Semantics(
+        label: '$title. $tooltip',
+        child: Tooltip(
+          message: tooltip,
+          child: GameStoreRewardBanner(
+            key: ValueKey('store-reward-$id'),
+            asset: asset,
+            sourceFrame: frame,
+            sourceButton: button,
+            imageKey: ValueKey('store-reward-art-$id'),
+            actionKey: ValueKey('store-reward-action-$id'),
+            onPressed: available ? onTap : null,
+            action: _StoreButton(
+                label: label,
+                icon: Icons.check_rounded,
+                accent: _green,
+                compact: true,
+                glossy: true,
+                onPressed: available ? onTap : null),
+          ),
+        ),
+      );
+  Widget _characterShowcase(AppState app, bool disabled) => LayoutBuilder(
+      key: const ValueKey('store-character-showcase'),
+      builder: (context, constraints) {
+        final viewport = MediaQuery.sizeOf(context);
+        final columns = constraints.maxWidth < 600 ? 1 : 2;
+        final maxWidth = viewport.height < 500
+            ? ((viewport.height - 120) * 1452 / 1026).clamp(220.0, 360.0)
+            : 460.0;
+        final width = ((constraints.maxWidth - (columns - 1) * 12) / columns)
+            .clamp(0.0, maxWidth);
+        return Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 12,
+          runSpacing: 16,
+          children: [
+            for (final character in [
+              CharacterCatalog.all[2],
+              CharacterCatalog.all[7]
+            ])
+              SizedBox(
+                width: width,
+                child: GameStoreCharacterCard(
+                  key: ValueKey('store-character-${character.id}'),
+                  gems: character.unlock.kind == CharacterUnlockKind.gems,
+                  title: character.nameAr,
+                  label: app.isCharacterUnlocked(character)
+                      ? _tr('تم الامتلاك', 'Owned')
+                      : '${_number(character.unlock.value)} ${character.unlock.kind == CharacterUnlockKind.coins ? _tr('نقود', 'coins') : _tr('جواهر', 'gems')}',
+                  onPressed: disabled ? null : _openCharacters,
+                ),
+              ),
+          ],
+        );
+      });
   Widget _purchaseButton(
       StoreProduct product, InAppPurchaseService iap, bool disabled,
-      {bool owned = false}) {
+      {bool owned = false,
+      bool compact = false,
+      bool glossy = false,
+      bool imageButton = false}) {
     final price = iap.getProductDetails(product.id)?.price;
     final available = iap.isAvailable && price != null && price.isNotEmpty;
     final checkingOwnership = !context.read<AppState>().isCommerceReady;
     final button = _StoreButton(
+      compact: compact,
+      glossy: glossy,
+      imageButton: imageButton,
       label: owned
           ? product.kind == StoreProductKind.subscription
               ? _tr('إدارة الاشتراك', 'Manage membership')
@@ -1141,7 +1372,12 @@ class _StoreScreenState extends State<StoreScreen> {
               ? () => _buyProduct(product)
               : null,
     );
-    if (owned || checkingOwnership || iap.isLoading || available) return button;
+    if (compact || owned || checkingOwnership || iap.isLoading || available) {
+      return Tooltip(
+        message: available ? _title(product) : iap.getExplanation(product.id),
+        child: button,
+      );
+    }
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       button,
       const SizedBox(height: 8),
@@ -1165,74 +1401,44 @@ class _StoreScreenState extends State<StoreScreen> {
           _tr('مزايا واضحة طوال فترة العضوية',
               'Clear benefits throughout your membership')),
       const SizedBox(height: 16),
-      _panel(
-        accent: _gold,
-        gradient: const [Color(0xFF332C24), Color(0xFF1C2135)],
-        child: LayoutBuilder(builder: (context, constraints) {
-          final intro =
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            _pill(
-                app.isVip
-                    ? _tr('عضويتك مفعّلة', 'Your membership is active')
-                    : _tr('عضوية شهرية', 'Monthly membership'),
-                app.isVip ? _green : _gold),
-            const SizedBox(height: 14),
-            Text(_title(product),
-                style: const TextStyle(
-                    color: _gold, fontSize: 28, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 8),
-            Text(_subtitle(product),
-                style:
-                    const TextStyle(color: _muted, fontSize: 14, height: 1.6)),
-            const SizedBox(height: 20),
-            _benefit(
-                Icons.grid_view_rounded,
-                _tr('وصول لجميع الفئات المميزة',
-                    'Access to every premium category')),
-            const SizedBox(height: 12),
-            _benefit(Icons.block_rounded,
-                _tr('بدون إعلانات إجبارية', 'No forced ads')),
-            const SizedBox(height: 12),
-            _benefit(
-                Icons.videocam_outlined,
-                _tr('مكافآت الإعلانات تبقى اختيارية',
-                    'Reward ads remain optional')),
-            if (app.isVip && app.vipExpiresAtMillis > 0) ...[
-              const SizedBox(height: 16),
-              Text(
-                  _tr('الفترة الحالية متاحة حتى ${_expiry(app.vipExpiresAtMillis)}',
-                      'Current access is valid through ${_expiry(app.vipExpiresAtMillis)}'),
-                  style: const TextStyle(color: _green, fontSize: 12)),
-            ],
-          ]);
-          final action =
-              Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            const Center(
-                child: _ProductArt(
-                    icon: Icons.workspace_premium_rounded,
-                    accent: _gold,
-                    size: 100)),
-            const SizedBox(height: 16),
-            _purchaseButton(product, iap, disabled, owned: app.isVip),
-            const SizedBox(height: 10),
-            Text(
-                _tr('يتجدد تلقائياً كل شهر. يمكنك إلغاء التجديد من Google Play في أي وقت؛ يستمر الوصول حتى نهاية الفترة المدفوعة.',
-                    'Renews automatically every month. Cancel renewal in Google Play at any time; access continues until the paid period ends.'),
-                textAlign: TextAlign.center,
-                style:
-                    const TextStyle(color: _muted, fontSize: 11, height: 1.7)),
-          ]);
-          return constraints.maxWidth >= 620
-              ? Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Expanded(flex: 3, child: intro),
-                  const SizedBox(width: 32),
-                  Expanded(flex: 2, child: action)
-                ])
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [intro, const SizedBox(height: 20), action]);
-        }),
-      ),
+      LayoutBuilder(builder: (context, constraints) {
+        final viewport = MediaQuery.sizeOf(context);
+        final maxWidth = viewport.height < 500
+            ? ((viewport.height - 100) * (3168 / 1344)).clamp(400.0, 960.0)
+            : 960.0;
+        return Center(
+            child: SizedBox(
+          width: constraints.maxWidth.clamp(0.0, maxWidth),
+          child: Semantics(
+            label:
+                '${_title(product)}. ${_subtitle(product)}. ${_tr('وصول لجميع الفئات المميزة. بدون إعلانات إجبارية. مكافآت الإعلانات تبقى اختيارية.', 'Access to every premium category. No forced ads. Reward ads remain optional.')}',
+            child: GameStoreMembershipCard(
+              priceButton: _purchaseButton(product, iap, disabled,
+                  owned: app.isVip, compact: true, imageButton: true),
+            ),
+          ),
+        ));
+      }),
+      if (app.isVip) ...[
+        const SizedBox(height: 12),
+        Center(
+            child: _pill(
+                _tr('عضويتك مفعّلة', 'Your membership is active'), _green)),
+        if (app.vipExpiresAtMillis > 0) ...[
+          const SizedBox(height: 8),
+          Text(
+              _tr('الفترة الحالية متاحة حتى ${_expiry(app.vipExpiresAtMillis)}',
+                  'Current access is valid through ${_expiry(app.vipExpiresAtMillis)}'),
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: _green, fontSize: 12)),
+        ],
+      ],
+      const SizedBox(height: 12),
+      Text(
+          _tr('يتجدد تلقائياً كل شهر. يمكنك إلغاء التجديد من Google Play في أي وقت؛ يستمر الوصول حتى نهاية الفترة المدفوعة.',
+              'Renews automatically every month. Cancel renewal in Google Play at any time; access continues until the paid period ends.'),
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: _muted, fontSize: 11, height: 1.7)),
       const SizedBox(height: 16),
       _panel(
           child: Row(children: [
@@ -1531,12 +1737,27 @@ class _StoreScreenState extends State<StoreScreen> {
   }
 
   Widget _freeRewards(AppState app, AdService ads, bool disabled) {
+    CrossPromoService? promo;
+    try {
+      promo = context.watch<CrossPromoService>();
+    } catch (_) {}
     final daily = app.todayReward;
     final dailyAvailable = app.dailyStreakLoaded &&
         !app.claimedToday &&
         app.isOnline &&
         app.user != null;
-    final adLabel = ads.watchesLeft == 0
+    final dailyLabel = app.claimedToday
+        ? _tr('تم الاستلام • عد غداً', 'Claimed • Come back tomorrow')
+        : !app.dailyStreakLoaded
+            ? _tr('جارٍ تحميل الهدية…', 'Loading your gift…')
+            : app.user == null
+                ? _tr(
+                    'سجّل الدخول لاستلام الهدية', 'Sign in to claim your gift')
+                : !app.isOnline
+                    ? _tr(
+                        'تحتاج اتصالاً بالإنترنت', 'Internet connection needed')
+                    : _tr('استلام الهدية', 'Claim gift');
+    final watchLabel = ads.watchesLeft == 0
         ? _tr('تم الوصول للحد اليومي', 'Daily limit reached')
         : !ads.canWatchAd
             ? _tr('بعد ${_duration(ads.cooldownRemaining)}',
@@ -1547,181 +1768,168 @@ class _StoreScreenState extends State<StoreScreen> {
           _tr('مكافآت تستحق العودة', 'A reason to come back'),
           _tr('هدية يومية ومكافآت اختيارية، دون شراء',
               'A daily gift and optional rewards, with no purchase')),
-      const SizedBox(height: 12),
-      _responsiveWrap(minWidth: 260, children: [
-        _panel(
-            accent: _green,
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(children: [
-                    _iconTile(Icons.card_giftcard_rounded, _green, size: 38),
-                    const SizedBox(width: 12),
-                    Expanded(
-                        child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                          Text(_tr('هدية اليوم', 'Your daily gift'),
-                              style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 15)),
-                          Text(
-                              _tr('اليوم ${app.streakDay > 0 ? app.streakDay : 1} من سلسلة العودة',
-                                  'Day ${app.streakDay > 0 ? app.streakDay : 1} of your streak'),
-                              style:
-                                  const TextStyle(color: _muted, fontSize: 11))
-                        ]))
-                  ]),
-                  const SizedBox(height: 14),
-                  _rewardSummary(daily['coins'] ?? 0, daily['gems'] ?? 0),
-                  const SizedBox(height: 16),
-                  _StoreButton(
-                      label: app.claimedToday
-                          ? _tr('تم الاستلام • عد غداً',
-                              'Claimed • Come back tomorrow')
-                          : !app.dailyStreakLoaded
-                              ? _tr('جارٍ تحميل الهدية…', 'Loading your gift…')
-                              : app.user == null
-                                  ? _tr('سجّل الدخول لاستلام الهدية',
-                                      'Sign in to claim your gift')
-                                  : !app.isOnline
-                                      ? _tr('تحتاج اتصالاً بالإنترنت',
-                                          'Internet connection needed')
-                                      : _tr('استلام الهدية', 'Claim gift'),
-                      icon: app.claimedToday
-                          ? Icons.check_rounded
-                          : Icons.redeem_rounded,
-                      accent: _green,
-                      onPressed: dailyAvailable && !disabled
-                          ? _claimDailyReward
-                          : null),
-                ])),
-        _panel(
-            accent: _cyan,
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(children: [
-                    _iconTile(Icons.play_circle_outline_rounded, _cyan,
-                        size: 38),
-                    const SizedBox(width: 12),
-                    Expanded(
-                        child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                          Text(_tr('مكافأة المشاهدة', 'Watch and earn'),
-                              style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 15)),
-                          Text(
-                              _tr('${ads.watchesLeft} من ${AdService.maxDailyWatches} مشاهدات متبقية اليوم',
-                                  '${ads.watchesLeft} of ${AdService.maxDailyWatches} watches left today'),
-                              style:
-                                  const TextStyle(color: _muted, fontSize: 11))
-                        ]))
-                  ]),
-                  const SizedBox(height: 14),
-                  _rewardSummary(AdService.rewardCoins, AdService.rewardGems),
-                  const SizedBox(height: 16),
-                  _StoreButton(
-                      label: adLabel,
-                      icon: Icons.play_arrow_rounded,
-                      accent: _cyan,
-                      onPressed: ads.canWatchAd && !disabled ? _watchAd : null),
-                ])),
-        Builder(
-          builder: (context) {
-            CrossPromoService? promo;
-            try {
-              promo = context.watch<CrossPromoService>();
-            } catch (_) {}
-            if (promo == null) return const SizedBox.shrink();
-            final claimed = promo.isRewardClaimed;
-            final installed = promo.isMillionaireInstalled;
-            final isClaiming = promo.isClaiming;
-            final promoService = promo;
-            return _panel(
-              accent: _gold,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(children: [
-                    _iconTile(Icons.diamond_rounded, _gold, size: 38),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _tr('مكافأة تحميل تحدي المليون',
-                                'Million Challenge Reward'),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 15,
-                            ),
-                          ),
-                          Text(
-                            claimed
-                                ? _tr('تم استلام الجائزة بنجاح ✓',
-                                    'Reward claimed ✓')
-                                : installed
-                                    ? _tr('اللعبة مثبتة • استلم هديتك الآن!',
-                                        'Game installed • Claim now!')
-                                    : _tr(
-                                        'حمّل اللعبة واحصل على 80 جوهرة فوراً',
-                                        'Download & get 80 gems instantly'),
-                            style: const TextStyle(color: _muted, fontSize: 11),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ]),
-                  const SizedBox(height: 14),
-                  _rewardSummary(0, CrossPromoService.downloadRewardGems),
-                  const SizedBox(height: 16),
-                  _StoreButton(
-                    label: claimed
-                        ? _tr('تم استلام الـ 80 جوهرة ✓', '80 Gems Claimed ✓')
-                        : isClaiming
-                            ? _tr('جارٍ الاستلام…', 'Claiming…')
-                            : installed
-                                ? _tr('استلام 80 جوهرة الآن 💎',
-                                    'Claim 80 Gems Now 💎')
-                                : _tr('تحميل اللعبة (+80 💎)',
-                                    'Download Game (+80 💎)'),
-                    icon: claimed
-                        ? Icons.check_rounded
-                        : installed
-                            ? Icons.card_giftcard_rounded
-                            : Icons.file_download_outlined,
-                    accent: _gold,
-                    onPressed: disabled || claimed || isClaiming
-                        ? null
-                        : () async {
-                            if (installed) {
-                              final res = await promoService
-                                  .claimDownloadReward(context);
-                              if (res == CrossPromoClaimResult.success &&
-                                  context.mounted) {
-                                _snack(_tr(
-                                    'تمت إضافة 80 جوهرة إلى رصيدك بنجاح! 💎🎉',
-                                    '80 gems added to your balance successfully! 💎🎉'));
-                              }
-                            } else {
-                              CrossPromoMillionaireDialog.show(context);
-                            }
-                          },
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
-      ]),
+      const SizedBox(height: 14),
+      LayoutBuilder(builder: (context, constraints) {
+        final columns = constraints.maxWidth < 600 ? 1 : 3;
+        final viewport = MediaQuery.sizeOf(context);
+        final maxWidth = viewport.height < 500
+            ? ((viewport.height - 110) * .83).clamp(120.0, 260.0)
+            : 320.0;
+        final width = ((constraints.maxWidth - (columns - 1) * 12) / columns)
+            .clamp(0.0, maxWidth);
+        return Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 12,
+            runSpacing: 18,
+            children: [
+              SizedBox(
+                  width: width,
+                  child: _returnRewardCard(
+                      id: 'daily',
+                      asset: 'assets/store/return_daily.webp',
+                      frame: const Rect.fromLTRB(.020, .027, .978, .980),
+                      title: _tr('هدية اليوم', 'Your daily gift'),
+                      label: dailyLabel,
+                      available: dailyAvailable && !disabled,
+                      onTap: _claimDailyReward,
+                      labels: [
+                        GameStoreArtworkLabel(
+                            area: const Rect.fromLTRB(.12, .297, .711, .365),
+                            cleanStrip:
+                                const Rect.fromLTRB(.12, .367, .711, .380),
+                            child: _artworkText(
+                                _tr('اليوم ${app.streakDay > 0 ? app.streakDay : 1} من سلسلة العودة',
+                                    'Day ${app.streakDay > 0 ? app.streakDay : 1} of your streak'),
+                                size: 18)),
+                        GameStoreArtworkLabel(
+                            area: const Rect.fromLTRB(.145, .515, .352, .583),
+                            cleanStrip:
+                                const Rect.fromLTRB(.129, .515, .140, .583),
+                            child: _artworkText(
+                                '${_number(daily['gems'] ?? 0)} ${_tr('جوهرة', 'gems')}',
+                                color: _cyan)),
+                        GameStoreArtworkLabel(
+                            area: const Rect.fromLTRB(.540, .515, .765, .583),
+                            cleanStrip:
+                                const Rect.fromLTRB(.523, .515, .533, .583),
+                            child: _artworkText(
+                                '${_number(daily['coins'] ?? 0)} ${_tr('نقود', 'coins')}',
+                                color: _gold)),
+                      ])),
+              SizedBox(
+                  width: width,
+                  child: _returnRewardCard(
+                      id: 'watch',
+                      asset: 'assets/store/return_watch.webp',
+                      frame: const Rect.fromLTRB(.021, .019, .991, .980),
+                      title: _tr('مكافأة المشاهدة', 'Watch and earn'),
+                      label: watchLabel,
+                      available: ads.canWatchAd && !disabled,
+                      onTap: _watchAd,
+                      labels: [
+                        GameStoreArtworkLabel(
+                            area: const Rect.fromLTRB(.09, .290, .715, .355),
+                            cleanStrip:
+                                const Rect.fromLTRB(.09, .360, .715, .372),
+                            child: _artworkText(
+                                _tr('${ads.watchesLeft} من ${AdService.maxDailyWatches} مشاهدات متبقية اليوم',
+                                    '${ads.watchesLeft} of ${AdService.maxDailyWatches} watches left today'),
+                                size: 18)),
+                      ])),
+              if (promo != null)
+                SizedBox(
+                    width: width, child: _downloadRewardCard(promo, disabled)),
+            ]);
+      }),
     ]);
+  }
+
+  Widget _artworkText(String label,
+          {Color color = Colors.white, double size = 22}) =>
+      Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 2),
+          child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: GameStoreText(label, color: color, size: size)));
+
+  Widget _returnRewardCard(
+          {required String id,
+          required String asset,
+          required Rect frame,
+          required String title,
+          required String label,
+          required bool available,
+          required VoidCallback onTap,
+          required List<GameStoreArtworkLabel> labels}) =>
+      Semantics(
+          label: title,
+          child: GameStoreReturnRewardCard(
+            key: ValueKey('store-return-$id'),
+            asset: asset,
+            sourceFrame: frame,
+            imageKey: ValueKey('store-return-art-$id'),
+            actionKey: ValueKey('store-return-action-$id'),
+            onPressed: available ? onTap : null,
+            labels: [
+              ...labels,
+              const GameStoreArtworkLabel(
+                  area: Rect.fromLTRB(.125, .775, .880, .894),
+                  cleanStrip: Rect.fromLTRB(.135, .775, .145, .894))
+            ],
+            action: _StoreButton(
+                label: label,
+                icon: Icons.card_giftcard_rounded,
+                accent: _green,
+                compact: true,
+                imageButton: true,
+                onPressed: available ? onTap : null),
+          ));
+
+  Widget _downloadRewardCard(CrossPromoService promo, bool disabled) {
+    final claimed = promo.isRewardClaimed;
+    final installed = promo.isMillionaireInstalled;
+    final claiming = promo.isClaiming;
+    final status = claimed
+        ? _tr('تم استلام الجائزة بنجاح ✓', 'Reward claimed ✓')
+        : installed
+            ? _tr('اللعبة مثبتة • استلم هديتك الآن!',
+                'Game installed • Claim now!')
+            : _tr('حمّل اللعبة واحصل على 80 جوهرة', 'Download & earn 80 gems');
+    final label = claimed
+        ? _tr('تم استلام الـ 80 جوهرة ✓', '80 Gems Claimed ✓')
+        : claiming
+            ? _tr('جارٍ الاستلام…', 'Claiming…')
+            : installed
+                ? _tr('استلام 80 جوهرة الآن', 'Claim 80 Gems Now')
+                : _tr('تحميل اللعبة (+80 جوهرة)', 'Download Game (+80 gems)');
+    return _returnRewardCard(
+        id: 'download',
+        asset: 'assets/store/return_download.webp',
+        frame: const Rect.fromLTRB(.020, .023, .978, .984),
+        title: _tr('مكافأة تحميل تحدي المليون', 'Million Challenge Reward'),
+        label: label,
+        available: !disabled && !claimed && !claiming,
+        onTap: () => _claimPromoReward(promo),
+        labels: [
+          GameStoreArtworkLabel(
+              area: const Rect.fromLTRB(.14, .319, .72, .386),
+              cleanStrip: const Rect.fromLTRB(.14, .390, .72, .405),
+              child: _artworkText(status,
+                  color: claimed ? _green : Colors.white, size: 18))
+        ]);
+  }
+
+  Future<void> _claimPromoReward(CrossPromoService promo) async {
+    if (_busy || promo.isClaiming || promo.isRewardClaimed) return;
+    if (promo.isMillionaireInstalled) {
+      final result = await promo.claimDownloadReward(context);
+      if (result == CrossPromoClaimResult.success && mounted) {
+        _snack(_tr('تمت إضافة 80 جوهرة إلى رصيدك بنجاح! 💎🎉',
+            '80 gems added to your balance successfully! 💎🎉'));
+      }
+    } else {
+      CrossPromoMillionaireDialog.show(context);
+    }
   }
 
   Widget _footer(InAppPurchaseService iap) => Column(children: [
@@ -1778,17 +1986,47 @@ class _StoreScreenState extends State<StoreScreen> {
                 height: 1.5)),
       ]);
 
-  Widget _sectionTitle(String title, String subtitle) =>
-      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(title,
-            style: const TextStyle(
-                color: Colors.white,
-                fontSize: 19,
-                fontWeight: FontWeight.w800)),
-        const SizedBox(height: 4),
-        Text(subtitle,
-            style: const TextStyle(color: _muted, fontSize: 12, height: 1.5)),
-      ]);
+  Widget _sectionTitle(String title, String subtitle, {Widget? action}) =>
+      LayoutBuilder(
+          builder: (context, constraints) => Column(children: [
+                Row(children: [
+                  Expanded(
+                      child: Container(
+                          height: 2,
+                          decoration: const BoxDecoration(
+                              gradient: LinearGradient(colors: [
+                            Colors.transparent,
+                            Color(0xFF8E83A5)
+                          ])))),
+                  const SizedBox(width: 12),
+                  ConstrainedBox(
+                      constraints: BoxConstraints(
+                          maxWidth: (constraints.maxWidth - 24) * .6),
+                      child: GameStoreText(title, size: 23, maxLines: 2)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                      child: action != null
+                          ? Align(
+                              alignment: AlignmentDirectional.centerEnd,
+                              child: FittedBox(
+                                  fit: BoxFit.scaleDown, child: action))
+                          : Container(
+                              height: 2,
+                              decoration: const BoxDecoration(
+                                  gradient: LinearGradient(colors: [
+                                Color(0xFF8E83A5),
+                                Colors.transparent
+                              ])))),
+                ]),
+                if (subtitle.isNotEmpty &&
+                    MediaQuery.sizeOf(context).height >= 500) ...[
+                  const SizedBox(height: 5),
+                  Text(subtitle,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                          color: _muted, fontSize: 11, height: 1.5)),
+                ],
+              ]));
 
   Widget _rewardSummary(int coins, int gems, {bool centered = false}) => Wrap(
           spacing: 8,
@@ -1869,20 +2107,11 @@ class _StoreScreenState extends State<StoreScreen> {
           Color? accent,
           List<Color>? gradient,
           double padding = 20}) =>
-      Container(
+      GameStoreFrame(
           padding: EdgeInsets.all(padding),
-          decoration: BoxDecoration(
-              color: gradient == null ? _surface : null,
-              gradient: gradient == null
-                  ? null
-                  : LinearGradient(
-                      begin: Alignment.topRight,
-                      end: Alignment.bottomLeft,
-                      colors: gradient),
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(
-                  color: (accent ?? Colors.white)
-                      .withValues(alpha: accent == null ? 0.07 : 0.2))),
+          colors: gradient == null
+              ? const [Color(0xFF7012BC), Color(0xFF33116B)]
+              : [gradient.first, const Color(0xFF481174)],
           child: child);
 
   Widget _responsiveWrap(
@@ -1892,6 +2121,7 @@ class _StoreScreenState extends State<StoreScreen> {
             ((constraints.maxWidth + 12) / (minWidth + 12)).floor().clamp(1, 5);
         final width = (constraints.maxWidth - (columns - 1) * 12) / columns;
         return Wrap(
+            alignment: WrapAlignment.center,
             spacing: 12,
             runSpacing: 12,
             children: children
@@ -1918,104 +2148,129 @@ class _StoreButton extends StatelessWidget {
       required this.accent,
       required this.onPressed,
       this.loading = false,
-      this.compact = false});
+      this.compact = false,
+      this.glossy = false,
+      this.imageButton = false});
   final String label;
   final IconData icon;
   final Color accent;
   final VoidCallback? onPressed;
   final bool loading;
   final bool compact;
+  final bool glossy;
+  final bool imageButton;
 
   @override
-  Widget build(BuildContext context) => FilledButton(
-      onPressed: loading ? null : onPressed,
-      style: FilledButton.styleFrom(
-          backgroundColor: accent,
-          foregroundColor: _background,
-          disabledBackgroundColor: accent.withValues(alpha: 0.07),
-          disabledForegroundColor: _muted,
-          minimumSize: Size(double.infinity, compact ? 44 : 48),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(13))),
-      child: loading
-          ? SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(color: accent, strokeWidth: 2))
-          : Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Icon(icon, size: compact ? 16 : 18),
-              const SizedBox(width: 8),
-              Flexible(
-                  child: Text(label,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                          fontSize: compact ? 11 : 13,
-                          fontWeight: FontWeight.w800)))
-            ]));
-}
-
-class _ProductArt extends StatelessWidget {
-  const _ProductArt(
-      {required this.icon,
-      required this.accent,
-      required this.size,
-      this.bundle = false});
-  final IconData icon;
-  final Color accent;
-  final double size;
-  final bool bundle;
-
-  @override
-  Widget build(BuildContext context) => SizedBox(
-      width: size,
-      height: size,
-      child: Stack(alignment: Alignment.center, children: [
-        Container(
-            width: size * 0.92,
-            height: size * 0.92,
-            decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(colors: [
-                  accent.withValues(alpha: 0.22),
-                  accent.withValues(alpha: 0)
-                ]))),
-        Transform.rotate(
-            angle: -0.14,
-            child: Container(
-                width: size * 0.64,
-                height: size * 0.64,
-                decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(size * 0.16),
-                    gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          accent.withValues(alpha: 0.27),
-                          accent.withValues(alpha: 0.06)
-                        ]),
-                    border: Border.all(color: accent.withValues(alpha: 0.42)),
-                    boxShadow: [
-                      BoxShadow(
-                          color: accent.withValues(alpha: 0.1), blurRadius: 22)
-                    ]))),
-        Icon(icon, size: size * 0.46, color: accent),
-        Positioned(
-            top: size * 0.08,
-            right: size * 0.08,
-            child: Icon(Icons.auto_awesome_rounded,
-                size: size * 0.16, color: accent.withValues(alpha: 0.75))),
-        if (bundle) ...[
-          Positioned(
-              bottom: size * 0.08,
-              right: size * 0.03,
-              child:
-                  Icon(Icons.diamond_rounded, size: size * 0.29, color: _cyan)),
-          Positioned(
-              bottom: size * 0.13,
-              left: size * 0.04,
-              child: Icon(Icons.monetization_on_rounded,
-                  size: size * 0.31, color: _gold)),
+  Widget build(BuildContext context) {
+    final enabled = onPressed != null && !loading;
+    if (imageButton) {
+      return FilledButton(
+        onPressed: enabled ? onPressed : null,
+        style: FilledButton.styleFrom(
+            backgroundColor: Colors.transparent,
+            disabledBackgroundColor: Colors.transparent,
+            shadowColor: Colors.transparent,
+            foregroundColor: Colors.white,
+            disabledForegroundColor: const Color(0xFFE0E4D9),
+            minimumSize: Size.zero,
+            padding: EdgeInsets.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14))),
+        child: FractionallySizedBox(
+            widthFactor: .72,
+            heightFactor: .56,
+            child: loading
+                ? const Center(
+                    child: SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                            color: Colors.white, strokeWidth: 2)))
+                : FittedBox(
+                    fit: BoxFit.contain,
+                    child: GameStoreMembershipPrice(label))),
+      );
+    }
+    if (glossy) {
+      return GameStoreGlossySurface(
+        enabled: enabled,
+        child: FilledButton(
+          onPressed: enabled ? onPressed : null,
+          style: FilledButton.styleFrom(
+            backgroundColor: Colors.transparent,
+            disabledBackgroundColor: Colors.transparent,
+            foregroundColor: Colors.white,
+            disabledForegroundColor: const Color(0xFFE0E4D9),
+            shadowColor: Colors.transparent,
+            minimumSize: Size.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+          child: loading
+              ? const FittedBox(
+                  child: SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                          color: Colors.white, strokeWidth: 2)))
+              : FittedBox(
+                  fit: BoxFit.scaleDown, child: GameStoreText(label, size: 23)),
+        ),
+      );
+    }
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: enabled
+                ? const [Color(0xFF73FB12), Color(0xFF35BE0C)]
+                : const [Color(0xFF49933B), Color(0xFF2A652A)]),
+        borderRadius: BorderRadius.circular(compact ? 3 : 8),
+        border: Border.all(
+            color: enabled ? const Color(0xFF9AFF60) : const Color(0xFF5B8A52),
+            width: 1.5),
+        boxShadow: const [
+          BoxShadow(color: Color(0xFF18640D), offset: Offset(0, 3))
         ],
-      ]));
+      ),
+      child: FilledButton(
+        onPressed: enabled ? onPressed : null,
+        style: FilledButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          disabledBackgroundColor: Colors.transparent,
+          foregroundColor: Colors.white,
+          disabledForegroundColor: const Color(0xFFE0E4D9),
+          shadowColor: Colors.transparent,
+          minimumSize: Size(double.infinity, compact ? 42 : 48),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          padding: EdgeInsets.symmetric(
+              horizontal: compact ? 5 : 12, vertical: compact ? 5 : 9),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(compact ? 3 : 8)),
+        ),
+        child: loading
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                    color: Colors.white, strokeWidth: 2))
+            : Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                if (!compact) ...[
+                  Icon(icon, size: 18),
+                  const SizedBox(width: 8),
+                ],
+                Flexible(
+                    child: compact
+                        ? FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: GameStoreText(label, size: 23))
+                        : GameStoreText(label, size: 15, maxLines: 3)),
+              ]),
+      ),
+    );
+  }
 }

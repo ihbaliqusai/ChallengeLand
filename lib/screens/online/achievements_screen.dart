@@ -1386,7 +1386,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
         body: Stack(
           children: <Widget>[
             Positioned.fill(
-              child: Image.asset('assets/ui/bg_main.png', fit: BoxFit.cover),
+              child: Image.asset('assets/ui/bg_main.webp', fit: BoxFit.cover),
             ),
             Positioned.fill(
               child: DecoratedBox(

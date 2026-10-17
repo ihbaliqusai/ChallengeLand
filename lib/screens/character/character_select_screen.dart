@@ -64,7 +64,7 @@ class _CharacterSelectScreenState extends State<CharacterSelectScreen> {
     if (!appState.isCharacterUnlocked(character) &&
         character.unlock.isLevelGated) {
       _showSnack(
-          'تُفتح ${character.nameAr} عند المستوى ${character.unlock.value}',
+          'تُفتح الشخصية عند المستوى ${character.unlock.value}',
           isError: true);
       return;
     }
@@ -77,7 +77,7 @@ class _CharacterSelectScreenState extends State<CharacterSelectScreen> {
         final shortfall = character.unlock.value - balance;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(
-              'تحتاج إلى $shortfall ${isCoins ? 'عملة' : 'جوهرة'} إضافية لفتح ${character.nameAr}.'),
+              'تحتاج إلى $shortfall ${isCoins ? 'عملة' : 'جوهرة'} إضافية لفتح الشخصية.'),
           action: SnackBarAction(
               label: 'زيارة المتجر',
               onPressed: () {
@@ -101,7 +101,7 @@ class _CharacterSelectScreenState extends State<CharacterSelectScreen> {
         _showSnack('تعذّر الشراء — تحقّق من رصيدك.', isError: true);
         return;
       }
-      _showSnack('تم فتح ${character.nameAr}!');
+      _showSnack('تم فتح الشخصية!');
     }
 
     // Commit the selection.
@@ -147,10 +147,10 @@ class _CharacterSelectScreenState extends State<CharacterSelectScreen> {
                 child: _CharacterImage(character: character),
               ),
               const SizedBox(height: 12),
-              Text(
-                'فتح ${character.nameAr}',
+              const Text(
+                'فتح الشخصية',
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w900,
                   fontSize: 19,
@@ -159,7 +159,7 @@ class _CharacterSelectScreenState extends State<CharacterSelectScreen> {
             ],
           ),
           content: Text(
-            'هل تريد فتح ${character.nameAr} مقابل '
+            'هل تريد فتح هذه الشخصية مقابل '
             '${_compactNumber(character.unlock.value)} '
             '${isCoins ? 'كوين' : 'جوهرة'}؟',
             textAlign: TextAlign.center,
@@ -213,7 +213,7 @@ class _CharacterSelectScreenState extends State<CharacterSelectScreen> {
         body: Stack(
           fit: StackFit.expand,
           children: [
-            Image.asset('assets/ui/bg_main.png', fit: BoxFit.cover),
+            Image.asset('assets/ui/bg_main.webp', fit: BoxFit.cover),
             // Dark vignette + a soft wash of the focused character's color so the
             // whole screen subtly reacts to the selection.
             AnimatedContainer(
@@ -516,18 +516,6 @@ class _HeroPreview extends StatelessWidget {
                 unlocked: unlocked,
               ),
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            character.nameAr,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 27,
-              fontWeight: FontWeight.w900,
-              height: 1.05,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 8),
           _HeroStatus(
@@ -858,7 +846,7 @@ class _CharacterRailState extends State<_CharacterRail> {
     // Centered roster: the row hugs the middle when it fits the viewport, and
     // scrolls (keeping the focused character centered) when it overflows.
     return SizedBox(
-      height: 112,
+      height: 90,
       child: LayoutBuilder(
         builder: (context, constraints) {
           return SingleChildScrollView(
@@ -966,21 +954,6 @@ class _RailItem extends StatelessWidget {
                   ),
               ],
             ),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            character.nameAr,
-            style: TextStyle(
-              color: isFocused
-                  ? Colors.white
-                  : unlocked
-                      ? Colors.white70
-                      : Colors.white38,
-              fontSize: 11.5,
-              fontWeight: isFocused ? FontWeight.w900 : FontWeight.w700,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),

@@ -458,7 +458,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
           children: <Widget>[
             // ── Background art & ambient lighting ─────────────────────────
             Positioned.fill(
-              child: Image.asset('assets/ui/bg_main.png', fit: BoxFit.cover),
+              child: Image.asset('assets/ui/bg_main.webp', fit: BoxFit.cover),
             ),
             Positioned.fill(
               child: DecoratedBox(

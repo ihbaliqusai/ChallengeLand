@@ -26,6 +26,12 @@ android {
         jvmTarget = '17'
     }
 
+    androidResources {
+        // Preserve AAPT's default exclusions and keep Photoshop design sources
+        // out of APKs even if a source-sync tool copies them into assets again.
+        ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:<dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~:!*.psd'
+    }
+
     defaultConfig {
         applicationId 'com.qi7bali.landchallengeonline'
         minSdkVersion 24

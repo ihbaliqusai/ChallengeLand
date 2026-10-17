@@ -1,14 +1,19 @@
 import 'dart:async';
+import 'dart:io';
+import 'dart:ui' as ui;
 import 'package:challenge_land/core/app_state.dart';
 import 'package:challenge_land/screens/social/player_profile_screen.dart';
 import 'package:challenge_land/screens/social/social_screen.dart';
 import 'package:challenge_land/services/social_service.dart';
 import 'package:challenge_land/widgets/social_shell.dart';
+import 'package:challenge_land/widgets/social_artwork.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:clock/clock.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -158,6 +163,7 @@ void main() {
       bool settle = true,
       int initialTab = 0,
       Size size = const Size(640, 360),
+      ThemeData? theme,
       double textScale = 1}) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
@@ -167,6 +173,7 @@ void main() {
           Provider<SocialService>.value(value: service),
         ],
         child: MaterialApp(
+            theme: theme,
             builder: (context, child) => MediaQuery(
                 data: MediaQuery.of(context)
                     .copyWith(textScaler: TextScaler.linear(textScale)),
@@ -819,6 +826,83 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     unawaited(startup.cancel());
     await tester.pump();
+  });
+
+  testWidgets('export supplied social design with live fixture players',
+      (tester) async {
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await (FontLoader('Baloo')
+          ..addFont(rootBundle.load('assets/fonts/baloo.ttf')))
+        .load();
+    await (FontLoader('NotoSansArabic')
+          ..addFont(rootBundle.load('assets/fonts/NotoSansArabic.ttf')))
+        .load();
+    await (FontLoader('MaterialIcons')
+          ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf')))
+        .load();
+    final theme = ThemeData.dark(useMaterial3: true).copyWith(
+        textTheme: ThemeData.dark().textTheme.apply(
+            fontFamily: 'Baloo', fontFamilyFallback: const ['NotoSansArabic']));
+    await seedPlayer('recent', age: const Duration(minutes: 10), state: 'away');
+    await seedPlayer('another',
+        age: const Duration(minutes: 45), state: 'away');
+    await seedPlayer('earlier', age: const Duration(hours: 3), state: 'away');
+    await seedPlayer('today', age: const Duration(hours: 10), state: 'away');
+    await db
+        .doc('public_profiles/bob')
+        .update({'username': 'أحمد', 'level': 8, 'trophies': 2400});
+    await db
+        .doc('public_profiles/recent')
+        .update({'username': 'ليان', 'level': 4, 'trophies': 360});
+    await db
+        .doc('public_profiles/another')
+        .update({'username': 'سامر', 'level': 12, 'trophies': 1280});
+    await service.send('alice', 'bob', challenge: false);
+    await service.respond('bob', 'alice:bob', 'accepted', challenge: false);
+    final app = _App('alice');
+    Future<void> capture(String path) async {
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      final boundary = tester.renderObject<RenderRepaintBoundary>(
+          find.byKey(const ValueKey('social-screen-artwork')));
+      await tester.runAsync(() async {
+        final image = await boundary.toImage(pixelRatio: 1.5);
+        final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+        await File(path).writeAsBytes(bytes!.buffer.asUint8List());
+        image.dispose();
+      });
+    }
+
+    for (final size in [
+      const Size(1100, 620),
+      const Size(800, 400),
+      const Size(390, 780)
+    ]) {
+      await pump(tester, app, screen: true, size: size, theme: theme);
+      await tester.runAsync(() => precacheImage(
+          const AssetImage(socialArtworkAsset),
+          tester.element(find.byType(SocialScreen))));
+      await tester.pumpAndSettle();
+      final name = size.width == 1100
+          ? 'desktop'
+          : size.width == 800
+              ? 'landscape'
+              : 'mobile';
+      await capture('build/social-$name-ar.png');
+      if (size.width == 1100) {
+        for (final entry in {
+          'أصدقائي': 'friends',
+          'الطلبات': 'requests',
+          'الخصوصية': 'privacy'
+        }.entries) {
+          await tester.tap(find.descendant(
+              of: find.byType(TabBar), matching: find.text(entry.key)));
+          await capture('build/social-${entry.value}-ar.png');
+        }
+      }
+      await tester.pumpWidget(const SizedBox());
+    }
   });
 
   testWidgets(

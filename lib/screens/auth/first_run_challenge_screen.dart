@@ -263,7 +263,7 @@ class _FirstRunChallengeScreenState extends State<FirstRunChallengeScreen>
                 'assets/images/campaign/worlds/world_01_forest.webp',
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) => Image.asset(
-                  'assets/ui/bg_login.png',
+                  'assets/ui/bg_login.webp',
                   fit: BoxFit.cover,
                 ),
               ),

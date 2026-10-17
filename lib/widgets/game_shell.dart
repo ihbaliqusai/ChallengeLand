@@ -28,7 +28,7 @@ class GameShell extends StatelessWidget {
       body: DecoratedBox(
         decoration: const BoxDecoration(
           image: DecorationImage(
-            image: AssetImage('assets/ui/bg_main.png'),
+            image: AssetImage('assets/ui/bg_main.webp'),
             fit: BoxFit.cover,
           ),
         ),
@@ -59,7 +59,7 @@ class GameShell extends StatelessWidget {
                       opacity: 0.18,
                       child: Center(
                         child: Image.asset(
-                          'assets/ui/logo.png',
+                          'assets/ui/logo.webp',
                           width: 180,
                         ),
                       ),
@@ -74,7 +74,7 @@ class GameShell extends StatelessWidget {
                     child: Opacity(
                       opacity: 0.14,
                       child: Image.asset(
-                        'assets/ui/person_welcome.png',
+                        'assets/ui/person_welcome.webp',
                         height: 250,
                         fit: BoxFit.contain,
                       ),

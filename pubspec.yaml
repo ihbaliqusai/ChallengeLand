@@ -11,7 +11,6 @@ dependencies:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
-  cupertino_icons: ^1.0.8
   firebase_core: ^3.15.2
   firebase_auth: ^5.6.1
   cloud_firestore: ^5.6.10
@@ -44,23 +43,44 @@ flutter:
   uses-material-design: true
   assets:
     - assets/questions.json
-    - assets/ui/bg_main.png
-    - assets/ui/bg_login.png
-    - assets/ui/person_01.png
-    - assets/ui/logo.png
+    - assets/ui/bg_main.webp
+    - assets/ui/bg_login.webp
+    - assets/ui/logo.webp
     - assets/ui/google.png
     - assets/ui/user.png
-    - assets/ui/person_welcome.png
-    - assets/ui/ranking.png
-    - assets/ui/home.png
-    - assets/ui/share.png
+    - assets/ui/person_welcome.webp
+    - assets/ui/home_menu.webp
+    - assets/ui/game_modes.webp
+    - assets/ui/weekly_reward.webp
     - assets/ui/rate.png
-    - assets/ui/dollar.png
     - assets/ui/box1.png
-    - assets/ui/box2.png
-    - assets/ui/box3.png
-    - assets/ui/box4.png
-    - assets/ui/splash_transparent.webp
+    - assets/store/champions_club_preview.webp
+    - assets/store/character_fahad.webp
+    - assets/store/character_talia.webp
+    - assets/store/coins_100000.webp
+    - assets/store/coins_25000.webp
+    - assets/store/coins_5000.webp
+    - assets/store/gems_1200.webp
+    - assets/store/gems_500.webp
+    - assets/store/gems_80.webp
+    - assets/store/membership.webp
+    - assets/store/navigation.webp
+    - assets/store/offer_champion.webp
+    - assets/store/offer_explorer.webp
+    - assets/store/offer_starter.webp
+    - assets/store/return_daily.webp
+    - assets/store/return_download.webp
+    - assets/store/return_watch.webp
+    - assets/store/reward_daily.webp
+    - assets/store/reward_watch.webp
+    - assets/social/friends_challenges.jfif
+    - assets/home/campaign.webp
+    - assets/home/coins.webp
+    - assets/home/friends.webp
+    - assets/home/gems.webp
+    - assets/home/menu.webp
+    - assets/home/modes.webp
+    - assets/home/store.webp
     - assets/ui/splash_poster.webp
     - assets/ui/million_challenge_logo.png
     - assets/images/campaign/worlds/

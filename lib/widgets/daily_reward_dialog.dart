@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../core/app_settings.dart';
 import '../core/app_state.dart';
 import 'currency_reward_overlay.dart';
+import 'weekly_reward_artwork.dart';
 
 /// A single claim action with a receipt-backed reveal and a weekly roadmap.
 class DailyRewardDialog extends StatefulWidget {
@@ -44,7 +45,7 @@ class DailyRewardDialog extends StatefulWidget {
 
 class _DailyRewardDialogState extends State<DailyRewardDialog>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
-  static const _gold = Color(0xFFF8CE77);
+  static const _gold = weeklyRewardGold;
   late final AnimationController _reveal;
   Timer? _timer;
   bool _loading = true;
@@ -183,101 +184,124 @@ class _DailyRewardDialogState extends State<DailyRewardDialog>
     final completed = (_day - weekStart + (state.claimedToday ? 1 : 0))
         .clamp(0, weekEnd - weekStart + 1);
     final wide = MediaQuery.sizeOf(context).width >= 650;
+    final compact = wide && MediaQuery.sizeOf(context).height < 500;
 
     return PopScope(
       canPop: !_claiming,
       child: Directionality(
         textDirection: TextDirection.rtl,
         child: Dialog(
-          backgroundColor: const Color(0xFF101C32),
+          backgroundColor: Colors.transparent,
           insetPadding:
               const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24),
-              side: BorderSide(color: _gold.withValues(alpha: 0.35))),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 760),
-            child: SingleChildScrollView(
-              padding: EdgeInsets.all(wide ? 24 : 18),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(children: [
-                    const Icon(Icons.auto_awesome_rounded,
-                        color: _gold, size: 24),
-                    const SizedBox(width: 10),
-                    const Expanded(
-                        child: Text('صندوق الأسبوع',
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 23,
-                                fontWeight: FontWeight.w900))),
-                    IconButton(
-                        tooltip: 'إغلاق',
-                        onPressed: _claiming ? null : _close,
-                        icon: const Icon(Icons.close_rounded,
-                            color: Colors.white70)),
-                  ]),
-                  Text(
-                      'الأسبوع ${((_day - 1) ~/ 7) + 1} • الأيام $weekStart–$weekEnd من سلسلة 30 يومًا',
-                      style:
-                          const TextStyle(color: Colors.white60, fontSize: 12)),
-                  const SizedBox(height: 18),
-                  if (wide)
-                    Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Expanded(child: _hero(claimed)),
-                          const SizedBox(width: 24),
-                          Expanded(child: _details(reward, claimed)),
-                        ])
-                  else ...[_hero(claimed), _details(reward, claimed)],
-                  const SizedBox(height: 20),
-                  Row(children: [
-                    const Expanded(
-                        child: Text('مسار هذا الأسبوع',
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w800))),
-                    Text('$completed / ${weekEnd - weekStart + 1}',
-                        style: const TextStyle(
-                            color: _gold, fontWeight: FontWeight.w800)),
-                  ]),
-                  const SizedBox(height: 8),
-                  ClipRRect(
-                      borderRadius: BorderRadius.circular(6),
-                      child: LinearProgressIndicator(
-                          value: completed / (weekEnd - weekStart + 1),
-                          minHeight: 5,
-                          color: _gold,
-                          backgroundColor: Colors.white10)),
-                  const SizedBox(height: 12),
-                  LayoutBuilder(builder: (context, constraints) {
-                    final count = weekEnd - weekStart + 1;
-                    final columns =
-                        constraints.maxWidth < 370 ? math.min(count, 4) : count;
-                    return Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: List.generate(count, (index) {
-                          final day = weekStart + index;
-                          return SizedBox(
-                              width:
-                                  (constraints.maxWidth - (columns - 1) * 6) /
-                                      columns,
-                              child: _dayTile(day, state.claimedToday));
-                        }));
-                  }),
-                  const SizedBox(height: 14),
-                  const Text(
-                      'استلم مكافأة واحدة كل يوم. تتجدد عند منتصف الليل بتوقيت جهازك. تفويت يوم يعيد السلسلة إلى اليوم الأول.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                          color: Colors.white54, fontSize: 11, height: 1.6)),
-                ],
-              ),
-            ),
+            constraints: const BoxConstraints(maxWidth: 1040),
+            child: RepaintBoundary(
+                key: const ValueKey('weekly-reward-artwork'),
+                child: WeeklyRewardFrame(
+                    child: SingleChildScrollView(
+                  padding: EdgeInsets.all(compact
+                      ? 12
+                      : wide
+                          ? 20
+                          : 16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                                child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                  Text('صندوق الأسبوع',
+                                      style: TextStyle(
+                                          color: _gold,
+                                          fontSize: compact ? 22 : 26,
+                                          height: 1.2,
+                                          fontWeight: FontWeight.w900,
+                                          shadows: const [
+                                            Shadow(
+                                                color: Color(0xFF754218),
+                                                offset: Offset(0, 2),
+                                                blurRadius: 2)
+                                          ])),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                      'الأسبوع ${((_day - 1) ~/ 7) + 1} • الأيام $weekStart–$weekEnd من سلسلة 30 يومًا',
+                                      style: TextStyle(
+                                          color: const Color(0xFFD2C4E7),
+                                          height: 1.25,
+                                          fontSize: compact ? 11 : 12)),
+                                ])),
+                            const SizedBox(width: 12),
+                            WeeklyRewardClose(
+                                onPressed: _claiming ? null : _close),
+                          ]),
+                      SizedBox(height: compact ? 8 : 12),
+                      if (wide)
+                        Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Expanded(child: _hero(claimed)),
+                              const SizedBox(width: 24),
+                              Expanded(child: _details(reward, claimed)),
+                            ])
+                      else ...[_hero(claimed), _details(reward, claimed)],
+                      SizedBox(height: compact ? 8 : 14),
+                      Row(children: [
+                        const Expanded(
+                            child: Text('مسار هذا الأسبوع',
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w800))),
+                        Text('$completed / ${weekEnd - weekStart + 1}',
+                            style: const TextStyle(
+                                color: _gold, fontWeight: FontWeight.w800)),
+                      ]),
+                      SizedBox(height: compact ? 4 : 8),
+                      ClipRRect(
+                          borderRadius: BorderRadius.circular(6),
+                          child: LinearProgressIndicator(
+                              value: completed / (weekEnd - weekStart + 1),
+                              minHeight: 5,
+                              color: _gold,
+                              backgroundColor: Colors.white10)),
+                      SizedBox(height: compact ? 8 : 12),
+                      LayoutBuilder(builder: (context, constraints) {
+                        final count = weekEnd - weekStart + 1;
+                        final columns = constraints.maxWidth < 420
+                            ? math.min(count, 4)
+                            : count;
+                        return Wrap(
+                            alignment: WrapAlignment.center,
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: List.generate(count, (index) {
+                              final day = weekStart + index;
+                              return SizedBox(
+                                  width: math.min(
+                                      140.0,
+                                      (constraints.maxWidth -
+                                              (columns - 1) * 6) /
+                                          columns),
+                                  child: _dayTile(day, state.claimedToday));
+                            }));
+                      }),
+                      SizedBox(height: compact ? 8 : 14),
+                      const Text(
+                          'استلم مكافأة واحدة كل يوم. تتجدد عند منتصف الليل بتوقيت جهازك. تفويت يوم يعيد السلسلة إلى اليوم الأول.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                              color: Colors.white54,
+                              fontSize: 11,
+                              height: 1.6)),
+                    ],
+                  ),
+                ))),
           ),
         ),
       ),
@@ -286,23 +310,9 @@ class _DailyRewardDialogState extends State<DailyRewardDialog>
 
   Widget _hero(bool claimed) {
     final open = _revealed || claimed;
-    final asset = open
-        ? 'box4'
-        : (_day % 7 == 0 || _day == 30
-            ? 'box3'
-            : (_day % 7 >= 4 ? 'box2' : 'box1'));
     return SizedBox(
-        height: 172,
+        height: MediaQuery.sizeOf(context).height < 500 ? 114 : 176,
         child: Stack(alignment: Alignment.center, children: [
-          Container(
-              width: 170,
-              height: 170,
-              decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(colors: [
-                    _gold.withValues(alpha: 0.23),
-                    Colors.transparent
-                  ]))),
           AnimatedBuilder(
               animation: _reveal,
               builder: (_, child) => Transform.scale(
@@ -310,8 +320,7 @@ class _DailyRewardDialogState extends State<DailyRewardDialog>
                       ? 0.9 + Curves.easeOutBack.transform(_reveal.value) * 0.1
                       : 1,
                   child: child),
-              child: Image.asset('assets/ui/$asset.png',
-                  width: 158, height: 150, fit: BoxFit.contain)),
+              child: WeeklyRewardChest(open: open)),
           if (_claiming)
             const Positioned(
                 bottom: 4,
@@ -324,6 +333,8 @@ class _DailyRewardDialogState extends State<DailyRewardDialog>
   }
 
   Widget _details(Map<String, int> reward, bool claimed) {
+    final compact = MediaQuery.sizeOf(context).width >= 650 &&
+        MediaQuery.sizeOf(context).height < 500;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Text(
           _revealed
@@ -335,9 +346,10 @@ class _DailyRewardDialogState extends State<DailyRewardDialog>
           style: TextStyle(
               color:
                   _revealed || claimed ? const Color(0xFF72DDB1) : Colors.white,
-              fontSize: 18,
+              fontSize: compact ? 16 : 18,
+              height: 1.2,
               fontWeight: FontWeight.w900)),
-      const SizedBox(height: 12),
+      SizedBox(height: compact ? 6 : 12),
       Row(children: [
         Expanded(
             child: _currency(Icons.monetization_on_rounded,
@@ -358,7 +370,7 @@ class _DailyRewardDialogState extends State<DailyRewardDialog>
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                         color: Color(0xFFFFB2AA), fontSize: 12)))),
-      const SizedBox(height: 14),
+      SizedBox(height: compact ? 8 : 14),
       if (claimed) ...[
         const Text('الصندوق التالي خلال',
             textAlign: TextAlign.center,
@@ -369,59 +381,57 @@ class _DailyRewardDialogState extends State<DailyRewardDialog>
             style: const TextStyle(
                 color: _gold, fontSize: 26, fontWeight: FontWeight.w900)),
       ] else
-        SizedBox(
-            height: 48,
-            child: FilledButton.icon(
-              onPressed: _loading || _claiming
-                  ? null
+        WeeklyRewardAction(
+          onPressed: _loading || _claiming
+              ? null
+              : _revealed
+                  ? _close
+                  : _claim,
+          icon: _revealed
+              ? Icons.check_circle_rounded
+              : Icons.inventory_2_rounded,
+          label: _loading
+              ? 'جارٍ تحميل الصندوق…'
+              : _claiming
+                  ? 'جارٍ استلام المكافأة…'
                   : _revealed
-                      ? _close
-                      : _claim,
-              style: FilledButton.styleFrom(
-                  backgroundColor: _gold,
-                  foregroundColor: const Color(0xFF101C32),
-                  disabledBackgroundColor: _gold.withValues(alpha: 0.16),
-                  disabledForegroundColor: Colors.white60,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14))),
-              icon: Icon(_revealed
-                  ? Icons.check_circle_rounded
-                  : Icons.inventory_2_rounded),
-              label: Text(
-                  _loading
-                      ? 'جارٍ تحميل الصندوق…'
-                      : _claiming
-                          ? 'جارٍ استلام المكافأة…'
-                          : _revealed
-                              ? 'رائع، متابعة'
-                              : _error != null
-                                  ? 'إعادة المحاولة'
-                                  : 'افتح واستلم',
-                  style: const TextStyle(fontWeight: FontWeight.w900)),
-            )),
+                      ? 'رائع، متابعة'
+                      : _error != null
+                          ? 'إعادة المحاولة'
+                          : 'افتح واستلم',
+        ),
     ]);
   }
 
-  Widget _currency(IconData icon, String value, String label, Color color) =>
-      Container(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-        decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: color.withValues(alpha: 0.2))),
-        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Icon(icon, color: color, size: 22),
-          const SizedBox(width: 6),
-          Flexible(
-              child: Text('$value $label',
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 16)))
-        ]),
-      );
+  Widget _currency(IconData icon, String value, String label, Color color) {
+    final compact = MediaQuery.sizeOf(context).width >= 650 &&
+        MediaQuery.sizeOf(context).height < 500;
+    return Container(
+      padding: EdgeInsets.symmetric(vertical: compact ? 5 : 10, horizontal: 8),
+      decoration: BoxDecoration(
+          gradient: const LinearGradient(
+              colors: [Color(0xFF1A263F), Color(0xFF211B38)]),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+              color: const Color(0xFF8B805E).withValues(alpha: .65),
+              width: 1.5)),
+      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Icon(icon, color: color, size: 22),
+        const SizedBox(width: 6),
+        Flexible(
+            child: Text('$value $label',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    height: 1.2,
+                    fontSize: compact ? 14 : 16)))
+      ]),
+    );
+  }
 
   Widget _dayTile(int day, bool claimedToday) {
+    final compact = MediaQuery.sizeOf(context).width >= 650 &&
+        MediaQuery.sizeOf(context).height < 500;
     final claimed = day < _day || (day == _day && claimedToday);
     final current = day == _day;
     final milestone = day % 7 == 0 || day == 30;
@@ -435,18 +445,36 @@ class _DailyRewardDialogState extends State<DailyRewardDialog>
         label:
             'اليوم $day، ${reward['coins']} عملة، ${reward['gems']} جوهرة، ${claimed ? 'تم الاستلام' : current ? 'متاح اليوم' : 'قادم'}',
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 3),
+          padding:
+              EdgeInsets.symmetric(vertical: compact ? 6 : 10, horizontal: 3),
           decoration: BoxDecoration(
-              color: accent.withValues(alpha: current ? 0.13 : 0.05),
-              borderRadius: BorderRadius.circular(12),
+              gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    accent.withValues(alpha: current ? .22 : .12),
+                    const Color(0xCC18263D)
+                  ]),
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: current
+                  ? [
+                      BoxShadow(
+                          color: _gold.withValues(alpha: .3), blurRadius: 10)
+                    ]
+                  : null,
               border: Border.all(
-                  color: accent.withValues(alpha: current ? 0.9 : 0.22),
-                  width: current ? 1.5 : 1)),
+                  color: accent.withValues(alpha: current ? .95 : .6),
+                  width: current ? 2 : 1.5)),
           child: Column(children: [
-            Text('اليوم $day',
-                style: TextStyle(
-                    color: accent, fontSize: 10, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 6),
+            FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text('اليوم $day',
+                    style: TextStyle(
+                        color: accent,
+                        fontSize: compact ? 11 : 13,
+                        height: 1.2,
+                        fontWeight: FontWeight.w900))),
+            SizedBox(height: compact ? 4 : 6),
             Icon(
                 claimed
                     ? Icons.check_circle_rounded
@@ -456,15 +484,23 @@ class _DailyRewardDialogState extends State<DailyRewardDialog>
                             ? Icons.inventory_2_rounded
                             : Icons.lock_outline_rounded,
                 color: accent,
-                size: 22),
-            const SizedBox(height: 6),
-            Text('${reward['coins']}',
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w900)),
-            Text('${reward['gems']} ◆',
-                style: const TextStyle(color: Color(0xFF7DD9FF), fontSize: 10)),
+                size: compact ? 22 : 28),
+            SizedBox(height: compact ? 4 : 6),
+            FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text('${reward['coins']}',
+                    style: TextStyle(
+                        color: Colors.white,
+                        height: 1.2,
+                        fontSize: compact ? 13 : 15,
+                        fontWeight: FontWeight.w900))),
+            FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text('${reward['gems']} ◆',
+                    style: TextStyle(
+                        color: const Color(0xFF7DD9FF),
+                        height: 1.2,
+                        fontSize: compact ? 10 : 12))),
           ]),
         ));
   }

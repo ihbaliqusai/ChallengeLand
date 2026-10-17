@@ -14,6 +14,7 @@ class HomeQuickAction extends StatelessWidget {
     this.showGreenDot = false,
     this.isAvailable = true,
     this.animationPhase = 0,
+    this.asset,
   });
 
   final String label;
@@ -24,6 +25,7 @@ class HomeQuickAction extends StatelessWidget {
   final bool showGreenDot;
   final bool isAvailable;
   final double animationPhase;
+  final String? asset;
 
   @override
   Widget build(BuildContext context) {
@@ -44,24 +46,27 @@ class HomeQuickAction extends StatelessWidget {
             child: Stack(
               children: [
                 DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [Color(0xFF122344), Color(0xFF081329)],
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: color.withValues(alpha: isAvailable ? 0.38 : 0.18),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: color.withValues(alpha: 0.10),
-                        blurRadius: 14,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
-                  ),
+                  decoration: asset == null
+                      ? BoxDecoration(
+                          gradient: const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [Color(0xFF122344), Color(0xFF081329)],
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: color.withValues(
+                                alpha: isAvailable ? 0.38 : 0.18),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: color.withValues(alpha: 0.10),
+                              blurRadius: 14,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        )
+                      : const BoxDecoration(),
                   child: IconButton(
                     onPressed: onPressed,
                     padding: EdgeInsets.zero,
@@ -74,12 +79,21 @@ class HomeQuickAction extends StatelessWidget {
                     ),
                     icon: AnimatedBuilder(
                       animation: animation,
-                      child: Icon(
-                        icon,
-                        color:
-                            isAvailable ? color : color.withValues(alpha: 0.52),
-                        size: 28,
-                      ),
+                      child: asset != null
+                          ? Opacity(
+                              opacity: isAvailable ? 1 : .65,
+                              child: Image.asset(asset!,
+                                  width: 52,
+                                  height: 52,
+                                  fit: BoxFit.contain,
+                                  excludeFromSemantics: true))
+                          : Icon(
+                              icon,
+                              color: isAvailable
+                                  ? color
+                                  : color.withValues(alpha: 0.52),
+                              size: 28,
+                            ),
                       builder: (context, child) {
                         final motion = reduceMotion
                             ? 0.0
@@ -98,8 +112,8 @@ class HomeQuickAction extends StatelessWidget {
                 ),
                 if (showGreenDot)
                   Positioned(
-                    top: 3,
-                    right: 3,
+                    top: asset != null ? 8 : 3,
+                    right: asset != null ? 9 : 3,
                     child: IgnorePointer(
                       child: Container(
                         key: const ValueKey('home-friends-green-dot'),

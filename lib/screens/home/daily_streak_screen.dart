@@ -79,7 +79,7 @@ class _DailyStreakScreenState extends State<DailyStreakScreen>
         body: Stack(
           children: [
             Positioned.fill(
-              child: Image.asset('assets/ui/bg_main.png', fit: BoxFit.cover),
+              child: Image.asset('assets/ui/bg_main.webp', fit: BoxFit.cover),
             ),
             Positioned.fill(
               child: DecoratedBox(

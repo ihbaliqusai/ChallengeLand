@@ -77,7 +77,7 @@ class _OfflineWelcomeScreenState extends State<OfflineWelcomeScreen>
       body: DecoratedBox(
         decoration: const BoxDecoration(
           image: DecorationImage(
-            image: AssetImage('assets/ui/bg_login.png'),
+            image: AssetImage('assets/ui/bg_login.webp'),
             fit: BoxFit.cover,
           ),
         ),

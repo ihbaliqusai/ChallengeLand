@@ -778,7 +778,7 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
         body: DecoratedBox(
           decoration: const BoxDecoration(
             image: DecorationImage(
-              image: AssetImage('assets/ui/bg_main.png'),
+              image: AssetImage('assets/ui/bg_main.webp'),
               fit: BoxFit.cover,
             ),
           ),

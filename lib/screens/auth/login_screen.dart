@@ -363,7 +363,7 @@ class _LoginScreenState extends State<LoginScreen>
             children: [
               // ── 1. Cosmic Background Image ──────────────────────────
               const Image(
-                image: AssetImage('assets/ui/bg_login.png'),
+                image: AssetImage('assets/ui/bg_login.webp'),
                 fit: BoxFit.cover,
               ),
 
@@ -592,7 +592,7 @@ class _LoginScreenState extends State<LoginScreen>
 
     // Fallback to static mascot image
     return Image.asset(
-      'assets/ui/person_welcome.png',
+      'assets/ui/person_welcome.webp',
       fit: BoxFit.contain,
     );
   }
