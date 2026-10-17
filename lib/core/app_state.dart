@@ -47,6 +47,11 @@ class AppState extends ChangeNotifier {
   StreamSubscription<User?>? _authSubscription;
 
   User? user;
+  bool authStateLoaded = false;
+
+  /// The initial route can be chosen without flashing login or character setup.
+  bool get isAccountReady =>
+      authStateLoaded && (user == null || characterStateLoaded);
   bool isBusy = false;
   String? error;
   int coins = 0;
@@ -650,6 +655,7 @@ class AppState extends ChangeNotifier {
 
   Future<void> _onAuthChanged(User? nextUser) async {
     final generation = ++_authGeneration;
+    authStateLoaded = true;
     final previousUser = user;
 
     final isDifferentUser = previousUser != null &&

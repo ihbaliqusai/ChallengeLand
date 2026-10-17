@@ -6,12 +6,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('splash tolerates the zero size before Android measures its window',
+  testWidgets(
+      'splash tolerates the zero size before Android measures its window',
       (tester) async {
     await tester.pumpWidget(const MaterialApp(
       home: MediaQuery(
         data: MediaQueryData(size: Size.zero),
-        child: SplashScreen(autoNavigate: false),
+        child: SplashScreen(),
       ),
     ));
     expect(tester.takeException(), isNull);

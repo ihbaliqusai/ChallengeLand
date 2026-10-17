@@ -12,6 +12,7 @@ import 'package:provider/provider.dart';
 import 'core/app_state.dart';
 import 'core/app_settings.dart';
 import 'core/campaign_navigation.dart';
+import 'screens/auth/auth_gate.dart';
 import 'screens/splash/splash_screen.dart';
 import 'services/auth_service.dart';
 import 'services/native_bridge_service.dart';
@@ -32,7 +33,10 @@ Future<void> main() async {
     initialize: _initializeApp,
     loading: const MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: SplashScreen(autoNavigate: false),
+      home: Scaffold(
+        backgroundColor: Colors.black,
+        body: SplashPoster(),
+      ),
     ),
     ready: ChallengeLandApp(adService: adService),
   ));
@@ -73,23 +77,27 @@ class ChallengeLandApp extends StatefulWidget {
 }
 
 class _ChallengeLandAppState extends State<ChallengeLandApp> {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
+  bool _startupComplete = false;
+
+  void _onStartupReady() {
+    if (_startupComplete) return;
+    setState(() => _startupComplete = true);
+    unawaited(_initializeAds());
+  }
+
+  Future<void> _initializeAds() async {
+    if (!mounted) return;
+    try {
+      await widget.adService.initialize();
       if (!mounted) return;
-      try {
-        await widget.adService.initialize();
-        if (!mounted) return;
-        if (kDebugMode && const bool.fromEnvironment('ADMOB_OPEN_INSPECTOR')) {
-          MobileAds.instance.openAdInspector((error) {
-            if (error != null) debugPrint('[AdMob] Inspector failed: $error');
-          });
-        }
-      } catch (error) {
-        debugPrint('[AdMob] Initialization failed: $error');
+      if (kDebugMode && const bool.fromEnvironment('ADMOB_OPEN_INSPECTOR')) {
+        MobileAds.instance.openAdInspector((error) {
+          if (error != null) debugPrint('[AdMob] Inspector failed: $error');
+        });
       }
-    });
+    } catch (error) {
+      debugPrint('[AdMob] Initialization failed: $error');
+    }
   }
 
   @override
@@ -217,7 +225,10 @@ class _ChallengeLandAppState extends State<ChallengeLandApp> {
               ),
             ),
           ),
-          home: const _ConnectivityWrapper(child: SplashScreen()),
+          home: _ConnectivityWrapper(
+            showBanner: _startupComplete,
+            child: AuthGate(onReady: _onStartupReady),
+          ),
         ),
       ),
     );
@@ -227,8 +238,9 @@ class _ChallengeLandAppState extends State<ChallengeLandApp> {
 // ─── Connectivity banner ───────────────────────────────────────────────────────
 
 class _ConnectivityWrapper extends StatefulWidget {
-  const _ConnectivityWrapper({required this.child});
+  const _ConnectivityWrapper({required this.child, this.showBanner = true});
   final Widget child;
+  final bool showBanner;
 
   @override
   State<_ConnectivityWrapper> createState() => _ConnectivityWrapperState();
@@ -272,9 +284,9 @@ class _ConnectivityWrapperState extends State<_ConnectivityWrapper> {
       children: [
         AnimatedContainer(
           duration: const Duration(milliseconds: 350),
-          height: _isOffline ? 38 : 0,
+          height: _isOffline && widget.showBanner ? 38 : 0,
           color: const Color(0xFFDC2626),
-          child: _isOffline
+          child: _isOffline && widget.showBanner
               ? const Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [

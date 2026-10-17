@@ -350,6 +350,30 @@ class _Harness {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test('startup routing waits for the first authentication result', () async {
+    final h = _Harness();
+    addTearDown(h.close);
+    expect(h.state.authStateLoaded, isFalse);
+    expect(h.state.isAccountReady, isFalse);
+    h.auth.changes.add(null);
+    await _until(() => h.state.isAccountReady);
+    expect(h.state.user, isNull);
+    expect(h.state.characterStateLoaded, isFalse);
+  });
+
+  test('restored account becomes ready after account hydration', () async {
+    final h = _Harness();
+    addTearDown(h.close);
+    await h.seed('alice');
+    h.state;
+    h.auth.emit('alice');
+    expect(h.state.authStateLoaded, isTrue);
+    expect(h.state.isAccountReady, isFalse);
+    await _until(() => h.state.isAccountReady);
+    expect(h.state.characterStateLoaded, isTrue);
+    expect(h.state.user?.uid, 'alice');
+  });
+
   test(
       'achievement claim all stays claimed after reopening and a stale device read',
       () async {

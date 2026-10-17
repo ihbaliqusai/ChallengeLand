@@ -46,7 +46,6 @@ class _LoginScreenState extends State<LoginScreen>
   // ── Animation Controllers ───────────────────────────────────────
   late final AnimationController _entranceCtrl;
   late final AnimationController _particlesCtrl;
-  late final AnimationController _mascotFloatCtrl;
   late final AnimationController _glowPulseCtrl;
   late final AnimationController _mascotTapCtrl;
 
@@ -95,12 +94,6 @@ class _LoginScreenState extends State<LoginScreen>
       duration: const Duration(seconds: 10),
     )..repeat();
 
-    // Mascot gentle float & breathing
-    _mascotFloatCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2600),
-    )..repeat(reverse: true);
-
     // Glow pulse for accents
     _glowPulseCtrl = AnimationController(
       vsync: this,
@@ -146,7 +139,6 @@ class _LoginScreenState extends State<LoginScreen>
     _usernameController.dispose();
     _entranceCtrl.dispose();
     _particlesCtrl.dispose();
-    _mascotFloatCtrl.dispose();
     _glowPulseCtrl.dispose();
     _mascotTapCtrl.dispose();
     super.dispose();
@@ -502,16 +494,6 @@ class _LoginScreenState extends State<LoginScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Logo & Title
-                Center(
-                  child: Image.asset(
-                    'assets/ui/logo.png',
-                    height: 56,
-                    fit: BoxFit.contain,
-                  ),
-                ),
-                const SizedBox(height: 8),
-
                 // Mascot speech bubble
                 _buildSpeechBubble(compact: true),
                 const SizedBox(height: 12),
@@ -533,25 +515,6 @@ class _LoginScreenState extends State<LoginScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // Top Game Logo & Tagline
-        AnimatedBuilder(
-          animation: _mascotFloatCtrl,
-          builder: (_, child) {
-            final dy = math.sin(_mascotFloatCtrl.value * math.pi * 2) * 3;
-            return Transform.translate(
-              offset: Offset(0, dy),
-              child: child,
-            );
-          },
-          child: Image.asset(
-            'assets/ui/logo.png',
-            height: 64,
-            fit: BoxFit.contain,
-          ),
-        ),
-
-        const SizedBox(height: 4),
-
         // Live Server & League Status Pills
         Wrap(
           alignment: WrapAlignment.center,

@@ -564,7 +564,12 @@ class NativeBridgeService {
       },
     );
     if (result == null) return {'coins': 0, 'gems': 0};
-    return result.map((k, v) => MapEntry(k, (v as num).toInt()));
+    // Android also returns a boolean `granted` receipt. Only balances are
+    // numeric; converting the receipt throws after the reward was paid.
+    return {
+      'coins': (result['coins'] as num).toInt(),
+      'gems': (result['gems'] as num).toInt(),
+    };
   }
 
   Future<Map<String, int>> setUserCurrency({
