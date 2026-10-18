@@ -36,8 +36,7 @@ flutter_launcher_icons:
   android: true
   ios: false
   image_path: "assets/icon/icon.png"
-  adaptive_icon_background: "assets/icon/background.png"
-  adaptive_icon_foreground: "assets/icon/foreground.png"
+  # Keep the complete square artwork; adaptive icons allow launcher masking.
 
 flutter:
   uses-material-design: true
@@ -75,6 +74,8 @@ flutter:
     - assets/store/reward_watch.webp
     - assets/social/friends_challenges.jfif
     - assets/home/campaign.webp
+    - assets/home/lobby_background.jfif
+    - assets/home/level_badge.png
     - assets/home/coins.webp
     - assets/home/friends.webp
     - assets/home/gems.webp

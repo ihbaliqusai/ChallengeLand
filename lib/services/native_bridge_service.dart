@@ -1,8 +1,11 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 
 import 'package:flutter/services.dart';
 
 class NativeBridgeService {
+  bool get supportsAnimatedCharacters =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
   static const MethodChannel _channel = MethodChannel('millionaire/native');
 
   NativeBridgeService() {
@@ -696,6 +699,18 @@ class NativeBridgeService {
       return {'selected': selected, 'unlocked': unlocked};
     } on MissingPluginException {
       return {'selected': -1, 'unlocked': <int>[]};
+    }
+  }
+
+  /// Reuses the native game's full-body artwork without bundling another copy.
+  Future<Uint8List?> getCharacterArtwork(int index) async {
+    try {
+      return await _channel
+          .invokeMethod<Uint8List>('getCharacterArtwork', {'index': index});
+    } on PlatformException {
+      return null;
+    } on MissingPluginException {
+      return null;
     }
   }
 

@@ -1,7 +1,10 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:challenge_land/core/app_state.dart';
+import 'package:challenge_land/models/game_character.dart';
+import 'package:challenge_land/widgets/home_character_artwork.dart';
 import 'package:challenge_land/screens/home/home_screen.dart';
 import 'package:challenge_land/services/cross_promo_service.dart';
 import 'package:challenge_land/services/native_bridge_service.dart';
@@ -25,6 +28,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 class _HomeState extends ChangeNotifier implements AppState {
   _HomeState({this.online = false});
   final bool online;
+  int characterIndex = 1;
+  @override
+  GameCharacter get selectedCharacter =>
+      CharacterCatalog.byIndex(characterIndex);
+
+  void changeCharacter(int index) {
+    characterIndex = index;
+    notifyListeners();
+  }
+
   int mainChallengeRequests = 0;
   int offlineRequests = 0;
   @override
@@ -71,6 +84,17 @@ class _HomeState extends ChangeNotifier implements AppState {
 
 class _NativeBridge extends NativeBridgeService {
   @override
+  bool get supportsAnimatedCharacters => false;
+  final artworkRequests = <int>[];
+  @override
+  Future<Uint8List?> getCharacterArtwork(int index) async {
+    artworkRequests.add(index);
+    final id = CharacterCatalog.byIndex(index).id;
+    return File('android/app/src/main/res/drawable/contestant_$id.png')
+        .readAsBytesSync();
+  }
+
+  @override
   Future<Map<String, dynamic>> getAchievements() async => {};
   @override
   Future<String?> consumeLaunchAction() async => null;
@@ -90,6 +114,17 @@ class _Promo extends ChangeNotifier implements CrossPromoService {
   Future<bool> checkRewardClaimed({String? uid}) async => false;
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _AnimatedNativeBridge extends _NativeBridge {
+  @override
+  bool get supportsAnimatedCharacters => true;
+}
+
+class _DelayedNativeBridge extends _NativeBridge {
+  final artwork = Completer<Uint8List?>();
+  @override
+  Future<Uint8List?> getCharacterArtwork(int index) => artwork.future;
 }
 
 Widget _shortcut({
@@ -120,6 +155,147 @@ Widget _shortcut({
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  testWidgets('delayed character loading never enlarges the face portrait',
+      (tester) async {
+    final character = CharacterCatalog.byId('mahmoud')!;
+    final bounds = find.byType(HomeCharacterArtwork);
+    final portraits = find.byWidgetPredicate((widget) =>
+        widget is Image &&
+        widget.image is AssetImage &&
+        (widget.image as AssetImage)
+            .assetName
+            .startsWith('assets/characters/'));
+    for (final succeeds in [true, false]) {
+      final bridge = _DelayedNativeBridge();
+      await tester.pumpWidget(Provider<NativeBridgeService>.value(
+        value: bridge,
+        child: MaterialApp(
+          home: Center(
+            child: SizedBox(
+              width: 200,
+              height: 300,
+              child: HomeCharacterArtwork(
+                  key: ValueKey(succeeds), character: character),
+            ),
+          ),
+        ),
+      ));
+      final initialBounds = tester.getRect(bounds);
+      expect(initialBounds.size, const Size(200, 300));
+      await tester.pump(const Duration(seconds: 1));
+      expect(portraits, findsNothing);
+      expect(find.byKey(const ValueKey('home-character-placeholder')),
+          findsOneWidget);
+      bridge.artwork.complete(succeeds
+          ? File('android/app/src/main/res/drawable/contestant_mahmoud.png')
+              .readAsBytesSync()
+          : null);
+      await tester.pump();
+      await tester.pump();
+      expect(portraits, findsNothing);
+      expect(tester.getRect(bounds), initialBounds);
+      expect(find.byKey(const ValueKey('home-character-mahmoud')),
+          succeeds ? findsOneWidget : findsNothing);
+      expect(tester.takeException(), isNull);
+    }
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets(
+      'native character loops pause off route and change with selection',
+      (tester) async {
+    final messenger = tester.binding.defaultBinaryMessenger;
+    final created = <Map<Object?, Object?>>[];
+    final pauseCalls = <bool>[];
+    final disposed = <int>[];
+    messenger.setMockMethodCallHandler(SystemChannels.platform_views,
+        (call) async {
+      final args = Map<Object?, Object?>.from(call.arguments as Map);
+      if (call.method == 'create') {
+        created.add(args);
+        final id = args['id'] as int;
+        messenger.setMockMethodCallHandler(
+            MethodChannel('challengeland/home-character/$id'), (call) async {
+          if (call.method == 'setPaused') {
+            pauseCalls.add(call.arguments as bool);
+          }
+          return null;
+        });
+      } else if (call.method == 'dispose') {
+        disposed.add(args['id'] as int);
+      }
+      return null;
+    });
+    addTearDown(() {
+      messenger.setMockMethodCallHandler(SystemChannels.platform_views, null);
+      for (final view in created) {
+        messenger.setMockMethodCallHandler(
+            MethodChannel('challengeland/home-character/${view['id']}'), null);
+      }
+    });
+    final selection = ValueNotifier((index: 1, paused: false, reduced: false));
+    addTearDown(selection.dispose);
+    await tester.pumpWidget(
+      Provider<NativeBridgeService>(
+        create: (_) => _AnimatedNativeBridge(),
+        child: MaterialApp(
+          home: ValueListenableBuilder(
+            valueListenable: selection,
+            builder: (context, value, _) => MediaQuery(
+              data: MediaQueryData(disableAnimations: value.reduced),
+              child: TickerMode(
+                enabled: !value.paused,
+                child: Center(
+                  child: SizedBox(
+                    width: 200,
+                    height: 300,
+                    child: HomeCharacterArtwork(
+                      character: CharacterCatalog.byIndex(value.index),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(created, hasLength(1));
+    expect(created.single['hybrid'], isTrue);
+    final params = const StandardMessageCodec().decodeMessage(
+        ByteData.sublistView(created.single['params'] as Uint8List)) as Map;
+    expect(params['index'], 1);
+    expect(pauseCalls.last, isFalse);
+    expect(find.byKey(const ValueKey('home-character-omar')), findsOneWidget);
+    final ready =
+        MethodChannel('challengeland/home-character/${created.single['id']}');
+    await messenger.handlePlatformMessage(ready.name,
+        ready.codec.encodeMethodCall(const MethodCall('ready')), (_) {});
+    await tester.pump();
+    expect(find.byKey(const ValueKey('home-character-omar')), findsNothing);
+    expect(find.byType(PlatformViewLink), findsOneWidget);
+
+    selection.value = (index: 1, paused: true, reduced: false);
+    await tester.pump();
+    expect(pauseCalls.last, isTrue);
+    selection.value = (index: 6, paused: false, reduced: false);
+    await tester.pump();
+    await tester.pump();
+    expect(created, hasLength(2));
+    expect(disposed, contains(created.first['id']));
+    final next = const StandardMessageCodec().decodeMessage(
+        ByteData.sublistView(created.last['params'] as Uint8List)) as Map;
+    expect(next['index'], 6);
+    selection.value = (index: 6, paused: false, reduced: true);
+    await tester.pump();
+    await tester.pump();
+    expect(find.byType(PlatformViewLink), findsNothing);
+    expect(disposed, contains(created.last['id']));
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 
   testWidgets('friends dot stays green and visible when offline',
       (tester) async {
@@ -196,6 +372,14 @@ void main() {
           ],
           child: MaterialApp(
             theme: ThemeData.dark(useMaterial3: true),
+            builder: (context, child) {
+              final padding =
+                  EdgeInsets.only(left: size.width > size.height ? 32 : 0);
+              return MediaQuery(
+                  data: MediaQuery.of(context)
+                      .copyWith(padding: padding, viewPadding: padding),
+                  child: child!);
+            },
             home: const HomeScreen(),
           ),
         ));
@@ -209,17 +393,14 @@ void main() {
           find.byType(SpecialOfferBadge),
           find.byTooltip('تحدي المراحل'),
           find.byTooltip('أوضاع اللعب'),
-          find.byWidgetPredicate((widget) =>
-              widget is Image &&
-              widget.image is AssetImage &&
-              (widget.image as AssetImage).assetName == 'assets/ui/logo.webp'),
         ];
         for (final shortcut in [
           find.byKey(const ValueKey('home-friends-shortcut')),
           find.byKey(const ValueKey('home-store-shortcut')),
         ]) {
           final bounds = tester.getRect(shortcut);
-          expect(bounds.left, greaterThanOrEqualTo(0));
+          expect(bounds.left, closeTo(12, .01),
+              reason: 'Left shortcuts keep a small physical edge inset');
           expect(bounds.top, greaterThanOrEqualTo(0));
           expect(bounds.right, lessThanOrEqualTo(size.width));
           expect(bounds.bottom, lessThanOrEqualTo(size.height));
@@ -230,13 +411,25 @@ void main() {
         }
         expect(find.byKey(const ValueKey('home-friends-green-dot')),
             findsOneWidget);
+        expect(
+            tester.getRect(find.byTooltip('القائمة')).left, closeTo(12, .01));
         expect(find.byType(CrossPromoMillionaireBadge), findsOneWidget);
         final campaignBounds = tester.getRect(find.byTooltip('تحدي المراحل'));
         final modesBounds = tester.getRect(find.byTooltip('أوضاع اللعب'));
-        expect(campaignBounds.bottom, lessThan(modesBounds.top));
         expect(campaignBounds.overlaps(modesBounds), isFalse);
-        expect(campaignBounds.center.dx, closeTo(size.width / 2, .01));
-        expect(modesBounds.center.dx, closeTo(size.width / 2, .01));
+        final characterBounds = tester
+            .getRect(find.byKey(const ValueKey('home-selected-character')));
+        final levelBounds = tester.getRect(find.byType(HomeLevelBadge));
+        expect(levelBounds.center.dx, closeTo(characterBounds.center.dx, .01));
+        expect(levelBounds.bottom, lessThanOrEqualTo(characterBounds.top));
+        if (size.width > size.height) {
+          expect(campaignBounds.bottom, lessThan(modesBounds.top));
+          expect(characterBounds.right, lessThan(campaignBounds.left));
+          expect(campaignBounds.center.dx, closeTo(modesBounds.center.dx, .01));
+        } else {
+          expect(characterBounds.bottom, lessThan(campaignBounds.top));
+          expect(campaignBounds.center.dy, closeTo(modesBounds.center.dy, .01));
+        }
         for (final banner in [
           find.byTooltip('تحدي المراحل'),
           find.byTooltip('أوضاع اللعب')
@@ -258,6 +451,51 @@ void main() {
         await tester.pump(const Duration(seconds: 1));
       });
     }
+  });
+
+  testWidgets(
+      'home character follows the saved selection without reloading on rebuild',
+      (tester) async {
+    setupFirebaseCoreMocks();
+    await Firebase.initializeApp();
+    SharedPreferences.setMockInitialValues({
+      'has_rated_challenge_land': true,
+      'rate_reward_claimed': true,
+    });
+    await tester.binding.setSurfaceSize(const Size(800, 400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final state = _HomeState();
+    final promo = _Promo();
+    final native = _NativeBridge();
+    addTearDown(state.dispose);
+    addTearDown(promo.dispose);
+    await tester.pumpWidget(MultiProvider(
+      providers: [
+        ChangeNotifierProvider<AppState>.value(value: state),
+        ChangeNotifierProvider<CrossPromoService>.value(value: promo),
+        Provider<NativeBridgeService>.value(value: native),
+      ],
+      child: const MaterialApp(home: HomeScreen()),
+    ));
+    await tester.pump();
+    expect(native.artworkRequests, [1]);
+    expect(find.byKey(const ValueKey('home-character-omar')), findsOneWidget);
+    final firstImage =
+        tester.widget<Image>(find.byKey(const ValueKey('home-character-omar')));
+    expect((firstImage.image as ResizeImage).imageProvider, isA<MemoryImage>());
+
+    state.changeCharacter(1);
+    await tester.pump();
+    expect(native.artworkRequests, [1]);
+    state.changeCharacter(6);
+    await tester.pump();
+    await tester.pump();
+    expect(native.artworkRequests, [1, 6]);
+    expect(find.byKey(const ValueKey('home-character-omar')), findsNothing);
+    expect(find.byKey(const ValueKey('home-character-sarah')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(seconds: 1));
   });
 
   testWidgets(
@@ -367,7 +605,7 @@ void main() {
                       height: 80,
                       child: HomeLevelBadge(
                           level: 1234, xp: data.xp, requiredXp: data.goal))))));
-      expect(find.text('المستوى 1234'), findsOneWidget);
+      expect(find.text('1234'), findsOneWidget);
       expect(find.text('${data.xp}/${data.goal}'), findsOneWidget);
       expect(
           find.bySemanticsLabel(
@@ -431,17 +669,26 @@ void main() {
               HomeArtwork.modes,
               HomeArtwork.coins,
               HomeArtwork.gems,
-              'assets/ui/logo.webp',
-              'assets/ui/bg_main.webp'
+              HomeArtwork.level,
+              HomeArtwork.background,
             ])
               precacheImage(
                   AssetImage(asset), tester.element(find.byType(HomeScreen))),
           ]));
       await tester.pump(const Duration(milliseconds: 100));
+      await tester.runAsync(() => Future.wait([
+            for (final image in tester.widgetList<Image>(find.descendant(
+                of: find.byType(HomeCharacterArtwork),
+                matching: find.byType(Image))))
+              precacheImage(image.image,
+                  tester.element(find.byType(HomeCharacterArtwork))),
+          ]));
+      await tester.pump();
+      expect(find.byKey(const ValueKey('home-character-omar')), findsOneWidget);
       expect(tester.takeException(), isNull);
       expect(find.text('1200'), findsOneWidget);
       expect(find.text('80'), findsOneWidget);
-      expect(find.text('المستوى 2'), findsOneWidget);
+      expect(find.text('2'), findsOneWidget);
       expect(find.text('20/100'), findsOneWidget);
       expect(find.byTooltip('تحدي المراحل'), findsOneWidget);
       expect(find.byTooltip('أوضاع اللعب'), findsOneWidget);
@@ -453,20 +700,27 @@ void main() {
           tester.getRect(find.byKey(const ValueKey('home-gems-balance')));
       final menuBounds = tester.getRect(find.byTooltip('القائمة'));
       final levelBounds = tester.getRect(find.byType(HomeLevelBadge));
-      expect(levelBounds.center.dx, closeTo(size.width / 2, .01));
-      expect(coinBounds.left, closeTo(0, .01));
+      final characterBounds =
+          tester.getRect(find.byKey(const ValueKey('home-selected-character')));
+      expect(levelBounds.center.dx, closeTo(characterBounds.center.dx, .01));
+      expect(menuBounds.left, closeTo(12, .01));
+      if (size.width > size.height) {
+        expect(gemBounds.right, closeTo(size.width - 16, .01));
+        expect(coinBounds.left, greaterThan(size.width / 2));
+      }
       expect(coinBounds.width, lessThanOrEqualTo(128));
       expect(gemBounds.width, lessThanOrEqualTo(128));
       final logo = find.byWidgetPredicate((widget) =>
           widget is Image &&
           widget.image is AssetImage &&
           (widget.image as AssetImage).assetName == 'assets/ui/logo.webp');
-      final logoBounds = tester.getRect(logo);
-      expect(levelBounds.overlaps(logoBounds), isFalse);
+      expect(logo, findsNothing);
+      expect(find.text('لاعب'), findsNothing);
+      expect(find.text('Qusai'), findsNothing);
       for (final banner in ['تحدي المراحل', 'أوضاع اللعب']) {
         final bounds = tester.getRect(find.byTooltip(banner));
-        expect(bounds.shortestSide, greaterThanOrEqualTo(48));
-        expect(bounds.overlaps(logoBounds), isFalse);
+        expect(bounds.shortestSide, greaterThanOrEqualTo(40));
+        expect(bounds.overlaps(characterBounds), isFalse);
       }
       expect(coinBounds.overlaps(gemBounds), isFalse);
       expect(coinBounds.overlaps(menuBounds), isFalse);
@@ -474,6 +728,8 @@ void main() {
       for (final other in [coinBounds, gemBounds, menuBounds]) {
         expect(levelBounds.overlaps(other), isFalse);
       }
+      // Export the illuminated phase of the repeating gold frame pulse.
+      await tester.pump(const Duration(milliseconds: 1100));
       final boundary =
           key.currentContext!.findRenderObject() as RenderRepaintBoundary;
       await tester.runAsync(() async {

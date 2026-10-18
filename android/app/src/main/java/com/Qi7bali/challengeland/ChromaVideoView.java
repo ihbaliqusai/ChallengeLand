@@ -74,6 +74,11 @@ final class ChromaVideoView extends TextureView
     private boolean released;
     private boolean paused;
     private Renderer renderer;
+    private Runnable firstFrameListener;
+
+    void setOnFirstFrameListener(Runnable listener) {
+        firstFrameListener = listener;
+    }
 
     ChromaVideoView(Context context, int idleResId) {
         super(context);
@@ -85,6 +90,7 @@ final class ChromaVideoView extends TextureView
     /** Stops drawing immediately without waiting for the GPU on the UI thread. */
     void release() {
         released = true;
+        firstFrameListener = null;
         if (renderer != null) renderer.shutdown(false);
         // Retain the listener to transfer SurfaceTexture ownership at destruction.
     }
@@ -130,7 +136,13 @@ final class ChromaVideoView extends TextureView
     }
 
     @Override
-    public void onSurfaceTextureUpdated(SurfaceTexture surface) {}
+    public void onSurfaceTextureUpdated(SurfaceTexture surface) {
+        if (!released && firstFrameListener != null) {
+            Runnable listener = firstFrameListener;
+            firstFrameListener = null;
+            listener.run();
+        }
+    }
 
     void playReaction(int resId) {
         Renderer current = renderer;

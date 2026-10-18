@@ -33,6 +33,7 @@ import '../../widgets/home_quick_action.dart';
 import '../../widgets/home_menu_artwork.dart';
 import '../../widgets/game_modes_artwork.dart';
 import '../../widgets/home_artwork.dart';
+import '../../widgets/home_character_artwork.dart';
 import '../../services/rate_game_service.dart';
 import '../../services/cross_promo_service.dart';
 
@@ -597,17 +598,11 @@ class _HomeScreenState extends State<HomeScreen>
       body: DecoratedBox(
         decoration: const BoxDecoration(
           image: DecorationImage(
-            image: AssetImage('assets/ui/bg_main.webp'),
+            image: AssetImage(HomeArtwork.background),
             fit: BoxFit.cover,
           ),
         ),
         child: LayoutBuilder(builder: (context, homeArea) {
-          final portrait =
-              homeArea.maxWidth < 600 && homeArea.maxHeight > homeArea.maxWidth;
-          final bannerWidth = HomeArtwork.bannerWidth(homeArea.maxHeight < 600);
-          final badgeWidth = portrait
-              ? (homeArea.maxWidth - 40) / 2
-              : (homeArea.maxWidth - bannerWidth - 52) / 2;
           return Stack(
             children: [
               // â”€â”€ Dark overlay â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -618,8 +613,8 @@ class _HomeScreenState extends State<HomeScreen>
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: [
-                        const Color(0xFF0A1B4A).withValues(alpha: 0.80),
-                        const Color(0xFF060C24).withValues(alpha: 0.90),
+                        const Color(0xFF08262C).withValues(alpha: 0.04),
+                        const Color(0xFF061418).withValues(alpha: 0.18),
                       ],
                     ),
                   ),
@@ -638,101 +633,17 @@ class _HomeScreenState extends State<HomeScreen>
 
               // â”€â”€ CENTER arena â€” full screen width so content is truly centred â”€â”€
               Positioned.fill(
-                child: _CenterArena(
-                  appState: appState,
-                  idleCtrl: _idleCtrl,
-                  onCampaignTap: () => unawaited(_openCampaignMap()),
+                child: SafeArea(
+                  left: false,
+                  child: _HomeLobbyLayout(
+                    appState: appState,
+                    username: displayUsername,
+                    user: user,
+                    idleCtrl: _idleCtrl,
+                    onCampaignTap: () => unawaited(_openCampaignMap()),
+                  ),
                 ),
               ),
-
-              // â”€â”€ LEFT SIDEBAR â€” overlays the center â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-              // â”€â”€ RIGHT SIDEBAR â€” overlays the center â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-              // â”€â”€ TOP BAR: currency + arena progress â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: _TopBar(appState: appState),
-              ),
-              Positioned(
-                top: 0,
-                right: 0,
-                child: _HomeMenuButton(
-                  appState: appState,
-                  username: displayUsername,
-                  user: user,
-                ),
-              ),
-              Positioned(
-                top: MediaQuery.paddingOf(context).top + 70,
-                right: MediaQuery.paddingOf(context).right + 12,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    HomeQuickAction(
-                      key: const ValueKey('home-friends-shortcut'),
-                      asset: HomeArtwork.friends,
-                      label: 'الأصدقاء واللاعبون',
-                      icon: Icons.people_alt_rounded,
-                      color: const Color(0xFF7DD3FC),
-                      animation: _idleCtrl,
-                      showGreenDot: true,
-                      isAvailable: appState.isOnline,
-                      onPressed: () {
-                        if (!appState.isOnline) {
-                          _showOnlineRequiredToast(context);
-                          return;
-                        }
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => const SocialScreen(),
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    HomeQuickAction(
-                      key: const ValueKey('home-store-shortcut'),
-                      asset: HomeArtwork.store,
-                      label: 'المتجر',
-                      icon: Icons.shopping_basket_rounded,
-                      color: const Color(0xFFFFD761),
-                      animation: _idleCtrl,
-                      animationPhase: math.pi / 3,
-                      isAvailable: appState.isOnline,
-                      onPressed: () {
-                        if (!appState.isOnline) {
-                          _showOnlineRequiredToast(context);
-                          return;
-                        }
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => const StoreScreen(),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              Positioned(
-                bottom: 12,
-                left: 14,
-                child: ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: badgeWidth),
-                    child: const FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: CrossPromoMillionaireBadge())),
-              ),
-              if (!appState.isVip)
-                Positioned(
-                  bottom: 12,
-                  right: 14,
-                  child: ConstrainedBox(
-                      constraints: BoxConstraints(maxWidth: badgeWidth),
-                      child: const FittedBox(
-                          fit: BoxFit.scaleDown, child: SpecialOfferBadge())),
-                ),
             ],
           );
         }),
@@ -892,14 +803,13 @@ class _HomeMenuButtonState extends State<_HomeMenuButton> {
 
   @override
   Widget build(BuildContext context) {
-    final top = MediaQuery.of(context).padding.top + 6;
     final hasDailyReward = widget.appState.isOnline &&
         widget.appState.streakDay > 0 &&
         !widget.appState.claimedToday;
     final hasAttention = hasDailyReward || _pendingRewards > 0;
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(0, top, 12, 0),
+      padding: EdgeInsets.zero,
       child: Tooltip(
         message: 'القائمة',
         child: GestureDetector(
@@ -1049,76 +959,187 @@ class _HomeMenuSheet extends StatelessWidget {
   }
 }
 
-class _TopBar extends StatelessWidget {
-  const _TopBar({required this.appState});
+/// Existing artwork arranged around the selected contestant, as a game lobby.
+class _HomeLobbyLayout extends StatelessWidget {
+  const _HomeLobbyLayout({
+    required this.appState,
+    required this.username,
+    required this.user,
+    required this.idleCtrl,
+    required this.onCampaignTap,
+  });
   final AppState appState;
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(builder: (context, area) {
-      final media = MediaQuery.of(context);
-      final narrow = area.maxWidth < 600;
-      final top = media.padding.top + 6;
-      const left = 0.0;
-      final levelWidth = narrow
-          ? (area.maxWidth - 148).clamp(0.0, 220.0)
-          : area.maxWidth < 700
-              ? 180.0
-              : 220.0;
-      const levelHeight = 44.0;
-      final balanceWidth = narrow
-          ? ((area.maxWidth - media.padding.horizontal - 88) / 2)
-              .clamp(0.0, 118.0)
-          : (((area.maxWidth - levelWidth) / 2 - media.padding.left - 20) / 2)
-              .clamp(0.0, 128.0);
-      final levelTop = top + (narrow ? 55 : 0);
-      void openStore() {
-        if (!appState.isOnline) {
-          _showOnlineRequiredToast(context);
-          return;
-        }
-        Navigator.of(context)
-            .push(MaterialPageRoute<void>(builder: (_) => const StoreScreen()));
-      }
+  final String username;
+  final dynamic user;
+  final AnimationController idleCtrl;
+  final VoidCallback onCampaignTap;
 
-      return SizedBox(
-          height: levelTop + levelHeight,
-          child: Stack(children: [
-            Positioned(
-                top: top,
-                left: left,
-                height: 48,
-                child: Directionality(
-                    textDirection: TextDirection.ltr,
-                    child: Row(children: [
-                      SizedBox(
-                          width: balanceWidth,
-                          height: 48,
-                          child: HomeCurrencyArtwork(
-                              key: const ValueKey('home-coins-balance'),
-                              gems: false,
-                              value: appState.coins.toString(),
-                              enabled: appState.isOnline,
-                              onPressed: openStore)),
-                      const SizedBox(width: 4),
-                      SizedBox(
-                          width: balanceWidth,
-                          height: 48,
-                          child: HomeCurrencyArtwork(
-                              key: const ValueKey('home-gems-balance'),
-                              gems: true,
-                              value: appState.gems.toString(),
-                              enabled: appState.isOnline,
-                              onPressed: openStore)),
-                    ]))),
-            Positioned(
-                top: levelTop,
-                left: (area.maxWidth - levelWidth) / 2,
-                width: levelWidth,
-                height: levelHeight,
-                child: _LevelBadge(appState: appState)),
-          ]));
-    });
+  void _openOnlineScreen(BuildContext context, Widget screen) {
+    if (!appState.isOnline) {
+      _showOnlineRequiredToast(context);
+      return;
+    }
+    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => screen));
   }
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(builder: (context, area) {
+        // The shortcut rail uses a small physical edge inset. Keep the remaining
+        // controls in their original safe area on displays with a left cutout.
+        final safeLeft = MediaQuery.paddingOf(context).left;
+        final width = area.maxWidth - safeLeft;
+        final height = area.maxHeight;
+        final portrait = height > width;
+        final headerHeight = portrait ? 108.0 : 64.0;
+        final panelWidth =
+            portrait ? width - 32 : (width * .29).clamp(190.0, 340.0);
+        final panelTop = portrait ? height * .66 : headerHeight + 16;
+        final panelHeight = height - panelTop - 16;
+        final heroLeftInset = portrait ? 64.0 : 76.0;
+        final heroLeft = heroLeftInset + safeLeft;
+        final heroWidth =
+            portrait ? width - 80 : width - panelWidth - heroLeftInset - 40;
+        final heroBottom = portrait ? panelTop - 10 : height - 16;
+        final characterTop = headerHeight + 62;
+        final characterHeight = math.max(1.0, heroBottom - characterTop);
+        final compact = height < 600;
+        final balanceWidth = portrait
+            ? ((width - 28) / 2).clamp(0.0, 128.0)
+            : (width * .155).clamp(94.0, 128.0);
+        final walletWidth = balanceWidth * 2 + 4;
+        final badgeHeight =
+            portrait ? 56.0 : (panelHeight * .20).clamp(42.0, 64.0);
+        final bannerHeight = portrait
+            ? 66.0
+            : math.min(
+                panelWidth * .32, (panelHeight - badgeHeight * 2 - 28) / 2);
+        Widget fitBadge(Widget badge) => SizedBox(
+            height: badgeHeight,
+            width: portrait ? (panelWidth - 12) / 2 : panelWidth,
+            child: FittedBox(fit: BoxFit.contain, child: badge));
+        Widget banner(String asset, String label, VoidCallback onPressed,
+                {bool enabled = true}) =>
+            SizedBox(
+                width: portrait ? (panelWidth - 12) / 2 : panelWidth,
+                height: bannerHeight,
+                child: FittedBox(
+                    child: _BattleButton(
+                        asset: asset,
+                        label: label,
+                        compact: compact,
+                        enabled: enabled,
+                        onPressed: onPressed)));
+        final campaign = banner(
+            HomeArtwork.campaign, 'تحدي المراحل', onCampaignTap,
+            enabled: appState.isOnline);
+        final modes = banner(HomeArtwork.modes, 'أوضاع اللعب',
+            () => _showGameModesSheet(context));
+        final promotions = [
+          if (!appState.isVip) fitBadge(const SpecialOfferBadge()),
+          fitBadge(const CrossPromoMillionaireBadge()),
+        ];
+        return Stack(children: [
+          Positioned(
+              top: 6,
+              left: 12,
+              child: _HomeMenuButton(
+                  appState: appState, username: username, user: user)),
+          Positioned(
+              top: portrait ? 60 : 8,
+              right: portrait ? (width - walletWidth) / 2 : 16,
+              width: walletWidth,
+              height: 44,
+              child: Row(textDirection: TextDirection.ltr, children: [
+                for (final gems in [false, true]) ...[
+                  if (gems) const SizedBox(width: 4),
+                  SizedBox(
+                      width: balanceWidth,
+                      child: HomeCurrencyArtwork(
+                          key: ValueKey(gems
+                              ? 'home-gems-balance'
+                              : 'home-coins-balance'),
+                          gems: gems,
+                          value: (gems ? appState.gems : appState.coins)
+                              .toString(),
+                          enabled: appState.isOnline,
+                          onPressed: () =>
+                              _openOnlineScreen(context, const StoreScreen()))),
+                ],
+              ])),
+          Positioned(
+              top: headerHeight + 2,
+              left: heroLeft,
+              width: heroWidth,
+              height: 56,
+              child: Center(child: _LevelBadge(appState: appState))),
+          Positioned(
+              top: characterTop,
+              left: heroLeft,
+              width: heroWidth,
+              height: characterHeight,
+              child: HomeCharacterArtwork(
+                  key: const ValueKey('home-selected-character'),
+                  character: appState.selectedCharacter)),
+          Positioned(
+              top: portrait ? headerHeight + 12 : 74,
+              left: 12,
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                HomeQuickAction(
+                    key: const ValueKey('home-friends-shortcut'),
+                    asset: HomeArtwork.friends,
+                    label: 'الأصدقاء واللاعبون',
+                    icon: Icons.people_alt_rounded,
+                    color: const Color(0xFF7DD3FC),
+                    animation: idleCtrl,
+                    showGreenDot: true,
+                    isAvailable: appState.isOnline,
+                    onPressed: () =>
+                        _openOnlineScreen(context, const SocialScreen())),
+                const SizedBox(height: 12),
+                HomeQuickAction(
+                    key: const ValueKey('home-store-shortcut'),
+                    asset: HomeArtwork.store,
+                    label: 'المتجر',
+                    icon: Icons.shopping_basket_rounded,
+                    color: const Color(0xFFFFD761),
+                    animation: idleCtrl,
+                    animationPhase: math.pi / 3,
+                    isAvailable: appState.isOnline,
+                    onPressed: () =>
+                        _openOnlineScreen(context, const StoreScreen())),
+              ])),
+          Positioned(
+              key: const ValueKey('home-actions-panel'),
+              top: panelTop,
+              right: 16,
+              width: panelWidth,
+              height: panelHeight,
+              child: portrait
+                  ? Column(children: [
+                      Row(
+                          textDirection: TextDirection.ltr,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            campaign,
+                            const SizedBox(width: 12),
+                            modes
+                          ]),
+                      const Spacer(),
+                      Row(
+                          textDirection: TextDirection.rtl,
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: promotions),
+                    ])
+                  : Column(children: [
+                      ...promotions.expand(
+                          (badge) => [badge, const SizedBox(height: 10)]),
+                      const Spacer(),
+                      campaign,
+                      const SizedBox(height: 8),
+                      modes,
+                    ])),
+        ]);
+      });
 }
 
 class _LevelBadge extends StatelessWidget {
@@ -1163,117 +1184,6 @@ class _UnclaimedDot extends StatelessWidget {
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //  WATCH AD CARD
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-class _CenterArena extends StatelessWidget {
-  const _CenterArena({
-    required this.appState,
-    required this.idleCtrl,
-    required this.onCampaignTap,
-  });
-  final AppState appState;
-  final AnimationController idleCtrl;
-  final VoidCallback onCampaignTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final media = MediaQuery.of(context);
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final height = constraints.maxHeight;
-        final width = constraints.maxWidth;
-        final isCompactHeight = height < 600;
-        final logoMaxWidth =
-            (width * (isCompactHeight ? 0.24 : 0.22)).clamp(280.0, 330.0);
-        final buttonHeight = HomeArtwork.bannerHeight(isCompactHeight);
-        final buttonGap = isCompactHeight ? 8.0 : 10.0;
-        final buttonGroupHeight = buttonHeight * 2 + buttonGap;
-        final buttonBottom =
-            media.padding.bottom + (width < 600 && height > width ? 86 : 8);
-        final buttonTop = height - buttonBottom - buttonGroupHeight;
-        final headerBottom = media.padding.top +
-            (width < 600
-                ? 147
-                : width < 700
-                    ? 92
-                    : 110);
-        final logoMaxHeight = math.min(
-            (height * (isCompactHeight ? 0.34 : 0.27)).clamp(170.0, 220.0),
-            math.max(48.0, buttonTop - 14 - headerBottom));
-        final minLogoCenterY = headerBottom + logoMaxHeight / 2;
-        final maxLogoCenterY = buttonTop - 14 - logoMaxHeight / 2;
-        final preferredLogoCenterY = height * 0.5 - 20;
-        final logoCenterY = maxLogoCenterY < minLogoCenterY
-            ? preferredLogoCenterY
-            : preferredLogoCenterY.clamp(minLogoCenterY, maxLogoCenterY);
-
-        return Stack(
-          alignment: Alignment.center,
-          children: [
-            // â”€â”€ Logo â€” centered responsively â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-            Positioned(
-              top: logoCenterY - logoMaxHeight / 2,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: SizedBox(
-                  width: logoMaxWidth,
-                  height: logoMaxHeight,
-                  child: AnimatedBuilder(
-                    animation: idleCtrl,
-                    builder: (_, child) => Transform.translate(
-                      offset: Offset(0, math.sin(idleCtrl.value * math.pi) * 6),
-                      child: child,
-                    ),
-                    child: _CastleWidget(),
-                  ),
-                ),
-              ),
-            ),
-
-            // â”€â”€ Ranking + Battle buttons â€” pinned to bottom â”€â”€â”€â”€â”€
-            Positioned(
-              bottom: buttonBottom,
-              left: 0,
-              right: 0,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _BattleButton(
-                    asset: HomeArtwork.campaign,
-                    label: 'تحدي المراحل',
-                    compact: isCompactHeight,
-                    enabled: appState.isOnline,
-                    onPressed: onCampaignTap,
-                  ),
-                  SizedBox(height: buttonGap),
-                  _BattleButton(
-                    asset: HomeArtwork.modes,
-                    label: 'أوضاع اللعب',
-                    compact: isCompactHeight,
-                    enabled: true,
-                    onPressed: () => _showGameModesSheet(context),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _CastleWidget extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Image.asset(
-        'assets/ui/logo.webp',
-        fit: BoxFit.contain,
-      ),
-    );
-  }
-}
-
 class _BattleButton extends StatelessWidget {
   const _BattleButton(
       {required this.asset,

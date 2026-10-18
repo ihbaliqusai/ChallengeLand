@@ -87,6 +87,10 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        flutterEngine.platformViewsController.registry.registerViewFactory(
+            "challengeland/home-character",
+            HomeCharacterViewFactory(this, flutterEngine.dartExecutor.binaryMessenger)
+        )
         val channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "millionaire/native")
         playBillingManager = PlayBillingManager(this, channel)
         channel.setMethodCallHandler { call, result ->
@@ -838,6 +842,29 @@ class MainActivity : FlutterActivity() {
                             "totalXp" to claim.totalXp,
                             "unclaimedAchievements" to PlayerProgress.getUnclaimedAchievementCount(this)
                         ))
+                    }
+                    "getCharacterArtwork" -> {
+                        val artwork = intArrayOf(
+                            R.drawable.contestant_khaled, R.drawable.contestant_omar,
+                            R.drawable.contestant_fahad, R.drawable.contestant_mazen,
+                            R.drawable.contestant_mahmoud, R.drawable.contestant_ellen,
+                            R.drawable.contestant_sarah, R.drawable.contestant_talia
+                        )
+                        val index = call.argument<Int>("index") ?: -1
+                        if (index !in artwork.indices) {
+                            result.error("INVALID_CHARACTER", "Unknown character index", null)
+                        } else {
+                            // Read the existing packaged PNG off the UI thread.
+                            val appResources = applicationContext.resources
+                            kotlin.concurrent.thread(name = "home-character-artwork") {
+                                try {
+                                    val bytes = appResources.openRawResource(artwork[index]).use { it.readBytes() }
+                                    runOnUiThread { result.success(bytes) }
+                                } catch (error: Exception) {
+                                    runOnUiThread { result.error("CHARACTER_ARTWORK", error.message, null) }
+                                }
+                            }
+                        }
                     }
                     "getCharacterState" -> {
                         val selected = AppPrefs.getSelectedCharacter(this)
