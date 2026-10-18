@@ -12,8 +12,8 @@ import '../../core/app_state.dart';
 import '../../models/room.dart';
 import '../../core/player_rank.dart';
 import '../campaign/campaign_map_screen.dart';
+import '../../models/store_catalog.dart';
 import 'store_screen.dart';
-import 'resource_shop_screen.dart';
 import 'leaderboard_screen.dart';
 import 'daily_streak_screen.dart';
 import 'profile_screen.dart';
@@ -1083,8 +1083,8 @@ class _HomeLobbyLayout extends StatelessWidget {
                             ? '${appState.economyWallet.totalKeys}'
                             : '…',
                         enabled: appState.isOnline,
-                        onPressed: () => _openOnlineScreen(
-                            context, const ResourceShopScreen()))),
+                        onPressed: () => _openOnlineScreen(context,
+                            const StoreScreen(initialKind: StoreProductKind.resource)))),
                 const SizedBox(width: walletGap),
                 SizedBox(
                     width: ticketsWidth,
@@ -1095,8 +1095,8 @@ class _HomeLobbyLayout extends StatelessWidget {
                             ? '${appState.economyWallet.tickets}'
                             : '…',
                         enabled: appState.isOnline,
-                        onPressed: () => _openOnlineScreen(
-                            context, const ResourceShopScreen()))),
+                        onPressed: () => _openOnlineScreen(context,
+                            const StoreScreen(initialKind: StoreProductKind.resource)))),
               ])),
           Positioned(
               top: headerHeight + 2,

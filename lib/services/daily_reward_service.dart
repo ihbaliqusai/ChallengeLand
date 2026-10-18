@@ -6,9 +6,9 @@ class DailyRewardProgress {
   final bool claimed;
 
   static DateTime calendarDate(DateTime time) {
-    final local = time.toLocal();
-    // Date components avoid 23/25-hour daylight-saving days.
-    return DateTime.utc(local.year, local.month, local.day);
+    final utc = time.toUtc();
+    // Match the server wallet's calendar regardless of device timezone or DST.
+    return DateTime.utc(utc.year, utc.month, utc.day);
   }
 
   factory DailyRewardProgress.fromData(

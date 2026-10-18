@@ -74,7 +74,7 @@ const _currencyArtwork = {
   ),
 };
 
-enum _StoreSection { featured, gems, coins, membership, collection }
+enum _StoreSection { featured, gems, resources, coins, membership, collection }
 
 class StoreScreen extends StatefulWidget {
   const StoreScreen({super.key, this.initialKind});
@@ -103,6 +103,7 @@ class _StoreScreenState extends State<StoreScreen> {
     super.initState();
     _section = switch (widget.initialKind) {
       StoreProductKind.gems => _StoreSection.gems,
+      StoreProductKind.resource => _StoreSection.resources,
       StoreProductKind.coins => _StoreSection.coins,
       StoreProductKind.subscription => _StoreSection.membership,
       StoreProductKind.categoryPass => _StoreSection.collection,
@@ -142,6 +143,7 @@ class _StoreScreenState extends State<StoreScreen> {
     await Future.wait([
       context.read<InAppPurchaseService>().loadProducts(),
       app.loadCurrency(),
+      app.loadEconomy(),
       app.loadCategoryState(),
       app.loadCharacterState(),
       app.loadLevelData(),
@@ -155,7 +157,8 @@ class _StoreScreenState extends State<StoreScreen> {
   Future<void> _showDelivered(String id) async {
     if (!mounted) return;
     final app = context.read<AppState>();
-    await Future.wait([app.loadCurrency(), app.loadCategoryState()]);
+    await Future.wait(
+        [app.loadCurrency(), app.loadCategoryState(), app.loadEconomy()]);
     if (!mounted) return;
     _snack(_tr('تم تسليم مشترياتك وتحديث حسابك.',
         'Your purchase was delivered and your account updated.'));
@@ -203,6 +206,14 @@ class _StoreScreenState extends State<StoreScreen> {
       'coins_5000' => 'Coin pouch',
       'coins_25000' => 'Coin chest',
       'coins_100000' => 'Coin vault',
+      'keys_1' => '1 Key',
+      'keys_10' => '10 Keys',
+      'hearts_1' => '1 Extra Heart',
+      'hearts_10' => '10 Extra Hearts',
+      'tickets_1' => '1 Category Ticket',
+      'tickets_10' => '10 Category Tickets',
+      'resources_3_each' => 'Play Pack',
+      'resources_10_each' => 'Mega Play Pack',
       'pack_starter' => 'Starter bundle',
       'pack_value' => 'Explorer bundle',
       'pack_champion' => 'Champion bundle',
@@ -303,6 +314,16 @@ class _StoreScreenState extends State<StoreScreen> {
                 Icons.block_rounded,
                 _tr('بدون إعلانات إجبارية؛ إعلانات المكافآت اختيارية',
                     'No forced ads; reward ads remain optional')),
+          ],
+          if (product.kind == StoreProductKind.resource) ...[
+            _benefit(
+                Icons.check_circle_outline_rounded,
+                _tr('إضافة رصيد الموارد فورياً إلى حسابك',
+                    'Resources added instantly to your balance')),
+            _benefit(
+                Icons.cloud_done_rounded,
+                _tr('رصيد دائم محفوظ بحسابك ومتاح دائماً',
+                    'Permanent balance saved to your account and ready anytime')),
           ],
           const SizedBox(height: 14),
           _receiptRow(
@@ -438,6 +459,75 @@ class _StoreScreenState extends State<StoreScreen> {
       _snack(
           _tr('تعذر تحويل الجواهر الآن.', 'Could not exchange gems right now.'),
           error: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _buyResourceOffer(
+      String offerId, Map<String, dynamic> offer, String currency) async {
+    if (_busy || context.read<InAppPurchaseService>().isPurchasing) return;
+    final app = context.read<AppState>();
+    if (!app.economyLoaded || app.economyError != null) {
+      _snack(
+          app.economyError ??
+              _tr('خدمة الأرصدة غير متاحة حالياً.',
+                  'Resources service unavailable.'),
+          error: true);
+      return;
+    }
+    final price = (offer[currency] as num?)?.toInt() ?? 0;
+    final isCoins = currency == 'coins';
+    final userBalance = isCoins ? app.coins : app.gems;
+    final currencyName =
+        isCoins ? _tr('قطعة نقدية', 'coins') : _tr('جوهرة', 'gems');
+    if (userBalance < price) {
+      _snack(
+          _tr('تحتاج ${_number(price - userBalance)} $currencyName إضافية.',
+              'You need ${_number(price - userBalance)} more $currencyName.'),
+          error: true);
+      return;
+    }
+    final grants = offer['grants'] is Map
+        ? Map<String, dynamic>.from(offer['grants'] as Map)
+        : <String, dynamic>{'${offer['resource']}': offer['amount']};
+    final grantSummary = _resourceGrantLabel(grants);
+
+    setState(() => _busy = true);
+    try {
+      final confirmed = await _confirmSheet(
+        title: _tr('تأكيد الشراء', 'Confirm Purchase'),
+        subtitle: _tr(
+            'شراء $grantSummary مقابل ${_number(price)} $currencyName.',
+            'Purchase $grantSummary for ${_number(price)} $currencyName.'),
+        icon: isCoins ? Icons.monetization_on_rounded : Icons.diamond_rounded,
+        accent: isCoins ? _gold : _cyan,
+        body: [
+          _receiptRow(_tr('المبلغ المطلوب', 'Cost'),
+              '${_number(price)} $currencyName'),
+          const SizedBox(height: 12),
+          _receiptRow(
+              _tr('المحتوى المستلم', 'Resources received'), grantSummary),
+        ],
+        button: _tr('تأكيد الشراء', 'Confirm Purchase'),
+      );
+      if (!confirmed || !mounted) return;
+      await app.economyAction({
+        'action': 'buy',
+        'offerId': offerId,
+        'currency': currency,
+      });
+      if (!mounted) return;
+      _snack(_tr('تمت إضافة الرصيد إلى حسابك بنجاح.',
+          'Resources added to your account.'));
+      await app.loadEconomy();
+      await app.loadCurrency();
+    } catch (error) {
+      if (!mounted) return;
+      _snack(error.toString(), error: true);
+      final app = context.read<AppState>();
+      await app.loadCurrency();
+      await app.loadEconomy();
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -810,16 +900,6 @@ class _StoreScreenState extends State<StoreScreen> {
                                 children: [
                                   if (_showStatus(iap)) _purchaseStatus(iap),
                                   if (_section == _StoreSection.featured) ...[
-                                    FilledButton.icon(
-                                        onPressed: () => Navigator.push(
-                                            context,
-                                            MaterialPageRoute<void>(
-                                                builder: (_) =>
-                                                    const ResourceShopScreen())),
-                                        icon: const Icon(Icons.key_rounded),
-                                        label: const Text(
-                                            'المفاتيح والقلوب وتذاكر التصنيفات')),
-                                    const SizedBox(height: 16),
                                     _sectionTitle(
                                         _tr('عروض المتجر', 'SPECIAL OFFERS'),
                                         _tr('باقات لمغامرتك القادمة',
@@ -862,6 +942,23 @@ class _StoreScreenState extends State<StoreScreen> {
                                         disabled),
                                     const SizedBox(height: 24),
                                     _sectionTitle(
+                                        _tr('أرصدة اللعب', 'PLAY RESOURCES'),
+                                        _tr('المفاتيح والقلوب وتذاكر التصنيفات',
+                                            'Keys, hearts and challenge tickets'),
+                                        action: Tooltip(
+                                            message: _tr('أرصدة اللعب',
+                                                'Play resources'),
+                                            child: TextButton(
+                                                onPressed: () => _selectSection(
+                                                    _StoreSection.resources),
+                                                child: Text(
+                                                    _tr('عرض الكل', 'View all'),
+                                                    style: const TextStyle(
+                                                        color: _purple))))),
+                                    const SizedBox(height: 14),
+                                    _featuredResources(iap, app, disabled),
+                                    const SizedBox(height: 24),
+                                    _sectionTitle(
                                         _tr('عبّر عن نفسك', 'EXPRESS YOURSELF'),
                                         ''),
                                     const SizedBox(height: 14),
@@ -884,6 +981,44 @@ class _StoreScreenState extends State<StoreScreen> {
                                         disabled),
                                     const SizedBox(height: 24),
                                     _freeRewards(app, ads, disabled),
+                                    const SizedBox(height: 24),
+                                    _resourcesTeaser(app),
+                                  ],
+                                  if (_section == _StoreSection.resources) ...[
+                                    _sectionTitle(
+                                        _tr('أرصدة اللعب والتحديات',
+                                            'PLAY RESOURCES'),
+                                        _tr('مفاتيح المباريات وقلوب المراحل وتذاكر التصنيفات',
+                                            'Keys for matches, hearts for stages, tickets for categories')),
+                                    const SizedBox(height: 16),
+                                    _resourceBalancesHUD(app),
+                                    const SizedBox(height: 24),
+                                    if (app.economyWallet.offers.isNotEmpty) ...[
+                                      _sectionTitle(
+                                          _tr('شحن بالنقود أو الجواهر',
+                                              'EXCHANGE CURRENCY'),
+                                          _tr('استبدل نقودك أو جواهرك بأرصدة اللعب',
+                                              'Use your in-game coins or gems')),
+                                      const SizedBox(height: 14),
+                                      _inGameExchangeGrid(app, disabled),
+                                      const SizedBox(height: 24),
+                                    ],
+                                    _sectionTitle(
+                                        _tr('باقات المتجر', 'STORE PACKS'),
+                                        _tr('شراء مباشر وآمن عبر Google Play',
+                                            'Direct, secure payment via Google Play')),
+                                    const SizedBox(height: 14),
+                                    _resourceGrid(
+                                        StoreCatalog.products
+                                            .where((p) =>
+                                                p.kind ==
+                                                StoreProductKind.resource)
+                                            .toList(),
+                                        iap,
+                                        app,
+                                        disabled),
+                                    const SizedBox(height: 24),
+                                    _loyaltyAndMilestonesPanel(app),
                                   ],
                                   if (_section == _StoreSection.coins) ...[
                                     _sectionTitle(
@@ -930,6 +1065,7 @@ class _StoreScreenState extends State<StoreScreen> {
   Widget _tabs() {
     final tabs = <(_StoreSection, String, int)>[
       (_StoreSection.featured, _tr('المميزة', 'Featured'), 0),
+      (_StoreSection.resources, _tr('أرصدة اللعب', 'Resources'), 2),
       (_StoreSection.gems, _tr('الجواهر', 'Gems'), 1),
       (_StoreSection.membership, _tr('العضوية', 'Membership'), 3),
       (
@@ -2266,6 +2402,1080 @@ class _StoreScreenState extends State<StoreScreen> {
                 .toList());
       });
 
+  String _resourceGrantLabel(Map<String, dynamic> grants) {
+    if (!_arabic) {
+      return grants.entries.map((entry) {
+        final name = switch (entry.key) {
+          'keys' => entry.value == 1 ? 'key' : 'keys',
+          'hearts' => entry.value == 1 ? 'heart' : 'hearts',
+          'tickets' => entry.value == 1 ? 'ticket' : 'tickets',
+          'categoryVouchers' =>
+            entry.value == 1 ? 'permanent voucher' : 'permanent vouchers',
+          'rentalVouchers' =>
+            entry.value == 1 ? 'rental voucher' : 'rental vouchers',
+          _ => entry.key,
+        };
+        return '${entry.value} $name';
+      }).join(' + ');
+    }
+    return resourceGrantText(grants);
+  }
+
+
+
+  Widget _resourceBalancesHUD(AppState app) {
+    final wallet = app.economyWallet;
+    return LayoutBuilder(builder: (context, constraints) {
+      final cardRow = Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: _resourceCard(
+              asset: 'assets/store/hud_keys.webp',
+              title: _tr('المفاتيح', 'Keys'),
+              value: app.economyLoaded ? '${wallet.totalKeys}' : '…',
+              badgeText: app.economyLoaded
+                  ? _tr('${wallet.dailyKeys} يومية • ${wallet.keys} إضافية',
+                      '${wallet.dailyKeys} daily • ${wallet.keys} extra')
+                  : _tr('جارٍ التحميل…', 'Loading…'),
+              badgeBg: const Color(0xFF382613),
+              badgeTextColor: const Color(0xFFFFB834),
+              hint: _tr('مفتاح لكل مباراة كاملة', '1 key per match'),
+              defaultBakedValue: 10,
+              defaultBakedBadge: '2 يومية • 8 إضافية',
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _resourceCard(
+              asset: 'assets/store/hud_hearts.webp',
+              title: _tr('القلوب', 'Hearts'),
+              value: app.economyLoaded ? '${wallet.totalHearts}' : '…',
+              badgeText: app.economyLoaded
+                  ? _tr('${wallet.dailyHearts} يومية • ${wallet.hearts} إضافية',
+                      '${wallet.dailyHearts} daily • ${wallet.hearts} extra')
+                  : _tr('جارٍ التحميل…', 'Loading…'),
+              badgeBg: const Color(0xFF40142A),
+              badgeTextColor: const Color(0xFFFF4D94),
+              hint: _tr('محاولات لتحدي المراحل', 'Saved stage attempts'),
+              defaultBakedValue: 9,
+              defaultBakedBadge: '3 يومية • 6 إضافية',
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _resourceCard(
+              asset: 'assets/store/hud_tickets.webp',
+              title: _tr('تذاكر التصنيفات', 'Tickets'),
+              value: app.economyLoaded ? '${wallet.tickets}' : '…',
+              badgeText: app.economyLoaded
+                  ? _tr('${wallet.tickets} تذاكر محفوظة',
+                      '${wallet.tickets} tickets saved')
+                  : _tr('جارٍ التحميل…', 'Loading…'),
+              badgeBg: const Color(0xFF132A3E),
+              badgeTextColor: const Color(0xFF4DD0E1),
+              hint: _tr('تفتح أي تصنيف لمباراة', '1 match unlock'),
+              defaultBakedValue: 8,
+              defaultBakedBadge: '8 تذاكر محفوظة',
+            ),
+          ),
+        ],
+      );
+
+      return _panel(
+        padding: 12,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 680),
+                child: cardRow,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.25),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0x33E4B8FF)),
+              ),
+              child: Column(children: [
+                Row(children: [
+                  const Icon(Icons.info_outline_rounded, color: _cyan, size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      app.economyLoaded
+                          ? _tr(
+                              'المفاتيح والقلوب اليومية تُستكمل إلى 3 عند منتصف الليل UTC. الأرصدة الإضافية محفوظة بحسابك دائماً.',
+                              'Daily keys and hearts replenish to 3 at midnight UTC. Extra balance remains saved permanently.')
+                          : (app.economyError ??
+                              _tr('جارٍ الاتصال بخدمة الأرصدة…',
+                                  'Connecting to resources service…')),
+                      style: const TextStyle(
+                          color: _muted, fontSize: 11, height: 1.5),
+                    ),
+                  ),
+                ]),
+                if (wallet.nextResetMillis > 0) ...[
+                  const SizedBox(height: 6),
+                  Row(children: [
+                    const Icon(Icons.timer_outlined, color: _gold, size: 14),
+                    const SizedBox(width: 6),
+                    Text(
+                      _tr(
+                        'التجديد القادم: ${_formatDateTime(wallet.nextResetMillis)}',
+                        'Next reset: ${_formatDateTime(wallet.nextResetMillis)}',
+                      ),
+                      style: const TextStyle(color: _gold, fontSize: 11),
+                    ),
+                  ]),
+                ],
+              ]),
+            ),
+            if (wallet.categoryVouchers > 0 || wallet.rentalVouchers > 0) ...[
+              const SizedBox(height: 8),
+              Wrap(spacing: 8, runSpacing: 6, children: [
+                if (wallet.categoryVouchers > 0)
+                  _pill(
+                      _tr('قسائم امتلاك تصنيف: ${wallet.categoryVouchers}',
+                          'Permanent vouchers: ${wallet.categoryVouchers}'),
+                      _green),
+                if (wallet.rentalVouchers > 0)
+                  _pill(
+                      _tr('قسائم استئجار أسبوعية: ${wallet.rentalVouchers}',
+                          'Weekly rental vouchers: ${wallet.rentalVouchers}'),
+                      _cyan),
+              ]),
+            ],
+            if (!app.economyLoaded && !app.isOnline) ...[
+              const SizedBox(height: 10),
+              TextButton.icon(
+                onPressed: app.loadEconomy,
+                icon: const Icon(Icons.refresh_rounded, size: 16),
+                label: Text(_tr('إعادة محاولة الاتصال', 'Retry connection')),
+              ),
+            ],
+          ],
+        ),
+      );
+    });
+  }
+
+  Widget _resourceCard({
+    required String asset,
+    required String title,
+    required String value,
+    required String badgeText,
+    required Color badgeBg,
+    required Color badgeTextColor,
+    required String hint,
+    required int defaultBakedValue,
+    required String defaultBakedBadge,
+  }) {
+    final needsValueOverlay = value != '$defaultBakedValue' || !_arabic;
+    final needsBadgeOverlay = badgeText != defaultBakedBadge || !_arabic;
+    return Semantics(
+      label: '$title: $value, $badgeText, $hint',
+      child: Tooltip(
+        message: '$title: $value\n$badgeText\n$hint',
+        child: AspectRatio(
+          aspectRatio: 1118 / 912,
+          child: LayoutBuilder(builder: (context, box) {
+            final w = box.maxWidth;
+            final h = box.maxHeight;
+            return Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Positioned.fill(
+                  child: Image.asset(
+                    asset,
+                    fit: BoxFit.contain,
+                    excludeFromSemantics: true,
+                  ),
+                ),
+                if (!_arabic)
+                  Positioned(
+                    top: h * 0.44,
+                    left: w * 0.08,
+                    right: w * 0.08,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF280E46),
+                        borderRadius: BorderRadius.circular(h * 0.03),
+                      ),
+                      alignment: Alignment.center,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: GameStoreText(title, size: (h * 0.12).clamp(9.0, 15.0)),
+                      ),
+                    ),
+                  ),
+                if (needsValueOverlay)
+                  Positioned(
+                    top: h * 0.53,
+                    left: w * 0.22,
+                    right: w * 0.22,
+                    child: Container(
+                      height: h * 0.14,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF280E46),
+                        borderRadius: BorderRadius.circular(h * 0.03),
+                      ),
+                      alignment: Alignment.center,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          value,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: (h * 0.16).clamp(11.0, 22.0),
+                            fontWeight: FontWeight.w900,
+                            fontFamily: 'Baloo',
+                            height: 1.0,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                if (needsBadgeOverlay)
+                  Positioned(
+                    top: h * 0.69,
+                    left: w * 0.12,
+                    right: w * 0.12,
+                    child: Container(
+                      height: h * 0.11,
+                      decoration: BoxDecoration(
+                        color: badgeBg,
+                        borderRadius: BorderRadius.circular(h * 0.055),
+                      ),
+                      alignment: Alignment.center,
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          badgeText,
+                          style: TextStyle(
+                            color: badgeTextColor,
+                            fontSize: (h * 0.08).clamp(8.0, 11.0),
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                if (!_arabic)
+                  Positioned(
+                    bottom: h * 0.06,
+                    left: w * 0.06,
+                    right: w * 0.06,
+                    child: Container(
+                      color: const Color(0xFF1B1826),
+                      alignment: Alignment.center,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          hint,
+                          style: TextStyle(
+                            color: _muted.withValues(alpha: 0.8),
+                            fontSize: (h * 0.07).clamp(7.0, 10.0),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          }),
+        ),
+      ),
+    );
+  }
+
+  String? _exchangeOfferAsset(String offerId, Map<String, dynamic> grants) {
+    switch (offerId) {
+      case 'keys_1':
+        return 'assets/store/exchange_keys_1.webp';
+      case 'keys_3':
+        return 'assets/store/exchange_keys_3.webp';
+      case 'hearts_3':
+        return 'assets/store/exchange_hearts_3.webp';
+      case 'tickets_3':
+        return 'assets/store/exchange_tickets_3.webp';
+      case 'play_bundle':
+        return 'assets/store/exchange_bundle_3.webp';
+      case 'play_bundle_large':
+        return 'assets/store/exchange_bundle_10.webp';
+      default:
+        if (grants.containsKey('keys') && grants['keys'] == 1) {
+          return 'assets/store/exchange_keys_1.webp';
+        }
+        if (grants.containsKey('keys') && (grants['keys'] ?? 0) >= 3) {
+          return 'assets/store/exchange_keys_3.webp';
+        }
+        if (grants.containsKey('hearts') && (grants['hearts'] ?? 0) >= 3) {
+          return 'assets/store/exchange_hearts_3.webp';
+        }
+        if (grants.containsKey('tickets') && (grants['tickets'] ?? 0) >= 3) {
+          return 'assets/store/exchange_tickets_3.webp';
+        }
+        if (grants.length > 1) {
+          return 'assets/store/exchange_bundle_3.webp';
+        }
+        return null;
+    }
+  }
+
+  Widget _inGameExchangeGrid(AppState app, bool disabled) {
+    final offers = app.economyWallet.offers.entries.toList();
+    return LayoutBuilder(builder: (context, constraints) {
+      final isNarrow = constraints.maxWidth < 600;
+      final columns = isNarrow ? 1 : 2;
+      const spacing = 12.0;
+      final width = (constraints.maxWidth - (columns - 1) * spacing) / columns;
+      return Wrap(
+        spacing: spacing,
+        runSpacing: spacing,
+        alignment: WrapAlignment.center,
+        children: [
+          for (final entry in offers)
+            SizedBox(
+              width: width,
+              child:
+                  _inGameExchangeCard(entry.key, entry.value, app, disabled),
+            ),
+        ],
+      );
+    });
+  }
+
+  Widget _inGameExchangeCard(
+      String offerId, dynamic rawOffer, AppState app, bool disabled) {
+    final offer = Map<String, dynamic>.from(rawOffer as Map);
+    final grants = offer['grants'] is Map
+        ? Map<String, dynamic>.from(offer['grants'] as Map)
+        : <String, dynamic>{'${offer['resource']}': offer['amount']};
+    final title = _resourceGrantLabel(grants);
+    final coinsPrice = (offer['coins'] as num?)?.toInt() ?? 0;
+    final gemsPrice = (offer['gems'] as num?)?.toInt() ?? 0;
+    final asset = _exchangeOfferAsset(offerId, grants);
+
+    if (asset == null) {
+      final hasKeys = grants.containsKey('keys');
+      final hasHearts = grants.containsKey('hearts');
+      final accent = (hasKeys && hasHearts) || grants.length > 1
+          ? _purple
+          : hasKeys
+              ? _gold
+              : hasHearts
+                  ? storePink
+                  : _cyan;
+
+      return _panel(
+        accent: accent,
+        padding: 14,
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Row(children: [
+            _iconTile(
+              grants.length > 1
+                  ? Icons.all_inclusive_rounded
+                  : hasKeys
+                      ? Icons.key_rounded
+                      : hasHearts
+                          ? Icons.favorite_rounded
+                          : Icons.confirmation_number_rounded,
+              accent,
+              size: 38,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child:
+                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                GameStoreText(title, size: 16),
+                const SizedBox(height: 2),
+                Text(
+                  _tr('إضافة فورية إلى رصيد حسابك',
+                      'Added instantly to your account'),
+                  style: const TextStyle(color: _muted, fontSize: 11),
+                ),
+              ]),
+            ),
+          ]),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            alignment: WrapAlignment.end,
+            children: [
+              if (coinsPrice > 0)
+                _StoreButton(
+                  compact: true,
+                  label: '${_number(coinsPrice)} ${_tr('قطعة', 'coins')}',
+                  icon: Icons.monetization_on_rounded,
+                  accent: _gold,
+                  onPressed:
+                      disabled || !app.economyLoaded || app.coins < coinsPrice
+                          ? null
+                          : () => _buyResourceOffer(offerId, offer, 'coins'),
+                ),
+              if (gemsPrice > 0)
+                _StoreButton(
+                  compact: true,
+                  label: '${_number(gemsPrice)} ${_tr('جوهرة', 'gems')}',
+                  icon: Icons.diamond_rounded,
+                  accent: _cyan,
+                  onPressed:
+                      disabled || !app.economyLoaded || app.gems < gemsPrice
+                          ? null
+                          : () => _buyResourceOffer(offerId, offer, 'gems'),
+                ),
+            ],
+          ),
+        ]),
+      );
+    }
+
+    final hasEnoughCoins = app.coins >= coinsPrice;
+    final hasEnoughGems = app.gems >= gemsPrice;
+
+    return Semantics(
+      label: '$title: ${_number(coinsPrice)} ${_tr('قطعة', 'coins')}، ${_number(gemsPrice)} ${_tr('جوهرة', 'gems')}',
+      child: Tooltip(
+        message: '$title\n${_number(coinsPrice)} ${_tr('قطعة', 'coins')} • ${_number(gemsPrice)} ${_tr('جوهرة', 'gems')}',
+        child: AspectRatio(
+          aspectRatio: 1168 / 450,
+          child: LayoutBuilder(builder: (context, box) {
+            final w = box.maxWidth;
+            final h = box.maxHeight;
+
+            return Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Positioned.fill(
+                  child: Image.asset(
+                    asset,
+                    fit: BoxFit.contain,
+                    excludeFromSemantics: true,
+                  ),
+                ),
+                if (!_arabic)
+                  Positioned(
+                    top: h * 0.18,
+                    right: w * 0.16,
+                    left: w * 0.36,
+                    bottom: h * 0.48,
+                    child: Container(
+                      color: const Color(0xFF1B0D36),
+                      alignment: Alignment.centerRight,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: GameStoreText(title, size: (h * 0.14).clamp(10.0, 16.0)),
+                          ),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              _tr('إضافة فورية إلى رصيد حسابك', 'Added instantly to your account'),
+                              style: TextStyle(color: _muted, fontSize: (h * 0.08).clamp(8.0, 11.0)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                Positioned(
+                  left: w * 0.365,
+                  width: w * 0.31,
+                  top: h * 0.53,
+                  height: h * 0.30,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(h * 0.08),
+                      onTap: disabled || !app.economyLoaded
+                          ? null
+                          : () {
+                              if (!hasEnoughCoins) {
+                                _snack(
+                                  _tr('تحتاج ${_number(coinsPrice - app.coins)} قطعة نقدية إضافية.',
+                                      'You need ${_number(coinsPrice - app.coins)} more coins.'),
+                                  error: true,
+                                );
+                              } else {
+                                _buyResourceOffer(offerId, offer, 'coins');
+                              }
+                            },
+                      child: Stack(
+                        children: [
+                          if (!hasEnoughCoins)
+                            Positioned.fill(
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.38),
+                                  borderRadius: BorderRadius.circular(h * 0.08),
+                                ),
+                                alignment: Alignment.center,
+                                child: Icon(Icons.lock_outline_rounded,
+                                    color: Colors.white70, size: (h * 0.14).clamp(10.0, 16.0)),
+                              ),
+                            ),
+                          if (!_arabic)
+                            Positioned.fill(
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(h * 0.08),
+                                  gradient: const LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [Color(0xFF7CE424), Color(0xFF43980B)],
+                                  ),
+                                ),
+                                alignment: Alignment.center,
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    '${_number(coinsPrice)} Coins',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: (h * 0.11).clamp(9.0, 14.0),
+                                      fontFamily: 'Baloo',
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: w * 0.055,
+                  width: w * 0.29,
+                  top: h * 0.53,
+                  height: h * 0.30,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(h * 0.08),
+                      onTap: disabled || !app.economyLoaded
+                          ? null
+                          : () {
+                              if (!hasEnoughGems) {
+                                _snack(
+                                  _tr('تحتاج ${_number(gemsPrice - app.gems)} جوهرة إضافية.',
+                                      'You need ${_number(gemsPrice - app.gems)} more gems.'),
+                                  error: true,
+                                );
+                              } else {
+                                _buyResourceOffer(offerId, offer, 'gems');
+                              }
+                            },
+                      child: Stack(
+                        children: [
+                          if (!hasEnoughGems)
+                            Positioned.fill(
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.38),
+                                  borderRadius: BorderRadius.circular(h * 0.08),
+                                ),
+                                alignment: Alignment.center,
+                                child: Icon(Icons.lock_outline_rounded,
+                                    color: Colors.white70, size: (h * 0.14).clamp(10.0, 16.0)),
+                              ),
+                            ),
+                          if (!_arabic)
+                            Positioned.fill(
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(h * 0.08),
+                                  gradient: const LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [Color(0xFF7CE424), Color(0xFF43980B)],
+                                  ),
+                                ),
+                                alignment: Alignment.center,
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    '${_number(gemsPrice)} Gems',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: (h * 0.11).clamp(9.0, 14.0),
+                                      fontFamily: 'Baloo',
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }),
+        ),
+      ),
+    );
+  }
+
+  String? _resourceProductAsset(String id) {
+    return switch (id) {
+      'resources_3_each' => 'assets/store/pack_resources_3.webp',
+      'resources_10_each' => 'assets/store/pack_resources_10.webp',
+      'keys_1' => 'assets/store/pack_keys_1.webp',
+      'hearts_1' => 'assets/store/pack_hearts_1.webp',
+      'tickets_1' => 'assets/store/pack_tickets_1.webp',
+      'keys_10' => 'assets/store/pack_keys_1.webp',
+      'hearts_10' => 'assets/store/pack_hearts_1.webp',
+      'tickets_10' => 'assets/store/pack_tickets_1.webp',
+      _ => null,
+    };
+  }
+
+  double _resourceProductAspect(String id) {
+    if (id.startsWith('resources_')) return 1016 / 1412;
+    return 768 / 1216;
+  }
+
+  Widget _resourceGrid(List<StoreProduct> products, InAppPurchaseService iap,
+          AppState app, bool disabled) =>
+      LayoutBuilder(builder: (context, constraints) {
+        final bundles = products.where((p) => p.id.startsWith('resources_')).toList();
+        final singles = products.where((p) => !p.id.startsWith('resources_')).toList();
+
+        final maxWidth = constraints.maxWidth;
+        final bundleColumns = maxWidth < 400 ? 2 : (maxWidth < 800 ? 2 : 4);
+        final singleColumns = maxWidth < 400 ? 3 : (maxWidth < 800 ? 3 : 6);
+
+        final bundleWidth = ((maxWidth - (bundleColumns - 1) * 10) / bundleColumns).clamp(110.0, 320.0);
+        final singleWidth = ((maxWidth - (singleColumns - 1) * 8) / singleColumns).clamp(80.0, 220.0);
+
+        return Column(
+          children: [
+            if (bundles.isNotEmpty) ...[
+              Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 10,
+                runSpacing: 12,
+                children: [
+                  for (final product in bundles)
+                    SizedBox(
+                      width: bundleWidth,
+                      child: _resourceProductCard(product, iap, app, disabled),
+                    ),
+                ],
+              ),
+              if (singles.isNotEmpty) const SizedBox(height: 14),
+            ],
+            if (singles.isNotEmpty) ...[
+              Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 8,
+                runSpacing: 12,
+                children: [
+                  for (final product in singles)
+                    SizedBox(
+                      width: singleWidth,
+                      child: _resourceProductCard(product, iap, app, disabled),
+                    ),
+                ],
+              ),
+            ],
+          ],
+        );
+      });
+
+  Widget _resourceProductCard(StoreProduct product, InAppPurchaseService iap,
+      AppState app, bool disabled) {
+    final details = iap.getProductDetails(product.id);
+    final price = details?.price;
+    final canBuy = !disabled &&
+        !iap.isLoading &&
+        app.isCommerceReady &&
+        iap.isAvailable &&
+        price != null &&
+        price.isNotEmpty;
+
+    final asset = _resourceProductAsset(product.id);
+    if (asset == null) {
+      return const SizedBox.shrink();
+    }
+
+    final is10Pack = product.id.endsWith('_10');
+    final aspectRatio = _resourceProductAspect(product.id);
+
+    return Semantics(
+      label: '${_title(product)}: ${_subtitle(product)}, ${canBuy ? price : _tr('غير متاح حالياً', 'Unavailable')}',
+      child: Tooltip(
+        message: '${_title(product)}\n${_subtitle(product)}\n${canBuy ? price : _tr('غير متاح حالياً', 'Unavailable')}',
+        child: AspectRatio(
+          aspectRatio: aspectRatio,
+          child: LayoutBuilder(builder: (context, box) {
+            final w = box.maxWidth;
+            final h = box.maxHeight;
+
+            return Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Positioned.fill(
+                  child: Image.asset(
+                    asset,
+                    fit: BoxFit.contain,
+                    excludeFromSemantics: true,
+                  ),
+                ),
+                if (is10Pack)
+                  Positioned(
+                    top: h * 0.08,
+                    left: w * 0.35,
+                    right: w * 0.35,
+                    child: Container(
+                      height: h * 0.08,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF38154D),
+                        borderRadius: BorderRadius.circular(h * 0.04),
+                        border: Border.all(color: const Color(0xFFFFB834), width: 1.5),
+                      ),
+                      alignment: Alignment.center,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          '+10',
+                          style: TextStyle(
+                            color: const Color(0xFFFFD52A),
+                            fontWeight: FontWeight.w900,
+                            fontSize: (h * 0.055).clamp(10.0, 16.0),
+                            fontFamily: 'Baloo',
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                if (!_arabic)
+                  Positioned(
+                    top: h * 0.55,
+                    left: w * 0.08,
+                    right: w * 0.08,
+                    child: Container(
+                      color: const Color(0xFF1B0D36),
+                      alignment: Alignment.center,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: GameStoreText(_title(product), size: (h * 0.065).clamp(10.0, 15.0)),
+                          ),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              _subtitle(product),
+                              style: TextStyle(color: _muted, fontSize: (h * 0.045).clamp(7.0, 10.0)),
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                Positioned(
+                  top: h * 0.77,
+                  bottom: h * 0.055,
+                  left: w * 0.085,
+                  right: w * 0.085,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(h * 0.04),
+                      onTap: canBuy ? () => _buyProduct(product) : null,
+                      child: canBuy
+                          ? Container(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(h * 0.04),
+                                gradient: const LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    Color(0xFF7CE424),
+                                    Color(0xFF43980B),
+                                  ],
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF43980B).withValues(alpha: 0.5),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              alignment: Alignment.center,
+                              padding: const EdgeInsets.symmetric(horizontal: 4),
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(
+                                  price,
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: (h * 0.065).clamp(11.0, 18.0),
+                                    fontWeight: FontWeight.w900,
+                                    fontFamily: 'Baloo',
+                                    shadows: const [
+                                      Shadow(
+                                        color: Color(0x80000000),
+                                        blurRadius: 3,
+                                        offset: Offset(0, 1),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            )
+                          : (iap.isLoading
+                              ? Container(
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(h * 0.04),
+                                    color: Colors.black.withValues(alpha: 0.3),
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: SizedBox(
+                                    width: (h * 0.08).clamp(12.0, 20.0),
+                                    height: (h * 0.08).clamp(12.0, 20.0),
+                                    child: const CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white70),
+                                    ),
+                                  ),
+                                )
+                              : const SizedBox.shrink()),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }),
+        ),
+      ),
+    );
+  }
+
+  Widget _featuredResources(
+      InAppPurchaseService iap, AppState app, bool disabled) {
+    final products = StoreCatalog.products
+        .where((p) =>
+            p.id == 'resources_3_each' ||
+            p.id == 'resources_10_each' ||
+            p.id == 'keys_10' ||
+            p.id == 'hearts_10')
+        .toList();
+    return Column(children: [
+      _resourceGrid(products, iap, app, disabled),
+      const SizedBox(height: 12),
+      _resourcesTeaser(app),
+    ]);
+  }
+
+  Widget _resourcesTeaser(AppState app) {
+    final wallet = app.economyWallet;
+    return _panel(
+      accent: _purple,
+      padding: 16,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: const LinearGradient(
+                colors: [Color(0xFFFFD52A), Color(0xFFFF259F)],
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFFF259F).withValues(alpha: 0.4),
+                  blurRadius: 8,
+                ),
+              ],
+            ),
+            child: const Icon(Icons.key_rounded, color: Colors.white, size: 22),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              GameStoreText(
+                  _tr('أرصدة اللعب والمباريات', 'Play Resources'),
+                  size: 16),
+              const SizedBox(height: 3),
+              Text(
+                _tr(
+                    'مفاتيحك: ${wallet.totalKeys} • قلوبك: ${wallet.totalHearts} • تذاكرك: ${wallet.tickets}',
+                    'Keys: ${wallet.totalKeys} • Hearts: ${wallet.totalHearts} • Tickets: ${wallet.tickets}'),
+                style: const TextStyle(color: _muted, fontSize: 12),
+              ),
+            ]),
+          ),
+          const SizedBox(width: 8),
+          _StoreButton(
+            compact: true,
+            label: _tr('عرض الأرصدة', 'View all'),
+            icon: Icons.arrow_forward_rounded,
+            accent: _purple,
+            onPressed: () => _selectSection(_StoreSection.resources),
+          ),
+        ]),
+      ]),
+    );
+  }
+
+  Widget _loyaltyAndMilestonesPanel(AppState app) {
+    final wallet = app.economyWallet;
+    return _panel(
+      padding: 16,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          _iconTile(Icons.military_tech_rounded, _gold, size: 36),
+          const SizedBox(width: 10),
+          Expanded(
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              GameStoreText(
+                  _tr('مكافآت الوفاء والتقدم في المراحل',
+                      'Loyalty & Stage Milestones'),
+                  size: 16),
+              const SizedBox(height: 2),
+              Text(
+                _tr('أرصدة مجانية تكافئ استمرارك وإنجازاتك في اللعب',
+                    'Free resources rewarding your consistency and achievements'),
+                style: const TextStyle(color: _muted, fontSize: 11),
+              ),
+            ]),
+          ),
+        ]),
+        const SizedBox(height: 14),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1B0B3A),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0x33E4B8FF)),
+          ),
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Row(children: [
+              const Icon(Icons.stars_rounded, color: _gold, size: 18),
+              const SizedBox(width: 8),
+              Text(
+                  _tr('مكافآت وفاء الدخول اليومي',
+                      'Daily streak loyalty rewards'),
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13)),
+              const Spacer(),
+              _pill(
+                  _tr('سلسلتك: ${wallet.streak} يوم',
+                      'Streak: ${wallet.streak} d'),
+                  _gold),
+            ]),
+            const SizedBox(height: 8),
+            Text(
+              _tr(
+                '• اليوم 7: 3 مفاتيح وتذكرتان\n• اليوم 14: 3 مفاتيح وقلب\n• اليوم 21: 4 مفاتيح\n• اليوم 30: 5 مفاتيح وقلبان و3 تذاكر وقسيمة استئجار أسبوعية',
+                '• Day 7: 3 keys + 2 tickets\n• Day 14: 3 keys + 1 heart\n• Day 21: 4 keys\n• Day 30: 5 keys + 2 hearts + 3 tickets + 1 rental voucher',
+              ),
+              style: const TextStyle(color: _muted, fontSize: 11, height: 1.6),
+            ),
+          ]),
+        ),
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1B0B3A),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0x33E4B8FF)),
+          ),
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Row(children: [
+              const Icon(Icons.flag_rounded, color: _cyan, size: 18),
+              const SizedBox(width: 8),
+              Text(
+                  _tr('مكافآت تقدمك في المراحل',
+                      'Stage progression milestones'),
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13)),
+            ]),
+            const SizedBox(height: 8),
+            Text(
+              _tr(
+                '• كل 10 مراحل: تذكرة تصنيف واحدة\n• المرحلة 10: مفتاحان إضافيان\n• المرحلة 25: 3 مفاتيح وقسيمة استئجار أسبوعية\n• المرحلة 50 و100: قسيمة امتلاك تصنيف دائم\n• المرحلة 75: 5 مفاتيح وقلبان إضافيان',
+                '• Every 10 stages: 1 category ticket\n• Stage 10: 2 extra keys\n• Stage 25: 3 keys + weekly rental voucher\n• Stage 50 & 100: Permanent category voucher\n• Stage 75: 5 keys + 2 hearts',
+              ),
+              style: const TextStyle(color: _muted, fontSize: 11, height: 1.6),
+            ),
+          ]),
+        ),
+        if (wallet.rewardLog.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Text(_tr('آخر المكافآت المستلمة', 'Recent rewards earned'),
+              style: const TextStyle(
+                  color: _gold, fontWeight: FontWeight.bold, fontSize: 13)),
+          const SizedBox(height: 6),
+          for (final reward in wallet.rewardLog.reversed.take(4))
+            Container(
+              margin: const EdgeInsets.symmetric(vertical: 4),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0x22FFFFFF)),
+              ),
+              child: Row(children: [
+                const Icon(Icons.check_circle_rounded,
+                    color: _green, size: 15),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '${switch (reward['kind']) {
+                      'welcome' => _tr('هدية البداية', 'Starter gift'),
+                      'campaign' => _tr('المرحلة ${reward['stage']}', 'Stage ${reward['stage']}'),
+                      'login' => _tr('وفاء اليوم ${reward['streak']}', 'Day ${reward['streak']} loyalty'),
+                      _ => _tr('مهمة اللعب', 'Play mission')
+                    }}: ${_resourceGrantLabel(Map<String, dynamic>.from(reward['grants'] as Map? ?? {}))}',
+                    style: const TextStyle(color: _muted, fontSize: 11),
+                  ),
+                ),
+              ]),
+            ),
+        ],
+      ]),
+    );
+  }
+
+  String _formatDateTime(int millis) {
+    final dt = DateTime.fromMillisecondsSinceEpoch(millis).toLocal();
+    final hour = dt.hour.toString().padLeft(2, '0');
+    final minute = dt.minute.toString().padLeft(2, '0');
+    return '${dt.day}/${dt.month} $hour:$minute';
+  }
+
   String _number(int value) => value
       .toString()
       .replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
@@ -2382,10 +3592,10 @@ class _StoreButton extends StatelessWidget {
           foregroundColor: Colors.white,
           disabledForegroundColor: const Color(0xFFE0E4D9),
           shadowColor: Colors.transparent,
-          minimumSize: Size(double.infinity, compact ? 42 : 48),
+          minimumSize: Size(compact ? 0 : double.infinity, compact ? 42 : 48),
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
           padding: EdgeInsets.symmetric(
-              horizontal: compact ? 5 : 12, vertical: compact ? 5 : 9),
+              horizontal: compact ? 8 : 12, vertical: compact ? 5 : 9),
           shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(compact ? 3 : 8)),
         ),
@@ -2395,18 +3605,21 @@ class _StoreButton extends StatelessWidget {
                 height: 18,
                 child: CircularProgressIndicator(
                     color: Colors.white, strokeWidth: 2))
-            : Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                if (!compact) ...[
-                  Icon(icon, size: 18),
-                  const SizedBox(width: 8),
-                ],
-                Flexible(
-                    child: compact
-                        ? FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: GameStoreText(label, size: 23))
-                        : GameStoreText(label, size: 15, maxLines: 3)),
-              ]),
+            : Row(
+                mainAxisSize: compact ? MainAxisSize.min : MainAxisSize.max,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                    if (!compact) ...[
+                      Icon(icon, size: 18),
+                      const SizedBox(width: 8),
+                    ],
+                    Flexible(
+                        child: compact
+                            ? FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: GameStoreText(label, size: 23))
+                            : GameStoreText(label, size: 15, maxLines: 3)),
+                  ]),
       ),
     );
   }

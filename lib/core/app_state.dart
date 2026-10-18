@@ -1230,9 +1230,10 @@ class AppState extends ChangeNotifier {
         <String, dynamic>{
           'coins': currentCoins,
           'gems': currentGems,
-          'unlockedCategories': unlockedCategories,
+          'unlockedCategories': FieldValue.arrayUnion(unlockedCategories),
           'characterIndex': selectedCharacterIndex,
-          'purchasedCharacters': purchasedCharacters.toList(),
+          'purchasedCharacters':
+              FieldValue.arrayUnion(purchasedCharacters.toList()),
           'currencyUpdatedAt': FieldValue.serverTimestamp(),
           'appliedCommerceDeliveryIds': deliveryIds,
         },

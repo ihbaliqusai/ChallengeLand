@@ -14,6 +14,9 @@ function createCommerceService({ db, verifier, packageName, legacyVipIds = [], n
   const entitlementRef = (uid) => db.doc(`commerce_accounts/${uid}/entitlements/current`);
   const transactionRef = (uid, hash) => db.doc(`commerce_accounts/${uid}/transactions/${hash}`);
   const tokenRef = (hash) => db.doc(`commerce_purchase_tokens/${hash}`);
+  const resources = ["keys", "hearts", "tickets"];
+  const serverResourceProduct = product => product.type === "consumable" &&
+    !product.coins && !product.gems && resources.some(key => product[key] > 0);
 
   function assertUid(uid) {
     if (typeof uid !== "string" || !uid || uid.includes("/")) {
@@ -86,7 +89,6 @@ function createCommerceService({ db, verifier, packageName, legacyVipIds = [], n
         coins: granted ? product.coins : 0,
         gems: granted ? product.gems : 0,
       };
-      const resources = ["keys", "hearts", "tickets"];
       if (granted && resources.some(key => product[key])) {
         const wallet = refresh(economySnapshot.data(), observedAtMillis);
         if (resources.some(key => product[key] && wallet[key] + product[key] > 2147483647)) {
@@ -148,6 +150,10 @@ function createCommerceService({ db, verifier, packageName, legacyVipIds = [], n
         checkedAtMillis: receipt.checkedAtMillis || observedAtMillis,
         revokedPermanently: previousToken?.revokedPermanently === true ||
           (receipt.state === "revoked" && product.type !== "subscription"),
+        ...(serverResourceProduct(product) ? {
+          resourceSettlementPending: active && !receipt.consumed && !previousToken?.resourceConsumedAtMillis,
+          ...(receipt.consumed ? { resourceConsumedAtMillis: previousToken?.resourceConsumedAtMillis || observedAtMillis } : {}),
+        } : {}),
       });
       transaction.set(accountRef(uid), {
         ...account, schemaVersion: 1, uid, updatedAtMillis: observedAtMillis,
@@ -165,6 +171,53 @@ function createCommerceService({ db, verifier, packageName, legacyVipIds = [], n
     });
   }
 
+  async function settleResources(uid, product, token, result) {
+    if (!serverResourceProduct(product) || result.status !== "delivered") return;
+    const hash = sha256(token);
+    const at = now();
+    const claimed = await db.runTransaction(async transaction => {
+      const [vaultDoc, purchaseDoc] = await Promise.all([
+        transaction.get(tokenRef(hash)), transaction.get(transactionRef(uid, hash)),
+      ]);
+      const vault = vaultDoc.data();
+      const purchase = purchaseDoc.data();
+      // Settlement always follows a durable complete server grant. A short
+      // lease avoids duplicate API calls from concurrent app/RTDN requests;
+      // process death leaves a durable pending marker for the scheduled retry.
+      if (!vault || vault.uid !== uid || vault.productId !== product.id ||
+          vault.status !== "delivered" || purchase?.status !== "delivered" ||
+          resources.some(key => product[key] && purchase.grant?.[key] !== product[key]) ||
+          vault.resourceConsumedAtMillis || vault.resourceSettlementLeaseUntilMillis > at) return false;
+      transaction.set(tokenRef(hash), {
+        resourceSettlementPending: true, resourceSettlementLeaseUntilMillis: at + 60000,
+      }, { merge: true });
+      return true;
+    });
+    if (!claimed) return;
+    try {
+      await verifier.consume(product, token);
+      await db.runTransaction(async transaction => {
+        const snapshot = await transaction.get(tokenRef(hash));
+        if (snapshot.data()?.uid !== uid) return;
+        transaction.set(tokenRef(hash), {
+          resourceSettlementPending: false, resourceSettlementLeaseUntilMillis: 0,
+          resourceConsumedAtMillis: now(), resourceSettlementLastErrorCode: null,
+        }, { merge: true });
+      });
+    } catch (error) {
+      await db.runTransaction(async transaction => {
+        const snapshot = await transaction.get(tokenRef(hash));
+        const vault = snapshot.data();
+        if (!vault || vault.uid !== uid || vault.resourceConsumedAtMillis) return;
+        transaction.set(tokenRef(hash), {
+          resourceSettlementPending: vault.status === "delivered", resourceSettlementLeaseUntilMillis: 0,
+          resourceSettlementLastErrorCode: error instanceof CommerceError ? error.code : "internal",
+        }, { merge: true });
+      });
+      throw new CommerceError("unavailable", "Purchase delivery confirmation is temporarily unavailable. Please try again.");
+    }
+  }
+
   async function verifyPurchase(uid, data) {
     assertUid(uid);
     const { product, token } = validateInput(data, packageName, legacyVipIds);
@@ -172,9 +225,9 @@ function createCommerceService({ db, verifier, packageName, legacyVipIds = [], n
     const receipt = await verifier.verify(product, token);
     receipt.checkedAtMillis = checkedAtMillis;
     const result = await persist(uid, product, token, receipt);
-    // Native settlement waits for the durable wallet + delivery IDs snapshot.
-    // Server acknowledgement here could complete a currency-bearing starter
-    // purchase before its local wallet has been synchronized.
+    await settleResources(uid, product, token, result);
+    // Legacy currency settlement still waits for the client's durable wallet
+    // snapshot. Resource-only products are safe to settle on the server.
     return result;
   }
 
@@ -185,6 +238,7 @@ function createCommerceService({ db, verifier, packageName, legacyVipIds = [], n
     const receipt = await verifier.verify(product, vault.token);
     receipt.checkedAtMillis = checkedAtMillis;
     const result = await persist(vault.uid, product, vault.token, receipt);
+    await settleResources(vault.uid, product, vault.token, result);
     return result;
   }
 
@@ -261,6 +315,22 @@ function createCommerceService({ db, verifier, packageName, legacyVipIds = [], n
         // known expiry already disables access, regardless of persisted status.
         if (vault.expiresAtMillis < now() - 59 * 86400000) continue;
         try { await refreshToken(vault); } catch (error) {
+          failureCount += 1;
+          if (failures.length < 50) failures.push({ deliveryId: document.id, code: error.code || "internal" });
+        }
+      }
+      cursor = page.size === 100 ? page.docs.at(-1) : undefined;
+    } while (cursor);
+    // Resource purchases can complete through RTDN while the app is closed.
+    // Retry their durable settlement outbox before Play's acknowledgement
+    // window expires; never replay client-delivered coin/gem purchases.
+    const pendingResources = db.collection("commerce_purchase_tokens").where("resourceSettlementPending", "==", true);
+    cursor = undefined;
+    do {
+      const page = await (cursor ? pendingResources.startAfter(cursor) : pendingResources).limit(100).get();
+      for (const document of page.docs) {
+        examined += 1;
+        try { await refreshToken(document.data()); } catch (error) {
           failureCount += 1;
           if (failures.length < 50) failures.push({ deliveryId: document.id, code: error.code || "internal" });
         }

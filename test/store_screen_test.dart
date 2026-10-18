@@ -25,7 +25,29 @@ import 'package:provider/provider.dart';
 // real authentication, ads, or payment credentials.
 class _StoreAppState extends ChangeNotifier implements AppState {
   @override
-  EconomyWallet economyWallet = const EconomyWallet();
+  EconomyWallet economyWallet = EconomyWallet.fromMap({
+    'dailyKeys': 2,
+    'keys': 8,
+    'dailyHearts': 3,
+    'hearts': 6,
+    'tickets': 8,
+    'offers': {
+      'keys_1': {'resource': 'keys', 'amount': 1, 'coins': 700, 'gems': 7},
+      'keys_3': {'resource': 'keys', 'amount': 3, 'coins': 1800, 'gems': 18},
+      'hearts_3': {'resource': 'hearts', 'amount': 3, 'coins': 1500, 'gems': 15},
+      'tickets_3': {'resource': 'tickets', 'amount': 3, 'coins': 2400, 'gems': 24},
+      'play_bundle': {
+        'grants': {'keys': 3, 'hearts': 3, 'tickets': 3},
+        'coins': 5100,
+        'gems': 51
+      },
+      'play_bundle_large': {
+        'grants': {'keys': 10, 'hearts': 10, 'tickets': 10},
+        'coins': 16000,
+        'gems': 160
+      },
+    },
+  });
   bool economyReady = true;
   String? economyFailure;
   int rentalHours = 0;
@@ -664,6 +686,7 @@ void main() {
     expect(find.byType(GameStoreNavigationBack), findsOneWidget);
     for (final tab in [
       'Featured',
+      'Resources',
       'Gems',
       'Membership',
       'Categories & characters',
@@ -687,7 +710,7 @@ void main() {
         tester
             .widgetList<GameStoreNavIcon>(find.byType(GameStoreNavIcon))
             .map((icon) => icon.index),
-        [0, 1, 3, 4]);
+        [0, 2, 1, 3, 4]);
     expect(tester.getRect(find.byType(ListView)).bottom, 780);
     final list = tester.widget<ListView>(find.byType(ListView));
     list.controller!.jumpTo(list.controller!.position.maxScrollExtent);
@@ -1122,6 +1145,8 @@ void main() {
     await capture('build/store-mobile-return-ar.png');
     await select(tester, 'العضوية');
     await capture('build/store-mobile-membership-ar.png');
+    await select(tester, 'أرصدة اللعب');
+    await capture('build/store-mobile-resources-ar.png');
     await tester.pumpWidget(const SizedBox.shrink());
     settings.dispose();
     settings = _StoreSettings();

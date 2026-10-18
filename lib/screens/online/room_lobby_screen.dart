@@ -15,6 +15,7 @@ import '../../services/invite_service.dart';
 import '../../services/native_bridge_service.dart';
 import '../../services/profile_service.dart';
 import '../../services/room_service.dart';
+import '../home/resource_shop_screen.dart';
 
 class RoomLobbyScreen extends StatefulWidget {
   const RoomLobbyScreen({
@@ -44,6 +45,10 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
   bool _starting = false;
   bool _leaving = false;
   bool _navigatedToGame = false;
+  bool _checkingKeys = false;
+  Completer<void>? _keyCheckFinished;
+  String? _launchKeyError;
+  final Set<String> _keyCheckedMatches = <String>{};
   DateTime? _lastLaunchedRoundAt;
   Room? _latestRoom; // tracked for the leave-confirmation dialog
   late final AnimationController _pulseCtrl;
@@ -108,7 +113,7 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
         .catchError((_) {});
   }
 
-  Future<void> _leaveRoom() async {
+  Future<void> _leaveRoom({bool openResourceShop = false}) async {
     if (_leaving) return;
     final userId = context.read<AppState>().user?.uid;
 
@@ -128,7 +133,12 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
             userId: userId,
           );
       if (!mounted) return;
-      Navigator.of(context).pop();
+      final navigator = Navigator.of(context);
+      navigator.pop();
+      if (openResourceShop) {
+        unawaited(navigator.push(MaterialPageRoute<void>(
+            builder: (_) => const ResourceShopScreen())));
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -143,9 +153,95 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
     }
   }
 
+  Future<bool> _checkChallengeKey({bool matchStarted = false}) async {
+    if (_checkingKeys || _leaving) return false;
+    final app = context.read<AppState>();
+    final uid = app.user?.uid;
+    if (uid == null) return false;
+    final finished = Completer<void>();
+    _keyCheckFinished = finished;
+    setState(() => _checkingKeys = true);
+    try {
+      if (app.isOnline) {
+        await app.loadEconomy().timeout(const Duration(seconds: 10));
+      }
+      if (!mounted || app.user?.uid != uid) return false;
+      if (!app.isOnline || !app.economyLoaded || app.economyError != null) {
+        _showKeyCheckError(
+            'تعذر التحقق من المفاتيح. تحقق من الاتصال ثم أعد المحاولة.',
+            matchStarted: matchStarted);
+        return false;
+      }
+      if (app.economyWallet.totalKeys > 0) return true;
+      if (matchStarted) {
+        setState(() => _launchKeyError =
+            'تحتاج إلى مفتاح لدخول هذه المباراة. يمكنك إعادة المحاولة بعد شحن الرصيد.');
+      }
+      final shop = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+                  title: const Text('تحتاج إلى مفتاح'),
+                  content: Text(matchStarted
+                      ? 'نفدت المفاتيح. فتح أرصدة اللعب سيُخرجك من هذه المباراة أولاً حتى يتمكن الآخرون من المتابعة.'
+                      : 'تحتاج إلى مفتاح واحد للمباراة كاملة. انتظر تجديد المفاتيح اليومية أو احصل على المزيد من أرصدة اللعب.'),
+                  actions: [
+                    TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child:
+                            Text(matchStarted ? 'البقاء في الغرفة' : 'إلغاء')),
+                    FilledButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: Text(matchStarted
+                            ? 'مغادرة وفتح الأرصدة'
+                            : 'فتح أرصدة اللعب')),
+                  ]));
+      if (shop == true && mounted && app.user?.uid == uid) {
+        if (matchStarted) {
+          // Use the normal transactional forfeit path, only after an explicit
+          // choice. An unknown balance or connection error never leaves a room.
+          await _leaveRoom(openResourceShop: true);
+        } else {
+          await Navigator.of(context).push(MaterialPageRoute<void>(
+              builder: (_) => const ResourceShopScreen()));
+        }
+      }
+      return false;
+    } catch (_) {
+      if (mounted && app.user?.uid == uid) {
+        _showKeyCheckError(
+            'تعذر التحقق من المفاتيح. تحقق من الاتصال ثم أعد المحاولة.',
+            matchStarted: matchStarted);
+      }
+      return false;
+    } finally {
+      _keyCheckFinished = null;
+      finished.complete();
+      if (mounted) setState(() => _checkingKeys = false);
+    }
+  }
+
+  void _showKeyCheckError(String message, {required bool matchStarted}) {
+    if (matchStarted) {
+      setState(() => _launchKeyError = message);
+    } else {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
+    }
+  }
+
+  void _retryMatchLaunch() {
+    setState(() {
+      _launchKeyError = null;
+      _navigatedToGame = false;
+      _lastLaunchedRoundAt = null;
+    });
+  }
+
   Future<void> _toggleReady(Room room, bool nextValue) async {
     final userId = context.read<AppState>().user?.uid;
     if (userId == null || !room.containsPlayer(userId)) return;
+    if (nextValue && !await _checkChallengeKey()) return;
+    if (!mounted || context.read<AppState>().user?.uid != userId) return;
     try {
       await context.read<RoomService>().setPlayerReady(
             roomId: widget.roomId,
@@ -164,6 +260,8 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
   Future<void> _startRoom(Room room) async {
     final userId = context.read<AppState>().user?.uid;
     if (userId == null) return;
+    if (!await _checkChallengeKey()) return;
+    if (!mounted || context.read<AppState>().user?.uid != userId) return;
     // Capture service references before any async gaps.
     final roomService = context.read<RoomService>();
     final messenger = ScaffoldMessenger.of(context);
@@ -251,6 +349,21 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
     required String matchMode,
     required bool isResumingMidGame,
   }) async {
+    // A host can start while this player's ready check is still in flight.
+    // Wait for that check instead of silently skipping the only launch.
+    await _keyCheckFinished?.future;
+    if (!mounted || _leaving) return;
+    final matchId = room.economyMatchId.isEmpty ? room.id : room.economyMatchId;
+    final isLaterRound = room.isRoundBasedMode && room.roundNumber > 1;
+    // Native owns admission and its receipt. Existing matches can legitimately
+    // continue with zero keys after the first key was consumed.
+    if (!_keyCheckedMatches.contains(matchId) &&
+        !isResumingMidGame &&
+        !isLaterRound) {
+      if (!await _checkChallengeKey(matchStarted: true)) return;
+    }
+    if (!mounted || context.read<AppState>().user?.uid != currentUserId) return;
+    _keyCheckedMatches.add(matchId);
     final profileService = context.read<ProfileService>();
     final nativeBridgeService = context.read<NativeBridgeService>();
     final appUser = context.read<AppState>().user;
@@ -915,6 +1028,28 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
                                 ? _blitzSecondsLeft
                                 : null,
                           ),
+                          if (_launchKeyError != null)
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+                              child: Material(
+                                color: const Color(0xFF332347),
+                                borderRadius: BorderRadius.circular(12),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Row(children: [
+                                    Expanded(
+                                        child: Text(_launchKeyError!,
+                                            style: const TextStyle(
+                                                color: Colors.white))),
+                                    TextButton(
+                                        onPressed: _checkingKeys
+                                            ? null
+                                            : _retryMatchLaunch,
+                                        child: const Text('إعادة المحاولة')),
+                                  ]),
+                                ),
+                              ),
+                            ),
                           // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Content ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
                           Expanded(
                             child: LayoutBuilder(
@@ -937,7 +1072,7 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
                                   isSpectator: isSpectator,
                                   isMidGameWaiting: isMidGameWaiting,
                                   readyValue: readyValue,
-                                  starting: _starting,
+                                  starting: _starting || _checkingKeys,
                                   leaving: _leaving,
                                   onToggleReady: (v) => _toggleReady(room, v),
                                   onStartRoom: () => _startRoom(room),

@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import '../../models/campaign_stage.dart';
 import '../../models/stage_progress.dart';
 import '../../core/app_state.dart';
+import '../../models/store_catalog.dart';
+import '../home/store_screen.dart';
 import '../home/resource_shop_screen.dart';
 import '../../services/campaign_defaults.dart';
 import '../../services/campaign_mode_engine.dart';
@@ -286,7 +288,7 @@ class _StageIntroScreenState extends State<StageIntroScreen>
                                   context,
                                   MaterialPageRoute<void>(
                                       builder: (_) =>
-                                          const ResourceShopScreen()))))),
+                                          const StoreScreen(initialKind: StoreProductKind.resource)))))),
                   _TopBar(
                     onBack: () => Navigator.of(context).maybePop(),
                     onLeaderboard: () => Navigator.of(context).push(

@@ -125,6 +125,7 @@ class _Native implements NativeBridgeService {
   _CloudResponseGate? nextWalletResponse;
   bool failWalletSync = false;
   bool failAchievementSync = false;
+  List<String> unlockedCategories = [];
   final achievements = <String, Map<String, dynamic>>{};
 
   @override
@@ -241,7 +242,7 @@ class _Native implements NativeBridgeService {
       };
   @override
   Future<Map<String, dynamic>> getCategoryState() async => {
-        'unlocked': <String>[],
+        'unlocked': List<String>.of(unlockedCategories),
         'rentals': <String, int>{},
       };
   @override
@@ -258,8 +259,11 @@ class _Native implements NativeBridgeService {
 
   @override
   Future<bool> setCategoryState(
-          {required List<String> unlocked, required bool isVip}) async =>
-      true;
+      {required List<String> unlocked, required bool isVip}) async {
+    unlockedCategories = List<String>.of(unlocked);
+    return true;
+  }
+
   @override
   Future<bool> setCharacterState(
           {required int selected, required List<int> unlocked}) async =>
@@ -296,7 +300,8 @@ Future<void> _until(bool Function() predicate) async {
 }
 
 class _Harness {
-  final db = _Firestore();
+  _Harness({_Firestore? firestore}) : db = firestore ?? _Firestore();
+  final _Firestore db;
   final auth = _FakeAuth();
   final native = _Native();
   late final AppState state = AppState(
@@ -357,6 +362,41 @@ class _Harness {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  test('stale devices preserve permanent purchases made on another device',
+      () async {
+    final db = _Firestore();
+    final first = _Harness(firestore: db);
+    final second = _Harness(firestore: db);
+    addTearDown(first.close);
+    addTearDown(second.close);
+    await first.seed('alice');
+    await first.signIn('alice');
+    await second.signIn('alice');
+    first.state.purchasedCharacters.add(2);
+    first.state.unlockedCategories = ['رياضة'];
+    first.native.unlockedCategories = ['رياضة'];
+    second.state.purchasedCharacters.add(4);
+    second.state.unlockedCategories = ['أنمي'];
+    second.native.unlockedCategories = ['أنمي'];
+
+    await Future.wait(
+        [first.state.loadCurrency(), second.state.loadCurrency()]);
+    await _drain();
+    var data = await first.privateData('alice');
+    expect(data['purchasedCharacters'], unorderedEquals([2, 4]));
+    expect(data['unlockedCategories'], unorderedEquals(['رياضة', 'أنمي']));
+
+    // An old installation may know none of the account's purchases yet.
+    second.state.purchasedCharacters.clear();
+    second.state.unlockedCategories = [];
+    second.native.unlockedCategories = [];
+    await second.state.loadCurrency();
+    await _drain();
+    data = await first.privateData('alice');
+    expect(data['purchasedCharacters'], unorderedEquals([2, 4]));
+    expect(data['unlockedCategories'], unorderedEquals(['رياضة', 'أنمي']));
+  });
 
   test('startup routing waits for the first authentication result', () async {
     final h = _Harness();

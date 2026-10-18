@@ -213,9 +213,16 @@ class CampaignResultHandler {
   }) async {
     final uid = result.attempt.uid.trim();
     final claimId = result.rewardClaimId;
-    if (uid.isEmpty ||
-        claimId == null ||
-        appState.currentUser?.uid.trim() != uid) {
+    if (uid.isEmpty || appState.currentUser?.uid.trim() != uid) {
+      return false;
+    }
+    // Progress has been saved before this call. Let the economy service award
+    // milestones now, including replays with no new coin/gem reward claim.
+    // A temporary wallet failure must never hide a successfully saved result.
+    try {
+      await appState.loadEconomy().timeout(const Duration(seconds: 4));
+    } catch (_) {}
+    if (claimId == null || appState.currentUser?.uid.trim() != uid) {
       return false;
     }
     return _applyRewardClaim(

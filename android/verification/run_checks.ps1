@@ -23,7 +23,7 @@ if ((Get-FileHash -LiteralPath $verificationJson -Algorithm SHA256).Hash -ne '3C
 }
 $verificationClasspath = "$checkOutput;$compiledApp;$compiledKotlin;$verificationJson"
 $progressionSources = @('AppPrefs.java', 'PlayerProgress.java', 'PlayerStats.java', 'ProgressionAccount.java', 'ProgressionMatchHost.java', 'NativeProgression.java', 'ProgressionRules.java', 'ProgressionSyncState.java') | ForEach-Object { Join-Path $nativeSources $_ }
-$verificationSources = @('VerificationContext.java', 'CurrencyClaimsCheck.java', 'NativeProgressionCheck.java') | ForEach-Object { Join-Path $PSScriptRoot $_ }
+$verificationSources = @('VerificationContext.java', 'CurrencyClaimsCheck.java', 'NativeProgressionCheck.java', 'EconomyRoundLedgerCheck.java') | ForEach-Object { Join-Path $PSScriptRoot $_ }
 $androidStubs = Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'stubs') -Filter '*.java' -Recurse | ForEach-Object { $_.FullName }
 javac -encoding UTF-8 -cp $verificationClasspath -d $checkOutput $androidStubs $progressionSources $verificationSources
 if ($LASTEXITCODE -ne 0) { throw 'Native progression checks did not compile' }
@@ -31,3 +31,5 @@ java -cp $verificationClasspath com.qi7bali.landchallengeonline.CurrencyClaimsCh
 if ($LASTEXITCODE -ne 0) { throw 'Currency checks failed' }
 java -cp $verificationClasspath com.qi7bali.landchallengeonline.NativeProgressionCheck
 if ($LASTEXITCODE -ne 0) { throw 'Native progression checks failed' }
+java -cp $verificationClasspath com.qi7bali.landchallengeonline.EconomyRoundLedgerCheck
+if ($LASTEXITCODE -ne 0) { throw 'Economy round journal checks failed' }

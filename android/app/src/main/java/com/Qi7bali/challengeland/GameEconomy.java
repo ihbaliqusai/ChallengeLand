@@ -275,7 +275,7 @@ public final class GameEconomy {
         prefs(a).edit().putString("pending:" + id, new JSONObject(data).toString()).commit();
         flush(a);
     }
-    private static void queueRound(Activity a, String sessionId) {
+    static void queueRound(Activity a, String sessionId) {
         String roundId = NativeProgression.matchId(a);
         SharedPreferences progress = ProgressionAccount.preferences(a);
         int correct = Math.max(0, progress.getInt("session:" + roundId + ":correct", 0));
@@ -302,7 +302,7 @@ public final class GameEconomy {
             return hex.toString();
         } catch (java.security.NoSuchAlgorithmException impossible) { throw new IllegalStateException(impossible); }
     }
-    private static Map.Entry<String, ?> nextPending(SharedPreferences accountPrefs) {
+    static Map.Entry<String, ?> nextPending(SharedPreferences accountPrefs) {
         Map.Entry<String, ?> terminal = null;
         for (Map.Entry<String, ?> entry : accountPrefs.getAll().entrySet()) {
             if (entry.getKey().startsWith("pendingRound:")) return entry;
@@ -310,7 +310,7 @@ public final class GameEconomy {
         }
         return terminal;
     }
-    private static void markPendingComplete(SharedPreferences accountPrefs, String key, Map<String, Object> data) {
+    static void markPendingComplete(SharedPreferences accountPrefs, String key, Map<String, Object> data) {
         SharedPreferences.Editor editor = accountPrefs.edit().remove(key);
         if (key.startsWith("pendingRound:")) editor.putBoolean("reportedRound:" + data.get("operationId"), true);
         else editor.putBoolean("finished:" + data.get("sessionId"), true);

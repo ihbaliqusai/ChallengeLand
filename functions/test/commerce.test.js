@@ -27,15 +27,111 @@ function harness() {
   const db = new MemoryFirestore();
   const receipts = new Map();
   const acknowledgements = [];
+  const consumptions = [];
   const verifier = {
     verify: async (product, token) => structuredClone(receipts.get(token) || receipt()),
     acknowledge: async (product, token) => acknowledgements.push({ product, token }),
+    consume: async (product, token) => {
+      consumptions.push({ product, token });
+      receipts.set(token, receipt({ ...(receipts.get(token) || {}), consumed: true }));
+    },
   };
   const service = createCommerceService({ db, verifier, packageName, now: () => clock });
   const buy = (productId, token = productId, data = {}, owner = uid) =>
     service.verifyPurchase(owner, { productId, purchaseToken: token, ...data });
-  return { db, service, receipts, acknowledgements, buy };
+  return { db, service, receipts, acknowledgements, consumptions, verifier, buy };
 }
+
+test("server resource settlement follows the complete durable grant and never consumes legacy currency products", async () => {
+  const x = harness();
+  const consume = x.verifier.consume;
+  x.verifier.consume = async (product, token) => {
+    const hash = sha256(token);
+    const purchase = x.db.read(`commerce_accounts/${uid}/transactions/${hash}`);
+    const wallet = x.db.read(`economy_accounts/${uid}`);
+    assert.equal(purchase.status, "delivered");
+    assert.equal(purchase.grant.keys, 10);
+    assert.equal(wallet.keys, 10);
+    await consume(product, token);
+  };
+  await x.buy("keys_10");
+  await x.buy("keys_10");
+  assert.equal(x.consumptions.length, 1);
+  const vault = x.db.read(`commerce_purchase_tokens/${sha256("keys_10")}`);
+  assert.equal(vault.resourceSettlementPending, false);
+  assert.equal(vault.resourceConsumedAtMillis, clock);
+  for (const id of ["gems_80", "coins_5000", "pack_value", "pack_starter", "noads", "vip_monthly"]) await x.buy(id);
+  assert.equal(x.consumptions.length, 1);
+});
+
+test("a pending resource purchase completes and settles through RTDN without the app reopening", async () => {
+  const x = harness();
+  const token = "pending_resource";
+  x.receipts.set(token, receipt({ state: "pending" }));
+  assert.equal((await x.buy("tickets_10", token)).status, "pending");
+  assert.equal(x.db.read(`economy_accounts/${uid}`), undefined);
+  assert.equal(x.consumptions.length, 0);
+  x.receipts.set(token, receipt());
+  const event = { packageName, oneTimeProductNotification: { purchaseToken: token } };
+  assert.equal((await x.service.processNotification(event)).status, "delivered");
+  await x.service.processNotification(event);
+  assert.equal(x.db.read(`economy_accounts/${uid}`).tickets, 13);
+  assert.equal(x.consumptions.length, 1);
+  assert.equal(x.db.read(`commerce_purchase_tokens/${sha256(token)}`).resourceSettlementPending, false);
+});
+
+test("failed resource consumption is retried by scheduled reconciliation without granting twice", async () => {
+  const x = harness();
+  const token = "resource_retry";
+  const consume = x.verifier.consume;
+  x.verifier.consume = async () => { throw new Error("temporary consume failure"); };
+  await assert.rejects(x.buy("resources_3_each", token), { code: "unavailable" });
+  const wallet = x.db.read(`economy_accounts/${uid}`);
+  assert.equal(wallet.keys, 3);
+  const pending = x.db.read(`commerce_purchase_tokens/${sha256(token)}`);
+  assert.equal(pending.resourceSettlementPending, true);
+  assert.equal(pending.resourceSettlementLeaseUntilMillis, 0);
+  x.verifier.consume = consume;
+  const result = await x.service.refreshSubscriptions();
+  assert.equal(result.examined, 1);
+  assert.equal(result.failureCount, 0);
+  assert.deepEqual(x.db.read(`economy_accounts/${uid}`), wallet);
+  assert.equal(x.consumptions.length, 1);
+  assert.equal(x.db.read(`commerce_purchase_tokens/${sha256(token)}`).resourceSettlementPending, false);
+  assert.equal((await x.service.refreshSubscriptions()).examined, 0);
+});
+
+test("concurrent resource deliveries share one settlement lease and one durable grant", async () => {
+  const x = harness();
+  const token = "concurrent_resource";
+  const consume = x.verifier.consume;
+  let release;
+  let entered;
+  const started = new Promise(resolve => { entered = resolve; });
+  const blocked = new Promise(resolve => { release = resolve; });
+  x.verifier.consume = async (product, purchaseToken) => {
+    entered();
+    await blocked;
+    return consume(product, purchaseToken);
+  };
+  const first = x.buy("hearts_10", token);
+  await started;
+  const duplicate = await x.buy("hearts_10", token);
+  assert.equal(duplicate.status, "delivered");
+  assert.equal(x.db.read(`economy_accounts/${uid}`).hearts, 10);
+  release();
+  await first;
+  assert.equal(x.consumptions.length, 1);
+});
+
+test("revoked resource purchases are never consumed", async () => {
+  const x = harness();
+  x.receipts.set("revoked_resource", receipt({ state: "revoked" }));
+  const result = await x.buy("keys_10", "revoked_resource");
+  assert.equal(result.status, "revoked");
+  assert.equal(x.consumptions.length, 0);
+  assert.equal(x.db.read(`economy_accounts/${uid}`), undefined);
+});
 
 test("resource packs credit the server wallet once and keep daily balances separate", async () => {
   const x = harness();
@@ -266,6 +362,36 @@ test("Google verifier sanitizes API errors that include purchase token request U
   await assert.rejects(verifier.verify(resolveProduct("gems_80"), "secret-token"), (error) => {
     assert.equal(error.code, "unavailable");
     assert.equal(error.message.includes("SECRET_PURCHASE_TOKEN"), false);
+    return true;
+  });
+});
+
+test("Google consumption treats a concurrent consume or lost success response as settled", async () => {
+  const calls = [];
+  const publisher = { purchases: { products: {
+    consume: async input => {
+      calls.push(input);
+      throw Object.assign(new Error("response lost"), { code: 409 });
+    },
+    get: async () => ({ data: { purchaseState: 0, consumptionState: 1 } }),
+  } } };
+  const verifier = createPlayVerifier({ publisher, packageName });
+  await verifier.consume(resolveProduct("keys_10"), "resource-token");
+  assert.deepEqual(calls, [{ packageName, productId: "keys_10", token: "resource-token" }]);
+  await assert.rejects(verifier.consume(resolveProduct("noads"), "wrong-type"), { code: "invalid-argument" });
+  assert.equal(calls.length, 1);
+});
+
+test("Google consumption failure remains retryable and never exposes purchase URLs or tokens", async () => {
+  const sensitive = "https://api/tokens/SECRET_CONSUME_TOKEN";
+  const publisher = { purchases: { products: {
+    consume: async () => { throw Object.assign(new Error(sensitive), { code: 403 }); },
+    get: async () => ({ data: { purchaseState: 0, consumptionState: 0 } }),
+  } } };
+  const verifier = createPlayVerifier({ publisher, packageName });
+  await assert.rejects(verifier.consume(resolveProduct("keys_10"), "secret-token"), error => {
+    assert.equal(error.code, "unavailable");
+    assert.equal(error.message.includes("SECRET_CONSUME_TOKEN"), false);
     return true;
   });
 });

@@ -15,7 +15,8 @@ import '../../services/campaign_service.dart';
 import '../../services/campaign_engagement_service.dart';
 import '../../services/native_bridge_service.dart';
 import 'stage_intro_screen.dart';
-import '../home/resource_shop_screen.dart';
+import '../../models/store_catalog.dart';
+import '../home/store_screen.dart';
 import 'widgets/stage_node.dart';
 import 'widgets/campaign_journey_panel.dart';
 
@@ -907,7 +908,8 @@ class _MapTopOverlay extends StatelessWidget {
                     void openShop() => Navigator.push(
                         context,
                         MaterialPageRoute<void>(
-                            builder: (_) => const ResourceShopScreen()));
+                            builder: (_) => const StoreScreen(
+                                initialKind: StoreProductKind.resource)));
                     return Semantics(
                       key: const ValueKey('campaign-hearts-balance'),
                       label:

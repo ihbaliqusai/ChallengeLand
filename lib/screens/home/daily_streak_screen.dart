@@ -5,8 +5,10 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/app_state.dart';
+import '../../services/daily_reward_service.dart';
 import '../../widgets/daily_reward_dialog.dart';
-import 'resource_shop_screen.dart';
+import '../../models/store_catalog.dart';
+import 'store_screen.dart';
 
 const _kDayRewards = AppState.streakRewards;
 
@@ -20,7 +22,7 @@ class DailyStreakScreen extends StatefulWidget {
 class _DailyStreakScreenState extends State<DailyStreakScreen>
     with WidgetsBindingObserver {
   Timer? _dayTimer;
-  DateTime _calendarDay = DateUtils.dateOnly(DateTime.now());
+  DateTime _calendarDay = DailyRewardProgress.calendarDate(DateTime.now());
 
   @override
   void initState() {
@@ -29,7 +31,7 @@ class _DailyStreakScreenState extends State<DailyStreakScreen>
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     WidgetsBinding.instance.addPostFrameCallback((_) => _refreshRewards());
     _dayTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      final today = DateUtils.dateOnly(DateTime.now());
+      final today = DailyRewardProgress.calendarDate(DateTime.now());
       if (today != _calendarDay) {
         _calendarDay = today;
         unawaited(_refreshRewards());
@@ -104,7 +106,8 @@ class _DailyStreakScreenState extends State<DailyStreakScreen>
                     onPressed: () => Navigator.push(
                         context,
                         MaterialPageRoute<void>(
-                            builder: (_) => const ResourceShopScreen())),
+                            builder: (_) => const StoreScreen(
+                                initialKind: StoreProductKind.resource))),
                     icon: const Icon(Icons.card_giftcard_rounded,
                         color: Colors.amber),
                     label: const Text('مكافآت المفاتيح والتذاكر والقلوب',

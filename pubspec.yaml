@@ -62,6 +62,20 @@ flutter:
     - assets/store/gems_1200.webp
     - assets/store/gems_500.webp
     - assets/store/gems_80.webp
+    - assets/store/hud_hearts.webp
+    - assets/store/hud_keys.webp
+    - assets/store/hud_tickets.webp
+    - assets/store/pack_resources_3.webp
+    - assets/store/pack_resources_10.webp
+    - assets/store/pack_keys_1.webp
+    - assets/store/pack_hearts_1.webp
+    - assets/store/pack_tickets_1.webp
+    - assets/store/exchange_hearts_3.webp
+    - assets/store/exchange_keys_3.webp
+    - assets/store/exchange_keys_1.webp
+    - assets/store/exchange_bundle_3.webp
+    - assets/store/exchange_tickets_3.webp
+    - assets/store/exchange_bundle_10.webp
     - assets/store/membership.webp
     - assets/store/navigation.webp
     - assets/store/offer_champion.webp

@@ -6,7 +6,7 @@ import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  final now = DateTime(2026, 10, 10, 12);
+  final now = DateTime.utc(2026, 10, 10, 12);
   Map<String, dynamic> saved(int day, DateTime date) => {
         'streakDay': day,
         'lastStreakClaimDate': Timestamp.fromDate(date),
@@ -19,19 +19,36 @@ void main() {
     expect(today.day, 7);
     expect(today.claimed, isTrue);
     final midnight = DailyRewardProgress.fromData(
-        saved(7, DateTime(2026, 10, 9, 23, 59)), DateTime(2026, 10, 10, 0, 1));
+        saved(7, DateTime.utc(2026, 10, 9, 23, 59)),
+        DateTime.utc(2026, 10, 10, 0, 1));
     expect(midnight.day, 8);
     expect(midnight.claimed, isFalse);
     expect(
-        DailyRewardProgress.fromData(saved(20, DateTime(2026, 10, 8)), now).day,
+        DailyRewardProgress.fromData(saved(20, DateTime.utc(2026, 10, 8)), now)
+            .day,
         1);
     expect(
-        DailyRewardProgress.fromData(saved(30, DateTime(2026, 10, 9)), now).day,
+        DailyRewardProgress.fromData(saved(30, DateTime.utc(2026, 10, 9)), now)
+            .day,
         1);
     expect(
-        DailyRewardProgress.fromData(saved(7, DateTime(2026, 10, 11)), now)
+        DailyRewardProgress.fromData(saved(7, DateTime.utc(2026, 10, 11)), now)
             .claimed,
         isTrue);
+  });
+
+  test('reward rollover follows UTC rather than midnight on the device', () {
+    final last = DateTime.parse('2026-10-10T23:30:00+03:00');
+    final afterLocalMidnight = DateTime.parse('2026-10-11T00:30:00+03:00');
+    final afterServerMidnight = DateTime.parse('2026-10-11T03:01:00+03:00');
+    final sameDay =
+        DailyRewardProgress.fromData(saved(7, last), afterLocalMidnight);
+    expect(sameDay.day, 7);
+    expect(sameDay.claimed, isTrue);
+    final nextDay =
+        DailyRewardProgress.fromData(saved(7, last), afterServerMidnight);
+    expect(nextDay.day, 8);
+    expect(nextDay.claimed, isFalse);
   });
 
   test('a second device restores a claim without another grant or profile loss',
@@ -41,7 +58,7 @@ void main() {
       'coins': 500,
       'gems': 10,
       'username': 'Player',
-      ...saved(6, DateTime(2026, 10, 9))
+      ...saved(6, DateTime.utc(2026, 10, 9))
     });
     final first =
         await DailyRewardService(firestore: db).claim(uid: 'player', now: now);
@@ -71,7 +88,7 @@ void main() {
     await db.doc('users/maximum').set({
       'coins': 2147483646,
       'gems': 2147483646,
-      ...saved(29, DateTime(2026, 10, 9))
+      ...saved(29, DateTime.utc(2026, 10, 9))
     });
     final capped = await service.claim(uid: 'maximum', now: now);
     expect(capped.balances, {'coins': 2147483647, 'gems': 2147483647});

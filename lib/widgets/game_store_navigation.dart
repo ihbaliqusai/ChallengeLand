@@ -26,26 +26,26 @@ class GameStoreTopBarArtwork extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(builder: (context, area) {
-        final cap = area.maxHeight * (.048 * 3168) / (.780 * 568);
+        final cap = area.maxHeight * 151 / 405;
         return Directionality(
             textDirection: TextDirection.ltr,
             child: Row(children: [
               SizedBox(
                   width: cap,
                   child: const _NavigationSlice(
-                      Rect.fromLTRB(.017, .144, .065, .924))),
+                      Rect.fromLTRB(29 / 3168, 40 / 474, 180 / 3168, 445 / 474))),
               const Expanded(
                   child:
                       // Match the inner edge of both mirrored end caps so the
                       // blue gradient continues without a vertical seam.
                       _NavigationSlice(
-                          Rect.fromLTRB(.0645, .144, .0655, .924))),
+                          Rect.fromLTRB(179.5 / 3168, 40 / 474, 180.5 / 3168, 445 / 474))),
               SizedBox(
                   width: cap,
                   child: Transform.flip(
                       flipX: true,
                       child: const _NavigationSlice(
-                          Rect.fromLTRB(.017, .144, .065, .924)))),
+                          Rect.fromLTRB(29 / 3168, 40 / 474, 180 / 3168, 445 / 474)))),
             ]));
       });
 }
@@ -55,21 +55,21 @@ class GameStoreNavigationSelection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(builder: (context, area) {
-        const panel = Rect.fromLTRB(.650, .160, .888, .848);
-        const erase = Rect.fromLTRB(.695, .160, .840, .840);
+        const panel = Rect.fromLTRB(2045 / 3168, 62 / 474, 2885 / 3168, 420 / 474);
+        const erase = Rect.fromLTRB(2360 / 3168, 62 / 474, 2580 / 3168, 420 / 474);
         final label = Rect.fromLTRB(
             (erase.left - panel.left) / panel.width * area.maxWidth,
             (erase.top - panel.top) / panel.height * area.maxHeight,
             (erase.right - panel.left) / panel.width * area.maxWidth,
             (erase.bottom - panel.top) / panel.height * area.maxHeight);
         return ClipRRect(
-            borderRadius: BorderRadius.circular(area.maxHeight * .13),
+            borderRadius: BorderRadius.circular(area.maxHeight * .14),
             child: Stack(children: [
               const Positioned.fill(child: _NavigationSlice(panel)),
               Positioned.fromRect(
                   rect: label,
                   child: const _NavigationSlice(
-                      Rect.fromLTRB(.844, .160, .850, .840))),
+                      Rect.fromLTRB(2200 / 3168, 62 / 474, 2210 / 3168, 420 / 474))),
             ]));
       });
 }
@@ -81,14 +81,16 @@ class GameStoreNavigationBack extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Transform.flip(
       flipX: !pointRight,
-      child: const _NavigationSlice(Rect.fromLTRB(.894, .264, .974, .763)));
+      child: const _NavigationSlice(
+          Rect.fromLTRB(2924 / 3168, 115 / 474, 3110 / 3168, 365 / 474)));
 }
 
 const _navigationIconRects = <int, Rect>{
-  0: Rect.fromLTWH(2315 / 3168, 26 / 568, 235 / 3168, 245 / 568),
-  1: Rect.fromLTWH(1511 / 3168, 162 / 568, 413 / 3168, 277 / 568),
-  3: Rect.fromLTWH(912 / 3168, 139 / 568, 291 / 3168, 291 / 568),
-  4: Rect.fromLTWH(294 / 3168, 131 / 568, 283 / 3168, 308 / 568),
+  0: Rect.fromLTWH(2376 / 3168, 96 / 474, 194 / 3168, 230 / 474),
+  1: Rect.fromLTWH(1226 / 3168, 108 / 474, 330 / 3168, 266 / 474),
+  2: Rect.fromLTWH(1710 / 3168, 96 / 474, 238 / 3168, 218 / 474),
+  3: Rect.fromLTWH(716 / 3168, 92 / 474, 294 / 3168, 254 / 474),
+  4: Rect.fromLTWH(256 / 3168, 94 / 474, 210 / 3168, 262 / 474),
 };
 
 class GameStoreNavIcon extends StatelessWidget {
@@ -106,7 +108,7 @@ class GameStoreNavIcon extends StatelessWidget {
             fit: BoxFit.contain,
             child: SizedBox(
                 width: source.width * 3168,
-                height: source.height * 568,
+                height: source.height * 474,
                 child: ClipPath(
                     clipper: _NavigationIconClipper(index),
                     child: _NavigationSlice(source)))));
@@ -119,8 +121,12 @@ class _NavigationIconClipper extends CustomClipper<Path> {
 
   @override
   Path getClip(Size size) {
+    final contours = _navigationContours[index];
+    if (contours == null || contours.isEmpty) {
+      return Path()..addRect(Rect.fromLTWH(0, 0, size.width, size.height));
+    }
     final path = Path();
-    for (final contour in _navigationContours[index]!) {
+    for (final contour in contours) {
       path.addPolygon(
           contour
               .map((point) =>
@@ -556,6 +562,224 @@ const _navigationContours = <int, List<List<Offset>>>{
       Offset(0.3099, 0.1011),
       Offset(0.3196, 0.1011),
       Offset(0.3293, 0.0939),
+    ],
+  ],
+  2: [
+    [
+      Offset(0.2353, 0.0092),
+      Offset(0.2815, 0.0183),
+      Offset(0.3067, 0.0275),
+      Offset(0.3277, 0.0367),
+      Offset(0.3445, 0.0459),
+      Offset(0.3613, 0.055),
+      Offset(0.5966, 0.0642),
+      Offset(0.6134, 0.0734),
+      Offset(0.6218, 0.0826),
+      Offset(0.6261, 0.0917),
+      Offset(0.6261, 0.1009),
+      Offset(0.6303, 0.1101),
+      Offset(0.6975, 0.1193),
+      Offset(0.7101, 0.1284),
+      Offset(0.7185, 0.1376),
+      Offset(0.7185, 0.1468),
+      Offset(0.8025, 0.156),
+      Offset(0.8151, 0.1651),
+      Offset(0.8193, 0.1743),
+      Offset(0.8235, 0.1835),
+      Offset(0.8235, 0.1927),
+      Offset(0.8235, 0.2018),
+      Offset(0.8908, 0.211),
+      Offset(0.8992, 0.2202),
+      Offset(0.9622, 0.2294),
+      Offset(0.9664, 0.2385),
+      Offset(0.9706, 0.2477),
+      Offset(0.9748, 0.2569),
+      Offset(0.979, 0.2661),
+      Offset(0.9832, 0.2752),
+      Offset(0.9874, 0.2844),
+      Offset(0.9874, 0.2936),
+      Offset(0.9874, 0.3028),
+      Offset(0.9874, 0.3119),
+      Offset(0.9874, 0.3211),
+      Offset(0.9874, 0.3303),
+      Offset(0.9832, 0.3394),
+      Offset(0.9832, 0.3486),
+      Offset(0.979, 0.3578),
+      Offset(0.979, 0.367),
+      Offset(0.9748, 0.3761),
+      Offset(0.9706, 0.3853),
+      Offset(0.9706, 0.3945),
+      Offset(0.9664, 0.4037),
+      Offset(0.9622, 0.4128),
+      Offset(0.958, 0.422),
+      Offset(0.9538, 0.4312),
+      Offset(0.9496, 0.4404),
+      Offset(0.9454, 0.4495),
+      Offset(0.9412, 0.4587),
+      Offset(0.937, 0.4679),
+      Offset(0.9328, 0.4771),
+      Offset(0.9286, 0.4862),
+      Offset(0.9244, 0.4954),
+      Offset(0.9202, 0.5046),
+      Offset(0.916, 0.5138),
+      Offset(0.916, 0.5229),
+      Offset(0.9118, 0.5321),
+      Offset(0.9076, 0.5413),
+      Offset(0.9076, 0.5505),
+      Offset(0.9034, 0.5596),
+      Offset(0.8992, 0.5688),
+      Offset(0.8992, 0.578),
+      Offset(0.895, 0.5872),
+      Offset(0.8908, 0.5963),
+      Offset(0.8866, 0.6055),
+      Offset(0.8824, 0.6147),
+      Offset(0.8824, 0.6239),
+      Offset(0.8782, 0.633),
+      Offset(0.8739, 0.6422),
+      Offset(0.8739, 0.6514),
+      Offset(0.8697, 0.6606),
+      Offset(0.8655, 0.6697),
+      Offset(0.8655, 0.6789),
+      Offset(0.8613, 0.6881),
+      Offset(0.8571, 0.6972),
+      Offset(0.8529, 0.7064),
+      Offset(0.8529, 0.7156),
+      Offset(0.8487, 0.7248),
+      Offset(0.8445, 0.7339),
+      Offset(0.8403, 0.7431),
+      Offset(0.8361, 0.7523),
+      Offset(0.8319, 0.7615),
+      Offset(0.8277, 0.7706),
+      Offset(0.8235, 0.7798),
+      Offset(0.8151, 0.789),
+      Offset(0.8109, 0.7982),
+      Offset(0.8067, 0.8073),
+      Offset(0.7983, 0.8165),
+      Offset(0.7941, 0.8257),
+      Offset(0.7899, 0.8349),
+      Offset(0.7815, 0.844),
+      Offset(0.7773, 0.8532),
+      Offset(0.7731, 0.8624),
+      Offset(0.7647, 0.8716),
+      Offset(0.7605, 0.8807),
+      Offset(0.7563, 0.8899),
+      Offset(0.7479, 0.8991),
+      Offset(0.7395, 0.9083),
+      Offset(0.7311, 0.9174),
+      Offset(0.7227, 0.9266),
+      Offset(0.7143, 0.9358),
+      Offset(0.7059, 0.945),
+      Offset(0.6975, 0.9541),
+      Offset(0.6891, 0.9633),
+      Offset(0.6807, 0.9725),
+      Offset(0.6681, 0.9817),
+      Offset(0.6261, 0.9817),
+      Offset(0.6218, 0.9725),
+      Offset(0.6176, 0.9633),
+      Offset(0.6134, 0.9541),
+      Offset(0.6134, 0.945),
+      Offset(0.6092, 0.9358),
+      Offset(0.2227, 0.9266),
+      Offset(0.063, 0.9174),
+      Offset(0.0378, 0.9083),
+      Offset(0.0252, 0.8991),
+      Offset(0.021, 0.8899),
+      Offset(0.0126, 0.8807),
+      Offset(0.0126, 0.8716),
+      Offset(0.0084, 0.8624),
+      Offset(0.0084, 0.8532),
+      Offset(0.0084, 0.844),
+      Offset(0.0084, 0.8349),
+      Offset(0.0126, 0.8257),
+      Offset(0.0126, 0.8165),
+      Offset(0.0168, 0.8073),
+      Offset(0.021, 0.7982),
+      Offset(0.021, 0.789),
+      Offset(0.0252, 0.7798),
+      Offset(0.0294, 0.7706),
+      Offset(0.0294, 0.7615),
+      Offset(0.0336, 0.7523),
+      Offset(0.0378, 0.7431),
+      Offset(0.0378, 0.7339),
+      Offset(0.042, 0.7248),
+      Offset(0.0462, 0.7156),
+      Offset(0.0504, 0.7064),
+      Offset(0.0504, 0.6972),
+      Offset(0.0546, 0.6881),
+      Offset(0.0588, 0.6789),
+      Offset(0.0588, 0.6697),
+      Offset(0.063, 0.6606),
+      Offset(0.0672, 0.6514),
+      Offset(0.0714, 0.6422),
+      Offset(0.0714, 0.633),
+      Offset(0.0756, 0.6239),
+      Offset(0.0798, 0.6147),
+      Offset(0.0798, 0.6055),
+      Offset(0.084, 0.5963),
+      Offset(0.0882, 0.5872),
+      Offset(0.0882, 0.578),
+      Offset(0.0924, 0.5688),
+      Offset(0.0966, 0.5596),
+      Offset(0.1008, 0.5505),
+      Offset(0.1008, 0.5413),
+      Offset(0.105, 0.5321),
+      Offset(0.1092, 0.5229),
+      Offset(0.1134, 0.5138),
+      Offset(0.1134, 0.5046),
+      Offset(0.1176, 0.4954),
+      Offset(0.1218, 0.4862),
+      Offset(0.1261, 0.4771),
+      Offset(0.1261, 0.4679),
+      Offset(0.1261, 0.4587),
+      Offset(0.1261, 0.4495),
+      Offset(0.1218, 0.4404),
+      Offset(0.1218, 0.4312),
+      Offset(0.1176, 0.422),
+      Offset(0.1176, 0.4128),
+      Offset(0.1176, 0.4037),
+      Offset(0.1176, 0.3945),
+      Offset(0.1218, 0.3853),
+      Offset(0.1261, 0.3761),
+      Offset(0.1345, 0.367),
+      Offset(0.1429, 0.3578),
+      Offset(0.1429, 0.3486),
+      Offset(0.1345, 0.3394),
+      Offset(0.1261, 0.3303),
+      Offset(0.1176, 0.3211),
+      Offset(0.1092, 0.3119),
+      Offset(0.105, 0.3028),
+      Offset(0.0966, 0.2936),
+      Offset(0.0924, 0.2844),
+      Offset(0.0882, 0.2752),
+      Offset(0.084, 0.2661),
+      Offset(0.0798, 0.2569),
+      Offset(0.0756, 0.2477),
+      Offset(0.0714, 0.2385),
+      Offset(0.0714, 0.2294),
+      Offset(0.0672, 0.2202),
+      Offset(0.0672, 0.211),
+      Offset(0.063, 0.2018),
+      Offset(0.063, 0.1927),
+      Offset(0.063, 0.1835),
+      Offset(0.063, 0.1743),
+      Offset(0.063, 0.1651),
+      Offset(0.063, 0.156),
+      Offset(0.063, 0.1468),
+      Offset(0.0672, 0.1376),
+      Offset(0.0672, 0.1284),
+      Offset(0.0714, 0.1193),
+      Offset(0.0714, 0.1101),
+      Offset(0.0756, 0.1009),
+      Offset(0.0798, 0.0917),
+      Offset(0.0882, 0.0826),
+      Offset(0.0924, 0.0734),
+      Offset(0.0966, 0.0642),
+      Offset(0.105, 0.055),
+      Offset(0.1134, 0.0459),
+      Offset(0.1261, 0.0367),
+      Offset(0.1387, 0.0275),
+      Offset(0.1597, 0.0183),
+      Offset(0.1975, 0.0092),
     ],
   ],
   3: [

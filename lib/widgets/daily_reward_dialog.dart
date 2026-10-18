@@ -54,7 +54,7 @@ class _DailyRewardDialogState extends State<DailyRewardDialog>
   String? _error;
   int _day = 1;
   Map<String, int>? _award;
-  DateTime _date = DateTime.now();
+  DateTime _date = DateTime.now().toUtc();
   Duration _remaining = Duration.zero;
 
   @override
@@ -94,13 +94,13 @@ class _DailyRewardDialogState extends State<DailyRewardDialog>
 
   void _tick() {
     if (!mounted) return;
-    final now = DateTime.now();
+    final now = DateTime.now().toUtc();
     final changedDay = now.year != _date.year ||
         now.month != _date.month ||
         now.day != _date.day;
     _date = now;
     setState(() => _remaining =
-        DateTime(now.year, now.month, now.day + 1).difference(now));
+        DateTime.utc(now.year, now.month, now.day + 1).difference(now));
     if (changedDay && !_claiming) {
       setState(() {
         _loading = true;
