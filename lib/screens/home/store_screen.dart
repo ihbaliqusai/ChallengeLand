@@ -1103,13 +1103,7 @@ class _StoreScreenState extends State<StoreScreen> {
                                     pointRight: _arabic)),
                           ))),
                       for (final tab in tabs)
-                        Expanded(
-                            flex: tab.$1 == _section ||
-                                    (tab.$1 == _StoreSection.featured &&
-                                        _section == _StoreSection.coins)
-                                ? 6
-                                : 5,
-                            child: _navigationTab(tab, height)),
+                        Expanded(child: _navigationTab(tab, height)),
                     ]))),
       ]),
     );
@@ -1135,23 +1129,36 @@ class _StoreScreenState extends State<StoreScreen> {
                   top: height * .1,
                   bottom: height * .1,
                   child: Container(width: 1, color: const Color(0x4478DDF8))),
-            Positioned.fill(
-                child: Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
-                    child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          GameStoreNavIcon(
-                              index: tab.$3,
-                              size: selected ? height * .57 : height * .61),
-                          if (selected)
-                            SizedBox(
-                                height: height * .21,
-                                child: FittedBox(
+            Positioned.fill(child: LayoutBuilder(builder: (context, area) {
+              final iconSize = (area.maxWidth - 12).clamp(0.0, height * .56);
+              final caption = area.maxWidth < 110
+                  ? switch (tab.$1) {
+                      _StoreSection.resources => _tr('الأرصدة', 'Resources'),
+                      _StoreSection.collection =>
+                        _tr('المقتنيات', 'Collection'),
+                      _ => tab.$2,
+                    }
+                  : tab.$2;
+              return Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+                  child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SizedBox(
+                            height: height * .58,
+                            child: Center(
+                                child: GameStoreNavIcon(
+                                    index: tab.$3, size: iconSize))),
+                        SizedBox(
+                            height: height * .21,
+                            child: selected
+                                ? FittedBox(
                                     fit: BoxFit.scaleDown,
-                                    child: GameStoreText(tab.$2, size: 16))),
-                        ]))),
+                                    child: GameStoreText(caption, size: 16))
+                                : null),
+                      ]));
+            })),
           ]),
         ),
       ),

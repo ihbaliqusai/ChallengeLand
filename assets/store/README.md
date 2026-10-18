@@ -84,6 +84,9 @@ Navigation artwork was supplied from
 gold selection panel and back button from this asset. Vector clips isolate
 the icon silhouettes, and the gold panel follows the selected section.
 Labels and tap targets remain native and support Arabic and English.
+Each icon's crop and outline share pixel coordinates from the current atlas;
+the key's inner opening stays transparent. Tabs keep equal widths and reserve
+the same caption area so the icons stay aligned when selection changes.
 
 The "Express yourself" cards were supplied from
 `C:\Users\Qusai\Downloads\New folder (15)` and copied unchanged:

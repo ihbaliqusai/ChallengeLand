@@ -34,8 +34,18 @@ class _StoreAppState extends ChangeNotifier implements AppState {
     'offers': {
       'keys_1': {'resource': 'keys', 'amount': 1, 'coins': 700, 'gems': 7},
       'keys_3': {'resource': 'keys', 'amount': 3, 'coins': 1800, 'gems': 18},
-      'hearts_3': {'resource': 'hearts', 'amount': 3, 'coins': 1500, 'gems': 15},
-      'tickets_3': {'resource': 'tickets', 'amount': 3, 'coins': 2400, 'gems': 24},
+      'hearts_3': {
+        'resource': 'hearts',
+        'amount': 3,
+        'coins': 1500,
+        'gems': 15
+      },
+      'tickets_3': {
+        'resource': 'tickets',
+        'amount': 3,
+        'coins': 2400,
+        'gems': 24
+      },
       'play_bundle': {
         'grants': {'keys': 3, 'hearts': 3, 'tickets': 3},
         'coins': 5100,
@@ -684,13 +694,23 @@ void main() {
     expect(navigationBounds.top, 0);
     expect(find.byType(GameStoreTopBarArtwork), findsOneWidget);
     expect(find.byType(GameStoreNavigationBack), findsOneWidget);
-    for (final tab in [
+    final navigationTabs = [
       'Featured',
       'Resources',
       'Gems',
       'Membership',
       'Categories & characters',
-    ]) {
+    ];
+    final tabBounds = {
+      for (final tab in navigationTabs)
+        tab: tester.getRect(find.byTooltip(tab)),
+    };
+    final iconCenters = {
+      for (final tab in navigationTabs)
+        tab: tester.getCenter(find.descendant(
+            of: find.byTooltip(tab), matching: find.byType(GameStoreNavIcon))),
+    };
+    for (final tab in navigationTabs) {
       await select(tester, tab);
       expect(
           find.descendant(
@@ -698,6 +718,14 @@ void main() {
               matching: find.byType(GameStoreNavigationSelection)),
           findsOneWidget);
       expect(find.byType(GameStoreNavigationSelection), findsOneWidget);
+      for (final item in navigationTabs) {
+        expect(tester.getRect(find.byTooltip(item)), tabBounds[item]);
+        expect(
+            tester.getCenter(find.descendant(
+                of: find.byTooltip(item),
+                matching: find.byType(GameStoreNavIcon))),
+            iconCenters[item]);
+      }
     }
     await select(tester, 'Featured');
     expect(find.byTooltip('Home'), findsNothing);
@@ -1147,6 +1175,16 @@ void main() {
     await capture('build/store-mobile-membership-ar.png');
     await select(tester, 'أرصدة اللعب');
     await capture('build/store-mobile-resources-ar.png');
+    for (final tab in [
+      ('المميزة', 'featured'),
+      ('أرصدة اللعب', 'resources'),
+      ('الجواهر', 'gems'),
+      ('العضوية', 'membership'),
+      ('الفئات والشخصيات', 'collection'),
+    ]) {
+      await select(tester, tab.$1);
+      await capture('build/store-navigation-${tab.$2}-ar.png');
+    }
     await tester.pumpWidget(const SizedBox.shrink());
     settings.dispose();
     settings = _StoreSettings();
