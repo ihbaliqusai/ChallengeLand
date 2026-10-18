@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 
 import 'package:challenge_land/core/app_state.dart';
 import 'package:challenge_land/models/game_character.dart';
+import 'package:challenge_land/models/economy_wallet.dart';
 import 'package:challenge_land/widgets/home_character_artwork.dart';
 import 'package:challenge_land/screens/home/home_screen.dart';
 import 'package:challenge_land/services/cross_promo_service.dart';
@@ -26,6 +27,11 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _HomeState extends ChangeNotifier implements AppState {
+  @override
+  EconomyWallet get economyWallet =>
+      const EconomyWallet(dailyKeys: 3, tickets: 2);
+  @override
+  bool get economyLoaded => true;
   _HomeState({this.online = false});
   final bool online;
   int characterIndex = 1;
@@ -669,6 +675,8 @@ void main() {
               HomeArtwork.modes,
               HomeArtwork.coins,
               HomeArtwork.gems,
+              HomeArtwork.keys,
+              HomeArtwork.tickets,
               HomeArtwork.level,
               HomeArtwork.background,
             ])
@@ -688,7 +696,10 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.text('1200'), findsOneWidget);
       expect(find.text('80'), findsOneWidget);
-      expect(find.text('2'), findsOneWidget);
+      expect(
+          find.descendant(
+              of: find.byType(HomeLevelBadge), matching: find.text('2')),
+          findsOneWidget);
       expect(find.text('20/100'), findsOneWidget);
       expect(find.byTooltip('تحدي المراحل'), findsOneWidget);
       expect(find.byTooltip('أوضاع اللعب'), findsOneWidget);
@@ -698,6 +709,12 @@ void main() {
           tester.getRect(find.byKey(const ValueKey('home-coins-balance')));
       final gemBounds =
           tester.getRect(find.byKey(const ValueKey('home-gems-balance')));
+      final keyBounds =
+          tester.getRect(find.byKey(const ValueKey('home-keys-balance')));
+      final ticketBounds =
+          tester.getRect(find.byKey(const ValueKey('home-tickets-balance')));
+      expect(find.byTooltip('3 مفاتيح'), findsOneWidget);
+      expect(find.byTooltip('2 تذاكر'), findsOneWidget);
       final menuBounds = tester.getRect(find.byTooltip('القائمة'));
       final levelBounds = tester.getRect(find.byType(HomeLevelBadge));
       final characterBounds =
@@ -705,8 +722,8 @@ void main() {
       expect(levelBounds.center.dx, closeTo(characterBounds.center.dx, .01));
       expect(menuBounds.left, closeTo(12, .01));
       if (size.width > size.height) {
-        expect(gemBounds.right, closeTo(size.width - 16, .01));
-        expect(coinBounds.left, greaterThan(size.width / 2));
+        expect(ticketBounds.right, closeTo(size.width - 16, .01));
+        expect(coinBounds.left, greaterThan(menuBounds.right));
       }
       expect(coinBounds.width, lessThanOrEqualTo(128));
       expect(gemBounds.width, lessThanOrEqualTo(128));
@@ -723,6 +740,8 @@ void main() {
         expect(bounds.overlaps(characterBounds), isFalse);
       }
       expect(coinBounds.overlaps(gemBounds), isFalse);
+      expect(gemBounds.overlaps(keyBounds), isFalse);
+      expect(keyBounds.overlaps(ticketBounds), isFalse);
       expect(coinBounds.overlaps(menuBounds), isFalse);
       expect(gemBounds.overlaps(menuBounds), isFalse);
       for (final other in [coinBounds, gemBounds, menuBounds]) {

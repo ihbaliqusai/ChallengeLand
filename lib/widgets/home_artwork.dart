@@ -8,6 +8,8 @@ abstract final class HomeArtwork {
   static const modes = 'assets/home/modes.webp';
   static const gems = 'assets/home/gems.webp';
   static const coins = 'assets/home/coins.webp';
+  static const keys = 'assets/home/keys.png';
+  static const tickets = 'assets/home/tickets.png';
   static const level = 'assets/home/level_badge.png';
   static const background = 'assets/home/lobby_background.jfif';
 
@@ -200,6 +202,87 @@ class HomeCurrencyArtwork extends StatelessWidget {
                                                         offset: Offset(0, 2))
                                                   ]))))),
                             ])))))));
+  }
+}
+
+/// Supplied resource frame with a live balance in its blank left-hand area.
+class HomeResourceArtwork extends StatelessWidget {
+  const HomeResourceArtwork({
+    super.key,
+    required this.tickets,
+    required this.value,
+    required this.onPressed,
+    this.enabled = true,
+  });
+
+  final bool tickets;
+  final String value;
+  final VoidCallback onPressed;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = '$value ${tickets ? 'تذاكر' : 'مفاتيح'}';
+    final width = tickets ? 1616.0 : 1608.0;
+    final height = tickets ? 884.0 : 872.0;
+    return Semantics(
+      label: label,
+      hint: 'فتح أرصدة اللعب',
+      button: true,
+      onTap: onPressed,
+      excludeSemantics: true,
+      child: Tooltip(
+        message: label,
+        child: TextButton(
+          onPressed: onPressed,
+          style: TextButton.styleFrom(
+            padding: EdgeInsets.zero,
+            minimumSize: const Size(48, 48),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+          child: Opacity(
+            opacity: enabled ? 1 : .65,
+            child: FittedBox(
+              fit: BoxFit.contain,
+              child: SizedBox(
+                width: width,
+                height: height,
+                child: Stack(children: [
+                  Positioned.fill(
+                      child: Image.asset(
+                    tickets ? HomeArtwork.tickets : HomeArtwork.keys,
+                    fit: BoxFit.fill,
+                    excludeFromSemantics: true,
+                  )),
+                  Positioned.fromRect(
+                    rect: Rect.fromLTRB(
+                        width * .14, height * .28, width * .55, height * .73),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        value,
+                        maxLines: 1,
+                        textDirection: TextDirection.ltr,
+                        style: const TextStyle(
+                          fontSize: 300,
+                          height: 1,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF352214),
+                          shadows: [
+                            Shadow(
+                                color: Color(0x99FFE3B0), offset: Offset(0, 3))
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ]),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

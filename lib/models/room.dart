@@ -258,6 +258,7 @@ class Room {
     this.roundNumber = 1,
     this.isPrivate = false,
     this.roomName,
+    this.economyMatchId = '',
   });
 
   final String id;
@@ -301,6 +302,7 @@ class Room {
 
   /// Optional display name for the room (host-defined).
   final String? roomName;
+  final String economyMatchId;
 
   // ── Derived status ─────────────────────────────────────────────────────────
 
@@ -402,6 +404,7 @@ class Room {
       roundNumber: (data['roundNumber'] as num?)?.toInt() ?? 1,
       isPrivate: data['isPrivate'] == true,
       roomName: data['roomName'] as String?,
+      economyMatchId: data['economyMatchId'] as String? ?? '',
     );
   }
 

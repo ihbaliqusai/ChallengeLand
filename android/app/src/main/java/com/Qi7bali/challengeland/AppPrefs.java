@@ -125,6 +125,8 @@ public final class AppPrefs {
         if (category == null || category.trim().isEmpty()) return true;
         if (CategoryConfig.isCoreFree(category)) return true;
         if (isVip(c) || VerifiedCommerceStore.hasAllCategories(c)) return true;
+        if (GameEconomy.hasAccess(c, category) || GameEconomy.selectable(c, category)
+                || (c instanceof android.app.Activity && GameEconomy.sessionHasCategory((android.app.Activity)c, category))) return true;
 
         String norm = CategoryConfig.normalize(category);
         for (String u : getUnlockedCategories(c)) {
@@ -142,7 +144,8 @@ public final class AppPrefs {
         try {
             String jsonStr = userPrefs(c).getString(KEY_CATEGORY_RENTALS, "{}");
             org.json.JSONObject obj = new org.json.JSONObject(jsonStr);
-            long expiry = obj.optLong(norm, 0L);
+            org.json.JSONObject economyRentals = GameEconomy.state(c).optJSONObject("rentals");
+            long expiry = Math.max(obj.optLong(norm, 0L), economyRentals == null ? 0L : economyRentals.optLong(norm));
             java.util.Iterator<String> keys = obj.keys();
             while (keys.hasNext()) {
                 String key = keys.next();
@@ -182,22 +185,9 @@ public final class AppPrefs {
         userPrefs(c).edit().remove(KEY_UNLOCKED_CATEGORIES).remove(KEY_CATEGORY_RENTALS).apply();
     }
 
+    /** Legacy entry point cannot grant a timed rental from an ad. */
     public static boolean rentCategoryWithAd(Context c, String category, int durationHours) {
-        if (category == null || category.trim().isEmpty()) return false;
-        if (durationHours <= 0) durationHours = CategoryConfig.DEFAULT_AD_RENTAL_HOURS;
-        String norm = CategoryConfig.normalize(category);
-        try {
-            String jsonStr = userPrefs(c).getString(KEY_CATEGORY_RENTALS, "{}");
-            org.json.JSONObject obj = new org.json.JSONObject(jsonStr);
-            long currentExpiry = getCategoryRentalExpiry(c, category);
-            long baseTime = Math.max(System.currentTimeMillis(), currentExpiry);
-            long newExpiry = baseTime + (durationHours * 3600L * 1000L);
-            obj.put(norm, newExpiry);
-            userPrefs(c).edit().putString(KEY_CATEGORY_RENTALS, obj.toString()).apply();
-            return true;
-        } catch (Exception e) {
-            return false;
-        }
+        return false;
     }
 
     public static java.util.Map<String, Long> getActiveRentals(Context c) {

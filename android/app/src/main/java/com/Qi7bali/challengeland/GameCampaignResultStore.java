@@ -32,6 +32,7 @@ final class GameCampaignResultStore {
             boolean bossDefeated = boardBoss ? completed
                     : activity.campaignBossBattle && activity.isCampaignBossDefeated();
             boolean effectiveCompleted = activity.campaignBossBattle && !activity.campaignBoard ? bossDefeated : completed;
+            GameEconomy.finish(activity, effectiveCompleted);
             if (!"question_pool_unavailable".equals(activity.campaignFailureReason)) {
                 PlayerStats.recordGameEnd(activity, effectiveCompleted, money);
             }

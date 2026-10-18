@@ -37,6 +37,59 @@ function harness() {
   return { db, service, receipts, acknowledgements, buy };
 }
 
+test("resource packs credit the server wallet once and keep daily balances separate", async () => {
+  const x = harness();
+  const result = await x.buy("keys_10");
+  assert.equal(result.grant.keys, 10);
+  await x.buy("keys_10");
+  let wallet = x.db.read(`economy_accounts/${uid}`);
+  assert.equal(wallet.keys, 10); assert.equal(wallet.dailyKeys, 3);
+  await x.buy("tickets_10");
+  wallet = x.db.read(`economy_accounts/${uid}`);
+  assert.equal(wallet.tickets, 13); assert.equal(wallet.keys, 10);
+});
+
+test("single items and mixed bundles deliver the exact resources only once", async () => {
+  const x = harness();
+  for (const id of ["keys_1", "hearts_1", "tickets_1", "resources_3_each", "resources_10_each"]) {
+    await x.buy(id);
+    await x.buy(id);
+  }
+  const wallet = x.db.read(`economy_accounts/${uid}`);
+  assert.equal(wallet.keys, 14);
+  assert.equal(wallet.hearts, 14);
+  assert.equal(wallet.tickets, 17); // Includes the three welcome tickets.
+  assert.equal(wallet.dailyKeys, 3);
+  assert.equal(wallet.dailyHearts, 3);
+  assert.equal(wallet.rewardLog.filter(r => r.id === "welcome").length, 1);
+});
+
+test("an overflowing paid bundle delivers nothing and remains retryable in full", async () => {
+  const x = harness();
+  await x.buy("keys_1");
+  const walletPath = `economy_accounts/${uid}`;
+  const before = x.db.read(walletPath);
+  before.keys = 2147483645;
+  x.db.seed(walletPath, before);
+  const token = "overflowing_bundle";
+  await assert.rejects(x.buy("resources_10_each", token), { code: "failed-precondition" });
+  assert.deepEqual(x.db.read(walletPath), before);
+  assert.equal(x.db.read(`commerce_purchase_tokens/${sha256(token)}`), undefined);
+  assert.equal(x.db.read(`commerce_accounts/${uid}/transactions/${sha256(token)}`), undefined);
+
+  x.db.seed(walletPath, { ...before, keys: 2147483637 });
+  const delivered = await x.buy("resources_10_each", token);
+  assert.equal(delivered.grant.keys, 10);
+  assert.equal(delivered.grant.hearts, 10);
+  assert.equal(delivered.grant.tickets, 10);
+  const after = x.db.read(walletPath);
+  assert.equal(after.keys, 2147483647);
+  assert.equal(after.hearts, before.hearts + 10);
+  assert.equal(after.tickets, before.tickets + 10);
+  await x.buy("resources_10_each", token);
+  assert.deepEqual(x.db.read(walletPath), after);
+});
+
 test("explicit aliases preserve old SKU quantities and unconfigured VIP IDs fail closed", () => {
   assert.equal(resolveProduct("gems6500").gems, 6500);
   assert.equal(resolveProduct("packvalue").coins, 35000);
@@ -45,6 +98,9 @@ test("explicit aliases preserve old SKU quantities and unconfigured VIP IDs fail
   assert.throws(() => resolveProduct("vippass"), { code: "invalid-argument" });
   assert.equal(resolveProduct("vippass", ["vippass"]).type, "subscription");
   assert.throws(() => resolveProduct("gems_999999"), { code: "invalid-argument" });
+  for (const id of ["__proto__", "constructor", "prototype"]) {
+    assert.throws(() => resolveProduct(id), { code: "invalid-argument" });
+  }
   assert.equal(resolveProduct("noads").removeAds, true);
   assert.equal(resolveProduct("noads").type, "nonconsumable");
 });

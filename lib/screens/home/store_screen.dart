@@ -16,6 +16,7 @@ import '../../widgets/cross_promo_millionaire_dialog.dart';
 import '../../widgets/currency_reward_overlay.dart';
 import '../../widgets/game_store_widgets.dart';
 import '../character/character_select_screen.dart';
+import 'resource_shop_screen.dart';
 import '../legal/privacy_policy_screen.dart';
 
 const _background = storeNavy;
@@ -219,6 +220,8 @@ class _StoreScreenState extends State<StoreScreen> {
           StoreProductKind.coins =>
             'More coins for characters and in-game items.',
           StoreProductKind.bundle => 'Coins and gems together in one purchase.',
+          StoreProductKind.resource =>
+            'Additional play resources saved to your account.',
           StoreProductKind.subscription =>
             'Premium categories and no forced ads while your membership is active.',
           StoreProductKind.categoryPass =>
@@ -229,6 +232,7 @@ class _StoreScreenState extends State<StoreScreen> {
         StoreProductKind.coins => _gold,
         StoreProductKind.gems => _cyan,
         StoreProductKind.bundle => _purple,
+        StoreProductKind.resource => _purple,
         StoreProductKind.subscription => _gold,
         StoreProductKind.categoryPass => _green,
       };
@@ -237,6 +241,7 @@ class _StoreScreenState extends State<StoreScreen> {
         StoreProductKind.coins => Icons.monetization_on_rounded,
         StoreProductKind.gems => Icons.diamond_rounded,
         StoreProductKind.bundle => Icons.inventory_2_rounded,
+        StoreProductKind.resource => Icons.key_rounded,
         StoreProductKind.subscription => Icons.workspace_premium_rounded,
         StoreProductKind.categoryPass => Icons.auto_awesome_motion_rounded,
       };
@@ -440,6 +445,9 @@ class _StoreScreenState extends State<StoreScreen> {
 
   bool _categoryOwned(GameCategory category, AppState app) =>
       app.hasPermanentCategoryPass ||
+      app.economyWallet.owned.any((name) =>
+          GameCategory.normalize(name) ==
+          GameCategory.normalize(category.name)) ||
       app.unlockedCategories.any((name) =>
           GameCategory.normalize(name) ==
           GameCategory.normalize(category.name));
@@ -515,8 +523,8 @@ class _StoreScreenState extends State<StoreScreen> {
       final unlocked = await app.rentCategoryWithAd(category.name, hours: 24);
       _snack(
           unlocked
-              ? _tr('فئة ${category.name} متاحة لك لمدة 24 ساعة.',
-                  '${category.name} is available for 24 hours.')
+              ? _tr('تجربة فئة ${category.name} جاهزة لمباراة واحدة.',
+                  '${category.name} is ready for one match.')
               : _tr('تعذر تفعيل الفئة الآن.',
                   'Could not activate the category right now.'),
           error: !unlocked);
@@ -526,6 +534,103 @@ class _StoreScreenState extends State<StoreScreen> {
           error: true);
     } finally {
       if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _categoryAction(
+      GameCategory category, Map<String, dynamic> data, String description,
+      {String successMessage = 'تم تفعيل التصنيف.'}) async {
+    if (_busy) return;
+    final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+                title: Text(category.name),
+                content: Text(description),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('إلغاء')),
+                  FilledButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: const Text('تأكيد')),
+                ]));
+    if (confirmed != true || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      await context
+          .read<AppState>()
+          .economyAction({...data, 'category': category.name});
+      if (mounted) _snack(successMessage);
+    } catch (error) {
+      if (mounted) _snack(error.toString(), error: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _rentalOptions(GameCategory category) async {
+    final app = context.read<AppState>();
+    await app.loadEconomy();
+    if (!mounted) return;
+    if (!app.economyLoaded || app.economyError != null) {
+      _snack(
+          app.economyError ??
+              _tr('تعذر تحميل عروض الاستئجار. حاول مجدداً.',
+                  'Could not load rental offers. Please try again.'),
+          error: true);
+      return;
+    }
+    final offers = app.economyWallet.rentalPrices;
+    String durationLabel(String duration) {
+      final days = (offers[duration] as Map?)?['days'] ?? 7;
+      return switch (duration) {
+        'day' => _tr('يوم واحد', '1 day'),
+        'week' => _tr('أسبوع (7 أيام)', '1 week (7 days)'),
+        'month' => _tr('شهر (30 يوماً)', '1 month (30 days)'),
+        _ => _tr('$days يوم', '$days days'),
+      };
+    }
+
+    final choice = await showModalBottomSheet<Map<String, dynamic>>(
+        context: context,
+        isScrollControlled: true,
+        builder: (ctx) => SafeArea(
+                child: SingleChildScrollView(
+                    child: Column(mainAxisSize: MainAxisSize.min, children: [
+              ListTile(title: Text('استئجار ${category.name}')),
+              for (final entry in offers.entries)
+                for (final currency in ['coins', 'gems'])
+                  ListTile(
+                      title: Text(
+                          '${durationLabel(entry.key)} • ${(entry.value as Map)[currency]} ${currency == 'coins' ? _tr('قطعة', 'coins') : _tr('جوهرة', 'gems')}'),
+                      onTap: () => Navigator.pop(ctx, {
+                            'action': 'rent',
+                            'duration': entry.key,
+                            'currency': currency
+                          })),
+              if (app.economyWallet.rentalVouchers > 0)
+                ListTile(
+                    title: Text(_tr('قسيمة استئجار • أسبوع (7 أيام)',
+                        'Rental voucher • 1 week (7 days)')),
+                    onTap: () => Navigator.pop(ctx, {
+                          'action': 'rent',
+                          'duration': 'week',
+                          'currency': 'voucher'
+                        })),
+            ]))));
+    if (choice != null && mounted) {
+      final duration = durationLabel(choice['duration'] as String);
+      final price = choice['currency'] == 'voucher'
+          ? _tr('قسيمة أسبوعية واحدة', '1 weekly rental voucher')
+          : '${(offers[choice['duration']] as Map)[choice['currency']]} ${choice['currency'] == 'coins' ? _tr('قطعة', 'coins') : _tr('جوهرة', 'gems')}';
+      await _categoryAction(
+          category,
+          choice,
+          _tr('استئجار تصنيف «${category.name}» لمدة $duration مقابل $price.\nتُضاف المدة إلى الاستئجار الحالي إن كان سارياً.',
+              'Rent ${category.name} for $duration for $price.\nThe duration extends your current rental if it is still active.'),
+          successMessage: _tr(
+              'تم استئجار تصنيف «${category.name}» لمدة $duration.',
+              '${category.name} is rented for $duration.'));
     }
   }
 
@@ -705,6 +810,16 @@ class _StoreScreenState extends State<StoreScreen> {
                                 children: [
                                   if (_showStatus(iap)) _purchaseStatus(iap),
                                   if (_section == _StoreSection.featured) ...[
+                                    FilledButton.icon(
+                                        onPressed: () => Navigator.push(
+                                            context,
+                                            MaterialPageRoute<void>(
+                                                builder: (_) =>
+                                                    const ResourceShopScreen())),
+                                        icon: const Icon(Icons.key_rounded),
+                                        label: const Text(
+                                            'المفاتيح والقلوب وتذاكر التصنيفات')),
+                                    const SizedBox(height: 16),
                                     _sectionTitle(
                                         _tr('عروض المتجر', 'SPECIAL OFFERS'),
                                         _tr('باقات لمغامرتك القادمة',
@@ -1665,6 +1780,10 @@ class _StoreScreenState extends State<StoreScreen> {
 
   Widget _categoryCard(GameCategory category, AppState app, bool disabled) {
     final owned = _categoryOwned(category, app);
+    final adReady =
+        (app.economyWallet.adPermits[GameCategory.normalize(category.name)] ??
+                0) >
+            0;
     final rentalHours = app.getCategoryRemainingRentalHours(category.name);
     final available = app.isCategoryUnlocked(category.name);
     final accent = owned
@@ -1709,8 +1828,8 @@ class _StoreScreenState extends State<StoreScreen> {
             if (rentalHours > 0) ...[
               Center(
                   child: _pill(
-                      _tr('التجربة: $rentalHours ساعة متبقية',
-                          'Trial: $rentalHours hours left'),
+                      _tr('الاستئجار: $rentalHours ساعة متبقية',
+                          'Rental: $rentalHours hours left'),
                       _gold)),
               const SizedBox(height: 10)
             ],
@@ -1721,18 +1840,36 @@ class _StoreScreenState extends State<StoreScreen> {
                 accent: _cyan,
                 compact: true,
                 onPressed: disabled ? null : () => _unlockCategory(category)),
-            if (!available)
+            TextButton.icon(
+                onPressed: disabled ? null : () => _rentalOptions(category),
+                icon: const Icon(Icons.schedule_rounded),
+                label: const Text('استئجار يوم / أسبوع / شهر')),
+            Text(
+                'التذاكر: ${app.economyWallet.tickets} • تستخدم عند اختيار التصنيف للمباراة',
+                style: const TextStyle(color: _muted, fontSize: 11)),
+            if (adReady)
+              const Text('تصريح مباراة واحدة جاهز',
+                  style: TextStyle(color: _green, fontSize: 12)),
+            if (!available &&
+                !adReady &&
+                CategoryCatalog.allowsAd(category.name))
               TextButton.icon(
                   onPressed: disabled ? null : () => _rentCategory(category),
                   icon: const Icon(Icons.play_circle_outline_rounded, size: 17),
-                  label: Text(
-                      _tr('إعلان • تجربة 24 ساعة', 'Ad • 24-hour trial'),
+                  label: Text(_tr('إعلان • مباراة واحدة', 'Ad • one match'),
                       style: const TextStyle(fontSize: 11)),
                   style: TextButton.styleFrom(
                       foregroundColor: _muted,
                       minimumSize: const Size(0, 42),
                       visualDensity: VisualDensity.compact)),
           ],
+          if (!owned && app.economyWallet.categoryVouchers > 0)
+            TextButton(
+                onPressed: disabled
+                    ? null
+                    : () => _categoryAction(category, {'action': 'ownVoucher'},
+                        'امتلاك دائم باستخدام قسيمة واحدة'),
+                child: const Text('استخدام قسيمة امتلاك')),
         ]));
   }
 

@@ -17,6 +17,7 @@ const { google } = require("googleapis");
 const { CommerceError } = require("./domain");
 const { createPlayVerifier } = require("./play");
 const { createCommerceService } = require("./commerce");
+const { createEconomyService } = require("./economy");
 
 initializeApp();
 setGlobalOptions({ region: "us-central1", maxInstances: 20, memory: "256MiB", timeoutSeconds: 60 });
@@ -65,6 +66,17 @@ function protectedCallable(handler) {
 
 exports.verifyPlayPurchase = protectedCallable((service, uid, data) => service.verifyPurchase(uid, data));
 exports.restoreCommercePurchases = protectedCallable((service, uid) => service.restorePurchases(uid));
+
+const economy = createEconomyService({ db: getFirestore() });
+exports.gameEconomy = onCall({ enforceAppCheck }, async request => {
+  const uid = requireAccount(request);
+  try { return await economy.execute(uid, request.data || {}); }
+  catch (error) {
+    const code = error instanceof CommerceError ? error.code : "internal";
+    logger.warn("Economy operation failed", { uid, code });
+    throw new HttpsError(code, error instanceof CommerceError ? error.message : "تعذر تحديث الرصيد. حاول مجدداً.");
+  }
+});
 
 let duelNotifications;
 function duelCallable(method) {

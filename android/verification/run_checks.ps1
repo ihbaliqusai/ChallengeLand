@@ -10,6 +10,10 @@ javac -encoding UTF-8 -d $checkOutput (Join-Path $nativeSources 'Question.java')
 if ($LASTEXITCODE -ne 0) { throw 'Campaign board checks did not compile' }
 java -cp $checkOutput com.qi7bali.landchallengeonline.CampaignBoardRulesCheck
 if ($LASTEXITCODE -ne 0) { throw 'Campaign board checks failed' }
+javac -encoding UTF-8 -d $checkOutput (Join-Path $nativeSources 'PlayProductRules.java') (Join-Path $PSScriptRoot 'PlayProductRulesCheck.java')
+if ($LASTEXITCODE -ne 0) { throw 'Play product checks did not compile' }
+java -cp $checkOutput com.qi7bali.landchallengeonline.PlayProductRulesCheck
+if ($LASTEXITCODE -ne 0) { throw 'Play product checks failed' }
 if (!(Test-Path -LiteralPath $compiledApp)) { throw 'Build :app:assembleDebug before running progression checks (AppPrefs companion required)' }
 if (!(Test-Path -LiteralPath $verificationJson)) {
     Invoke-WebRequest -Uri 'https://repo.maven.apache.org/maven2/org/json/json/20240303/json-20240303.jar' -OutFile $verificationJson -UseBasicParsing

@@ -3,6 +3,7 @@
 const {
   CommerceError, validateInput, resolveProduct, assertAccountBinding, sha256, currentEntitlement,
 } = require("./domain");
+const { refresh } = require("./economy");
 
 /**
  * Dependencies are injected so accounting and ownership can be tested without
@@ -24,11 +25,12 @@ function createCommerceService({ db, verifier, packageName, legacyVipIds = [], n
     const hash = sha256(token);
     const observedAtMillis = now();
     return db.runTransaction(async (transaction) => {
-      const [tokenSnapshot, accountSnapshot, entitlementSnapshot, purchaseSnapshot] = await Promise.all([
+      const [tokenSnapshot, accountSnapshot, entitlementSnapshot, purchaseSnapshot, economySnapshot] = await Promise.all([
         transaction.get(tokenRef(hash)),
         transaction.get(accountRef(uid)),
         transaction.get(entitlementRef(uid)),
         transaction.get(transactionRef(uid, hash)),
+        transaction.get(db.doc(`economy_accounts/${uid}`)),
       ]);
       const previousToken = tokenSnapshot.exists ? tokenSnapshot.data() : undefined;
       const previousPurchase = purchaseSnapshot.exists ? purchaseSnapshot.data() : undefined;
@@ -84,6 +86,23 @@ function createCommerceService({ db, verifier, packageName, legacyVipIds = [], n
         coins: granted ? product.coins : 0,
         gems: granted ? product.gems : 0,
       };
+      const resources = ["keys", "hearts", "tickets"];
+      if (granted && resources.some(key => product[key])) {
+        const wallet = refresh(economySnapshot.data(), observedAtMillis);
+        if (resources.some(key => product[key] && wallet[key] + product[key] > 2147483647)) {
+          // Leave the Play purchase undelivered and retryable. Charging for a
+          // full pack while silently clipping its contents loses paid items.
+          throw new CommerceError("failed-precondition", "Spend some resources before retrying this purchase delivery; the balance limit would be exceeded.");
+        }
+        for (const key of resources) {
+          if (product[key]) {
+            grant[key] = product[key];
+            wallet[key] += product[key];
+          }
+        }
+        wallet.revision++;
+        transaction.set(db.doc(`economy_accounts/${uid}`), wallet);
+      }
       const active = receipt.state === "purchased";
       const updatedRights = {
         ...rights,
@@ -120,7 +139,7 @@ function createCommerceService({ db, verifier, packageName, legacyVipIds = [], n
         createdAtMillis, updatedAtMillis: observedAtMillis,
         // Currencies remain local in this game. Store a refund record for reconciliation;
         // never falsely claim to have clawed back an already spent local balance.
-        ...(receipt.state === "revoked" && (grant.coins || grant.gems) ? { walletReviewRequired: true } : {}),
+        ...(receipt.state === "revoked" && (grant.coins || grant.gems || grant.keys || grant.hearts || grant.tickets) ? { walletReviewRequired: true } : {}),
       });
       transaction.set(tokenRef(hash), {
         ...(previousToken || {}), uid, productId: product.id, storeId: product.storeId,

@@ -3515,6 +3515,16 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     private void refreshCampaignCategoryAccess() {
         boardPool = CampaignBoardRules.accessiblePool(campaignEligibleQuestionPool,
                 category -> AppPrefs.isCategoryUnlocked(this, category));
+        // Keep category challenges reachable after the free catalog was narrowed.
+        // Fill missing thematic choices with eligible free subjects, preserving
+        // the required number of distinct categories and the stage difficulty.
+        if (CampaignBoardRules.themedCategoryCount(new ArrayList<>(boardPool.keySet()), boardWorldCategories) < boardRequiredCategoryCount) {
+            for (String category : boardPool.keySet()) {
+                if (CategoryConfig.isCoreFree(category) && CampaignBoardRules.resolveCategory(category, boardWorldCategories) == null) {
+                    boardWorldCategories.add(category);
+                }
+            }
+        }
     }
 
     /** Begins after category selection, preserves the deadline across every resume. */
@@ -3648,6 +3658,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     }
 
     private void showCategorySelect() {
+        GameEconomy.clearSelection(this);
         final FrameLayout overlay = (FrameLayout) findViewById(R.id.boardOverlay);
         if (overlay == null) return;
         playCategorySelectMusic();
@@ -3730,7 +3741,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
             root.addView(rowLayout);
         }
 
-        confirm.setText("ابدأ اللعب");
+        confirm.setText(boardCampaignMatch ? "ابدأ • القلب يُخصم عند الخسارة" : "ابدأ اللعب • مفتاح واحد");
         confirm.setAllCaps(false);
         confirm.setTextColor(0xFFFFFFFF);
         if (getBoardFont() != null) confirm.setTypeface(getBoardFont(), Typeface.BOLD);
@@ -3798,98 +3809,80 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     }
 
     private void showCategoryUnlockDialog(final String category,
-                                          final FrameLayout tile,
-                                          final ArrayList<String> selected,
-                                          final TextView counter,
-                                          final Button confirm) {
-        final android.app.Dialog dialog = new android.app.Dialog(this);
-        dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
-        dialog.setContentView(R.layout.dialog_category_unlock);
-        if (dialog.getWindow() != null) {
-            dialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
-            dialog.getWindow().setLayout(
-                    android.view.WindowManager.LayoutParams.WRAP_CONTENT,
-                    android.view.WindowManager.LayoutParams.WRAP_CONTENT
-            );
-        }
-        dialog.setCancelable(true);
-        dialog.setCanceledOnTouchOutside(true);
-
-        TextView txtCategoryTitle = dialog.findViewById(R.id.txtCategoryTitle);
-        if (txtCategoryTitle != null) {
-            txtCategoryTitle.setText("فئة مميزة 🌟: " + category);
-        }
-
-        ImageView imgCategoryArt = dialog.findViewById(R.id.imgCategoryArt);
-        if (imgCategoryArt != null) {
-            String art = categoryAssetPath(category);
-            if (art != null) {
-                loadCategoryArtwork(imgCategoryArt, art);
+            final FrameLayout tile, final ArrayList<String> selected,
+            final TextView counter, final Button confirm) {
+        GameEconomy.refresh(this, (wallet, loadError) -> {
+            if (isFinishing() || isDestroyed()) return;
+            if (loadError != null) { Toast.makeText(this, loadError, Toast.LENGTH_LONG).show(); return; }
+            final ArrayList<String> labels = new ArrayList<>();
+            final ArrayList<Runnable> actions = new ArrayList<>();
+            labels.add("تذكرة لمباراة واحدة (رصيدك: " + GameEconomy.state(this).optInt("tickets") + ")");
+            actions.add(() -> {
+                if (GameEconomy.state(this).optInt("tickets") < 1) {
+                    Toast.makeText(this, "تذاكر التصنيفات غير كافية. احصل عليها من المتجر.", Toast.LENGTH_LONG).show(); return;
+                }
+                if (!GameEconomy.selectTicket(this, category)) {
+                    Toast.makeText(this, "اخترت تصنيفات بعدد تذاكرك المتاحة.", Toast.LENGTH_LONG).show(); return;
+                }
+                refreshUnlockedTile(category, tile, selected, counter, confirm);
+            });
+            final String[] periods = {"day", "week", "month"};
+            final String[] names = {"يوم", "أسبوع", "30 يوماً"};
+            final org.json.JSONObject rentalPrices = GameEconomy.state(this).optJSONObject("rentalPrices");
+            for (int i = 0; i < periods.length; i++) {
+                final String period = periods[i];
+                final org.json.JSONObject price = rentalPrices == null ? null : rentalPrices.optJSONObject(period);
+                if (price == null) continue;
+                for (String currency : new String[] {"coins", "gems"}) {
+                    final int cost = price.optInt(currency, -1);
+                    if (cost < 0) continue;
+                    labels.add("استئجار " + names[i] + " • " + cost + ("coins".equals(currency) ? " قطعة" : " جوهرة"));
+                    actions.add(() -> categoryEconomyAction("rent", category, period, currency, tile, selected, counter, confirm));
+                }
             }
-        }
-
-        int gems = AppPrefs.getGems(this);
-        TextView txtGemsInfo = dialog.findViewById(R.id.txtGemsInfo);
-        if (txtGemsInfo != null) {
-            txtGemsInfo.setText("فتح دائم على حسابك بدون قيود\n(رصيدك: " + gems + " 💎)");
-        }
-
-        View btnClose = dialog.findViewById(R.id.btnCloseDialog);
-        if (btnClose != null) {
-            btnClose.setOnClickListener(v -> dialog.dismiss());
-        }
-
-        Button btnRentWithAd = dialog.findViewById(R.id.btnRentWithAd);
-        if (btnRentWithAd != null) {
-            btnRentWithAd.setOnClickListener(v -> {
-                dialog.dismiss();
-                if (rewardedAdController == null) {
-                    Toast.makeText(GameActivity.this, "تعذر تجهيز الإعلان، يرجى المحاولة لاحقاً", Toast.LENGTH_SHORT).show();
-                    return;
-                }
-                Toast.makeText(GameActivity.this, "جاري فتح الإعلان...", Toast.LENGTH_SHORT).show();
-                rewardedAdController.show(new GameRewardedAdController.RewardCallback() {
-                    @Override
-                    public void onRewardEarned(com.google.android.gms.ads.rewarded.RewardItem reward) {
-                        AppPrefs.rentCategoryWithAd(GameActivity.this, category, CategoryConfig.DEFAULT_AD_RENTAL_HOURS);
-                        runOnUiThread(() -> {
-                            Toast.makeText(GameActivity.this, "تم فتح فئة [" + category + "] لمدة 24 ساعة! 🎉", Toast.LENGTH_LONG).show();
-                            refreshUnlockedTile(category, tile, selected, counter, confirm);
-                        });
-                    }
-
-                    @Override
-                    public void onAdClosed(boolean userEarnedReward) {}
-
-                    @Override
-                    public void onAdFailedToLoad(String errorReason) {
-                        runOnUiThread(() -> Toast.makeText(GameActivity.this, errorReason, Toast.LENGTH_SHORT).show());
-                    }
+            if (GameEconomy.state(this).optInt("rentalVouchers") > 0) {
+                labels.add("استئجار أسبوع • قسيمة واحدة");
+                actions.add(() -> categoryEconomyAction("rent", category, "week", "voucher", tile, selected, counter, confirm));
+            }
+            labels.add("امتلاك دائم • 150 جوهرة");
+            actions.add(() -> categoryEconomyAction("own", category, "", "gems", tile, selected, counter, confirm));
+            if (GameEconomy.state(this).optInt("categoryVouchers") > 0) {
+                labels.add("استخدام قسيمة امتلاك دائم");
+                actions.add(() -> categoryEconomyAction("ownVoucher", category, "", "", tile, selected, counter, confirm));
+            }
+            if (CategoryConfig.allowsAd(category)) {
+                labels.add("إعلان • مباراة واحدة");
+                actions.add(() -> {
+                    if (rewardedAdController == null) return;
+                    rewardedAdController.show(new GameRewardedAdController.RewardCallback() {
+                        public void onRewardEarned(com.google.android.gms.ads.rewarded.RewardItem reward) {
+                            categoryEconomyAction("ad", category, "", "", tile, selected, counter, confirm);
+                        }
+                        public void onAdClosed(boolean earned) {}
+                        public void onAdFailedToLoad(String error) { Toast.makeText(GameActivity.this, error, Toast.LENGTH_LONG).show(); }
+                    });
                 });
-            });
-        }
+            }
+            new android.app.AlertDialog.Builder(this).setTitle(category)
+                .setItems(labels.toArray(new String[0]), (dialog, index) -> {
+                    if (labels.get(index).startsWith("إعلان")) { actions.get(index).run(); return; }
+                    new android.app.AlertDialog.Builder(this).setTitle(category).setMessage(labels.get(index))
+                        .setPositiveButton("تأكيد", (d, w) -> actions.get(index).run()).setNegativeButton("إلغاء", null).show();
+                }).setNegativeButton("رجوع", null).show();
+        });
+    }
 
-        Button btnUnlockWithGems = dialog.findViewById(R.id.btnUnlockWithGems);
-        if (btnUnlockWithGems != null) {
-            btnUnlockWithGems.setText("شراء دائم (" + CategoryConfig.DEFAULT_PERMANENT_GEM_COST + " 💎)");
-            btnUnlockWithGems.setOnClickListener(v -> {
-                int currentGems = AppPrefs.getGems(GameActivity.this);
-                if (currentGems < CategoryConfig.DEFAULT_PERMANENT_GEM_COST) {
-                    Toast.makeText(GameActivity.this, "رصيد الجواهر غير كافٍ (تحتاج " + CategoryConfig.DEFAULT_PERMANENT_GEM_COST + " جوهرة)", Toast.LENGTH_SHORT).show();
-                    return;
-                }
-                dialog.dismiss();
-                boolean ok = AppPrefs.unlockCategoryPermanently(GameActivity.this, category, CategoryConfig.DEFAULT_PERMANENT_GEM_COST);
-                if (ok) {
-                    Toast.makeText(GameActivity.this, "تم شراء فئة [" + category + "] بشكل دائم! 🎉", Toast.LENGTH_LONG).show();
-                    refreshUnlockedTile(category, tile, selected, counter, confirm);
-                } else {
-                    Toast.makeText(GameActivity.this, "فشلت عملية الشراء", Toast.LENGTH_SHORT).show();
-                }
-            });
-        }
-
-        dialog.show();
+    private void categoryEconomyAction(String action, String category, String duration, String currency,
+            FrameLayout tile, ArrayList<String> selected, TextView counter, Button confirm) {
+        java.util.Map<String, Object> data = new java.util.HashMap<>();
+        data.put("action", action); data.put("category", category);
+        if (!duration.isEmpty()) data.put("duration", duration);
+        if (!currency.isEmpty()) data.put("currency", currency);
+        GameEconomy.request(this, data, (value, error) -> {
+            if (isFinishing() || isDestroyed()) return;
+            if (error != null) Toast.makeText(this, error, Toast.LENGTH_LONG).show();
+            else refreshUnlockedTile(category, tile, selected, counter, confirm);
+        });
     }
 
     private void refreshUnlockedTile(String category, FrameLayout tile,
@@ -3978,6 +3971,15 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         if (boardCampaignMatch && "solo".equals(boardCampaignKind)) {
             boardTotalTurns = Math.max(1, Math.min(boardSoloPicks, boardCellsRemaining));
         }
+        for (int col = 0; col < boardCols; col++) for (int row = 0; row < BOARD_ROWS; row++) {
+            if (boardCellQuestion[col][row] == null) {
+                Toast.makeText(this, "الأسئلة غير كافية. اختر تصنيفات أخرى.", Toast.LENGTH_LONG).show();
+                showCategorySelect(); return;
+            }
+        }
+        int economyOrder = 0;
+        try { economyOrder = Integer.parseInt(campaignStageId.replace("stage_", "")); } catch (Exception ignored) {}
+        if (!GameEconomy.ensure(this, campaignMode, economyOrder, chosen, () -> onCategoriesChosen(chosen))) return;
         if (boardCampaignMatch && !startCampaignBoardTimer()) return;
         if (boardLocalTeams) {
             saveLocalTeamsProgress(LocalTeamsGameStore.PHASE_BOARD);
@@ -4072,6 +4074,9 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     // ---- Turn loop -------------------------------------------------------
 
     private void beginBoardTurn() {
+        int economyOrder = 0;
+        try { economyOrder = Integer.parseInt(campaignStageId.replace("stage_", "")); } catch (Exception ignored) {}
+        if (!GameEconomy.ensure(this, campaignMode, economyOrder, new ArrayList<>(boardSelectedCategories), this::beginBoardTurn)) return;
         if (boardCampaignMatch && campaignResultPersisted) return;
         if (boardCampaignMatch && !ensureCampaignBoardCategoryAccess()) return;
         boardStealActive = false;
@@ -4931,6 +4936,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     }
 
     private void showOnlineBoardCategorySelect() {
+        GameEconomy.clearSelection(this);
         final FrameLayout overlay = (FrameLayout) findViewById(R.id.boardOverlay);
         if (overlay == null) return;
         playCategorySelectMusic();
@@ -5027,6 +5033,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     private void onOnlineCategoryChosen(String category) {
         if (boardDuelFinished) return;
         if (gameID == null || gameID.trim().isEmpty()) return;
+        getIntent().putExtra("economyChosenCategory", category);
         stopCategorySelectMusicIfPlaying();
         showBoardWaitingOverlay("اخترت: " + category
                 + (boardRoomMatch ? "\nبانتظار بقية اللاعبين..." : "\nبانتظار اختيار الخصم..."));
@@ -5230,6 +5237,8 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     }
 
     private void loadOnlineBoardFromFirebase(DataSnapshot snapshot) {
+        String myCategory = snapshot.child("picks").child(boardLocalSeatId()).child("category").getValue(String.class);
+        if (myCategory != null) getIntent().putExtra("economyChosenCategory", myCategory);
         final int cols = boardRoomMatch ? boardSeatCount : 2;
         boardSelectedCategories.clear();
         for (int col = 0; col < cols; col++) {
@@ -5273,6 +5282,10 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     // ---- Online turn loop ------------------------------------------------
 
     private void beginOnlineBoardTurn(int turn) {
+        ArrayList<String> economyCategories = new ArrayList<>();
+        String chosenCategory = getIntent().getStringExtra("economyChosenCategory");
+        if (chosenCategory != null && !chosenCategory.isEmpty()) economyCategories.add(chosenCategory);
+        if (!GameEconomy.ensure(this, false, 0, economyCategories, () -> beginOnlineBoardTurn(turn))) return;
         duelDisconnectCountdown = null;
         detachBoardTurnListener();
         boardOnlineTurn = turn;
@@ -6337,6 +6350,13 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
      */
     private void showBoardQuestion(final Question question, final boolean humanTurn) {
         if (EXITING || question == null) return;
+        ArrayList<String> economyCategories = new ArrayList<>();
+        String chosenCategory = getIntent().getStringExtra("economyChosenCategory");
+        if (boardOnline && chosenCategory != null) economyCategories.add(chosenCategory);
+        else if (!boardOnline) economyCategories.addAll(boardSelectedCategories);
+        int economyOrder = 0;
+        try { economyOrder = Integer.parseInt(campaignStageId.replace("stage_", "")); } catch (Exception ignored) {}
+        if (!GameEconomy.ensure(this, campaignMode, economyOrder, economyCategories, () -> showBoardQuestion(question, humanTurn))) return;
         if (boardOnline && !boardRoomMatch) duelQuestionCallbackGeneration++;
         final int questionTurn = boardOnlineTurn;
         final int callbackGeneration = duelQuestionCallbackGeneration;
@@ -10344,6 +10364,9 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     }
 
     private void showQuestionNow(final int questionIndex) {
+        int economyOrder = 0;
+        try { economyOrder = Integer.parseInt(campaignStageId.replace("stage_", "")); } catch (Exception ignored) {}
+        if (!GameEconomy.ensure(this, campaignMode, economyOrder, new ArrayList<>(boardSelectedCategories), () -> showQuestionNow(questionIndex))) return;
         if(!EXITING) {
             currentQuestion = questionIndex;
             updateQuestionCounter();

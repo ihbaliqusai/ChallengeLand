@@ -21,7 +21,8 @@ class PlayBillingManager(
             "pack_starter", "pack_value", "pack_champion",
             "gems_80", "gems_500", "gems_1200",
             "coins_5000", "coins_25000", "coins_100000",
-            "vip_monthly", "category_all_access"
+            "vip_monthly", "category_all_access", "keys_10", "hearts_10", "tickets_10",
+            "keys_1", "hearts_1", "tickets_1", "resources_3_each", "resources_10_each"
         )
         private val INAPP_IDS = DISPLAY_IDS.filter { it != "vip_monthly" } +
             listOf("gems_2500", "gems_6500", "gems_14000", "noads")
@@ -32,9 +33,7 @@ class PlayBillingManager(
             listOf("vip_pass", "vipmonthly", "vippass", "vip").forEach { put(it, "vip_monthly") }
         }
         private fun canonical(id: String): String? = aliases[id.lowercase()]
-        private fun isConsumable(id: String): Boolean = canonical(id)?.let {
-            it.startsWith("gems_") || it.startsWith("coins_") || it == "pack_value" || it == "pack_champion"
-        } ?: false
+        private fun isConsumable(id: String): Boolean = PlayProductRules.isConsumable(canonical(id))
     }
 
     private val main = Handler(Looper.getMainLooper())

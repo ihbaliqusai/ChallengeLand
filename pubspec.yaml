@@ -79,6 +79,8 @@ flutter:
     - assets/home/coins.webp
     - assets/home/friends.webp
     - assets/home/gems.webp
+    - assets/home/keys.png
+    - assets/home/tickets.png
     - assets/home/menu.webp
     - assets/home/modes.webp
     - assets/home/store.webp

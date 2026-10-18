@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/app_state.dart';
 import '../../widgets/daily_reward_dialog.dart';
+import 'resource_shop_screen.dart';
 
 const _kDayRewards = AppState.streakRewards;
 
@@ -99,6 +100,16 @@ class _DailyStreakScreenState extends State<DailyStreakScreen>
               child: Column(
                 children: [
                   _Header(onBack: () => Navigator.pop(context)),
+                  TextButton.icon(
+                    onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                            builder: (_) => const ResourceShopScreen())),
+                    icon: const Icon(Icons.card_giftcard_rounded,
+                        color: Colors.amber),
+                    label: const Text('مكافآت المفاتيح والتذاكر والقلوب',
+                        style: TextStyle(color: Colors.amber)),
+                  ),
                   Expanded(
                     child: _DailyRewardsDashboard(
                       streakDay: streakDay,

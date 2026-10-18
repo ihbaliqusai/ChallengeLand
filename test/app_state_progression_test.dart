@@ -122,6 +122,7 @@ class _Native implements NativeBridgeService {
   int installation = 0;
   int walletCoins = 500;
   int walletGems = 10;
+  _CloudResponseGate? nextWalletResponse;
   bool failWalletSync = false;
   bool failAchievementSync = false;
   final achievements = <String, Map<String, dynamic>>{};
@@ -266,10 +267,17 @@ class _Native implements NativeBridgeService {
   @override
   Future<bool> restorePurchases() async => false;
   @override
-  Future<Map<String, int>> getUserCurrency() async => {
-        'coins': walletCoins,
-        'gems': walletGems,
-      };
+  Future<Map<String, int>> getUserCurrency() async {
+    final result = {'coins': walletCoins, 'gems': walletGems};
+    final gate = nextWalletResponse;
+    nextWalletResponse = null;
+    if (gate != null) {
+      gate.entered.complete();
+      await gate.release.future;
+    }
+    return result;
+  }
+
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
@@ -640,6 +648,32 @@ void main() {
     expect(h.state.bestTrophies, 150);
     expect((await h.publicData('alice'))['xp'], 4000);
     expect((await h.publicData('alice'))['trophies'], 82);
+  });
+
+  test('a delayed wallet refresh cannot overwrite the next account balance',
+      () async {
+    final h = _Harness();
+    addTearDown(h.close);
+    await h.seed('alice');
+    await h.seed('bob');
+    await h.signIn('alice');
+    h.native.walletCoins = 777;
+    final gate = _CloudResponseGate();
+    h.native.nextWalletResponse = gate;
+    final refresh = h.state.loadCurrency();
+    await gate.entered.future;
+    await h.signIn('bob');
+    h.native.walletCoins = 900;
+    await h.state.loadCurrency();
+    await _drain();
+    final savedCoins = (await h.privateData('bob'))['coins'];
+    gate.release.complete();
+    await refresh;
+    await _drain();
+    expect(h.state.currentUser!.uid, 'bob');
+    expect(h.state.coins, 900);
+    expect((await h.privateData('bob'))['coins'], savedCoins);
+    expect(savedCoins, 900);
   });
 
   test('an old account response cannot hydrate the newly signed in account',

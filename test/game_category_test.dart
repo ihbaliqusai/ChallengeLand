@@ -2,6 +2,23 @@ import 'package:challenge_land/models/game_category.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('free catalog and ad restrictions match the economy access policy', () {
+    expect(CategoryCatalog.coreFreeCategories, hasLength(8));
+    expect(CategoryCatalog.allowsAd('رياضة'), isTrue);
+    for (final name in [
+      'الأنيمي',
+      'مسلسل Friends',
+      'سبيس تون',
+      'أفلام عربية'
+    ]) {
+      expect(CategoryCatalog.isCategoryPremium(name), isTrue);
+      expect(CategoryCatalog.allowsAd(name), isFalse);
+    }
+    for (final category in CategoryCatalog.coreFreeCategories) {
+      expect(CategoryCatalog.isCategoryPremium(category.name), isFalse);
+      expect(CategoryCatalog.allowsAd(category.name), isFalse);
+    }
+  });
   const aliases = ['أنمي', 'الأنمي', 'انمي', 'الانمي'];
 
   test('anime store and question labels share the same canonical category', () {
@@ -11,7 +28,8 @@ void main() {
     }
     expect(GameCategory.normalize(' الأفلام العربية '), 'الافلام العربيه');
     expect(GameCategory.normalize('أفلام عربية'), 'افلام عربيه');
-    expect(CategoryCatalog.isCategoryPremium('معلومات عامة'), isFalse);
+    expect(CategoryCatalog.isCategoryPremium('معلومات عامة'), isTrue);
+    expect(CategoryCatalog.isCategoryPremium('جغرافيا'), isFalse);
   });
 
   for (final label in ['أنمي', 'الأنمي']) {

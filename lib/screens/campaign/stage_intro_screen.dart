@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 
 import '../../models/campaign_stage.dart';
 import '../../models/stage_progress.dart';
+import '../../core/app_state.dart';
+import '../home/resource_shop_screen.dart';
 import '../../services/campaign_defaults.dart';
 import '../../services/campaign_mode_engine.dart';
 import '../../services/campaign_result_handler.dart';
@@ -43,6 +45,7 @@ class _StageIntroScreenState extends State<StageIntroScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<AppState>().loadEconomy();
       _consumePendingCampaignResult();
     });
   }
@@ -271,6 +274,19 @@ class _StageIntroScreenState extends State<StageIntroScreen>
             SafeArea(
               child: Column(
                 children: [
+                  Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Consumer<AppState>(
+                          builder: (context, app, _) => ResourceBalance(
+                              icon: Icons.favorite_rounded,
+                              label: 'قلوب',
+                              value: app.economyWallet.totalHearts,
+                              loaded: app.economyLoaded,
+                              onTap: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute<void>(
+                                      builder: (_) =>
+                                          const ResourceShopScreen()))))),
                   _TopBar(
                     onBack: () => Navigator.of(context).maybePop(),
                     onLeaderboard: () => Navigator.of(context).push(

@@ -1,0 +1,403 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../core/app_state.dart';
+import '../../models/store_catalog.dart';
+import '../../services/in_app_purchase_service.dart';
+
+class ResourceShopScreen extends StatefulWidget {
+  const ResourceShopScreen({super.key});
+  @override
+  State<ResourceShopScreen> createState() => _ResourceShopScreenState();
+}
+
+class _ResourceShopScreenState extends State<ResourceShopScreen> {
+  bool _busy = false;
+  String? _message;
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<AppState>().loadEconomy();
+      context.read<InAppPurchaseService>().loadProducts();
+    });
+  }
+
+  Future<void> _buy(Map<String, dynamic> data, String summary) async {
+    final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+                title: const Text('تأكيد الشراء'),
+                content: Text(summary),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('إلغاء')),
+                  FilledButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: const Text('تأكيد')),
+                ]));
+    if (confirmed != true || !mounted) return;
+    setState(() {
+      _busy = true;
+      _message = null;
+    });
+    try {
+      await context.read<AppState>().economyAction(data);
+      if (mounted) setState(() => _message = 'تمت إضافة الرصيد.');
+    } catch (error) {
+      if (mounted) setState(() => _message = error.toString());
+      if (mounted) {
+        final app = context.read<AppState>();
+        await app.loadCurrency();
+        await app.loadEconomy();
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _iap(StoreProduct product) async {
+    final iap = context.read<InAppPurchaseService>();
+    final details = iap.getProductDetails(product.id);
+    if (details == null || !details.available) return;
+    final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+                title: Text(product.title),
+                content: Text('${product.subtitle}\n${details.price}'),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('إلغاء')),
+                  FilledButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: const Text('متابعة للدفع')),
+                ]));
+    if (confirmed != true || !mounted) return;
+    final started = await iap.buyProduct(product.id);
+    if (!started && mounted) setState(() => _message = iap.error);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    final iap = context.watch<InAppPurchaseService>();
+    final wallet = app.economyWallet;
+    return Directionality(
+        textDirection: TextDirection.rtl,
+        child: Scaffold(
+          backgroundColor: const Color(0xFF170B37),
+          appBar: AppBar(
+              title: const Text('أرصدة اللعب'),
+              backgroundColor: const Color(0xFF26105C),
+              foregroundColor: Colors.white),
+          body: RefreshIndicator(
+              onRefresh: () async {
+                await Future.wait([
+                  app.loadEconomy(),
+                  app.loadCurrency(),
+                  iap.loadProducts()
+                ]);
+              },
+              child: ListView(padding: const EdgeInsets.all(16), children: [
+                Wrap(spacing: 8, runSpacing: 8, children: [
+                  ResourceBalance(
+                      icon: Icons.key_rounded,
+                      label: 'مفاتيح',
+                      value: wallet.totalKeys,
+                      loaded: app.economyLoaded),
+                  ResourceBalance(
+                      icon: Icons.confirmation_number_rounded,
+                      label: 'تذاكر',
+                      value: wallet.tickets,
+                      loaded: app.economyLoaded),
+                  ResourceBalance(
+                      icon: Icons.favorite_rounded,
+                      label: 'قلوب',
+                      value: wallet.totalHearts,
+                      loaded: app.economyLoaded),
+                  ResourceBalance(
+                      icon: Icons.monetization_on_rounded,
+                      label: 'نقود',
+                      value: app.coins),
+                  ResourceBalance(
+                      icon: Icons.diamond_rounded,
+                      label: 'جواهر',
+                      value: app.gems),
+                ]),
+                const SizedBox(height: 12),
+                Text(
+                    app.economyLoaded
+                        ? 'المفاتيح اليومية: ${wallet.dailyKeys} • الإضافية: ${wallet.keys}\nالقلوب اليومية: ${wallet.dailyHearts} • الإضافية: ${wallet.hearts}\nيُستكمل الرصيد اليومي إلى 3 عند منتصف الليل UTC. الأرصدة الإضافية محفوظة.'
+                        : 'لم يتم تحميل رصيد الحساب بعد. ستظهر الأرصدة وعروض النقود والجواهر عند الاتصال بخدمة الأرصدة.',
+                    style: const TextStyle(color: Colors.white70, height: 1.6)),
+                if (wallet.nextResetMillis > 0)
+                  Text(
+                      'التجديد القادم: ${DateTime.fromMillisecondsSinceEpoch(wallet.nextResetMillis).toLocal()}',
+                      style: const TextStyle(color: Colors.white70)),
+                if (_message != null || app.economyError != null)
+                  Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: Text(_message ?? app.economyError!,
+                          style: const TextStyle(color: Colors.amber))),
+                if (!app.economyLoaded)
+                  TextButton(
+                      onPressed: _busy ? null : app.loadEconomy,
+                      child: const Text('تحميل الأرصدة')),
+                const SizedBox(height: 16),
+                const Text('اشحن بالنقود أو الجواهر',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold)),
+                for (final entry in wallet.offers.entries) ...[
+                  const SizedBox(height: 10),
+                  Builder(builder: (context) {
+                    final offer = Map<String, dynamic>.from(entry.value as Map);
+                    final grants = offer['grants'] is Map
+                        ? Map<String, dynamic>.from(offer['grants'] as Map)
+                        : <String, dynamic>{
+                            '${offer['resource']}': offer['amount']
+                          };
+                    final title = resourceGrantText(grants);
+                    return Card(
+                        child: Padding(
+                            padding: const EdgeInsets.all(14),
+                            child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Text(title,
+                                      style: const TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold)),
+                                  Wrap(spacing: 10, children: [
+                                    for (final currency in ['coins', 'gems'])
+                                      OutlinedButton(
+                                          onPressed: _busy ||
+                                                  iap.isPurchasing ||
+                                                  !app.economyLoaded ||
+                                                  app.economyError != null
+                                              ? null
+                                              : () => _buy({
+                                                    'action': 'buy',
+                                                    'offerId': entry.key,
+                                                    'currency': currency
+                                                  }, '$title مقابل ${offer[currency]} ${currency == 'coins' ? 'قطعة' : 'جوهرة'}'),
+                                          child: Text(
+                                              '${offer[currency]} ${currency == 'coins' ? 'قطعة' : 'جوهرة'}')),
+                                  ]),
+                                ])));
+                  }),
+                ],
+                const SizedBox(height: 24),
+                const Text('باقات المتجر',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                const Text(
+                    'الدفع المالي عبر Google Play. الشراء بالنقود والجواهر داخل اللعبة متاح في القسم السابق عند تحميل الأرصدة.',
+                    style: TextStyle(color: Colors.white70, height: 1.6)),
+                if (!iap.isLoading &&
+                    !StoreCatalog.products
+                        .where((p) => p.kind == StoreProductKind.resource)
+                        .any((p) =>
+                            iap.getProductDetails(p.id)?.available == true))
+                  const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: Text(
+                          'لم تصل أسعار منتجات الأرصدة من Google Play. تحقق من اتصال Google Play وحاول إعادة تحميل الأسعار.',
+                          style: TextStyle(color: Colors.amber, height: 1.6))),
+                TextButton.icon(
+                    onPressed: iap.isLoading || iap.isPurchasing
+                        ? null
+                        : iap.loadProducts,
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: Text(iap.isLoading
+                        ? 'جارٍ تحميل أسعار Google Play…'
+                        : 'إعادة تحميل أسعار Google Play')),
+                for (final product in StoreCatalog.products
+                    .where((p) => p.kind == StoreProductKind.resource))
+                  Card(
+                      child: Padding(
+                          padding: const EdgeInsets.all(14),
+                          child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Text(product.title,
+                                    style: const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold)),
+                                const SizedBox(height: 6),
+                                Text(product.subtitle),
+                                const SizedBox(height: 10),
+                                FilledButton(
+                                    onPressed: _busy ||
+                                            iap.isPurchasing ||
+                                            iap
+                                                    .getProductDetails(
+                                                        product.id)
+                                                    ?.available !=
+                                                true
+                                        ? null
+                                        : () => _iap(product),
+                                    child: Text(iap
+                                            .getProductDetails(product.id)
+                                            ?.price ??
+                                        (iap.isLoading
+                                            ? 'جارٍ تحميل السعر…'
+                                            : 'سعر Google Play غير متاح')))
+                              ]))),
+                if (iap.statusMessage.isNotEmpty)
+                  Text(iap.statusMessage,
+                      style: const TextStyle(color: Colors.amber)),
+                const SizedBox(height: 24),
+                const EconomyLoyaltySummary(),
+                const SizedBox(height: 16),
+                Text(
+                    'مكافآت الوفاء\nاليوم 7: 3 مفاتيح وتذكرتان\nاليوم 14: 3 مفاتيح وقلب\nاليوم 21: 4 مفاتيح\nاليوم 30: 5 مفاتيح وقلبان و3 تذاكر وقسيمة استئجار أسبوعية\nسلسلتك الحالية: ${wallet.streak} يوم\nقسائم الامتلاك: ${wallet.categoryVouchers} • قسائم الاستئجار: ${wallet.rentalVouchers}',
+                    style: const TextStyle(color: Colors.white, height: 1.8)),
+                const SizedBox(height: 16),
+                const Text(
+                    'مكافآت تقدمك في المراحل\nكل 10 مراحل: تذكرة تصنيف\nالمرحلة 10: مفتاحان إضافيان\nالمرحلة 25: 3 مفاتيح وقسيمة استئجار أسبوعية\nالمرحلتان 50 و100: اختر تصنيفاً لامتلاكه دائماً\nالمرحلة 75: 5 مفاتيح وقلبان\nتُمنح جوائز المراحل عند إكمالها أول مرة فقط.',
+                    style: TextStyle(color: Colors.white70, height: 1.8)),
+                if (wallet.rewardLog.isNotEmpty) ...[
+                  const SizedBox(height: 20),
+                  const Text('آخر المكافآت المستلمة',
+                      style: TextStyle(color: Colors.amber, fontSize: 18)),
+                  for (final reward in wallet.rewardLog.reversed)
+                    Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: Text(
+                            '${switch (reward['kind']) {
+                              'welcome' => 'هدية البداية • مرة واحدة',
+                              'campaign' => 'إنجاز المرحلة ${reward['stage']}',
+                              'login' =>
+                                'وفاء الدخول • اليوم ${reward['streak']}',
+                              _ => 'مهمة اللعب الأسبوعية'
+                            }}\n${resourceGrantText(Map<String, dynamic>.from(reward['grants'] as Map? ?? {}))}',
+                            style: const TextStyle(
+                                color: Colors.white70, height: 1.6))),
+                ],
+                const SizedBox(height: 12),
+                const Text(
+                    'مفتاح لكل مباراة كاملة. تذكرة لكل تصنيف مقفل تختاره لمباراة واحدة. خسارة المرحلة تستهلك قلباً والفوز يحافظ عليه.',
+                    style: TextStyle(color: Colors.white70, height: 1.6)),
+              ])),
+        ));
+  }
+}
+
+String resourceGrantText(Map<String, dynamic> grants) => grants.entries
+    .map((entry) => entry.value == 1
+        ? switch (entry.key) {
+            'keys' => 'مفتاح واحد',
+            'hearts' => 'قلب واحد',
+            'tickets' => 'تذكرة تصنيف واحدة',
+            'categoryVouchers' => 'قسيمة امتلاك تصنيف',
+            'rentalVouchers' => 'قسيمة استئجار أسبوعية',
+            _ => '${entry.value} ${entry.key}'
+          }
+        : '${entry.value} ${switch (entry.key) {
+            'keys' => 'مفاتيح',
+            'hearts' => 'قلوب',
+            'tickets' => 'تذاكر تصنيفات',
+            'categoryVouchers' => 'قسيمة امتلاك تصنيف',
+            'rentalVouchers' => 'قسيمة استئجار أسبوعية',
+            _ => entry.key
+          }}')
+    .join(' + ');
+
+class EconomyLoyaltySummary extends StatelessWidget {
+  const EconomyLoyaltySummary({super.key});
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    final wallet = app.economyWallet;
+    return Card(
+        child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text('مكافآت اللعب والوفاء',
+                    style:
+                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                Text(app.economyLoaded
+                    ? 'دخول متواصل: ${wallet.streak} من 30 يوماً\nاللعب الأسبوعي: ${wallet.weekPlayDays.clamp(0, 3)} / 3 أيام • ${wallet.weekCorrect.clamp(0, 20)} / 20 إجابة صحيحة\n${wallet.weekRewardClaimed ? 'تم استلام مكافأة الأسبوع: مفتاحان وتذكرة' : 'المكافأة: مفتاحان وتذكرة عند إكمال الهدفين'}'
+                    : 'اتصل لتحميل تقدم مكافآت اللعب.'),
+                const SizedBox(height: 6),
+                const Text(
+                    'تُضاف مكافآت الوفاء تلقائياً عند الدخول، وتُحفظ الأرصدة المكتسبة. أيام الدخول حسب UTC، وتُعرض تفاصيل الجوائز في أرصدة اللعب.'),
+              ],
+            )));
+  }
+}
+
+class ResourceBalance extends StatelessWidget {
+  const ResourceBalance(
+      {super.key,
+      required this.icon,
+      required this.label,
+      required this.value,
+      this.loaded = true,
+      this.compact = false,
+      this.onTap});
+  final IconData icon;
+  final String label;
+  final int value;
+  final bool loaded;
+  final bool compact;
+  final VoidCallback? onTap;
+  @override
+  Widget build(BuildContext context) => Semantics(
+      label: '$label: ${loaded ? value : 'جارٍ التحميل'}',
+      button: onTap != null,
+      child: Tooltip(
+          message: '${loaded ? value : '…'} $label',
+          child: Container(
+              decoration: BoxDecoration(
+                  gradient: compact
+                      ? const LinearGradient(colors: [
+                          Color(0xFF61452E),
+                          Color(0xFFB88749),
+                          Color(0xFF61452E)
+                        ])
+                      : null,
+                  color: compact ? null : const Color(0xFF382063),
+                  border: compact
+                      ? Border.all(color: const Color(0xFFE4BC76), width: 1.5)
+                      : null,
+                  borderRadius: BorderRadius.circular(compact ? 8 : 18)),
+              child: Material(
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(compact ? 8 : 18),
+                  child: InkWell(
+                      onTap: onTap,
+                      borderRadius: BorderRadius.circular(18),
+                      child: Padding(
+                          padding: EdgeInsets.symmetric(
+                              horizontal: compact ? 8 : 10,
+                              vertical: compact ? 5 : 9),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            Icon(icon,
+                                color: icon == Icons.favorite_rounded
+                                    ? Colors.pinkAccent
+                                    : Colors.amber,
+                                size: compact ? 18 : 20),
+                            const SizedBox(width: 5),
+                            Flexible(
+                                child: Text(
+                                    compact
+                                        ? '${loaded ? value : '…'}'
+                                        : '${loaded ? value : '…'} $label',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12))),
+                          ])))))));
+}

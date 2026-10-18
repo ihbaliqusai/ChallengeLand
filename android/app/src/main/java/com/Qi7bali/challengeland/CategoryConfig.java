@@ -8,14 +8,24 @@ import java.util.Set;
 /**
  * Configuration and categorization of quiz categories in ChallengeLand.
  * - CORE_FREE: Always unlocked for all players (ensures great FTUE and retention).
- * - PREMIUM: High-value, pop-culture, visual or specialty categories that players can unlock
- *   either permanently (gems) or temporarily for 24 hours (rewarded ad).
+ * - PREMIUM: Every other category supports ownership, timed rental or a match ticket.
+ *   Only ad-eligible subjects may receive a category-bound single-match ad permit.
  */
 public final class CategoryConfig {
     private CategoryConfig() {}
 
     public static final int DEFAULT_PERMANENT_GEM_COST = 150;
     public static final int DEFAULT_AD_RENTAL_HOURS = 24;
+    private static final Set<String> FREE_CATEGORIES = new HashSet<>(Arrays.asList(
+            "جغرافيا", "حيوانات", "دين واسلاميات", "عواصم", "دول", "اختراعات", "عملات", "لغة وادب"));
+    private static final Set<String> NO_AD_CATEGORIES = new HashSet<>(Arrays.asList(
+            "أنمي", "مسلسل Friends", "مسلسلات أجنبية", "مسلسلات عربية", "أفلام أجنبية", "أفلام عربية", "سبيس تون"));
+
+    public static boolean allowsAd(String category) {
+        if (isCoreFree(category)) return false;
+        for (String value : NO_AD_CATEGORIES) if (normalize(value).equals(normalize(category))) return false;
+        return true;
+    }
 
     // Normalised list of premium categories
     private static final Set<String> PREMIUM_CATEGORIES = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
@@ -41,17 +51,20 @@ public final class CategoryConfig {
             "مسلسلات أجنبية",
             "مسلسلات عربية",
             "وضح شوي"
+            , "معلومات عامة", "تاريخ", "رياضة", "علوم وفضاء", "ألغاز", "أمثال",
+            "تقنية", "جسم الإنسان", "نباتات", "لغات", "صحة", "طعام وشراب", "سياحة وسفر",
+            "سيرة ذاتية", "قصص الأنبياء", "منوعات"
     )));
 
     public static boolean isPremium(String rawCategory) {
         if (rawCategory == null) return false;
         String cat = normalize(rawCategory);
-        for (String p : PREMIUM_CATEGORIES) {
+        for (String p : FREE_CATEGORIES) {
             if (normalize(p).equals(cat)) {
-                return true;
+                return false;
             }
         }
-        return false;
+        return !cat.isEmpty();
     }
 
     public static boolean isCoreFree(String rawCategory) {
@@ -66,7 +79,8 @@ public final class CategoryConfig {
                 .replace("آ", "ا")
                 .replace("ة", "ه")
                 .replace("ى", "ي");
-        return normalized.equals("الانمي") ? "انمي" : normalized;
+        normalized = normalized.replaceAll("\\s+", " ").toLowerCase(java.util.Locale.ROOT);
+        return normalized.equals("الانمي") || normalized.equals("الانيمي") || normalized.equals("انيمي") ? "انمي" : normalized;
     }
 
     public static Set<String> getPremiumCategories() {

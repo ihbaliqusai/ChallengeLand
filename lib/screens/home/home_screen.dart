@@ -13,6 +13,7 @@ import '../../models/room.dart';
 import '../../core/player_rank.dart';
 import '../campaign/campaign_map_screen.dart';
 import 'store_screen.dart';
+import 'resource_shop_screen.dart';
 import 'leaderboard_screen.dart';
 import 'daily_streak_screen.dart';
 import 'profile_screen.dart';
@@ -1003,10 +1004,17 @@ class _HomeLobbyLayout extends StatelessWidget {
         final characterTop = headerHeight + 62;
         final characterHeight = math.max(1.0, heroBottom - characterTop);
         final compact = height < 600;
-        final balanceWidth = portrait
-            ? ((width - 28) / 2).clamp(0.0, 128.0)
-            : (width * .155).clamp(94.0, 128.0);
-        final walletWidth = balanceWidth * 2 + 4;
+        final maxWalletWidth =
+            portrait ? width - 28 : (width - 100).clamp(280.0, 520.0);
+        final balanceWidth = (maxWalletWidth - 12) / 4;
+        const walletGap = 2.0;
+        const resourceScale = .9;
+        final keysWidth =
+            math.min(balanceWidth, 44 * 1608 / 872) * resourceScale;
+        final ticketsWidth =
+            math.min(balanceWidth, 44 * 1616 / 884) * resourceScale;
+        final walletWidth =
+            balanceWidth * 2 + keysWidth + ticketsWidth + walletGap * 3;
         final badgeHeight =
             portrait ? 56.0 : (panelHeight * .20).clamp(42.0, 64.0);
         final bannerHeight = portrait
@@ -1051,7 +1059,7 @@ class _HomeLobbyLayout extends StatelessWidget {
               height: 44,
               child: Row(textDirection: TextDirection.ltr, children: [
                 for (final gems in [false, true]) ...[
-                  if (gems) const SizedBox(width: 4),
+                  if (gems) const SizedBox(width: walletGap),
                   SizedBox(
                       width: balanceWidth,
                       child: HomeCurrencyArtwork(
@@ -1065,6 +1073,30 @@ class _HomeLobbyLayout extends StatelessWidget {
                           onPressed: () =>
                               _openOnlineScreen(context, const StoreScreen()))),
                 ],
+                const SizedBox(width: walletGap),
+                SizedBox(
+                    width: keysWidth,
+                    child: HomeResourceArtwork(
+                        key: const ValueKey('home-keys-balance'),
+                        tickets: false,
+                        value: appState.economyLoaded
+                            ? '${appState.economyWallet.totalKeys}'
+                            : '…',
+                        enabled: appState.isOnline,
+                        onPressed: () => _openOnlineScreen(
+                            context, const ResourceShopScreen()))),
+                const SizedBox(width: walletGap),
+                SizedBox(
+                    width: ticketsWidth,
+                    child: HomeResourceArtwork(
+                        key: const ValueKey('home-tickets-balance'),
+                        tickets: true,
+                        value: appState.economyLoaded
+                            ? '${appState.economyWallet.tickets}'
+                            : '…',
+                        enabled: appState.isOnline,
+                        onPressed: () => _openOnlineScreen(
+                            context, const ResourceShopScreen()))),
               ])),
           Positioned(
               top: headerHeight + 2,

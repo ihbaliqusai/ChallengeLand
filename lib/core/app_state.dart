@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 
 import '../models/game_character.dart';
 import '../models/game_category.dart';
+import '../models/economy_wallet.dart';
 import '../services/auth_service.dart';
 import '../services/achievement_reward_service.dart';
 import '../services/daily_reward_service.dart';
@@ -56,6 +57,48 @@ class AppState extends ChangeNotifier {
   String? error;
   int coins = 0;
   int gems = 0;
+  EconomyWallet economyWallet = const EconomyWallet();
+  bool economyLoaded = false;
+  String? economyError;
+  Future<void>? _economyLoading;
+  bool _disposed = false;
+
+  Future<void> loadEconomy() => _economyLoading ??=
+      _loadEconomy().whenComplete(() => _economyLoading = null);
+
+  Future<void> _loadEconomy() async {
+    final uid = currentUser?.uid;
+    if (uid == null) return;
+    try {
+      final result = await _nativeBridgeService.economy({'action': 'login'});
+      if (_disposed || currentUser?.uid != uid) return;
+      final next = EconomyWallet.fromMap(
+          Map<String, dynamic>.from(result['state'] as Map? ?? {}));
+      if (next.revision >= economyWallet.revision) economyWallet = next;
+      economyLoaded = true;
+      economyError = null;
+    } catch (error) {
+      if (_disposed || currentUser?.uid != uid) return;
+      economyError = error.toString();
+    }
+    notifyListeners();
+  }
+
+  Future<void> economyAction(Map<String, dynamic> data) async {
+    final uid = currentUser?.uid;
+    if (uid == null) throw StateError('سجّل الدخول لحفظ أرصدتك.');
+    final result = await _nativeBridgeService.economy(data);
+    if (_disposed || currentUser?.uid != uid) return;
+    final next = EconomyWallet.fromMap(
+        Map<String, dynamic>.from(result['state'] as Map? ?? {}));
+    if (next.revision >= economyWallet.revision) economyWallet = next;
+    economyLoaded = true;
+    economyError = null;
+    await loadCurrency();
+    await loadCategoryState();
+    notifyListeners();
+  }
+
   int trophies = 0;
   int bestTrophies = 0;
   Map<String, int> _playerStats = <String, int>{};
@@ -220,6 +263,14 @@ class AppState extends ChangeNotifier {
   bool categoryStateLoaded = false;
 
   bool isCategoryUnlocked(String categoryName) {
+    if (economyWallet.owned.any((c) =>
+        GameCategory.normalize(c) == GameCategory.normalize(categoryName))) {
+      return true;
+    }
+    if ((economyWallet.rentals[GameCategory.normalize(categoryName)] ?? 0) >
+        DateTime.now().millisecondsSinceEpoch) {
+      return true;
+    }
     if (hasPermanentCategoryPass ||
         (isVip && vipExpiresAtMillis > DateTime.now().millisecondsSinceEpoch)) {
       return true;
@@ -238,8 +289,10 @@ class AppState extends ChangeNotifier {
   }
 
   int getCategoryRemainingRentalHours(String categoryName) {
-    final expiry =
-        GameCategory.rentalExpiryMillis(categoryName, categoryRentals);
+    final expiry = GameCategory.rentalExpiryMillis(categoryName, {
+      ...categoryRentals,
+      ...economyWallet.rentals,
+    });
     if (expiry == null) return 0;
     final diffMs = expiry - DateTime.now().millisecondsSinceEpoch;
     if (diffMs <= 0) return 0;
@@ -287,8 +340,8 @@ class AppState extends ChangeNotifier {
   Future<bool> unlockCategoryWithGems(String category,
       {int gemCost = 150}) async {
     if (gems < gemCost) return false;
-    final ok = await _nativeBridgeService.unlockCategoryPermanently(category,
-        gemCost: gemCost);
+    await economyAction({'action': 'own', 'category': category});
+    const ok = true;
     if (ok) {
       await loadCurrency();
       await loadCategoryState();
@@ -301,7 +354,9 @@ class AppState extends ChangeNotifier {
   }
 
   Future<bool> rentCategoryWithAd(String category, {int hours = 24}) async {
-    final ok = await _nativeBridgeService.rentCategory(category, hours: hours);
+    if (!CategoryCatalog.allowsAd(category)) return false;
+    await economyAction({'action': 'ad', 'category': category});
+    const ok = true;
     if (ok) {
       await loadCategoryState();
     }
@@ -798,11 +853,18 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> loadCurrency() async {
+    final uid = currentUser?.uid;
+    final generation = _authGeneration;
+    unawaited(loadEconomy());
     try {
       final data = await _nativeBridgeService.getUserCurrency();
+      if (_disposed ||
+          generation != _authGeneration ||
+          currentUser?.uid != uid) {
+        return;
+      }
       coins = data['coins'] ?? 0;
       gems = data['gems'] ?? 0;
-      final uid = currentUser?.uid;
       if (uid != null) {
         unawaited(_saveCurrencySnapshot(uid));
       }
@@ -1215,6 +1277,7 @@ class AppState extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     _authSubscription?.cancel();
     _vipExpiryTimer?.cancel();
     NativeBridgeService.removePurchaseDeliveredListener(_onPurchaseDelivered);
@@ -1247,6 +1310,10 @@ class AppState extends ChangeNotifier {
   }
 
   void _resetSessionState() {
+    economyWallet = const EconomyWallet();
+    economyLoaded = false;
+    economyError = null;
+    _economyLoading = null;
     coins = 0;
     gems = 0;
     trophies = 0;

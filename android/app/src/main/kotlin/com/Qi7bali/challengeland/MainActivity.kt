@@ -35,6 +35,7 @@ class MainActivity : FlutterActivity() {
         super.onResume()
         DuelNotifications.resume(this)
         syncDailyReminderSchedule()
+        GameEconomy.flush(this)
     }
 
     override fun onDestroy() {
@@ -95,6 +96,15 @@ class MainActivity : FlutterActivity() {
         playBillingManager = PlayBillingManager(this, channel)
         channel.setMethodCallHandler { call, result ->
                 when (call.method) {
+                    "gameEconomy" -> {
+                        val data = (call.arguments as? Map<*, *>)?.entries
+                            ?.filter { it.key is String && it.value != null }
+                            ?.associate { it.key as String to it.value!! } ?: emptyMap()
+                        GameEconomy.request(this, data) { value, error ->
+                            if (error != null) result.error("ECONOMY_FAILED", error, null)
+                            else result.success(value)
+                        }
+                    }
                     "preloadLocalQuestions" -> {
                         LocalQuestions.preload(applicationContext) { result.success(true) }
                     }
@@ -384,6 +394,7 @@ class MainActivity : FlutterActivity() {
                             putExtra("roundDurationSeconds", call.argument<Int>("roundDurationSeconds") ?: 30)
                             putExtra("myTeam", call.argument<String>("myTeam") ?: "")
                             putExtra("roomRoundNumber", call.argument<Int>("roomRoundNumber") ?: 1)
+                            putExtra("economyMatchId", call.argument<String>("economyMatchId") ?: "")
                             putExtra("resumeExistingGame", call.argument<Boolean>("resumeExistingGame") ?: false)
                             putExtra("seatSourceId", call.argument<String>("seatSourceId") ?: "")
                             putExtra("initialScore", call.argument<Int>("initialScore") ?: 0)
@@ -918,18 +929,16 @@ class MainActivity : FlutterActivity() {
                     "unlockCategory" -> {
                         val category = call.argument<String>("category") ?: ""
                         val gemCost = call.argument<Int>("gemCost") ?: CategoryConfig.DEFAULT_PERMANENT_GEM_COST
-                        val alreadyOwned = VerifiedCommerceStore.hasAllCategories(this) ||
-                            AppPrefs.getUnlockedCategories(this).any { CategoryConfig.normalize(it) == CategoryConfig.normalize(category) }
-                        val ok = if (alreadyOwned) true else CategoryConfig.isPremium(category) &&
-                            gemCost == CategoryConfig.DEFAULT_PERMANENT_GEM_COST &&
-                            AppPrefs.unlockCategoryPermanently(this, category, CategoryConfig.DEFAULT_PERMANENT_GEM_COST)
-                        result.success(ok)
+                        if (gemCost != CategoryConfig.DEFAULT_PERMANENT_GEM_COST) result.success(false)
+                        else GameEconomy.request(this, mapOf("action" to "own", "category" to category)) { _, error ->
+                            if (error == null) result.success(true) else result.error("ECONOMY_FAILED", error, null)
+                        }
                     }
                     "rentCategory" -> {
                         val category = call.argument<String>("category") ?: ""
-                        val hours = call.argument<Int>("hours") ?: CategoryConfig.DEFAULT_AD_RENTAL_HOURS
-                        val ok = AppPrefs.rentCategoryWithAd(this, category, hours)
-                        result.success(ok)
+                        GameEconomy.request(this, mapOf("action" to "ad", "category" to category)) { _, error ->
+                            if (error == null) result.success(true) else result.error("ECONOMY_FAILED", error, null)
+                        }
                     }
                     "setCategoryState" -> {
                         val unlocked = (call.argument<List<String>>("unlocked") ?: emptyList()).toSet()

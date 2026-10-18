@@ -5,6 +5,15 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    match /economy_accounts/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow write: if false;
+      match /operations/{operationId} {
+        allow read: if signedIn() && request.auth.uid == uid;
+        allow write: if false;
+      }
+    }
+
     function isOwner(uid) {
       return signedIn() && request.auth.uid == uid;
     }

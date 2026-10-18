@@ -15,6 +15,7 @@ import '../../services/campaign_service.dart';
 import '../../services/campaign_engagement_service.dart';
 import '../../services/native_bridge_service.dart';
 import 'stage_intro_screen.dart';
+import '../home/resource_shop_screen.dart';
 import 'widgets/stage_node.dart';
 import 'widgets/campaign_journey_panel.dart';
 
@@ -148,6 +149,7 @@ class _CampaignMapScreenState extends State<CampaignMapScreen>
   }
 
   Future<void> _reload() async {
+    if (mounted) context.read<AppState>().loadEconomy();
     setState(() {
       _future = _load();
     });
@@ -876,16 +878,64 @@ class _MapTopOverlay extends StatelessWidget {
                             offset: Offset(0, 1),
                           ),
                         ]))),
-            _OverlayChip(
-              icon: Icons.flag_rounded,
-              label: '$completedStages/$totalStages',
-              color: const Color(0xFF55F07A),
-            ),
-            const SizedBox(width: 7),
-            _OverlayChip(
-              icon: Icons.star_rounded,
-              label: '$totalStars',
-              color: const Color(0xFFFFD84D),
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                  maxWidth: math.max(
+                      1.0,
+                      MediaQuery.sizeOf(context).width -
+                          MediaQuery.paddingOf(context).horizontal -
+                          110)),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  _OverlayChip(
+                    icon: Icons.flag_rounded,
+                    label: '$completedStages/$totalStages',
+                    color: const Color(0xFF55F07A),
+                  ),
+                  const SizedBox(width: 7),
+                  _OverlayChip(
+                    icon: Icons.star_rounded,
+                    label: '$totalStars',
+                    color: const Color(0xFFFFD84D),
+                  ),
+                  const SizedBox(width: 7),
+                  Consumer<AppState>(builder: (context, app, _) {
+                    final balance = app.economyLoaded
+                        ? '${app.economyWallet.totalHearts}'
+                        : '…';
+                    void openShop() => Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                            builder: (_) => const ResourceShopScreen()));
+                    return Semantics(
+                      key: const ValueKey('campaign-hearts-balance'),
+                      label:
+                          'رصيد القلوب: ${app.economyLoaded ? balance : 'جارٍ التحميل'}',
+                      hint: 'فتح أرصدة اللعب',
+                      button: true,
+                      onTap: openShop,
+                      excludeSemantics: true,
+                      child: Tooltip(
+                        message: '$balance قلوب',
+                        child: Material(
+                          color: Colors.transparent,
+                          borderRadius: BorderRadius.circular(999),
+                          child: InkWell(
+                            onTap: openShop,
+                            borderRadius: BorderRadius.circular(999),
+                            child: _OverlayChip(
+                              icon: Icons.favorite_rounded,
+                              label: balance,
+                              color: Colors.pinkAccent,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                ]),
+              ),
             ),
           ],
         ),

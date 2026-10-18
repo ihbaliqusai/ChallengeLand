@@ -489,6 +489,8 @@ class RoomService {
 
           final updates = <String, dynamic>{
             'started': true,
+            'economyMatchId':
+                '${room.id}_${DateTime.now().microsecondsSinceEpoch}',
             'startedAt': FieldValue.serverTimestamp(),
             'winnerId': FieldValue.delete(),
             'winnerTeamId': FieldValue.delete(),
@@ -1598,8 +1600,7 @@ class RoomService {
           if (!snapshot.exists) return;
 
           final room = Room.fromSnapshot(snapshot);
-          final expectedMode =
-              isTeam ? Room.modeTeamBattle : Room.modeBattle;
+          final expectedMode = isTeam ? Room.modeTeamBattle : Room.modeBattle;
           if (room.mode != expectedMode || room.phase == Room.phaseFinished) {
             return;
           }

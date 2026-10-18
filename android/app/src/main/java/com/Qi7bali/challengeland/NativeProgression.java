@@ -17,6 +17,7 @@ public final class NativeProgression {
         if (state != null) {
             if (state.containsKey(ID)) i.putExtra(ID, state.getString(ID));
             if (state.containsKey(ACCOUNT)) i.putExtra(ACCOUNT, state.getString(ACCOUNT));
+            if (state.containsKey("economySessionId")) i.putExtra("economySessionId", state.getString("economySessionId"));
         }
         String matchId = i.getStringExtra(ID), account = i.getStringExtra(ACCOUNT);
         if (matchId == null || matchId.trim().isEmpty()) i.putExtra(ID, UUID.randomUUID().toString());
@@ -27,6 +28,7 @@ public final class NativeProgression {
         restore(a, null);
         state.putString(ID, a.getIntent().getStringExtra(ID));
         state.putString(ACCOUNT, a.getIntent().getStringExtra(ACCOUNT));
+        state.putString("economySessionId", a.getIntent().getStringExtra("economySessionId"));
     }
 
     public static String fallbackId(Activity a) {
@@ -67,6 +69,8 @@ public final class NativeProgression {
     }
 
     public static void copyToResult(Activity a, Intent result) {
+        result.putExtra("economySessionId", a.getIntent().getStringExtra("economySessionId"));
+        result.putExtra("economyMatchId", a.getIntent().getStringExtra("economyMatchId"));
         result.putExtra(ID, matchId(a));
         result.putExtra(ACCOUNT, a.getIntent().getStringExtra(ACCOUNT));
         result.putExtra("progressionMode", mode(a));

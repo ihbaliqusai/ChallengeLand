@@ -3,7 +3,25 @@ import 'package:flutter/foundation.dart';
 
 import 'package:flutter/services.dart';
 
+class EconomyOperationException implements Exception {
+  const EconomyOperationException(this.message);
+  final String message;
+  @override
+  String toString() => message;
+}
+
 class NativeBridgeService {
+  Future<Map<String, dynamic>> economy(Map<String, dynamic> data) async {
+    try {
+      final response =
+          await _channel.invokeMapMethod<String, dynamic>('gameEconomy', data);
+      return response ?? <String, dynamic>{};
+    } on PlatformException catch (error) {
+      throw EconomyOperationException(
+          error.message ?? 'تعذر تحديث الرصيد. حاول مجدداً.');
+    }
+  }
+
   bool get supportsAnimatedCharacters =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
   static const MethodChannel _channel = MethodChannel('millionaire/native');
@@ -126,6 +144,7 @@ class NativeBridgeService {
     int roundDurationSeconds = 30,
     String myTeam = '',
     int roomRoundNumber = 1,
+    String economyMatchId = '',
     bool resumeExistingGame = false,
     String seatSourceId = '',
     int initialScore = 0,
@@ -168,6 +187,7 @@ class NativeBridgeService {
       'roundDurationSeconds': roundDurationSeconds,
       'myTeam': myTeam,
       'roomRoundNumber': roomRoundNumber,
+      'economyMatchId': economyMatchId,
       'resumeExistingGame': resumeExistingGame,
       'seatSourceId': seatSourceId,
       'initialScore': initialScore,
@@ -803,14 +823,11 @@ class NativeBridgeService {
     }
   }
 
-  /// يستأجر فئة مقفلة لمدة ساعات معينة (افتراضياً 24 ساعة) بعد مشاهدة إعلان
+  /// Legacy signature: a completed ad now issues one category-bound match permit.
   Future<bool> rentCategory(String category, {int hours = 24}) async {
     try {
-      final result = await _channel.invokeMethod<bool>('rentCategory', {
-        'category': category,
-        'hours': hours,
-      });
-      return result ?? false;
+      await economy({'action': 'ad', 'category': category});
+      return true;
     } on MissingPluginException {
       return false;
     } catch (_) {

@@ -1,6 +1,13 @@
 /// Display catalog only. Prices come from Google Play and rewards are verified
 /// against the authoritative server catalog before delivery.
-enum StoreProductKind { gems, coins, bundle, subscription, categoryPass }
+enum StoreProductKind {
+  gems,
+  coins,
+  bundle,
+  subscription,
+  categoryPass,
+  resource
+}
 
 class StoreProduct {
   const StoreProduct({
@@ -36,6 +43,46 @@ class CoinExchange {
 
 abstract final class StoreCatalog {
   static const products = <StoreProduct>[
+    StoreProduct(
+        id: 'keys_1',
+        title: 'مفتاح واحد',
+        subtitle: 'دخول مباراة كاملة في التحديات',
+        kind: StoreProductKind.resource),
+    StoreProduct(
+        id: 'hearts_1',
+        title: 'قلب إضافي واحد',
+        subtitle: 'محاولة إضافية محفوظة لتحدي المراحل',
+        kind: StoreProductKind.resource),
+    StoreProduct(
+        id: 'tickets_1',
+        title: 'تذكرة تصنيف واحدة',
+        subtitle: 'افتح تصنيفاً مقفلاً لمباراة واحدة',
+        kind: StoreProductKind.resource),
+    StoreProduct(
+        id: 'keys_10',
+        title: '10 مفاتيح',
+        subtitle: '10 مفاتيح إضافية محفوظة لدخول التحديات',
+        kind: StoreProductKind.resource),
+    StoreProduct(
+        id: 'hearts_10',
+        title: '10 قلوب إضافية',
+        subtitle: 'قلوب محفوظة لتحدي المراحل',
+        kind: StoreProductKind.resource),
+    StoreProduct(
+        id: 'tickets_10',
+        title: '10 تذاكر تصنيفات',
+        subtitle: 'كل تذكرة تفتح تصنيفاً لمباراة واحدة',
+        kind: StoreProductKind.resource),
+    StoreProduct(
+        id: 'resources_3_each',
+        title: 'باقة اللعب',
+        subtitle: '3 مفاتيح + 3 تذاكر + 3 قلوب إضافية',
+        kind: StoreProductKind.resource),
+    StoreProduct(
+        id: 'resources_10_each',
+        title: 'باقة اللعب الكبيرة',
+        subtitle: '10 مفاتيح + 10 تذاكر + 10 قلوب إضافية',
+        kind: StoreProductKind.resource),
     StoreProduct(
         id: 'pack_starter',
         title: 'بداية المغامرة',

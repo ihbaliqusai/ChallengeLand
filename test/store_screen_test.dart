@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 import 'package:challenge_land/core/app_settings.dart';
 import 'package:challenge_land/core/app_state.dart';
 import 'package:challenge_land/models/game_character.dart';
+import 'package:challenge_land/models/economy_wallet.dart';
 import 'package:challenge_land/models/store_catalog.dart';
 import 'package:challenge_land/screens/home/store_screen.dart';
 import 'package:challenge_land/services/ad_service.dart';
@@ -23,6 +24,23 @@ import 'package:provider/provider.dart';
 // These providers exercise the real store without initializing a Firebase app,
 // real authentication, ads, or payment credentials.
 class _StoreAppState extends ChangeNotifier implements AppState {
+  @override
+  EconomyWallet economyWallet = const EconomyWallet();
+  bool economyReady = true;
+  String? economyFailure;
+  int rentalHours = 0;
+  final economyActions = <Map<String, dynamic>>[];
+  @override
+  bool get economyLoaded => economyReady;
+  @override
+  String? get economyError => economyFailure;
+  @override
+  Future<void> loadEconomy() async {}
+  @override
+  Future<void> economyAction(Map<String, dynamic> data) async {
+    economyActions.add(data);
+  }
+
   bool commerceReady = true;
   bool claimedDaily = false;
   bool membershipActive = false;
@@ -68,9 +86,9 @@ class _StoreAppState extends ChangeNotifier implements AppState {
       purchasedCharacters.contains(character.index) ||
       (character.unlock.isLevelGated && character.unlock.value <= level);
   @override
-  bool isCategoryUnlocked(String categoryName) => false;
+  bool isCategoryUnlocked(String categoryName) => rentalHours > 0;
   @override
-  int getCategoryRemainingRentalHours(String categoryName) => 0;
+  int getCategoryRemainingRentalHours(String categoryName) => rentalHours;
   @override
   Future<void> loadCurrency() async {}
   @override
@@ -1128,6 +1146,126 @@ void main() {
     ]) {
       await select(tester, tab);
     }
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('VIP players can still redeem earned permanent category vouchers',
+      (tester) async {
+    app.membershipActive = true;
+    app.economyWallet = const EconomyWallet(categoryVouchers: 1);
+    await mount(tester, const Size(360, 640));
+    await assertClean(tester, 'VIP store');
+    await select(tester, 'Categories & characters');
+    final search = find.byType(TextField).first;
+    await tester.ensureVisible(search);
+    await tester.enterText(search, 'سبيس تون');
+    await tester.pumpAndSettle();
+    final voucher = find.text('استخدام قسيمة امتلاك');
+    await tester.ensureVisible(voucher);
+    await tester.tap(voucher);
+    await tester.pumpAndSettle();
+    expect(find.text('امتلاك دائم باستخدام قسيمة واحدة'), findsOneWidget);
+    await tester.tap(find.text('إلغاء'));
+    await assertClean(tester, 'Cancel voucher');
+    expect(app.economyWallet.categoryVouchers, 1);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets(
+      'rental confirmation includes category, duration, and exact price',
+      (tester) async {
+    settings.dispose();
+    settings = _StoreSettings(arabic: true);
+    app.economyWallet = const EconomyWallet(rentalPrices: {
+      'day': {'days': 1, 'coins': 2000, 'gems': 20},
+      'week': {'days': 7, 'coins': 7000, 'gems': 70},
+      'month': {'days': 30, 'coins': 15000, 'gems': 140},
+    });
+    await mount(tester, const Size(390, 780));
+    await select(tester, 'الفئات والشخصيات');
+    final search = find.byType(TextField).first;
+    await tester.ensureVisible(search);
+    await tester.enterText(search, 'سبيس تون');
+    await tester.pumpAndSettle();
+    final rent = find.text('استئجار يوم / أسبوع / شهر');
+    await tester.ensureVisible(rent);
+    await tester.tap(rent);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('أسبوع (7 أيام) • 7000 قطعة'));
+    await tester.pumpAndSettle();
+    expect(
+        find.text(
+            'استئجار تصنيف «سبيس تون» لمدة أسبوع (7 أيام) مقابل 7000 قطعة.\nتُضاف المدة إلى الاستئجار الحالي إن كان سارياً.'),
+        findsOneWidget);
+    expect(app.economyActions, isEmpty);
+    await tester.tap(find.text('تأكيد'));
+    await tester.pumpAndSettle();
+    expect(app.economyActions.single, {
+      'action': 'rent',
+      'duration': 'week',
+      'currency': 'coins',
+      'category': 'سبيس تون',
+    });
+    expect(find.text('تم استئجار تصنيف «سبيس تون» لمدة أسبوع (7 أيام).'),
+        findsOneWidget);
+    await assertClean(tester, 'Confirmed rental');
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets(
+      'weekly voucher clearly extends an existing rental and can cancel',
+      (tester) async {
+    settings.dispose();
+    settings = _StoreSettings(arabic: true);
+    app.rentalHours = 48;
+    app.economyWallet = const EconomyWallet(rentalVouchers: 1, rentalPrices: {
+      'week': {'days': 7, 'coins': 7000, 'gems': 70},
+    });
+    await mount(tester, const Size(390, 780));
+    await select(tester, 'الفئات والشخصيات');
+    final search = find.byType(TextField).first;
+    await tester.ensureVisible(search);
+    await tester.enterText(search, 'سبيس تون');
+    await tester.pumpAndSettle();
+    expect(find.text('الاستئجار: 48 ساعة متبقية'), findsOneWidget);
+    final rent = find.text('استئجار يوم / أسبوع / شهر');
+    await tester.ensureVisible(rent);
+    await tester.tap(rent);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('قسيمة استئجار • أسبوع (7 أيام)'));
+    await tester.pumpAndSettle();
+    expect(
+        find.text(
+            'استئجار تصنيف «سبيس تون» لمدة أسبوع (7 أيام) مقابل قسيمة أسبوعية واحدة.\nتُضاف المدة إلى الاستئجار الحالي إن كان سارياً.'),
+        findsOneWidget);
+    await tester.tap(find.text('إلغاء'));
+    await tester.pumpAndSettle();
+    expect(app.economyActions, isEmpty);
+    expect(app.economyWallet.rentalVouchers, 1);
+    await assertClean(tester, 'Cancelled rental voucher');
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('unavailable rental service reports the problem before checkout',
+      (tester) async {
+    settings.dispose();
+    settings = _StoreSettings(arabic: true);
+    app.economyReady = false;
+    app.economyFailure = 'خدمة الأرصدة غير متاحة حالياً.';
+    await mount(tester, const Size(390, 780));
+    await select(tester, 'الفئات والشخصيات');
+    final search = find.byType(TextField).first;
+    await tester.ensureVisible(search);
+    await tester.enterText(search, 'سبيس تون');
+    await tester.pumpAndSettle();
+    final rent = find.text('استئجار يوم / أسبوع / شهر');
+    await tester.ensureVisible(rent);
+    await tester.tap(rent);
+    await tester.pumpAndSettle();
+    expect(find.text('خدمة الأرصدة غير متاحة حالياً.'), findsOneWidget);
+    expect(find.byType(BottomSheet), findsNothing);
+    expect(app.economyActions, isEmpty);
+    await assertClean(tester, 'Unavailable rental service');
     await tester.pumpWidget(const SizedBox.shrink());
   });
 

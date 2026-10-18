@@ -13,6 +13,14 @@ class CommerceError extends Error {
 // These are delivered quantities, never client-supplied quantities or prices.
 // Preserve amounts sold by previous Android releases under the same SKU.
 const PRODUCTS = Object.freeze({
+  keys_1: { type: "consumable", coins: 0, gems: 0, keys: 1 },
+  hearts_1: { type: "consumable", coins: 0, gems: 0, hearts: 1 },
+  tickets_1: { type: "consumable", coins: 0, gems: 0, tickets: 1 },
+  keys_10: { type: "consumable", coins: 0, gems: 0, keys: 10 },
+  hearts_10: { type: "consumable", coins: 0, gems: 0, hearts: 10 },
+  tickets_10: { type: "consumable", coins: 0, gems: 0, tickets: 10 },
+  resources_3_each: { type: "consumable", coins: 0, gems: 0, keys: 3, hearts: 3, tickets: 3 },
+  resources_10_each: { type: "consumable", coins: 0, gems: 0, keys: 10, hearts: 10, tickets: 10 },
   gems_80: { type: "consumable", coins: 0, gems: 80 },
   gems_500: { type: "consumable", coins: 0, gems: 500 },
   gems_1200: { type: "consumable", coins: 0, gems: 1200 },
@@ -42,7 +50,8 @@ function resolveProduct(productId, legacyVipIds = []) {
   if (typeof productId !== "string" || !/^[a-z0-9_]{1,100}$/.test(productId)) {
     throw new CommerceError("invalid-argument", "Invalid product ID.");
   }
-  const canonicalId = PRODUCTS[productId] ? productId : ALIASES[productId];
+  const canonicalId = Object.hasOwn(PRODUCTS, productId) ? productId :
+    Object.hasOwn(ALIASES, productId) ? ALIASES[productId] : undefined;
   if (canonicalId) return { id: canonicalId, storeId: productId, ...PRODUCTS[canonicalId] };
   if (["vip_pass", "vippass", "vip"].includes(productId) && legacyVipIds.includes(productId)) {
     return { id: "vip_monthly", storeId: productId, ...PRODUCTS.vip_monthly };

@@ -55,8 +55,8 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
   @override
   void initState() {
     super.initState();
-    const MethodChannel('millionaire/native').invokeMethod<void>(
-        'setSocialBusy', {'busy': true}).catchError((_) {});
+    const MethodChannel('millionaire/native')
+        .invokeMethod<void>('setSocialBusy', {'busy': true}).catchError((_) {});
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     _pulseCtrl = AnimationController(
       vsync: this,
@@ -360,6 +360,7 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
     }
     await nativeBridgeService.launchLegacyRoomMatch(
       roomId: room.id,
+      economyMatchId: room.economyMatchId,
       opponents: opponents,
       meOwner: currentUserId == room.hostId,
       matchMode: matchMode,
@@ -458,7 +459,8 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
                 end: Alignment.bottomRight,
                 colors: [Color(0xFF0F172A), Color(0xFF080D24)],
               ),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(24)),
               border: Border.all(
                 color: const Color(0xFF38BDF8).withValues(alpha: 0.35),
               ),
@@ -475,7 +477,8 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
                         shape: BoxShape.circle,
                         color: Color(0xFF0284C7),
                       ),
-                      child: const Icon(Icons.share_rounded, color: Colors.white, size: 18),
+                      child: const Icon(Icons.share_rounded,
+                          color: Colors.white, size: 18),
                     ),
                     const SizedBox(width: 10),
                     Column(
@@ -501,22 +504,26 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
                     const Spacer(),
                     IconButton(
                       onPressed: () => Navigator.of(ctx).pop(),
-                      icon: const Icon(Icons.close_rounded, color: Colors.white70),
+                      icon: const Icon(Icons.close_rounded,
+                          color: Colors.white70),
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
                 // Room Code Box
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
                     color: const Color(0xFF070F28),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.4)),
+                    border: Border.all(
+                        color: const Color(0xFF38BDF8).withValues(alpha: 0.4)),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.meeting_room_rounded, color: Color(0xFF38BDF8), size: 20),
+                      const Icon(Icons.meeting_room_rounded,
+                          color: Color(0xFF38BDF8), size: 20),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -537,13 +544,16 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF1E3A8A),
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
                         ),
                         icon: const Icon(Icons.copy_rounded, size: 14),
-                        label: const Text('نسخ', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        label: const Text('نسخ',
+                            style: TextStyle(
+                                fontSize: 12, fontWeight: FontWeight.bold)),
                       ),
                     ],
                   ),
@@ -594,13 +604,16 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
                         setModalState(() => showRoomQr = !showRoomQr);
                       },
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: showRoomQr ? const Color(0xFFFFD700) : Colors.white70,
+                        foregroundColor: showRoomQr
+                            ? const Color(0xFFFFD700)
+                            : Colors.white70,
                         side: BorderSide(
                           color: showRoomQr
                               ? const Color(0xFFFFD700)
                               : Colors.white.withValues(alpha: 0.2),
                         ),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 10),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
@@ -625,7 +638,9 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
                           ),
                         ),
                         icon: const Icon(Icons.send_rounded, size: 16),
-                        label: const Text('مشاركة عبر واتساب', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        label: const Text('مشاركة عبر واتساب',
+                            style: TextStyle(
+                                fontSize: 12, fontWeight: FontWeight.bold)),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -637,14 +652,19 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
                       },
                       style: OutlinedButton.styleFrom(
                         foregroundColor: const Color(0xFFFFD700),
-                        side: BorderSide(color: const Color(0xFFFFD700).withValues(alpha: 0.4)),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        side: BorderSide(
+                            color:
+                                const Color(0xFFFFD700).withValues(alpha: 0.4)),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 10),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
                       ),
                       icon: const Icon(Icons.share_outlined, size: 16),
-                      label: const Text('كود فقط', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      label: const Text('كود فقط',
+                          style: TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.bold)),
                     ),
                   ],
                 ),
@@ -922,7 +942,8 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
                                   onToggleReady: (v) => _toggleReady(room, v),
                                   onStartRoom: () => _startRoom(room),
                                   onStartNextRound: () => _startNextRound(room),
-                                  onShareRoom: () => _showShareOptionsModal(room),
+                                  onShareRoom: () =>
+                                      _showShareOptionsModal(room),
                                   onLeaveRoom: _confirmLeave,
                                 );
 
@@ -1133,7 +1154,8 @@ class _LobbyHeader extends StatelessWidget {
                       SnackBar(
                         content: Row(
                           children: [
-                            const Icon(Icons.check_circle_rounded, color: Color(0xFF34D399)),
+                            const Icon(Icons.check_circle_rounded,
+                                color: Color(0xFF34D399)),
                             const SizedBox(width: 8),
                             Text('تم نسخ رمز الغرفة: ${room.id}'),
                           ],
@@ -1155,7 +1177,8 @@ class _LobbyHeader extends StatelessWidget {
                             fontWeight: FontWeight.w600),
                       ),
                       const SizedBox(width: 4),
-                      const Icon(Icons.copy_rounded, size: 12, color: Color(0xFF38BDF8)),
+                      const Icon(Icons.copy_rounded,
+                          size: 12, color: Color(0xFF38BDF8)),
                     ],
                   ),
                 ),

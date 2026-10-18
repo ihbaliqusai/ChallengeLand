@@ -5675,6 +5675,7 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
     }
 
     private void showQuestionNow(final int questionIndex) {
+        if (!GameEconomy.ensure(this, false, 0, new java.util.ArrayList<>(), () -> showQuestionNow(questionIndex))) return;
         if(!EXITING) {
             currentQuestion = questionIndex;
             spectatorEliminationRound = eliminationMode && localPlayerEliminated;

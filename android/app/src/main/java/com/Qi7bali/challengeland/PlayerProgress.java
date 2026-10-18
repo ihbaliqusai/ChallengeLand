@@ -857,6 +857,9 @@ public class PlayerProgress {
         if (!NativeProgression.activeAccount(c)) return false;
         String outcome = PlayerStats.matchOutcome(c);
         if (outcome.isEmpty() || ProgressionRules.ABANDON.equals(outcome)) return false;
+        if (c instanceof android.app.Activity && !"campaign".equals(NativeProgression.mode(c))) {
+            GameEconomy.finish((android.app.Activity)c, ProgressionRules.WIN.equals(outcome));
+        }
         SharedPreferences p = prefs(c);
         String id = NativeProgression.matchId(c);
         // No rewards for an empty lobby or an opponent leaving before gameplay.
