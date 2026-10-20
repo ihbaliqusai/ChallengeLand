@@ -107,20 +107,23 @@ void main() {
     final appState = _FakeAppState();
     await mount(tester, state: appState);
 
-    // Initial character is Omar
-    expect(find.text('عمر'), findsAtLeastNWidgets(1));
+    // Names belong to matches; the picker identifies characters by artwork.
+    for (final character in CharacterCatalog.all) {
+      expect(find.textContaining(character.nameAr), findsNothing);
+    }
     expect(find.text('شخصيتك الحالية'), findsAtLeastNWidgets(1));
 
     // Tap Khaled in the rail
-    await tester.ensureVisible(find.text('خالد').first);
-    await tester.tap(find.text('خالد').first);
+    final khaled = find.byKey(const ValueKey('character-rail-khaled'));
+    await tester.ensureVisible(khaled);
+    await tester.tap(khaled);
     await tester.pumpAndSettle();
 
     expect(find.text('المنافس الهادئ'), findsAtLeastNWidgets(1));
 
     // Tap Choose button for Khaled
-    await tester.ensureVisible(find.text('اختيار خالد').first);
-    await tester.tap(find.text('اختيار خالد').first);
+    await tester.ensureVisible(find.text('اختيار الشخصية'));
+    await tester.tap(find.text('اختيار الشخصية'));
     await tester.pumpAndSettle();
 
     expect(appState.selectedCharacterIndex, 0);
@@ -140,6 +143,7 @@ void main() {
     expect(find.text('نبذة عن المتسابق'), findsOneWidget);
     expect(find.text('المهارات والقدرات'), findsOneWidget);
     expect(find.text('سرعة البديهة وردود الفعل'), findsOneWidget);
+    expect(find.textContaining('عمر'), findsNothing);
 
     final boundary = tester.renderObject<RenderRepaintBoundary>(
       find.byKey(const ValueKey('character-select-screen')),
@@ -159,6 +163,7 @@ void main() {
 
     expect(find.text('منصة مسرح المسابقة'), findsOneWidget);
     expect(find.text('متصدر قائمة الأبطال'), findsOneWidget);
+    expect(find.textContaining('عمر'), findsNothing);
 
     // Close the modal
     await tester.tap(find.byIcon(Icons.close_rounded));
@@ -171,14 +176,17 @@ void main() {
       (tester) async {
     final state = _FakeAppState();
     await mount(tester, state: state);
-    await tester.ensureVisible(find.text('فهد').first);
-    await tester.tap(find.text('فهد').first);
+    final fahad = find.byKey(const ValueKey('character-rail-fahad'));
+    await tester.ensureVisible(fahad);
+    await tester.tap(fahad);
     await tester.pumpAndSettle();
     expect(state.selectedCharacterIndex, 1);
     expect(state.purchaseRequests, 0);
     final unlock = find.text('فتح وتفعيل (12K كوين)');
     await tester.tap(unlock);
     await tester.pumpAndSettle();
+    expect(find.text('فتح الشخصية'), findsOneWidget);
+    expect(find.textContaining('فهد'), findsNothing);
     await tester.tap(find.text('إلغاء'));
     await tester.pumpAndSettle();
     expect(state.selectedCharacterIndex, 1);
@@ -196,13 +204,15 @@ void main() {
       (tester) async {
     final state = _FakeAppState();
     await mount(tester, state: state);
-    await tester.ensureVisible(find.text('مازن').first);
-    await tester.tap(find.text('مازن').first);
+    final mazen = find.byKey(const ValueKey('character-rail-mazen'));
+    await tester.ensureVisible(mazen);
+    await tester.tap(mazen);
     await tester.pumpAndSettle();
     expect(find.text('تُفتح عند المستوى 8'), findsAtLeastNWidgets(1));
     await tester.tap(find.byIcon(Icons.zoom_in_rounded).first);
     await tester.pumpAndSettle();
-    expect(find.text('استعراض المتسابق: مازن'), findsOneWidget);
+    expect(find.text('استعراض الشخصية'), findsOneWidget);
+    expect(find.textContaining('مازن'), findsNothing);
     expect(state.selectedCharacterIndex, 1);
     expect(state.purchaseRequests, 0);
     expect(tester.takeException(), isNull);
@@ -222,6 +232,7 @@ void main() {
       await tester.tap(tile);
       await tester.pumpAndSettle();
       expect(find.text(character.tagAr), findsOneWidget);
+      expect(find.textContaining(character.nameAr), findsNothing);
       final artwork = find.byWidgetPredicate((widget) =>
           widget is Image &&
           widget.image is AssetImage &&
@@ -275,10 +286,11 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.byIcon(Icons.zoom_in_rounded).last.hitTestable(),
           findsOneWidget);
-      await tester.ensureVisible(find.text('خالد').first);
-      await tester.tap(find.text('خالد').first);
+      final khaled = find.byKey(const ValueKey('character-rail-khaled'));
+      await tester.ensureVisible(khaled);
+      await tester.tap(khaled);
       await tester.pumpAndSettle();
-      expect(find.text('اختيار خالد').hitTestable(), findsOneWidget);
+      expect(find.text('اختيار الشخصية').hitTestable(), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   }

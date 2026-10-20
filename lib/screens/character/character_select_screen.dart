@@ -156,7 +156,7 @@ class _CharacterSelectScreenState extends State<CharacterSelectScreen>
         _showSnack('تعذّر الشراء — يرجى التحقق من رصيدك.', isError: true);
         return;
       }
-      _showSnack('تهانينا! تم فتح شخصية ${character.nameAr} بنجاح 🎉');
+      _showSnack('تهانينا! تم فتح الشخصية بنجاح 🎉');
     }
 
     // Commit character selection
@@ -216,10 +216,10 @@ class _CharacterSelectScreenState extends State<CharacterSelectScreen>
                 ),
               ),
               const SizedBox(height: 12),
-              Text(
-                'فتح شخصية ${character.nameAr}',
+              const Text(
+                'فتح الشخصية',
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w900,
                   fontSize: 20,
@@ -637,7 +637,7 @@ class _HeroStage extends StatelessWidget {
     );
     final stage = Semantics(
       button: true,
-      label: 'استعراض شخصية ${character.nameAr}',
+      label: 'استعراض الشخصية، ${character.tagAr}',
       child: InkWell(
         onTap: onInspect,
         borderRadius: BorderRadius.circular(24),
@@ -654,17 +654,8 @@ class _HeroStage extends StatelessWidget {
             )),
       ),
     );
-    final name = Text(character.nameAr,
-        textAlign: TextAlign.center,
-        style: const TextStyle(
-            color: Colors.white,
-            fontSize: 23,
-            fontWeight: FontWeight.w900,
-            shadows: [Shadow(color: Color(0xFFB986FF), blurRadius: 14)]));
     final details = Column(mainAxisSize: MainAxisSize.min, children: [
       if (compact) ...[badges, const SizedBox(height: 6)],
-      name,
-      const SizedBox(height: 8),
       _MiniStatRow(character: character),
       const SizedBox(height: 6),
       const Text('سمات وصفية للشخصية؛ قواعد اللعب متساوية للجميع.',
@@ -1310,9 +1301,9 @@ class _CharacterInspectionModalState extends State<_CharacterInspectionModal> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'استعراض المتسابق: ${character.nameAr}',
-                          style: const TextStyle(
+                        const Text(
+                          'استعراض الشخصية',
+                          style: TextStyle(
                             color: Colors.white,
                             fontSize: 18,
                             fontWeight: FontWeight.w900,
@@ -1420,7 +1411,7 @@ class _CharacterInspectionModalState extends State<_CharacterInspectionModal> {
                         widget.isSelected
                             ? 'هذه شخصيتك الحالية'
                             : (widget.isUnlocked
-                                ? 'تأكيد واختيار ${character.nameAr}'
+                                ? 'تأكيد اختيار الشخصية'
                                 : 'فتح الشخصية وتفعيلها'),
                         style: const TextStyle(
                           fontSize: 16,
@@ -1648,9 +1639,9 @@ class _CharacterInspectionModalState extends State<_CharacterInspectionModal> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        character.nameAr,
-                        style: const TextStyle(
+                      const Text(
+                        'شخصيتك في اللعبة',
+                        style: TextStyle(
                           color: Colors.white,
                           fontSize: 18,
                           fontWeight: FontWeight.w900,
@@ -1740,9 +1731,9 @@ class _CharacterInspectionModalState extends State<_CharacterInspectionModal> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'أنت (${character.nameAr})',
-                      style: const TextStyle(
+                    const Text(
+                      'أنت',
+                      style: TextStyle(
                         color: Colors.white,
                         fontSize: 13.5,
                         fontWeight: FontWeight.w900,
@@ -1968,7 +1959,7 @@ class _CharacterRailState extends State<_CharacterRail> {
   Widget build(BuildContext context) {
     return SizedBox(
       width: widget.compact ? 80 : null,
-      height: widget.compact ? null : 108,
+      height: widget.compact ? null : 88,
       child: LayoutBuilder(
         builder: (context, constraints) {
           return SingleChildScrollView(
@@ -2035,75 +2026,69 @@ class _RailItem extends StatelessWidget {
             ? const Color(0xFF34D399)
             : Colors.white.withValues(alpha: 0.16);
 
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 220),
-            curve: Curves.easeOut,
-            width: compact ? 44 : (isFocused ? 62 : 52),
-            height: compact ? 44 : (isFocused ? 62 : 52),
-            padding: const EdgeInsets.all(3.5),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: const Color(0xFF09142A),
-              border: Border.all(
-                color: ringColor,
-                width: isFocused ? 2.5 : 1.4,
+    return Semantics(
+      button: true,
+      selected: isFocused,
+      label: 'الشخصية ${character.index + 1}، ${character.tagAr}',
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOut,
+              width: compact ? 44 : (isFocused ? 62 : 52),
+              height: compact ? 44 : (isFocused ? 62 : 52),
+              padding: const EdgeInsets.all(3.5),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFF09142A),
+                border: Border.all(
+                  color: ringColor,
+                  width: isFocused ? 2.5 : 1.4,
+                ),
+                boxShadow: isFocused
+                    ? [
+                        BoxShadow(
+                          color: const Color(0xFFBE93FF).withValues(alpha: 0.6),
+                          blurRadius: 16,
+                          spreadRadius: 1,
+                        ),
+                      ]
+                    : null,
               ),
-              boxShadow: isFocused
-                  ? [
-                      BoxShadow(
-                        color: const Color(0xFFBE93FF).withValues(alpha: 0.6),
-                        blurRadius: 16,
-                        spreadRadius: 1,
+              child: Stack(
+                alignment: Alignment.center,
+                clipBehavior: Clip.none,
+                children: [
+                  ClipOval(
+                    child: Image.asset(
+                      character.asset,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => const Icon(
+                        Icons.person_rounded,
+                        color: Colors.white38,
                       ),
-                    ]
-                  : null,
-            ),
-            child: Stack(
-              alignment: Alignment.center,
-              clipBehavior: Clip.none,
-              children: [
-                ClipOval(
-                  child: Image.asset(
-                    character.asset,
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => const Icon(
-                      Icons.person_rounded,
-                      color: Colors.white38,
                     ),
                   ),
-                ),
-                if (!unlocked)
-                  Positioned(
-                    bottom: -3,
-                    child: _RailLockChip(character: character),
-                  ),
-                if (isSelected)
-                  const Positioned(
-                    top: -4,
-                    right: -4,
-                    child: _SelectedTick(),
-                  ),
-              ],
+                  if (!unlocked)
+                    Positioned(
+                      bottom: -3,
+                      child: _RailLockChip(character: character),
+                    ),
+                  if (isSelected)
+                    const Positioned(
+                      top: -4,
+                      right: -4,
+                      child: _SelectedTick(),
+                    ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            character.nameAr,
-            style: TextStyle(
-              color: isFocused ? Colors.white : Colors.white60,
-              fontSize: 11.5,
-              fontWeight: isFocused ? FontWeight.w900 : FontWeight.w700,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -2244,7 +2229,7 @@ class _ActionBar extends StatelessWidget {
         Color(0xFF075B54)
       ];
     } else {
-      label = forced ? 'اختيار وبدء اللعب' : 'اختيار ${character.nameAr}';
+      label = forced ? 'اختيار وبدء اللعب' : 'اختيار الشخصية';
       icon = Icons.check_rounded;
       gradient = const [
         Color(0xFF22CDA3),
