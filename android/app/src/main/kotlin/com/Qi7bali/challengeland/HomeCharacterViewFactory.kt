@@ -28,7 +28,9 @@ private class HomeCharacterPlatformView(
 ) : PlatformView, DefaultLifecycleObserver {
     private val clips = intArrayOf(
         R.raw.video_khaled, R.raw.video_omar, R.raw.video_fahad, R.raw.video_mazen,
-        R.raw.video_mahmoud, R.raw.video_ellen, R.raw.video_sarah, R.raw.video_talia
+        R.raw.video_mahmoud, R.raw.video_ellen, R.raw.video_sarah, R.raw.video_talia,
+        R.raw.video_layan, R.raw.video_rashid, R.raw.video_jana, R.raw.video_yazan,
+        R.raw.video_nour, R.raw.video_zaid, R.raw.video_salman, R.raw.video_adam
     )
     private val index = ((args?.get("index") as? Number)?.toInt() ?: 1)
         .takeIf { it in clips.indices } ?: 1

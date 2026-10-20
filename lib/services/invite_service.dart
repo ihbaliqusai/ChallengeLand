@@ -401,12 +401,14 @@ class InviteService {
     required String code,
     required String playerName,
   }) {
-    return '⚔️ *تحدي 1 ضد 1 في أرض التحدي (ChallengeLand)*\n\n'
-        '🎮 اللاعب *$playerName* يتحداك لمواجهة معرفية حاسمة!\n\n'
-        '🔑 *كود التحدي الخاص بي:*\n`$code`\n\n'
+    return '⚔️ *أرض التحدي | دعوة مواجهة خاصة 1 ضد 1* ⚔️\n\n'
+        '👑 اللاعب *$playerName* أرسل لك دعوة تحدي معرفي حاسم ومثير!\n'
+        'هل تقبل التحدي وتثبت جدارتك على ساحة الأبطال؟\n\n'
+        '🔑 *كود التحدي المباشر:*\n`$code`\n\n'
         '📲 *رابط تحميل وفتح اللعبة مباشرة:*\n'
         'https://play.google.com/store/apps/details?id=com.qi7bali.landchallengeonline\n\n'
-        '💡 افتح اللعبة واضغط على "تحدي صديق" ثم الصق الكود لبدء اللعب ضدي فوراً!';
+        '⚡ *طريقة الانضمام السريع:*\n'
+        'انسخ الكود أعلاه وافتح اللعبة، وسيظهر لك التحدي تلقائياً للبدء فوراً!';
   }
 
   static String buildRoomInviteShareMessage({
@@ -415,13 +417,14 @@ class InviteService {
     required String modeName,
     required int maxPlayers,
   }) {
-    return '🏆 *دعوة إلى غرفة جماعية في أرض التحدي (ChallengeLand)*\n\n'
+    return '🏆 *أرض التحدي | دعوة انضمام لغرفة جماعية* 🏆\n\n'
         '👑 المضيف: *$hostName*\n'
-        '🎯 الطور: *$modeName* ($maxPlayers لاعبين)\n\n'
+        '🎯 طور اللعب: *$modeName* (سعة $maxPlayers لاعبين)\n\n'
         '🔑 *رمز الغرفة:*\n`$roomId`\n\n'
         '📲 *رابط تحميل وفتح اللعبة مباشرة:*\n'
         'https://play.google.com/store/apps/details?id=com.qi7bali.landchallengeonline\n\n'
-        '💡 افتح "تحدي جماعي" واختر "انضمام بكود" والصق الرمز للانضمام!';
+        '⚡ *طريقة الانضمام:*\n'
+        'انسخ الرمز أعلاه وافتح اللعبة، وسيتم التعرف على الغرفة تلقائياً!';
   }
 
   static String translateRoomMode(String mode) {

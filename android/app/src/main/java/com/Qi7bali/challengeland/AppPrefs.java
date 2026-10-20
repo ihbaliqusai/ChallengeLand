@@ -50,6 +50,8 @@ public final class AppPrefs {
     }
 
     public static void setUser(Context c, String id, String name, String photo, int level, int score) {
+        // Capture the old identity's legacy character data before changing UID.
+        if (!java.util.Objects.equals(id, getUserId(c))) characterPrefs(c);
         userPrefs(c).edit()
                 .putString("userID", id)
                 .putString("userName", name)
@@ -73,24 +75,58 @@ public final class AppPrefs {
     /** Default character (index 1 = Omar) used until the player picks one. */
     public static final int DEFAULT_CHARACTER = 1;
 
-    /** The chosen character index (0..7), or -1 when the player has not picked. */
+    private static synchronized SharedPreferences characterPrefs(Context c) {
+        String uid = getUserId(c);
+        if (uid == null || uid.trim().isEmpty()) uid = "guest_local";
+        SharedPreferences state = c.getSharedPreferences("CharacterState_v1_" + uid, Context.MODE_PRIVATE);
+        if (state.getBoolean("initialized", false)) return state;
+        SharedPreferences migration = c.getSharedPreferences("CharacterMigration", Context.MODE_PRIVATE);
+        String owner = migration.getString("legacyOwner", "");
+        if (owner == null || owner.isEmpty()) {
+            ProgressionAccount.commitOrRollback(migration, migration.edit().putString("legacyOwner", uid));
+            owner = uid;
+        }
+        SharedPreferences.Editor editor = state.edit().putBoolean("initialized", true);
+        if (uid.equals(owner)) {
+            SharedPreferences legacy = userPrefs(c);
+            int selected = legacy.getInt("selectedCharacter", -1);
+            editor.putInt("selectedCharacter", CharacterUnlocks.isValid(selected) ? selected : -1);
+            editor.putStringSet("unlockedCharacters", validCharacterPurchases(
+                    legacy.getStringSet("unlockedCharacters", new HashSet<String>())));
+        }
+        ProgressionAccount.commitOrRollback(state, editor);
+        return state;
+    }
+
+    private static Set<String> validCharacterPurchases(Set<String> values) {
+        Set<String> valid = new HashSet<>();
+        if (values != null) for (String value : values) {
+            try {
+                int index = Integer.parseInt(value);
+                if (CharacterUnlocks.isValid(index)) valid.add(String.valueOf(index));
+            } catch (NumberFormatException ignored) { }
+        }
+        return valid;
+    }
+
+    /** The chosen roster index, or -1 when the player has not picked. */
     public static int getSelectedCharacter(Context c) {
-        return userPrefs(c).getInt("selectedCharacter", -1);
+        return characterPrefs(c).getInt("selectedCharacter", -1);
     }
 
     /** The character to actually render in-game (never -1). */
     public static int getEffectiveCharacter(Context c) {
         int index = getSelectedCharacter(c);
-        return (index >= 0 && index <= 7) ? index : DEFAULT_CHARACTER;
+        return CharacterUnlocks.isValid(index) ? index : DEFAULT_CHARACTER;
     }
 
     public static void setSelectedCharacter(Context c, int index) {
-        if (index < 0 || index > 7) return;
-        userPrefs(c).edit().putInt("selectedCharacter", index).apply();
+        if (index != -1 && !CharacterUnlocks.isValid(index)) return;
+        characterPrefs(c).edit().putInt("selectedCharacter", index).apply();
     }
 
     public static Set<String> getUnlockedCharacters(Context c) {
-        return new HashSet<>(userPrefs(c).getStringSet("unlockedCharacters", new HashSet<String>()));
+        return new HashSet<>(characterPrefs(c).getStringSet("unlockedCharacters", new HashSet<String>()));
     }
 
     public static boolean isCharacterPurchased(Context c, int index) {
@@ -98,17 +134,18 @@ public final class AppPrefs {
     }
 
     public static void unlockCharacter(Context c, int index) {
+        if (!CharacterUnlocks.isValid(index)) return;
         Set<String> set = getUnlockedCharacters(c);
         set.add(String.valueOf(index));
-        userPrefs(c).edit().putStringSet("unlockedCharacters", set).apply();
+        characterPrefs(c).edit().putStringSet("unlockedCharacters", set).apply();
     }
 
     public static void setUnlockedCharacters(Context c, Set<String> characters) {
-        userPrefs(c).edit().putStringSet("unlockedCharacters", characters != null ? characters : new HashSet<String>()).apply();
+        characterPrefs(c).edit().putStringSet("unlockedCharacters", validCharacterPurchases(characters)).apply();
     }
 
     public static void clearUnlockedCharacters(Context c) {
-        userPrefs(c).edit().remove("unlockedCharacters").apply();
+        characterPrefs(c).edit().remove("unlockedCharacters").apply();
     }
 
     // ==========================================

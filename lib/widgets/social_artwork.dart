@@ -136,55 +136,58 @@ class SocialArtworkHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) => SizedBox(
       height: 52,
-      child: Row(children: [
-        Expanded(
-            child: Align(
-                alignment: AlignmentDirectional.centerStart,
-                child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      ShaderMask(
-                          shaderCallback: (rect) => const LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: [
-                                    Color(0xFFFFF3C3),
-                                    Color(0xFFFFC94F)
-                                  ]).createShader(rect),
-                          child: const Text('الأصدقاء والتحديات',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 25,
-                                  fontWeight: FontWeight.w900,
-                                  shadows: [
-                                    Shadow(
-                                        color: Color(0xFF6C4227),
-                                        offset: Offset(0, 3),
-                                        blurRadius: 2)
-                                  ]))),
-                    ])))),
-        IconButton(
-            tooltip: 'تحديث اللاعبين',
-            onPressed: onRefresh,
-            padding: const EdgeInsets.all(2),
-            icon: Opacity(
-                opacity: onRefresh == null ? .45 : 1,
-                child: const SizedBox(
-                    width: 44,
-                    height: 44,
-                    child: ClipOval(
-                        child: SocialArtworkSlice(
-                            Rect.fromLTRB(.158, .046, .214, .148)))))),
-        IconButton(
-            tooltip: 'رجوع',
-            onPressed: onBack,
-            padding: const EdgeInsets.all(2),
-            icon: const SizedBox(
-                width: 44,
-                height: 44,
-                child: ClipOval(
-                    child: SocialArtworkSlice(
-                        Rect.fromLTRB(.090, .046, .147, .148))))),
+      child: Stack(alignment: Alignment.center, children: [
+        Center(
+          child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: ShaderMask(
+                  shaderCallback: (rect) => const LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Color(0xFFFFF3C3),
+                            Color(0xFFFFC94F)
+                          ]).createShader(rect),
+                  child: const Text('الأصدقاء والتحديات',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 25,
+                          fontWeight: FontWeight.w900,
+                          shadows: [
+                            Shadow(
+                                color: Color(0xFF6C4227),
+                                offset: Offset(0, 3),
+                                blurRadius: 2)
+                          ])))),
+        ),
+        PositionedDirectional(
+          start: 0,
+          child: IconButton(
+              tooltip: 'رجوع',
+              onPressed: onBack,
+              padding: const EdgeInsets.all(2),
+              icon: const SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: ClipOval(
+                      child: SocialArtworkSlice(
+                          Rect.fromLTRB(.090, .046, .147, .148))))),
+        ),
+        PositionedDirectional(
+          end: 0,
+          child: IconButton(
+              tooltip: 'تحديث اللاعبين',
+              onPressed: onRefresh,
+              padding: const EdgeInsets.all(2),
+              icon: Opacity(
+                  opacity: onRefresh == null ? .45 : 1,
+                  child: const SizedBox(
+                      width: 44,
+                      height: 44,
+                      child: ClipOval(
+                          child: SocialArtworkSlice(
+                              Rect.fromLTRB(.158, .046, .214, .148)))))),
+        ),
       ]));
 }
 

@@ -758,7 +758,7 @@ public class PlayerProgress {
             onOnlineMatchFinished(c, won, 0, NativeProgression.mode(c), true, NativeProgression.matchId(c));
             return;
         }
-        if (!claimMatchRewards(c, MATCH_COMPLETION_BONUS + Math.max(50, prizeMoney / 40))) return;
+        if (!claimMatchRewards(c, isCoinStake(c) ? 0 : MATCH_COMPLETION_BONUS + Math.max(50, prizeMoney / 40))) return;
         won = ProgressionRules.WIN.equals(PlayerStats.matchOutcome(c));
         unlockAchievement(c, ACH_FIRST_GAME);
         if (won) unlockAchievement(c, ACH_FIRST_WIN);
@@ -792,7 +792,7 @@ public class PlayerProgress {
             String completionKey
     ) {
         PlayerStats.recordGameEnd(c, won, 0);
-        if (!claimMatchRewards(c, completedToEnd ? MATCH_COMPLETION_BONUS : 0)) return;
+        if (!claimMatchRewards(c, completedToEnd && !isCoinStake(c) ? MATCH_COMPLETION_BONUS : 0)) return;
         won = ProgressionRules.WIN.equals(PlayerStats.matchOutcome(c));
         unlockAchievement(c, ACH_FIRST_GAME);
         unlockAchievement(c, ACH_FIRST_ONLINE);
@@ -851,6 +851,13 @@ public class PlayerProgress {
         }
         ProgressionAccount.commitOrRollback(p, editor);
         return true;
+    }
+
+    static boolean isCoinStake(Context c) {
+        if (!(c instanceof android.app.Activity)) return false;
+        android.content.Intent intent = ((android.app.Activity) c).getIntent();
+        String match = intent.getStringExtra("stakeMatchId");
+        return intent.getIntExtra("stakeCoins", 0) > 0 || (match != null && !match.isEmpty());
     }
 
     private static synchronized boolean claimMatchRewards(Context c, int coins) {

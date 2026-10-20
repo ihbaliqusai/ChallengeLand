@@ -138,6 +138,8 @@ public class Data {
             @Override public Transaction.Result doTransaction(MutableData data) {
                 if ("matched".equals(valueAsString(data.child("status").getValue()))) return Transaction.abort();
                 payload.put("searchId", valueAsString(data.child("searchId").getValue()));
+                payload.put("stakeCoins", data.child("stakeCoins").getValue() == null
+                        ? 0 : data.child("stakeCoins").getValue());
                 data.setValue(payload);
                 return Transaction.success(data);
             }
@@ -195,6 +197,11 @@ public class Data {
 
     public static void resetDuelSearch(String userID, String target, Runnable ready,
                                        java.util.function.Consumer<DatabaseError> failed) {
+        resetDuelSearch(userID, target, 0, ready, failed);
+    }
+
+    public static void resetDuelSearch(String userID, String target, int stakeCoins, Runnable ready,
+                                       java.util.function.Consumer<DatabaseError> failed) {
         if (!isRealUser(userID)) {
             failed.accept(DatabaseError.fromException(new IllegalStateException("Sign in before matchmaking")));
             return;
@@ -204,6 +211,7 @@ public class Data {
         request.put("status", "waiting");
         request.put("acceptedBy", "0");
         request.put("targetId", target);
+        request.put("stakeCoins", stakeCoins);
         request.put("searchId", java.util.UUID.randomUUID().toString());
         request.put("createdAt", ServerValue.TIMESTAMP);
         requestsRef().child(userID).setValue(request, (error, ref) -> {
@@ -328,6 +336,10 @@ public class Data {
     }
 
     public void getRandomRequest(String currentUserId, final OnRandomRequestListener listener) {
+        getRandomRequest(currentUserId, 0, listener);
+    }
+
+    public void getRandomRequest(String currentUserId, int stakeCoins, final OnRandomRequestListener listener) {
         if (listener != null) {
             listener.onStart();
         }
@@ -352,6 +364,8 @@ public class Data {
                     }
                     Long createdAt = child.child("createdAt").getValue(Long.class);
                     if (createdAt == null || System.currentTimeMillis() - createdAt >= 120_000L) continue;
+                    Long candidateStake = child.child("stakeCoins").getValue(Long.class);
+                    if ((candidateStake == null ? 0 : candidateStake) != stakeCoins) continue;
                     String status = valueAsString(child.child("status"));
                     String acceptedBy = valueAsString(child.child("acceptedBy"));
                     String targetId = valueAsString(child.child("targetId"));

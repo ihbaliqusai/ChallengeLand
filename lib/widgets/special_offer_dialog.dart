@@ -78,22 +78,25 @@ class SpecialOfferDialog extends StatelessWidget {
         backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
+        alignment: Alignment.center,
         insetPadding: const EdgeInsets.all(12),
-        child: SizedBox(
-          width: width,
-          child: RepaintBoundary(
-            key: const ValueKey('champions-club-preview'),
-            child: _PreviewArtwork(
-              price: price,
-              actionLabel: actionLabel,
-              onClose: () => Navigator.pop(context),
-              onExplore: () {
-                final navigator = Navigator.of(context);
-                navigator.pop();
-                navigator.push(MaterialPageRoute<void>(
-                    builder: (_) => const StoreScreen(
-                        initialKind: StoreProductKind.subscription)));
-              },
+        child: Center(
+          child: SizedBox(
+            width: width,
+            child: RepaintBoundary(
+              key: const ValueKey('champions-club-preview'),
+              child: _PreviewArtwork(
+                price: price,
+                actionLabel: actionLabel,
+                onClose: () => Navigator.pop(context),
+                onExplore: () {
+                  final navigator = Navigator.of(context);
+                  navigator.pop();
+                  navigator.push(MaterialPageRoute<void>(
+                      builder: (_) => const StoreScreen(
+                          initialKind: StoreProductKind.subscription)));
+                },
+              ),
             ),
           ),
         ),
@@ -162,10 +165,13 @@ class _PreviewArtwork extends StatelessWidget {
                   rect: map(const Rect.fromLTRB(.605, .620, .911, .692)),
                   child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 2),
-                      child: FittedBox(
-                          fit: BoxFit.contain,
-                          child: GameStoreText(price,
-                              size: 36, color: const Color(0xFFFFDA7A))))),
+                      child: Center(
+                        child: FittedBox(
+                            fit: BoxFit.contain,
+                            child: GameStoreText(price,
+                                size: 36,
+                                color: const Color(0xFFFFDA7A))),
+                      ))),
               cleanLabel(
                   const Rect.fromLTRB(.344, .857, .682, .926),
                   const Rect.fromLTRB(.72, .857, .75, .926),
@@ -180,21 +186,26 @@ class _PreviewArtwork extends StatelessWidget {
                   child: _artworkButton(
                       label: actionLabel,
                       onPressed: onExplore,
-                      child: FractionallySizedBox(
-                          widthFactor: .56,
-                          heightFactor: .57,
-                          child: FittedBox(
-                              fit: BoxFit.contain,
-                              child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    GameStoreText(actionLabel, size: 36),
-                                    const SizedBox(width: 12),
-                                    const Icon(Icons.arrow_back_rounded,
-                                        color: Colors.white,
-                                        size: 36,
-                                        textDirection: TextDirection.ltr),
-                                  ]))))),
+                      child: Center(
+                        child: FractionallySizedBox(
+                            widthFactor: .56,
+                            heightFactor: .57,
+                            child: Center(
+                              child: FittedBox(
+                                  fit: BoxFit.contain,
+                                  child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        GameStoreText(actionLabel, size: 36),
+                                        const SizedBox(width: 12),
+                                        const Icon(Icons.arrow_back_rounded,
+                                            color: Colors.white,
+                                            size: 36,
+                                            textDirection: TextDirection.ltr),
+                                      ])),
+                            )),
+                      ))),
             ]),
           );
         }),

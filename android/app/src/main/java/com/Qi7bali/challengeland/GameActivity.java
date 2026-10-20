@@ -8,6 +8,14 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.media.MediaPlayer;
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
+import android.animation.ObjectAnimator;
+import android.animation.ValueAnimator;
+import android.view.animation.AccelerateDecelerateInterpolator;
+import android.view.animation.AccelerateInterpolator;
+import android.view.animation.DecelerateInterpolator;
+import android.view.animation.OvershootInterpolator;
 import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.os.Handler;
@@ -36,6 +44,9 @@ import android.widget.FrameLayout;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.widget.ScrollView;
+import android.app.Dialog;
+import android.graphics.drawable.ColorDrawable;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
@@ -322,6 +333,19 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     // result is exchanged under Games/{gameID}/board. A bot fallback (no human found)
     // plays the plain offline board instead — boardOnline stays false there.
     boolean boardOnline = false;
+    // Paid friend duels share this exact board, host and typed-answer UI. Only the
+    // transport and scoring authority differ from the legacy free duel.
+    private PaidDuelController paidDuel;
+    private Map<String, Object> paidDuelState = Collections.emptyMap();
+    private Map<String, Object> paidDuelQuestion = Collections.emptyMap();
+    private String paidDuelRenderKey = "";
+    private boolean paidDuelCategoryShown;
+    private boolean paidDuelShowingResult;
+    private boolean paidDuelExiting;
+    private int paidDuelQuestionTurn = -1;
+    private int paidDuelLastResultTurn = -1;
+    private String paidDuelTypedAnswer;
+    private boolean paidDuelInputReady;
     private boolean boardOpponentLeft = false;
     private boolean boardStarted = false;
     private int boardOnlineTurn = 0;
@@ -335,6 +359,8 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     private boolean boardPickPending = false;
     private boolean boardAdvancePending = false;
     private boolean boardDuelFinished = false;
+    private int boardResultCurrencyDelta;
+    private Integer paidResultCoins;
     private final Handler duelConnectionHandler = new Handler();
     private Runnable duelDisconnectTick;
     private TextView duelDisconnectCountdown;
@@ -385,6 +411,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     private int boardMyCorrectCount = 0;
     // Celebration/sad result screen shown after a room board match ends.
     private final ArrayList<ChromaVideoView> resultVideoViews = new ArrayList<>();
+    private final ArrayList<Animator> resultMotionAnimators = new ArrayList<>();
     private boolean boardResultProceeded = false;
 
     // ---- Campaign board ("تحدي المراحل" stage on the التحدي board) ----
@@ -491,6 +518,18 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         supportRequestWindowFeature(Window.FEATURE_NO_TITLE);
         super.onCreate(savedInstanceState);
         NativeProgression.restore(this, savedInstanceState);
+        if (getIntent().getIntExtra("stakeCoins", 0) > 0
+                && safeIntentString("stakeMatchId", "").isEmpty()) {
+            try {
+                if (!NativeProgression.activeAccount(this)
+                        || !RandomStakeLedger.activate(this, safeIntentString("randomStakeId", ""))) {
+                    finish(); return;
+                }
+            } catch (RuntimeException failure) {
+                Toast.makeText(this, "تعذر تثبيت حجز المباراة. حاول مجددًا.", Toast.LENGTH_LONG).show();
+                finish(); return;
+            }
+        }
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
                 WindowManager.LayoutParams.FLAG_FULLSCREEN);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
@@ -652,8 +691,8 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                 int characterIndex;
                 if (pendingOfflineBoardRestore != null && pendingOfflineBoardRestore.has("characterIndex")) {
                     int savedChar = pendingOfflineBoardRestore.optInt("characterIndex", -1);
-                    characterIndex = (savedChar >= 0 && savedChar <= 7) ? savedChar : effectiveChar;
-                } else if (intentChar >= 0 && intentChar <= 7) {
+                    characterIndex = CharacterUnlocks.isValid(savedChar) ? savedChar : effectiveChar;
+                } else if (CharacterUnlocks.isValid(intentChar)) {
                     characterIndex = intentChar;
                 } else {
                     characterIndex = effectiveChar;
@@ -675,7 +714,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                 // تحدي المراحل stage played on the التحدي board (solo or boss).
                 int effectiveChar = AppPrefs.getEffectiveCharacter(this);
                 int intentChar = getIntent().getIntExtra("characterIndex", -1);
-                int characterIndex = (intentChar >= 0 && intentChar <= 7) ? intentChar : effectiveChar;
+                int characterIndex = CharacterUnlocks.isValid(intentChar) ? intentChar : effectiveChar;
                 setupCampaignBoardMatch(characterIndex);
                 loadCampaignProgressIfNeeded(savedInstanceState);
             } else if (campaignMode) {
@@ -1194,6 +1233,13 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     protected void onResume() {
         super.onResume();
         ACTIVITY_PAUSED = false;
+        if (paidDuel != null) {
+            paidDuelRenderKey = "";
+            paidDuelQuestionTurn = -1;
+            wasTimerRunningBeforePause = false;
+            wasBoardSelectTimerRunningBeforePause = false;
+            paidDuel.resume();
+        }
         if (boardOnline && !boardRoomMatch && !boardDuelFinished && myStatusRef != null) {
             duelNeedsBoardResync = true;
             wasTimerRunningBeforePause = false;
@@ -1687,6 +1733,10 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         return "0";
     }
     private void checkAnswer(final boolean timeout) {
+        if (paidDuel != null) {
+            submitPaidDuelAnswer(timeout);
+            return;
+        }
         // The money-ladder amount is irrelevant for online and offline-contestant
         // (board) modes, which both resolve the round without it.
         final int amount = (modeOnline || isOfflineContestantMode() || boardMode)
@@ -2075,6 +2125,8 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         final boolean tied = win && topCount > 1;
         String headline = tied ? "🤝 تعادل!" : win ? "🏆 فزت بالمباراة!"
                 : ("انتهت المباراة — ترتيبك " + rank + " من " + count);
+        final int previousCoins = PlayerProgress.getCoins(this);
+        if (!settleRandomStake(win, tied, this::finishBoardCelebration)) return;
         try {
             PlayerStats.recordGameEnd(GameActivity.this, tied ? ProgressionRules.DRAW
                     : win ? ProgressionRules.WIN : ProgressionRules.LOSS, myScore);
@@ -2082,12 +2134,28 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                     PlayerStats.getBestStreak(GameActivity.this), usedAllHelps(), usedAnyHelp());
         } catch (Exception ignored) {
         }
+        boardResultCurrencyDelta = PlayerProgress.getCoins(this) - previousCoins;
         if (win) {
             person.moveShow2Hands(1500);
             person.raiseEyeBrowsUp(1000, false, true);
         }
         playSound(win ? R.raw.new_level : R.raw.wrong_answer, false, false);
         showBoardResultScreen(headline, 0, 0, 0, seatWon);
+    }
+
+    private boolean settleRandomStake(boolean win, boolean draw, Runnable retry) {
+        if (paidDuel != null || getIntent().getIntExtra("stakeCoins", 0) <= 0) return true;
+        try {
+            if (!NativeProgression.activeAccount(this)) return false;
+            RandomStakeLedger.settle(this, safeIntentString("randomStakeId", ""), win, draw);
+            return true;
+        } catch (RuntimeException failure) {
+            new AlertDialog.Builder(this).setTitle("تعذر حفظ نتيجة القطع")
+                    .setMessage("لم يتم تأكيد تسوية الرهان بعد. أعد المحاولة لحفظ النتيجة.")
+                    .setPositiveButton("إعادة المحاولة", (dialog, which) -> retry.run())
+                    .setCancelable(false).show();
+            return false;
+        }
     }
 
     /** التحدي الرئيسي end: tally both teams (slot 0 = team A, slot 1 = team B) and crown
@@ -3814,62 +3882,339 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         GameEconomy.refresh(this, (wallet, loadError) -> {
             if (isFinishing() || isDestroyed()) return;
             if (loadError != null) { Toast.makeText(this, loadError, Toast.LENGTH_LONG).show(); return; }
-            final ArrayList<String> labels = new ArrayList<>();
-            final ArrayList<Runnable> actions = new ArrayList<>();
-            labels.add("تذكرة لمباراة واحدة (رصيدك: " + GameEconomy.state(this).optInt("tickets") + ")");
-            actions.add(() -> {
-                if (GameEconomy.state(this).optInt("tickets") < 1) {
-                    Toast.makeText(this, "تذاكر التصنيفات غير كافية. احصل عليها من المتجر.", Toast.LENGTH_LONG).show(); return;
-                }
-                if (!GameEconomy.selectTicket(this, category)) {
-                    Toast.makeText(this, "اخترت تصنيفات بعدد تذاكرك المتاحة.", Toast.LENGTH_LONG).show(); return;
-                }
-                refreshUnlockedTile(category, tile, selected, counter, confirm);
-            });
-            final String[] periods = {"day", "week", "month"};
-            final String[] names = {"يوم", "أسبوع", "30 يوماً"};
-            final org.json.JSONObject rentalPrices = GameEconomy.state(this).optJSONObject("rentalPrices");
-            for (int i = 0; i < periods.length; i++) {
-                final String period = periods[i];
-                final org.json.JSONObject price = rentalPrices == null ? null : rentalPrices.optJSONObject(period);
-                if (price == null) continue;
-                for (String currency : new String[] {"coins", "gems"}) {
-                    final int cost = price.optInt(currency, -1);
-                    if (cost < 0) continue;
-                    labels.add("استئجار " + names[i] + " • " + cost + ("coins".equals(currency) ? " قطعة" : " جوهرة"));
-                    actions.add(() -> categoryEconomyAction("rent", category, period, currency, tile, selected, counter, confirm));
+
+            final org.json.JSONObject econState = GameEconomy.state(this);
+            final int tickets = econState.optInt("tickets", 0);
+            final int rentalVouchers = econState.optInt("rentalVouchers", 0);
+            final int categoryVouchers = econState.optInt("categoryVouchers", 0);
+
+            int remainingHours = AppPrefs.getRemainingRentalHours(this, category);
+            if (remainingHours <= 0) {
+                org.json.JSONObject rentals = econState.optJSONObject("rentals");
+                if (rentals != null) {
+                    long expiry = rentals.optLong(CategoryConfig.normalize(category), 0L);
+                    long diff = expiry - GameEconomy.serverTime(this);
+                    if (diff > 0) {
+                        remainingHours = (int) Math.ceil((double) diff / (3600.0 * 1000.0));
+                    }
                 }
             }
-            if (GameEconomy.state(this).optInt("rentalVouchers") > 0) {
-                labels.add("استئجار أسبوع • قسيمة واحدة");
-                actions.add(() -> categoryEconomyAction("rent", category, "week", "voucher", tile, selected, counter, confirm));
-            }
-            labels.add("امتلاك دائم • 150 جوهرة");
-            actions.add(() -> categoryEconomyAction("own", category, "", "gems", tile, selected, counter, confirm));
-            if (GameEconomy.state(this).optInt("categoryVouchers") > 0) {
-                labels.add("استخدام قسيمة امتلاك دائم");
-                actions.add(() -> categoryEconomyAction("ownVoucher", category, "", "", tile, selected, counter, confirm));
-            }
-            if (CategoryConfig.allowsAd(category)) {
-                labels.add("إعلان • مباراة واحدة");
-                actions.add(() -> {
-                    if (rewardedAdController == null) return;
-                    rewardedAdController.show(new GameRewardedAdController.RewardCallback() {
-                        public void onRewardEarned(com.google.android.gms.ads.rewarded.RewardItem reward) {
-                            categoryEconomyAction("ad", category, "", "", tile, selected, counter, confirm);
+
+            final Dialog dialog = new Dialog(this);
+            dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+            final View view = getLayoutInflater().inflate(R.layout.dialog_category_store_rental, null);
+            dialog.setContentView(view);
+
+            if (dialog.getWindow() != null) {
+                dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+                dialog.getWindow().setDimAmount(0.75f);
+                final int screenWidth = getResources().getDisplayMetrics().widthPixels;
+                final int screenHeight = getResources().getDisplayMetrics().heightPixels;
+                final int dialogWidth = Math.min(dpx(520), screenWidth - dpx(24));
+                final int maxContentHeight = Math.min(dpx(360), Math.round(screenHeight * 0.88f) - dpx(40));
+
+                WindowManager.LayoutParams lp = new WindowManager.LayoutParams();
+                lp.copyFrom(dialog.getWindow().getAttributes());
+                lp.width = dialogWidth;
+                lp.height = ViewGroup.LayoutParams.WRAP_CONTENT;
+                dialog.getWindow().setAttributes(lp);
+
+                final ScrollView scrollView = view.findViewById(R.id.scrollRentalContent);
+                if (scrollView != null) {
+                    scrollView.getViewTreeObserver().addOnPreDrawListener(new ViewTreeObserver.OnPreDrawListener() {
+                        @Override
+                        public boolean onPreDraw() {
+                            scrollView.getViewTreeObserver().removeOnPreDrawListener(this);
+                            if (scrollView.getHeight() > maxContentHeight) {
+                                ViewGroup.LayoutParams p = scrollView.getLayoutParams();
+                                p.height = maxContentHeight;
+                                scrollView.setLayoutParams(p);
+                            }
+                            return true;
                         }
-                        public void onAdClosed(boolean earned) {}
-                        public void onAdFailedToLoad(String error) { Toast.makeText(GameActivity.this, error, Toast.LENGTH_LONG).show(); }
                     });
+                }
+            }
+
+            final Typeface font = getBoardFont();
+
+            // Category artwork
+            final ImageView imgArt = view.findViewById(R.id.imgCategoryArtwork);
+            final String art = categoryAssetPath(category);
+            if (art != null && imgArt != null) {
+                loadCategoryArtwork(imgArt, art);
+            }
+
+            // Close button
+            final TextView btnClose = view.findViewById(R.id.btnCloseRentalDialog);
+            if (btnClose != null) {
+                btnClose.setOnClickListener(v -> dialog.dismiss());
+            }
+
+            // Category Name Chip
+            final TextView txtChipName = view.findViewById(R.id.txtCategoryChipName);
+            if (txtChipName != null) {
+                txtChipName.setText(category);
+                if (font != null) txtChipName.setTypeface(font, Typeface.BOLD);
+            }
+
+            // Title and Subtitle font
+            final TextView txtTitle = view.findViewById(R.id.txtRentalTitle);
+            if (txtTitle != null && font != null) txtTitle.setTypeface(font, Typeface.BOLD);
+            final TextView txtSubtitle = view.findViewById(R.id.txtRentalSubtitle);
+            if (txtSubtitle != null && font != null) txtSubtitle.setTypeface(font, Typeface.NORMAL);
+
+            // Active rental pill
+            final LinearLayout llActive = view.findViewById(R.id.llActiveRental);
+            final TextView txtActive = view.findViewById(R.id.txtActiveRentalText);
+            if (remainingHours > 0) {
+                if (llActive != null) llActive.setVisibility(View.VISIBLE);
+                if (txtActive != null) {
+                    txtActive.setText("الاستئجار الحالي: " + remainingHours + " ساعة متبقية • الاستئجار الجديد يمدد رصيدك");
+                    if (font != null) txtActive.setTypeface(font, Typeface.BOLD);
+                }
+            } else if (llActive != null) {
+                llActive.setVisibility(View.GONE);
+            }
+
+            // Match Ticket option
+            final TextView txtTicketBal = view.findViewById(R.id.txtTicketBalance);
+            if (txtTicketBal != null) {
+                txtTicketBal.setText("رصيدك: " + tickets + (tickets == 1 ? " تذكرة واحدة" : " تذاكر"));
+                if (font != null) txtTicketBal.setTypeface(font, Typeface.NORMAL);
+            }
+            final Button btnTicket = view.findViewById(R.id.btnUseTicket);
+            if (btnTicket != null) {
+                if (font != null) btnTicket.setTypeface(font, Typeface.BOLD);
+                if (tickets < 1) {
+                    btnTicket.setAlpha(0.5f);
+                }
+                btnTicket.setOnClickListener(v -> {
+                    if (GameEconomy.state(GameActivity.this).optInt("tickets") < 1) {
+                        Toast.makeText(GameActivity.this, "تذاكر التصنيفات غير كافية. احصل عليها من المتجر.", Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    if (!GameEconomy.selectTicket(GameActivity.this, category)) {
+                        Toast.makeText(GameActivity.this, "اخترت تصنيفات بعدد تذاكرك المتاحة.", Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    dialog.dismiss();
+                    refreshUnlockedTile(category, tile, selected, counter, confirm);
+                    Toast.makeText(GameActivity.this, "تم اختيار التصنيف لمباراة واحدة.", Toast.LENGTH_SHORT).show();
                 });
             }
-            new android.app.AlertDialog.Builder(this).setTitle(category)
-                .setItems(labels.toArray(new String[0]), (dialog, index) -> {
-                    if (labels.get(index).startsWith("إعلان")) { actions.get(index).run(); return; }
-                    new android.app.AlertDialog.Builder(this).setTitle(category).setMessage(labels.get(index))
-                        .setPositiveButton("تأكيد", (d, w) -> actions.get(index).run()).setNegativeButton("إلغاء", null).show();
-                }).setNegativeButton("رجوع", null).show();
+
+            // Rewarded Ad option
+            final LinearLayout llAd = view.findViewById(R.id.llAdCard);
+            final Button btnAd = view.findViewById(R.id.btnWatchAd);
+            if (CategoryConfig.allowsAd(category)) {
+                if (llAd != null) llAd.setVisibility(View.VISIBLE);
+                if (btnAd != null) {
+                    if (font != null) btnAd.setTypeface(font, Typeface.BOLD);
+                    btnAd.setOnClickListener(v -> {
+                        if (rewardedAdController == null) return;
+                        rewardedAdController.show(new GameRewardedAdController.RewardCallback() {
+                            public void onRewardEarned(com.google.android.gms.ads.rewarded.RewardItem reward) {
+                                dialog.dismiss();
+                                categoryEconomyAction("ad", category, "", "", tile, selected, counter, confirm);
+                            }
+                            public void onAdClosed(boolean earned) {}
+                            public void onAdFailedToLoad(String error) {
+                                Toast.makeText(GameActivity.this, error, Toast.LENGTH_LONG).show();
+                            }
+                        });
+                    });
+                }
+            } else if (llAd != null) {
+                llAd.setVisibility(View.GONE);
+            }
+
+            // Rental Voucher option
+            final LinearLayout llVoucher = view.findViewById(R.id.llRentalVoucherCard);
+            final TextView txtVoucherSub = view.findViewById(R.id.txtRentalVoucherSubtitle);
+            final Button btnVoucher = view.findViewById(R.id.btnUseRentalVoucher);
+            if (rentalVouchers > 0) {
+                if (llVoucher != null) llVoucher.setVisibility(View.VISIBLE);
+                if (txtVoucherSub != null) {
+                    txtVoucherSub.setText("استئجار أسبوع (7 أيام) مجاناً • رصيدك: " + rentalVouchers + " قسيمة");
+                    if (font != null) txtVoucherSub.setTypeface(font, Typeface.NORMAL);
+                }
+                if (btnVoucher != null) {
+                    if (font != null) btnVoucher.setTypeface(font, Typeface.BOLD);
+                    btnVoucher.setOnClickListener(v -> {
+                        showCategoryActionConfirmDialog(category,
+                                "استئجار تصنيف «" + category + "» لمدة أسبوع (7 أيام) مقابل قسيمة استئجار أسبوعية واحدة.\nتُضاف المدة إلى الاستئجار الحالي إن كان سارياً.",
+                                () -> {
+                                    dialog.dismiss();
+                                    categoryEconomyAction("rent", category, "week", "voucher", tile, selected, counter, confirm);
+                                });
+                    });
+                }
+            } else if (llVoucher != null) {
+                llVoucher.setVisibility(View.GONE);
+            }
+
+            // Rental Prices for Day, Week, Month
+            final org.json.JSONObject rentalPrices = econState.optJSONObject("rentalPrices");
+
+            // Day
+            final org.json.JSONObject dayPrice = rentalPrices != null ? rentalPrices.optJSONObject("day") : null;
+            final int dayCoins = dayPrice != null ? dayPrice.optInt("coins", 1500) : 1500;
+            final int dayGems = dayPrice != null ? dayPrice.optInt("gems", 15) : 15;
+
+            final Button btnDayCoins = view.findViewById(R.id.btnDayCoins);
+            if (btnDayCoins != null) {
+                btnDayCoins.setText("🪙 " + dayCoins + " قطعة");
+                if (font != null) btnDayCoins.setTypeface(font, Typeface.BOLD);
+                btnDayCoins.setOnClickListener(v -> showCategoryActionConfirmDialog(category,
+                        "استئجار تصنيف «" + category + "» لمدة يوم واحد (24 ساعة) مقابل " + dayCoins + " قطعة.\nتُضاف المدة إلى الاستئجار الحالي إن كان سارياً.",
+                        () -> {
+                            dialog.dismiss();
+                            categoryEconomyAction("rent", category, "day", "coins", tile, selected, counter, confirm);
+                        }));
+            }
+            final Button btnDayGems = view.findViewById(R.id.btnDayGems);
+            if (btnDayGems != null) {
+                btnDayGems.setText("💎 " + dayGems + " جوهرة");
+                if (font != null) btnDayGems.setTypeface(font, Typeface.BOLD);
+                btnDayGems.setOnClickListener(v -> showCategoryActionConfirmDialog(category,
+                        "استئجار تصنيف «" + category + "» لمدة يوم واحد (24 ساعة) مقابل " + dayGems + " جوهرة.\nتُضاف المدة إلى الاستئجار الحالي إن كان سارياً.",
+                        () -> {
+                            dialog.dismiss();
+                            categoryEconomyAction("rent", category, "day", "gems", tile, selected, counter, confirm);
+                        }));
+            }
+
+            // Week
+            final org.json.JSONObject weekPrice = rentalPrices != null ? rentalPrices.optJSONObject("week") : null;
+            final int weekCoins = weekPrice != null ? weekPrice.optInt("coins", 4500) : 4500;
+            final int weekGems = weekPrice != null ? weekPrice.optInt("gems", 45) : 45;
+
+            final Button btnWeekCoins = view.findViewById(R.id.btnWeekCoins);
+            if (btnWeekCoins != null) {
+                btnWeekCoins.setText("🪙 " + weekCoins + " قطعة");
+                if (font != null) btnWeekCoins.setTypeface(font, Typeface.BOLD);
+                btnWeekCoins.setOnClickListener(v -> showCategoryActionConfirmDialog(category,
+                        "استئجار تصنيف «" + category + "» لمدة أسبوع (7 أيام) مقابل " + weekCoins + " قطعة.\nتُضاف المدة إلى الاستئجار الحالي إن كان سارياً.",
+                        () -> {
+                            dialog.dismiss();
+                            categoryEconomyAction("rent", category, "week", "coins", tile, selected, counter, confirm);
+                        }));
+            }
+            final Button btnWeekGems = view.findViewById(R.id.btnWeekGems);
+            if (btnWeekGems != null) {
+                btnWeekGems.setText("💎 " + weekGems + " جوهرة");
+                if (font != null) btnWeekGems.setTypeface(font, Typeface.BOLD);
+                btnWeekGems.setOnClickListener(v -> showCategoryActionConfirmDialog(category,
+                        "استئجار تصنيف «" + category + "» لمدة أسبوع (7 أيام) مقابل " + weekGems + " جوهرة.\nتُضاف المدة إلى الاستئجار الحالي إن كان سارياً.",
+                        () -> {
+                            dialog.dismiss();
+                            categoryEconomyAction("rent", category, "week", "gems", tile, selected, counter, confirm);
+                        }));
+            }
+
+            // Month
+            final org.json.JSONObject monthPrice = rentalPrices != null ? rentalPrices.optJSONObject("month") : null;
+            final int monthCoins = monthPrice != null ? monthPrice.optInt("coins", 9000) : 9000;
+            final int monthGems = monthPrice != null ? monthPrice.optInt("gems", 90) : 90;
+
+            final Button btnMonthCoins = view.findViewById(R.id.btnMonthCoins);
+            if (btnMonthCoins != null) {
+                btnMonthCoins.setText("🪙 " + monthCoins + " قطعة");
+                if (font != null) btnMonthCoins.setTypeface(font, Typeface.BOLD);
+                btnMonthCoins.setOnClickListener(v -> showCategoryActionConfirmDialog(category,
+                        "استئجار تصنيف «" + category + "» لمدة شهر (30 يوماً) مقابل " + monthCoins + " قطعة.\nتُضاف المدة إلى الاستئجار الحالي إن كان سارياً.",
+                        () -> {
+                            dialog.dismiss();
+                            categoryEconomyAction("rent", category, "month", "coins", tile, selected, counter, confirm);
+                        }));
+            }
+            final Button btnMonthGems = view.findViewById(R.id.btnMonthGems);
+            if (btnMonthGems != null) {
+                btnMonthGems.setText("💎 " + monthGems + " جوهرة");
+                if (font != null) btnMonthGems.setTypeface(font, Typeface.BOLD);
+                btnMonthGems.setOnClickListener(v -> showCategoryActionConfirmDialog(category,
+                        "استئجار تصنيف «" + category + "» لمدة شهر (30 يوماً) مقابل " + monthGems + " جوهرة.\nتُضاف المدة إلى الاستئجار الحالي إن كان سارياً.",
+                        () -> {
+                            dialog.dismiss();
+                            categoryEconomyAction("rent", category, "month", "gems", tile, selected, counter, confirm);
+                        }));
+            }
+
+            // Permanent ownership
+            final Button btnOwnGems = view.findViewById(R.id.btnOwnGems);
+            if (btnOwnGems != null) {
+                if (font != null) btnOwnGems.setTypeface(font, Typeface.BOLD);
+                btnOwnGems.setOnClickListener(v -> showCategoryActionConfirmDialog(category,
+                        "امتلاك تصنيف «" + category + "» بشكل دائم مقابل 150 جوهرة.",
+                        () -> {
+                            dialog.dismiss();
+                            categoryEconomyAction("own", category, "", "gems", tile, selected, counter, confirm);
+                        }));
+            }
+            final Button btnOwnVoucher = view.findViewById(R.id.btnOwnVoucher);
+            if (btnOwnVoucher != null) {
+                if (font != null) btnOwnVoucher.setTypeface(font, Typeface.BOLD);
+                if (categoryVouchers > 0) {
+                    btnOwnVoucher.setVisibility(View.VISIBLE);
+                    btnOwnVoucher.setText("استخدام قسيمة امتلاك (" + categoryVouchers + ")");
+                    btnOwnVoucher.setOnClickListener(v -> showCategoryActionConfirmDialog(category,
+                            "امتلاك تصنيف «" + category + "» بشكل دائم باستخدام قسيمة امتلاك.",
+                            () -> {
+                                dialog.dismiss();
+                                categoryEconomyAction("ownVoucher", category, "", "", tile, selected, counter, confirm);
+                            }));
+                } else {
+                    btnOwnVoucher.setVisibility(View.GONE);
+                }
+            }
+
+            // Footer font
+            final TextView txtFooter = view.findViewById(R.id.txtFooterNote);
+            if (txtFooter != null && font != null) txtFooter.setTypeface(font, Typeface.NORMAL);
+
+            dialog.show();
         });
+    }
+
+    private void showCategoryActionConfirmDialog(final String category, final String message, final Runnable onConfirm) {
+        if (isFinishing() || isDestroyed()) return;
+        final Dialog confirmDialog = new Dialog(this);
+        confirmDialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        View view = getLayoutInflater().inflate(R.layout.dialog_category_confirm_action, null);
+        confirmDialog.setContentView(view);
+        if (confirmDialog.getWindow() != null) {
+            confirmDialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            confirmDialog.getWindow().setDimAmount(0.65f);
+            int width = Math.min(dpx(420), getResources().getDisplayMetrics().widthPixels - dpx(32));
+            confirmDialog.getWindow().setLayout(width, ViewGroup.LayoutParams.WRAP_CONTENT);
+        }
+
+        TextView txtTitle = view.findViewById(R.id.txtConfirmTitle);
+        TextView txtMsg = view.findViewById(R.id.txtConfirmMessage);
+        Button btnCancel = view.findViewById(R.id.btnConfirmCancel);
+        Button btnOk = view.findViewById(R.id.btnConfirmOk);
+
+        Typeface font = getBoardFont();
+        if (font != null) {
+            if (txtTitle != null) txtTitle.setTypeface(font, Typeface.BOLD);
+            if (txtMsg != null) txtMsg.setTypeface(font, Typeface.NORMAL);
+            if (btnCancel != null) btnCancel.setTypeface(font, Typeface.BOLD);
+            if (btnOk != null) btnOk.setTypeface(font, Typeface.BOLD);
+        }
+
+        if (txtTitle != null) txtTitle.setText(category);
+        if (txtMsg != null) txtMsg.setText(message);
+
+        if (btnCancel != null) btnCancel.setOnClickListener(v -> confirmDialog.dismiss());
+        if (btnOk != null) {
+            btnOk.setOnClickListener(v -> {
+                confirmDialog.dismiss();
+                if (onConfirm != null) onConfirm.run();
+            });
+        }
+
+        confirmDialog.show();
     }
 
     private void categoryEconomyAction(String action, String category, String duration, String currency,
@@ -3880,8 +4225,17 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         if (!currency.isEmpty()) data.put("currency", currency);
         GameEconomy.request(this, data, (value, error) -> {
             if (isFinishing() || isDestroyed()) return;
-            if (error != null) Toast.makeText(this, error, Toast.LENGTH_LONG).show();
-            else refreshUnlockedTile(category, tile, selected, counter, confirm);
+            if (error != null) {
+                Toast.makeText(this, error, Toast.LENGTH_LONG).show();
+            } else {
+                String successMsg = "own".equals(action) || "ownVoucher".equals(action)
+                        ? "تم امتلاك تصنيف «" + category + "» بنجاح!"
+                        : "ad".equals(action)
+                        ? "تم فتح تصنيف «" + category + "» لهذه المباراة!"
+                        : "تم استئجار تصنيف «" + category + "» بنجاح!";
+                Toast.makeText(this, successMsg, Toast.LENGTH_SHORT).show();
+                refreshUnlockedTile(category, tile, selected, counter, confirm);
+            }
         });
     }
 
@@ -4148,6 +4502,18 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     private void onCellPicked(int col, int row) {
         if (boardCampaignMatch && campaignResultPersisted) return;
         if (boardCampaignMatch && !ensureCampaignBoardCategoryAccess()) return;
+        if (paidDuel != null) {
+            if (!boardPickerIsHuman || paidDuel.isPending() || paidDuelShowingResult
+                    || col < 0 || col >= boardCols || row < 0 || row >= BOARD_ROWS
+                    || boardCellConsumed[col][row]) return;
+            boardPickPending = true;
+            cancelBoardSelectTimer();
+            Map<String, Object> data = paidDuelTurnArgs();
+            data.put("col", col);
+            data.put("row", row);
+            paidDuel.call("claim", data);
+            return;
+        }
         if (boardOnline && !boardRoomMatch) {
             if (!duelLocallyConnected || ACTIVITY_PAUSED || duelNeedsBoardResync) return;
             if (!boardPickerIsHuman || boardPickPending || boardPickedCol >= 0
@@ -4342,6 +4708,438 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     //  (winners) or sad (losers) reaction clip, with team/score chrome.
     // =====================================================================
 
+    /**
+     * Plays an explosion of golden coins bursting outward in radial arcs across the overlay.
+     */
+    private void playCoinBurstMotion(final ViewGroup container, final float startX, final float startY, final int count) {
+        if (container == null || isFinishing()) return;
+        final Random random = new Random();
+        final int particleCount = Math.max(10, Math.min(24, count));
+
+        container.post(new Runnable() {
+            @Override
+            public void run() {
+                if (isFinishing() || container.getWidth() <= 0) return;
+                final float originX = startX > 0 ? startX : (container.getWidth() / 2f);
+                final float originY = startY > 0 ? startY : (container.getHeight() * 0.38f);
+
+                for (int i = 0; i < particleCount; i++) {
+                    final TextView coin = new TextView(GameActivity.this);
+                    coin.setText("🪙");
+                    coin.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20f);
+                    coin.setGravity(Gravity.CENTER);
+                    coin.setLayoutParams(new FrameLayout.LayoutParams(dpx(36), dpx(36)));
+                    coin.setX(originX - dpx(18));
+                    coin.setY(originY - dpx(18));
+                    coin.setAlpha(0f);
+                    coin.setScaleX(0.2f);
+                    coin.setScaleY(0.2f);
+                    container.addView(coin);
+
+                    double angleRad = Math.toRadians(-180 + random.nextInt(180) + (random.nextBoolean() ? -30 : 30));
+                    if (random.nextFloat() < 0.25f) {
+                        angleRad = Math.toRadians(random.nextInt(360));
+                    }
+                    float distance = dpx(90 + random.nextInt(140));
+                    final float targetX = originX + (float) (Math.cos(angleRad) * distance) - dpx(18);
+                    final float targetY = originY + (float) (Math.sin(angleRad) * distance) + dpx(25 + random.nextInt(50));
+                    long duration = 850L + random.nextInt(400);
+                    long delay = random.nextInt(180);
+                    float rotation = -360f + random.nextInt(720);
+
+                    coin.animate()
+                            .x(targetX)
+                            .y(targetY)
+                            .rotation(rotation)
+                            .scaleX(1.15f)
+                            .scaleY(1.15f)
+                            .alpha(1f)
+                            .setDuration(duration / 2)
+                            .setStartDelay(delay)
+                            .setInterpolator(new DecelerateInterpolator(1.4f))
+                            .withEndAction(new Runnable() {
+                                @Override
+                                public void run() {
+                                    coin.animate()
+                                            .y(targetY + dpx(40))
+                                            .scaleX(0.7f)
+                                            .scaleY(0.7f)
+                                            .alpha(0f)
+                                            .setDuration(duration / 2)
+                                            .setInterpolator(new AccelerateInterpolator(1.2f))
+                                            .withEndAction(new Runnable() {
+                                                @Override
+                                                public void run() {
+                                                    container.removeView(coin);
+                                                }
+                                            }).start();
+                                }
+                            }).start();
+                }
+            }
+        });
+    }
+
+    /**
+     * Plays falling coins drifting downwards and fading out (representing deducted coins leaving wallet).
+     */
+    private void playCoinDeductionMotion(final ViewGroup container, final float startX, final float startY, final int count) {
+        if (container == null || isFinishing()) return;
+        final Random random = new Random();
+        final int particleCount = Math.max(8, Math.min(16, count));
+
+        container.post(new Runnable() {
+            @Override
+            public void run() {
+                if (isFinishing() || container.getWidth() <= 0) return;
+                final float originX = startX > 0 ? startX : (container.getWidth() / 2f);
+                final float originY = startY > 0 ? startY : (container.getHeight() * 0.38f);
+
+                for (int i = 0; i < particleCount; i++) {
+                    final TextView coin = new TextView(GameActivity.this);
+                    coin.setText("🪙");
+                    coin.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f);
+                    coin.setGravity(Gravity.CENTER);
+                    coin.setLayoutParams(new FrameLayout.LayoutParams(dpx(32), dpx(32)));
+                    float spawnOffsetX = dpx(-60 + random.nextInt(120));
+                    coin.setX(originX + spawnOffsetX - dpx(16));
+                    coin.setY(originY - dpx(16));
+                    coin.setAlpha(0f);
+                    coin.setScaleX(0.9f);
+                    coin.setScaleY(0.9f);
+                    container.addView(coin);
+
+                    final float targetY = originY + dpx(120 + random.nextInt(90));
+                    float driftX = coin.getX() + dpx(-30 + random.nextInt(60));
+                    long duration = 900L + random.nextInt(400);
+                    long delay = i * 80L;
+                    float rotation = -180f + random.nextInt(360);
+
+                    coin.animate()
+                            .x(driftX)
+                            .y(targetY)
+                            .rotation(rotation)
+                            .alpha(0.85f)
+                            .setStartDelay(delay)
+                            .setDuration(duration * 2 / 5)
+                            .setInterpolator(new AccelerateInterpolator(1.2f))
+                            .withEndAction(new Runnable() {
+                                @Override
+                                public void run() {
+                                    coin.animate()
+                                            .y(targetY + dpx(50))
+                                            .alpha(0f)
+                                            .scaleX(0.5f)
+                                            .scaleY(0.5f)
+                                            .setDuration(duration * 3 / 5)
+                                            .withEndAction(new Runnable() {
+                                                @Override
+                                                public void run() {
+                                                    container.removeView(coin);
+                                                }
+                                            }).start();
+                                }
+                            }).start();
+                }
+            }
+        });
+    }
+
+    /**
+     * Smoothly rolls a number counter from start to end with formatting and suffix.
+     */
+    private void animateNumberCounter(final TextView textView, final int start, final int end,
+                                      final String prefix, final String suffix, long duration,
+                                      @Nullable final Runnable onComplete) {
+        if (textView == null) return;
+        ValueAnimator animator = ValueAnimator.ofInt(start, end);
+        animator.setDuration(duration);
+        animator.setInterpolator(new DecelerateInterpolator(2.0f));
+        animator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+            @Override
+            public void onAnimationUpdate(ValueAnimator animation) {
+                int value = (int) animation.getAnimatedValue();
+                textView.setText(String.format(Locale.getDefault(), "%s%,d %s", prefix, value, suffix).trim());
+            }
+        });
+        if (onComplete != null) {
+            animator.addListener(new AnimatorListenerAdapter() {
+                @Override
+                public void onAnimationEnd(Animator animation) {
+                    onComplete.run();
+                }
+            });
+        }
+        animator.start();
+        resultMotionAnimators.add(animator);
+    }
+
+    /**
+     * Applies a tactile recoil horizontal shake animation.
+     */
+    private void applyShakeMotion(View view) {
+        if (view == null) return;
+        ObjectAnimator shake = ObjectAnimator.ofFloat(view, "translationX",
+                0f, -dpx(10), dpx(10), -dpx(7), dpx(7), -dpx(3), dpx(3), 0f);
+        shake.setDuration(440L);
+        shake.setInterpolator(new DecelerateInterpolator());
+        shake.start();
+        resultMotionAnimators.add(shake);
+    }
+
+    /**
+     * Applies a gentle floating bobbing motion to an icon.
+     */
+    private void applyFloatingMotion(View view) {
+        if (view == null) return;
+        ObjectAnimator floatAnim = ObjectAnimator.ofFloat(view, "translationY", 0f, -dpx(7), 0f);
+        floatAnim.setDuration(1500L);
+        floatAnim.setRepeatMode(ValueAnimator.REVERSE);
+        floatAnim.setRepeatCount(ValueAnimator.INFINITE);
+        floatAnim.setInterpolator(new AccelerateDecelerateInterpolator());
+        floatAnim.start();
+        resultMotionAnimators.add(floatAnim);
+    }
+
+    /**
+     * Builds and attaches the professional match economy motion banner (coin added/deducted animations).
+     */
+    private void buildMatchEconomyMotionBanner(final ViewGroup root, final FrameLayout overlay,
+                                                final boolean meWon, final boolean matchDraw, final TextView title) {
+        final int matchStakeExtra = getIntent().getIntExtra("stakeCoins", 0);
+        final boolean isPaid = paidDuel != null || matchStakeExtra > 0;
+        Map<String, Object> settlement = paidDuel != null ? PaidDuelController.map(paidDuelState.get("settlement")) : Collections.emptyMap();
+        String settlementStatus = PaidDuelController.string(settlement.get("status"));
+        boolean isPaidSettled = paidDuel != null ? "paid".equals(settlementStatus) : (matchStakeExtra > 0);
+        boolean isDraw = paidDuel != null
+                ? ("draw".equals(paidDuelState.get("finishReason")) || "refunded".equals(settlementStatus))
+                : matchDraw;
+        boolean wonPaid = paidDuel != null ? (isPaidSettled && myID.equals(settlement.get("winnerId"))) : (matchStakeExtra > 0 && meWon && !isDraw);
+        boolean lostPaid = isPaid && isPaidSettled && !wonPaid && !isDraw;
+        long payoutCoins = paidDuel != null ? PaidDuelController.number(settlement.get("payoutCoins"), 0) : (matchStakeExtra * 2L);
+        long stakeCoins = paidDuel != null ? PaidDuelController.number(paidDuelState.get("stakeCoins"), 0) : (long) matchStakeExtra;
+        if (stakeCoins <= 0 && payoutCoins > 0) stakeCoins = payoutCoins / 2;
+        if (payoutCoins <= 0 && stakeCoins > 0) payoutCoins = stakeCoins * 2;
+        final boolean isVictory = isPaid ? wonPaid : meWon;
+
+        root.setClipChildren(false);
+        if (overlay != null) overlay.setClipChildren(false);
+
+        final LinearLayout banner = new LinearLayout(this);
+        banner.setOrientation(LinearLayout.VERTICAL);
+        banner.setGravity(Gravity.CENTER);
+        int bgStart, bgEnd, strokeColor;
+        if (isVictory) {
+            bgStart = 0xF62C1D06;
+            bgEnd = 0xF6130B02;
+            strokeColor = 0xFFFFD700;
+        } else if (isPaid && isDraw) {
+            bgStart = 0xF60A1E38;
+            bgEnd = 0xF6050E1A;
+            strokeColor = 0xFF38BDF8;
+        } else if (isPaid && lostPaid) {
+            bgStart = 0xF628090D;
+            bgEnd = 0xF6120204;
+            strokeColor = 0xFFEF4444;
+        } else {
+            bgStart = 0xF60F172A;
+            bgEnd = 0xF6070B14;
+            strokeColor = 0xFF475569;
+        }
+        banner.setBackground(gradientCardBg(bgStart, bgEnd, strokeColor, 20, 2.5f));
+        banner.setPadding(dpx(22), dpx(16), dpx(22), dpx(16));
+        LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        blp.bottomMargin = dpx(12);
+        banner.setLayoutParams(blp);
+
+        // Top Icon
+        if (isVictory) {
+            ImageView trophy = new ImageView(this);
+            trophy.setImageResource(R.drawable.ic_main_challenge_mini_trophy);
+            LinearLayout.LayoutParams tilp = new LinearLayout.LayoutParams(dpx(44), dpx(44));
+            tilp.bottomMargin = dpx(6);
+            trophy.setLayoutParams(tilp);
+            banner.addView(trophy);
+            applyFloatingMotion(trophy);
+        } else if (isPaid && isDraw) {
+            TextView icon = new TextView(this);
+            icon.setText("🤝");
+            icon.setTextSize(TypedValue.COMPLEX_UNIT_SP, 30f);
+            icon.setGravity(Gravity.CENTER);
+            LinearLayout.LayoutParams ilp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            ilp.bottomMargin = dpx(4);
+            icon.setLayoutParams(ilp);
+            banner.addView(icon);
+        } else if (isPaid && lostPaid) {
+            TextView icon = new TextView(this);
+            icon.setText("🔻");
+            icon.setTextSize(TypedValue.COMPLEX_UNIT_SP, 28f);
+            icon.setGravity(Gravity.CENTER);
+            LinearLayout.LayoutParams ilp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            ilp.bottomMargin = dpx(4);
+            icon.setLayoutParams(ilp);
+            banner.addView(icon);
+        } else {
+            TextView icon = new TextView(this);
+            icon.setText("🛡️");
+            icon.setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f);
+            icon.setGravity(Gravity.CENTER);
+            LinearLayout.LayoutParams ilp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            ilp.bottomMargin = dpx(4);
+            icon.setLayoutParams(ilp);
+            banner.addView(icon);
+        }
+
+        // Title re-parenting
+        if (title != null) {
+            if (title.getParent() instanceof ViewGroup) {
+                ((ViewGroup) title.getParent()).removeView(title);
+            }
+            title.setTextSize(TypedValue.COMPLEX_UNIT_SP, isVictory ? 26f : 23f);
+            title.setTextColor(isVictory ? 0xFFFFD700 : (isPaid ? (isDraw ? 0xFF7DD3FC : 0xFFFCA5A5) : 0xFFE2E8F0));
+            title.setTypeface(getBoardFont() != null ? getBoardFont() : Typeface.DEFAULT_BOLD, Typeface.BOLD);
+            title.setShadowLayer(8f, 0, 2f, isVictory ? 0x99FFD700 : (isPaid && !isDraw ? 0x66EF4444 : 0x44000000));
+            banner.addView(title);
+        }
+
+        // Animated Economy Badge (Pill)
+        final LinearLayout badge = new LinearLayout(this);
+        badge.setOrientation(LinearLayout.HORIZONTAL);
+        badge.setGravity(Gravity.CENTER);
+        badge.setPadding(dpx(18), dpx(8), dpx(18), dpx(8));
+        LinearLayout.LayoutParams bagLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        bagLp.topMargin = dpx(8);
+        bagLp.bottomMargin = dpx(6);
+        badge.setLayoutParams(bagLp);
+
+        TextView coinIcon = new TextView(this);
+        coinIcon.setText("🪙");
+        coinIcon.setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f);
+        coinIcon.setPadding(0, 0, dpx(6), 0);
+        badge.addView(coinIcon);
+
+        final TextView deltaText = new TextView(this);
+        deltaText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 28f);
+        deltaText.setTypeface(getBoardFont() != null ? getBoardFont() : Typeface.DEFAULT_BOLD, Typeface.BOLD);
+        badge.addView(deltaText);
+
+        if (isVictory) {
+            badge.setBackground(gradientCardBg(0x66000000, 0x88382302, 0xFFFFD700, 24, 1.5f));
+            deltaText.setTextColor(0xFFFFF59D);
+            deltaText.setShadowLayer(10f, 0, 2f, 0xAAFFD700);
+        } else if (isPaid && isDraw) {
+            badge.setBackground(gradientCardBg(0x66000000, 0x880C2644, 0xFF38BDF8, 24, 1.5f));
+            deltaText.setTextColor(0xFFBAE6FD);
+        } else if (isPaid && lostPaid) {
+            badge.setBackground(gradientCardBg(0x66000000, 0x883B090E, 0xFFEF4444, 24, 1.5f));
+            deltaText.setTextColor(0xFFFCA5A5);
+            deltaText.setShadowLayer(10f, 0, 2f, 0xAAEF4444);
+        } else {
+            badge.setBackground(gradientCardBg(0x44000000, 0x661E293B, 0xFF64748B, 24, 1f));
+            deltaText.setTextColor(0xFF94A3B8);
+        }
+        banner.addView(badge);
+
+        // Subtitle text
+        TextView subLabel = makeBoardText("", 13.5f, 0xFFFFFFFF, Gravity.CENTER);
+        LinearLayout.LayoutParams subLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        subLp.topMargin = dpx(2);
+        subLabel.setLayoutParams(subLp);
+        banner.addView(subLabel);
+
+        // Wallet Balance Pill
+        final TextView walletBalance = makeBoardText("", 14f, 0xFFE2E8F0, Gravity.CENTER);
+        walletBalance.setPadding(dpx(14), dpx(5), dpx(14), dpx(5));
+        walletBalance.setBackground(gradientCardBg(0x44020617, 0x770F172A, 0x6694A3B8, 16, 1f));
+        LinearLayout.LayoutParams wlp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        wlp.topMargin = dpx(8);
+        walletBalance.setLayoutParams(wlp);
+        banner.addView(walletBalance);
+
+        // Execute Motion & Calculations
+        final int currentCoins = paidDuel != null && paidResultCoins != null
+                ? paidResultCoins : PlayerProgress.getCoins(this);
+        if (isVictory) {
+            final int winCoins = (int) (isPaid ? stakeCoins : Math.max(0, boardResultCurrencyDelta));
+            final int startingCoins = Math.max(0, currentCoins - winCoins);
+            subLabel.setText("✨ أُضيفت أرباح الجائزة (+ " + String.format(Locale.getDefault(), "%,d", winCoins) + " قطعة) إلى محفظتك ✨");
+            subLabel.setTextColor(0xFFFFECC0);
+
+            animateNumberCounter(deltaText, 0, winCoins, "+", "قطعة", 1300L, new Runnable() {
+                @Override
+                public void run() {
+                    badge.animate().scaleX(1.15f).scaleY(1.15f).setDuration(160L)
+                            .withEndAction(() -> badge.animate().scaleX(1f).scaleY(1f).setDuration(200L).start())
+                            .start();
+                }
+            });
+            animateNumberCounter(walletBalance, startingCoins, currentCoins, "💼 رصيدك: ", "قطعة", 1300L, null);
+
+            banner.postDelayed(() -> {
+                if (!isFinishing() && overlay != null) {
+                    playCoinBurstMotion(overlay, 0, 0, 16);
+                }
+            }, 300L);
+        } else if (isPaid && lostPaid) {
+            final int lostAmount = (int) stakeCoins;
+            final int startingCoins = currentCoins + lostAmount;
+            subLabel.setText("🔻 تم خصم مبلغ الرهان (- " + String.format(Locale.getDefault(), "%,d", lostAmount) + " قطعة) من محفظتك 🔻");
+            subLabel.setTextColor(0xFFFECACA);
+
+            animateNumberCounter(deltaText, 0, lostAmount, "-", "قطعة", 1100L, new Runnable() {
+                @Override
+                public void run() {
+                    badge.animate().scaleX(1.12f).scaleY(1.12f).setDuration(140L)
+                            .withEndAction(() -> badge.animate().scaleX(1f).scaleY(1f).setDuration(180L).start())
+                            .start();
+                }
+            });
+            animateNumberCounter(walletBalance, startingCoins, currentCoins, "💼 الرصيد المتبقي: ", "قطعة", 1100L, null);
+
+            banner.postDelayed(() -> {
+                if (!isFinishing() && overlay != null) {
+                    playCoinDeductionMotion(overlay, 0, 0, 10);
+                }
+            }, 200L);
+        } else if (isPaid && isDraw) {
+            deltaText.setText(String.format(Locale.getDefault(), "↺ استرداد %,d قطعة", (int) stakeCoins));
+            subLabel.setText("🤝 لم يتم خصم أي قطعة من رصيدك، أُعيد الرهان كاملًا 🤝");
+            subLabel.setTextColor(0xFFBAE6FD);
+            walletBalance.setText(String.format(Locale.getDefault(), "💼 رصيدك: %,d قطعة", currentCoins));
+        } else {
+            deltaText.setText(String.format(Locale.getDefault(), "+%,d قطعة", Math.max(0, boardResultCurrencyDelta)));
+            subLabel.setText("مكافأة إكمال المباراة — لم يتم خصم رهان من محفظتك 🛡️");
+            subLabel.setTextColor(0xFF94A3B8);
+            walletBalance.setText(String.format(Locale.getDefault(), "💼 رصيدك الحالي: %,d قطعة", currentCoins));
+        }
+        if (paidDuel != null && paidResultCoins == null) {
+            walletBalance.setText("💼 يُحدّث الرصيد عند عودة الاتصال");
+        }
+
+        root.addView(banner, 0);
+
+        banner.setAlpha(0f);
+        banner.setScaleX(0.45f);
+        banner.setScaleY(0.45f);
+        banner.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(isVictory ? 850L : 500L)
+                .setInterpolator(new OvershootInterpolator(isVictory ? 2.0f : 1.4f))
+                .withEndAction(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (isPaid && lostPaid) {
+                            applyShakeMotion(banner);
+                        }
+                    }
+                }).start();
+    }
+
     private void showBoardResultScreen(String headline, int teamAScore, int teamBScore,
                                        int meSeatIndex, boolean[] seatWon) {
         final FrameLayout overlay = (FrameLayout) findViewById(R.id.boardOverlay);
@@ -4372,13 +5170,17 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         scroll.addView(root);
 
         // Headline
+        final boolean meWon = (meSeat >= 0 && meSeat < seatWon.length) ? seatWon[meSeat] : false;
         TextView title = makeBoardText(headline, 28f,
-                seatWon[meSeat] ? 0xFFFFD761 : 0xFFE2E8F0, Gravity.CENTER);
+                meWon ? 0xFFFFD761 : 0xFFE2E8F0, Gravity.CENTER);
         LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         tlp.bottomMargin = dpx(4);
         title.setLayoutParams(tlp);
         root.addView(title);
+
+        boolean matchDraw = seatWon.length == 2 && seatWon[0] && seatWon[1];
+        buildMatchEconomyMotionBanner(root, overlay, meWon, matchDraw, title);
 
         // Score summary line
         String summary = boardTeamMatch
@@ -4600,6 +5402,11 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     }
 
     private void releaseResultVideos() {
+        for (Animator animator : resultMotionAnimators) {
+            animator.removeAllListeners();
+            animator.cancel();
+        }
+        resultMotionAnimators.clear();
         for (int i = 0; i < resultVideoViews.size(); i++) {
             try {
                 resultVideoViews.get(i).release();
@@ -4671,7 +5478,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     /** Entry point for an online speed-challenge board match (after matchmaking). */
     private void setupBoardMatch() {
         int intentChar = getIntent().getIntExtra("characterIndex", -1);
-        int characterIndex = (intentChar >= 0 && intentChar <= 7)
+        int characterIndex = CharacterUnlocks.isValid(intentChar)
                 ? intentChar
                 : AppPrefs.getEffectiveCharacter(this);
         boardMode = true;
@@ -4681,6 +5488,9 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         // Slot 0 = me, slot 1 = opponent — each gets a figure matching its name's gender.
         offlineContestants.setupForRoomBoard(2, characterIndex,
                 new String[]{ myName, opponentSeatName }, new String[]{ "", "" }, false);
+        if (primary != null && primary.bot && primary.intelligence > 0) {
+            offlineContestants.setIntelligenceForSlot(1, primary.intelligence);
+        }
         boardPool = LocalQuestions.loadBoardPool(this);
         buildBoardCategoryList();
         questionsReady = true;
@@ -4688,7 +5498,27 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         // it, like offline). With a real opponent, drive the synced online board.
         boardOnline = !(primary == null || primary.bot);
         if (boardOnline) {
-            startOnlineBoardSession();
+            if (!safeIntentString("stakeMatchId", "").isEmpty()) {
+                gameID = safeIntentString("stakeMatchId", "");
+                paidDuel = new PaidDuelController(gameID, myID, new PaidDuelController.Listener() {
+                    @Override public void onState(Map<String, Object> match,
+                                                   Map<String, Object> question, String action) {
+                        applyPaidDuelState(match, question, action);
+                    }
+                    @Override public void onFailure(Exception error) {
+                        if (isFinishing() || duelActivityDestroyed) return;
+                        boardPickPending = false;
+                        paidDuelExiting = false;
+                        paidDuelRenderKey = "";
+                        if (!paidDuelState.isEmpty()) applyPaidDuelState(paidDuelState, paidDuelQuestion, "retry");
+                        Toast.makeText(GameActivity.this, safeString(error.getMessage()).isEmpty()
+                                ? "جارٍ إعادة الاتصال بالمباراة…" : error.getMessage(), Toast.LENGTH_LONG).show();
+                    }
+                });
+                findViewById(android.R.id.content).post(() -> {
+                    if (!duelActivityDestroyed && !EXITING) paidDuel.resume();
+                });
+            } else startOnlineBoardSession();
         }
     }
 
@@ -4704,7 +5534,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     /** Entry point for a room board match (competition or team) after the lobby starts. */
     private void setupRoomBoardMatch(boolean isTeam) {
         int intentChar = getIntent().getIntExtra("characterIndex", -1);
-        int characterIndex = (intentChar >= 0 && intentChar <= 7)
+        int characterIndex = CharacterUnlocks.isValid(intentChar)
                 ? intentChar
                 : AppPrefs.getEffectiveCharacter(this);
         boardMode = true;
@@ -5034,6 +5864,12 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         if (boardDuelFinished) return;
         if (gameID == null || gameID.trim().isEmpty()) return;
         getIntent().putExtra("economyChosenCategory", category);
+        if (paidDuel != null) {
+            Map<String, Object> data = new HashMap<>();
+            data.put("category", category);
+            paidDuel.call("pickCategory", data);
+            return;
+        }
         stopCategorySelectMusicIfPlaying();
         showBoardWaitingOverlay("اخترت: " + category
                 + (boardRoomMatch ? "\nبانتظار بقية اللاعبين..." : "\nبانتظار اختيار الخصم..."));
@@ -5281,6 +6117,331 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
 
     // ---- Online turn loop ------------------------------------------------
 
+    private Map<String, Object> paidDuelTurnArgs() {
+        Map<String, Object> data = new HashMap<>();
+        data.put("turn", PaidDuelController.number(paidDuelState.get("currentTurn"), 0));
+        return data;
+    }
+
+    private void applyPaidDuelState(Map<String, Object> match, Map<String, Object> question, String action) {
+        if (EXITING || duelActivityDestroyed || paidDuel == null) return;
+        paidDuelState = match;
+        paidDuelQuestion = question;
+        if (PaidDuelController.number(match.get("protocolVersion"), 0) != 2) {
+            showBoardWaitingOverlay("هذه الدعوة تستخدم إصدارًا سابقًا. ألغِها وأرسل دعوة جديدة للعب بالنظام الأصلي.");
+            return;
+        }
+        meOwner = myID.equals(match.get("ownerId"));
+        opponentID = PaidDuelController.string(match.get(meOwner ? "joinerId" : "ownerId"));
+        duelLocallyConnected = true;
+        duelNeedsBoardResync = false;
+        duelServerClockReady = true;
+        boardPickPending = false;
+        if (paidDuelExiting && "settled".equals(match.get("status"))) {
+            matchStateCommitted = true;
+            finish();
+            return;
+        }
+        if (ACTIVITY_PAUSED || paidDuelShowingResult) return;
+
+        Map<String, Object> picks = PaidDuelController.map(match.get("picks"));
+        String chosen = PaidDuelController.string(PaidDuelController.map(picks.get(myID)).get("category"));
+        if (!chosen.isEmpty()) getIntent().putExtra("economyChosenCategory", chosen);
+        if ("waiting".equals(match.get("status"))) {
+            if (chosen.isEmpty()) {
+                if (!paidDuelCategoryShown) {
+                    paidDuelCategoryShown = true;
+                    showOnlineBoardCategorySelect();
+                }
+            } else {
+                paidDuelCategoryShown = false;
+                stopCategorySelectMusicIfPlaying();
+                showBoardWaitingOverlay("اخترت: " + chosen + "\nبانتظار اختيار الخصم…");
+            }
+            return;
+        }
+
+        final int turn = (int) PaidDuelController.number(match.get("currentTurn"), 0);
+        if (!boardStarted) {
+            boardStarted = true;
+            boardCols = 2;
+            boardTotalTurns = boardCols * BOARD_ROWS;
+            boardCellQuestion = new Question[boardCols][BOARD_ROWS];
+            boardCellConsumed = new boolean[boardCols][BOARD_ROWS];
+            boardSelectedCategories.clear();
+            Object categories = match.get("categories");
+            for (int col = 0; col < boardCols; col++) {
+                String cat = categories instanceof java.util.List && ((java.util.List<?>) categories).size() > col
+                        ? PaidDuelController.string(((java.util.List<?>) categories).get(col)) : "";
+                boardSelectedCategories.add(cat);
+                for (int row = 0; row < BOARD_ROWS; row++) {
+                    Question placeholder = new Question();
+                    placeholder.setCategory(cat);
+                    placeholder.setLevel(String.valueOf(boardTierForRow(row)));
+                    placeholder.setQ("");
+                    boardCellQuestion[col][row] = placeholder;
+                }
+            }
+            paidDuelLastResultTurn = turn - 1;
+            stopCategorySelectMusicIfPlaying();
+            applyBoardModeChrome();
+        }
+        duelTurnLedger = new HashMap<>(PaidDuelController.map(match.get("turns")));
+        for (Object value : duelTurnLedger.values()) {
+            Map<String, Object> result = PaidDuelController.map(value);
+            int col = (int) PaidDuelController.number(result.get("col"), -1);
+            int row = (int) PaidDuelController.number(result.get("row"), -1);
+            if (Boolean.TRUE.equals(result.get("done")) && col >= 0 && col < boardCols && row >= 0 && row < BOARD_ROWS) {
+                boardCellConsumed[col][row] = true;
+                Map<String, Object> revealed = PaidDuelController.map(result.get("question"));
+                if (!revealed.isEmpty()) boardCellQuestion[col][row] = paidQuestion(revealed);
+            }
+        }
+        if (turn > 0 && paidDuelQuestionTurn == turn - 1 && paidDuelLastResultTurn < turn - 1) {
+            Map<String, Object> previous = PaidDuelController.map(duelTurnLedger.get("t" + (turn - 1)));
+            if (Boolean.TRUE.equals(previous.get("done"))) {
+                showPaidDuelTurnResult(turn - 1, previous);
+                return;
+            }
+        }
+        applyPaidDuelScores();
+        if ("settled".equals(match.get("status"))) {
+            finishPaidDuel();
+            return;
+        }
+
+        Map<String, Object> activeTurn = PaidDuelController.map(duelTurnLedger.get("t" + turn));
+        String phase = PaidDuelController.string(match.get("phase"));
+        boolean mine = myID.equals(match.get(turn % 2 == 0 ? "ownerId" : "joinerId"));
+        String key = turn + ":" + phase + ":" + activeTurn.get("revealCount") + ":" + paidDuel.isPending();
+        if (key.equals(paidDuelRenderKey)) {
+            if ("answering".equals(phase) && !isQuestionTimerRunning) startPaidDuelQuestionTimer();
+            if ("observing".equals(phase) && paidDuelInputReady && mine) startPaidDuelQuestionTimer();
+            return;
+        }
+        paidDuelRenderKey = key;
+        boardOnlineTurn = turn;
+        boardPickerIsHuman = mine;
+        boardPickerSlot = mine ? 0 : 1;
+        boardWatchSeat = 1;
+        CAN_HOME = true;
+        if ("selecting".equals(phase)) {
+            stopTimer(false);
+            cancelPendingBoardReveal();
+            paidDuelQuestionTurn = -1;
+            boardPickedCol = -1;
+            boardPickedRow = -1;
+            boardCurrentQuestion = null;
+            showBoardGrid();
+            return;
+        }
+        if (!"answering".equals(phase) && !"observing".equals(phase)) return;
+        Map<String, Object> visibleQuestion = question.isEmpty()
+                ? PaidDuelController.map(activeTurn.get("question")) : question;
+        if (visibleQuestion.isEmpty()) {
+            paidDuelRenderKey = "";
+            return;
+        }
+        boardPickedCol = (int) PaidDuelController.number(activeTurn.get("col"), -1);
+        boardPickedRow = (int) PaidDuelController.number(activeTurn.get("row"), -1);
+        if (boardPickedCol < 0 || boardPickedCol >= boardCols || boardPickedRow < 0 || boardPickedRow >= BOARD_ROWS) return;
+        boardRevealCount = (int) PaidDuelController.number(activeTurn.get("revealCount"), 0);
+        boolean newQuestion = paidDuelQuestionTurn != turn;
+        if (newQuestion) {
+            paidDuelQuestionTurn = turn;
+            boardCurrentQuestion = paidQuestion(visibleQuestion);
+            boardCellQuestion[boardPickedCol][boardPickedRow] = boardCurrentQuestion;
+            paidDuelTypedAnswer = null;
+            paidDuelInputReady = false;
+            if (mine) enterBoardQuestion(true);
+            else {
+                enterOnlineWatchQuestion();
+                setBoardAnswerOptionsVisible(false);
+            }
+        }
+        if (boardRevealCount > 0) {
+            bindPaidDuelOptions(visibleQuestion, false);
+            boardAwaitingTypedInput = false;
+            boardOptionsRevealed = true;
+            showBoardTypedPanel(false);
+            setBoardAnswerOptionsVisible(true);
+            CAN_PLAY = mine && !paidDuel.isPending();
+            if ("reveal".equals(action)) showDialog("اختر الإجابة الصحيحة (القيمة الآن " + currentBoardAwardValue() + ")",
+                    "", 600, 1400, R.drawable.mouth_01, true);
+        }
+        if ("answering".equals(phase)) startPaidDuelQuestionTimer();
+    }
+
+    private Question paidQuestion(Map<String, Object> source) {
+        Question q = new Question();
+        q.setQ(PaidDuelController.string(source.get("text")));
+        q.setCategory(PaidDuelController.string(source.get("category")));
+        q.setLevel(PaidDuelController.string(source.get("level")));
+        q.setImg(PaidDuelController.string(source.get("img")));
+        // Answers remain private until the server resolves the turn.
+        q.setR(PaidDuelController.string(source.get("rightAnswer")));
+        q.setW1(""); q.setW2(""); q.setW3("");
+        return q;
+    }
+
+    private void bindPaidDuelOptions(Map<String, Object> source, boolean resolved) {
+        Object raw = source.get("options");
+        if (!(raw instanceof java.util.List)) return;
+        java.util.List<?> options = (java.util.List<?>) raw;
+        int correctIndex = resolved ? (int) PaidDuelController.number(source.get("correctOptionIndex"), -1) : -1;
+        ArrayList<String> display = new ArrayList<>();
+        for (int i = 0; i < Math.min(4, options.size()); i++) {
+            Map<String, Object> option = PaidDuelController.map(options.get(i));
+            String text = option.isEmpty() ? PaidDuelController.string(options.get(i))
+                    : PaidDuelController.string(option.get("text"));
+            display.add(text);
+            TextView view = listAnswerViews.get(i);
+            view.setText(text);
+            view.setVisibility(View.VISIBLE);
+            view.setTag("0");
+            if (i == correctIndex) {
+                rightAnswer = i + 1;
+                txtRight = view;
+                rlyRight = (RelativeLayout) view.getParent();
+                imgRight = (ImageView) rlyRight.getChildAt(0);
+                view.setTag("1");
+            }
+        }
+        applyAnswerTextSizes(display);
+    }
+
+    private void submitPaidDuelAnswer(boolean timeout) {
+        if (paidDuel.isPending() || paidDuelShowingResult || !boardPickerIsHuman) return;
+        if (timeout) { paidDuel.sync(); return; }
+        Map<String, Object> data = paidDuelTurnArgs();
+        if (boardAwaitingTypedInput && paidDuelTypedAnswer != null) data.put("answerText", paidDuelTypedAnswer);
+        else if (boardOptionsRevealed && myAnswer >= 1 && myAnswer <= 4) data.put("optionIndex", myAnswer - 1);
+        else return;
+        hideKeyboard();
+        CAN_PLAY = false;
+        stopTimer(false);
+        playSound(R.raw.drum1, false, true);
+        paidDuel.call("answer", data);
+    }
+
+    private void showPaidDuelTurnResult(int turn, Map<String, Object> result) {
+        paidDuelLastResultTurn = turn;
+        paidDuelShowingResult = true;
+        cancelPendingBoardReveal();
+        cancelBoardSelectTimer();
+        stopTimer(false);
+        CAN_PLAY = false;
+        boardAwaitingTypedInput = false;
+        hideKeyboard();
+        showBoardTypedPanel(false);
+        Map<String, Object> revealed = PaidDuelController.map(result.get("question"));
+        bindPaidDuelOptions(revealed, true);
+        setBoardAnswerOptionsVisible(true);
+        hideBoardOverlay();
+        if (imgRight != null) imgRight.setImageResource(R.drawable.frame_right);
+        boolean correct = Boolean.TRUE.equals(result.get("correct"));
+        boolean mine = myID.equals(result.get("playerId"));
+        int seat = mine ? 0 : 1;
+        applyPaidDuelScores();
+        offlineContestants.showSlotResult(seat, correct);
+        playSound(correct ? R.raw.correct_answer : R.raw.wrong_answer, false, false);
+        if (mine) {
+            if (correct) { PlayerStats.recordCorrectAnswer(this, false); person.like(1000); }
+            else { PlayerStats.recordWrongAnswer(this, false); person.sad(); }
+            if (imgSelected != null) imgSelected.setImageResource(correct ? R.drawable.frame_right : R.drawable.frame_wrong);
+        }
+        String message = mine ? (correct ? "إجابة صحيحة!" : "إجابة خاطئة للأسف")
+                : offlineContestants.nameForSlot(1) + (correct ? " أجاب إجابة صحيحة" : " أجاب إجابة خاطئة");
+        showDialog(message, "", 700, 2000, correct ? R.drawable.mouth_01 : R.drawable.mouth_05, false);
+        duelConnectionHandler.postDelayed(() -> {
+            if (duelActivityDestroyed || EXITING) return;
+            paidDuelShowingResult = false;
+            paidDuelQuestionTurn = -1;
+            paidDuelRenderKey = "";
+            applyPaidDuelState(paidDuelState, paidDuelQuestion, "afterResult");
+        }, BOARD_REVEAL_HOLD_MS);
+    }
+
+    private void applyPaidDuelScores() {
+        Map<String, Object> scores = PaidDuelController.map(paidDuelState.get("scores"));
+        offlineContestants.setScoreForSlot(0, (int) PaidDuelController.number(scores.get(myID), 0));
+        offlineContestants.setScoreForSlot(1, (int) PaidDuelController.number(scores.get(opponentID), 0));
+    }
+
+    private void startPaidDuelQuestionTimer() {
+        if (paidDuel == null || paidDuelShowingResult || ACTIVITY_PAUSED) return;
+        if ("observing".equals(paidDuelState.get("phase"))) {
+            paidDuelInputReady = true;
+            if (boardPickerIsHuman && !paidDuel.isPending()) paidDuel.call("beginAnswer", paidDuelTurnArgs());
+            return;
+        }
+        if (!"answering".equals(paidDuelState.get("phase"))) return;
+        if (cdtProgress != null) cdtProgress.cancel();
+        isQuestionTimerRunning = true;
+        pbTime.setMax(450);
+        rlyProgress.setAlpha(1f);
+        cdtProgress = new CountDownTimer(Math.max(1L, paidDuel.remainingMillis()), 100L) {
+            @Override public void onTick(long ignored) {
+                long remaining = paidDuel.remainingMillis();
+                PROGRESS_VALUE = (int) Math.min(450, (remaining + 99) / 100);
+                pbTime.setProgress(PROGRESS_VALUE);
+                int seconds = (int) ((remaining + 999) / 1000);
+                txtProgress.setText(String.valueOf(seconds));
+                pbTime.setRingProgressColor(getResources().getColor(seconds > 10 ? R.color.progressGreen
+                        : seconds > 5 ? R.color.progressOrange : R.color.progressRed));
+            }
+            @Override public void onFinish() {
+                isQuestionTimerRunning = false;
+                CAN_PLAY = false;
+                if (!paidDuel.isPending()) paidDuel.sync();
+            }
+        }.start();
+    }
+
+    private void finishPaidDuel() {
+        if (boardDuelFinished) return;
+        boardDuelFinished = true;
+        matchStateCommitted = true;
+        stopTimer(false);
+        cancelBoardSelectTimer();
+        cancelPendingBoardReveal();
+        CAN_PLAY = false;
+        CAN_HOME = false;
+        Map<String, Object> settlement = PaidDuelController.map(paidDuelState.get("settlement"));
+        boolean paid = "paid".equals(settlement.get("status"));
+        boolean won = paid && myID.equals(settlement.get("winnerId"));
+        boolean draw = "draw".equals(paidDuelState.get("finishReason")) || "refunded".equals(settlement.get("status"));
+        long payoutCoins = PaidDuelController.number(settlement.get("payoutCoins"), 0);
+        long stakeCoins = PaidDuelController.number(paidDuelState.get("stakeCoins"), 0);
+        if (stakeCoins <= 0 && payoutCoins > 0) stakeCoins = payoutCoins / 2;
+        if (payoutCoins <= 0 && stakeCoins > 0) payoutCoins = stakeCoins * 2;
+        // Escrow and payout were committed by the server. Never credit/debit them locally.
+        String headline = won ? "مبروك فزت بـ" + payoutCoins + " قطعة"
+                : !paid ? (draw ? "تعادل! أُعيدت القطع لكما" : "أُلغيت المباراة وأُعيدت القطع")
+                : "حظًا أوفر في المباراة القادمة";
+        if (paid || draw) PlayerStats.recordGameEnd(this, draw ? ProgressionRules.DRAW
+                : won ? ProgressionRules.WIN : ProgressionRules.LOSS, 0);
+        if (won) { person.moveShow2Hands(1500); person.raiseEyeBrowsUp(1000, false, true); }
+        playSound(won ? R.raw.new_level : R.raw.wrong_answer, false, false);
+        final boolean[] resultShown = {false};
+        Runnable renderResult = () -> {
+            if (resultShown[0] || isFinishing() || isDestroyed()
+                    || !myID.equals(ProgressionAccount.uid(this))) return;
+            resultShown[0] = true;
+            showBoardResultScreen(headline, 0, 0, 0, new boolean[]{won || draw, (paid && !won) || draw});
+        };
+        new Handler().postDelayed(renderResult, 3000L);
+        com.google.firebase.firestore.FirebaseFirestore.getInstance().collection("users").document(myID)
+                .get(com.google.firebase.firestore.Source.SERVER).addOnCompleteListener(task -> {
+                    if (isFinishing() || isDestroyed() || !myID.equals(ProgressionAccount.uid(this))) return;
+                    if (task.isSuccessful() && task.getResult() != null) {
+                        Long balance = task.getResult().getLong("coins");
+                        if (balance != null) paidResultCoins = (int) Math.max(0L, Math.min(Integer.MAX_VALUE, balance));
+                    }
+                    renderResult.run();
+                });
+    }
+
     private void beginOnlineBoardTurn(int turn) {
         ArrayList<String> economyCategories = new ArrayList<>();
         String chosenCategory = getIntent().getStringExtra("economyChosenCategory");
@@ -5367,6 +6528,10 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     }
 
     private void advanceOnlineBoardTurn() {
+        if (paidDuel != null) {
+            paidDuel.sync();
+            return;
+        }
         if (boardRoomMatch) {
             beginOnlineBoardTurn(boardOnlineTurn + 1);
             return;
@@ -5565,6 +6730,9 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
 
     private void showDuelForfeitResult(DataSnapshot snapshot) {
         if (boardDuelFinished) return;
+        boolean win = myID.equals(snapshot.child("winnerId").getValue(String.class));
+        int previousCoins = PlayerProgress.getCoins(this);
+        if (!settleRandomStake(win, false, () -> showDuelForfeitResult(snapshot))) return;
         boardDuelFinished = true;
         stopTimer(false);
         cancelBoardSelectTimer();
@@ -5575,11 +6743,11 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         detachBoardListeners();
         detachOpponentStatusListener();
         markMyGameState("finished");
-        boolean win = myID.equals(snapshot.child("winnerId").getValue(String.class));
         int score = offlineContestants.scoreForSlot(0);
         PlayerStats.recordOnlineDuelForfeit(this, win, score);
         OnlineDuelResultStore.clearCompleted(this, gameID);
         PlayerProgress.onGameFinished(this, win, score, PlayerStats.getBestStreak(this), usedAllHelps(), usedAnyHelp());
+        boardResultCurrencyDelta = PlayerProgress.getCoins(this) - previousCoins;
         showBoardResultScreen(win ? "🏆 فزت بانسحاب المنافس" : "انتهت المباراة بالانسحاب",
                 0, 0, 0, new boolean[]{win, !win});
     }
@@ -5683,6 +6851,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     }
 
     private void writeOnlineTurnResult(int turn, boolean correct, boolean half) {
+        if (paidDuel != null) return; // The server grades the actual submitted answer.
         if (gameID == null || gameID.trim().isEmpty()) return;
         if (!boardRoomMatch) {
             completeDuelTurn(turn, correct, boardRevealCount);
@@ -6209,7 +7378,8 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
             boardSelectCountdownView = null;
             return;
         }
-        startBoardSelectTimerWithDuration(BOARD_SELECT_SECONDS * 1000L);
+        startBoardSelectTimerWithDuration(paidDuel != null
+                ? Math.max(1L, paidDuel.remainingMillis()) : BOARD_SELECT_SECONDS * 1000L);
     }
 
     private void startBoardSelectTimerWithDuration(long durationMs) {
@@ -6231,6 +7401,10 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
             public void onFinish() {
                 boardSelectTimer = null;
                 boardSelectRemainingMs = 0L;
+                if (paidDuel != null) {
+                    if (!paidDuel.isPending()) paidDuel.sync();
+                    return;
+                }
                 if (EXITING || !boardMode || !boardPickerIsHuman) return;
                 View overlay = findViewById(R.id.boardOverlay);
                 if (overlay == null || overlay.getVisibility() != View.VISIBLE) return;
@@ -7167,6 +8341,14 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     private void onBoardRevealOptions() {
         if (boardCampaignMatch && !boardAllowRevealOptions) return;
         if (!boardMode || !boardAwaitingTypedInput) return;
+        if (paidDuel != null) {
+            if (paidDuel.isPending()) return;
+            hideKeyboard();
+            Map<String, Object> data = paidDuelTurnArgs();
+            data.put("count", 1);
+            paidDuel.call("reveal", data);
+            return;
+        }
         hideKeyboard();
         boardAwaitingTypedInput = false;
         boardOptionsRevealed = true;
@@ -7193,6 +8375,12 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         String typed = boardAnswerInput != null ? boardAnswerInput.getText().toString() : "";
         if (typed.trim().isEmpty()) {
             Toast.makeText(this, "اكتب إجابتك أولاً", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (paidDuel != null) {
+            if (paidDuel.isPending()) return;
+            paidDuelTypedAnswer = typed;
+            checkAnswer(false);
             return;
         }
         boardAwaitingTypedInput = false;
@@ -7497,7 +8685,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         return gd;
     }
 
-    private GradientDrawable gradientCardBg(int startColor, int endColor, int strokeColor, int radiusDp, int strokeDp) {
+    private GradientDrawable gradientCardBg(int startColor, int endColor, int strokeColor, int radiusDp, float strokeDp) {
         GradientDrawable gd = new GradientDrawable(
                 GradientDrawable.Orientation.TOP_BOTTOM,
                 new int[]{startColor, endColor});
@@ -8087,6 +9275,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     }
 
     private void markMyGameState(String status) {
+        if (paidDuel != null) return;
         if (!modeOnline || gameID == null || gameID.trim().isEmpty()) {
             return;
         }
@@ -8118,6 +9307,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     }
 
     private void leaveOnlineMatchIfNeeded() {
+        if (paidDuel != null) return; // Explicit exit goes through the stake callable.
         if (!modeOnline || matchStateCommitted) {
             return;
         }
@@ -9794,6 +10984,19 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     }
 
     private void confirmExit() {
+        if (paidDuel != null) {
+            if (boardDuelFinished) { proceedAfterBoardResult(); return; }
+            if (paidDuel.isPending()) return;
+            boolean active = "active".equals(paidDuelState.get("status"));
+            new AlertDialog.Builder(this).setTitle(active ? "الانسحاب من التحدي؟" : "إلغاء التحدي؟")
+                    .setMessage(active ? "بعد بدء المباراة يُحسب الانسحاب خسارة ويحصل صديقك على مجموع القطع."
+                            : "تُلغى المباراة وتُعاد القطع للطرفين.")
+                    .setPositiveButton(active ? "انسحاب" : "إلغاء التحدي", (dialog, which) -> {
+                        paidDuelExiting = true;
+                        paidDuel.call("forfeit", Collections.emptyMap());
+                    }).setNegativeButton("متابعة اللعب", null).show();
+            return;
+        }
         if (isOfflineContestantMode()) {
             showConfirmationDialog("هل تريد الخروج من المباراة ؟", "ConfirmExit", 2000, 0, R.drawable.mouth_05, false);
             return;
@@ -9987,6 +11190,12 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     }
 
     private void handleQuestionTimeout() {
+        if (paidDuel != null) {
+            stopTimer(false);
+            CAN_PLAY = false;
+            paidDuel.sync();
+            return;
+        }
         if (cdtProgress != null) {
             cdtProgress.cancel();
             cdtProgress = null;
@@ -10011,6 +11220,10 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     }
 
     void startTimer(boolean start) {
+        if (paidDuel != null) {
+            startPaidDuelQuestionTimer();
+            return;
+        }
         int randomTime = 15;
         if (!EXITING) {
             if (start) {
@@ -10655,6 +11868,10 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     @Override
     protected void onPause() {
         ACTIVITY_PAUSED = true;
+        if (paidDuel != null) {
+            paidDuel.pause();
+            cancelPendingBoardReveal();
+        }
         if (boardOnline && !boardRoomMatch && !boardDuelFinished && !EXITING && myStatusRef != null) {
             duelNeedsBoardResync = true;
             cancelPendingBoardReveal();
@@ -10715,6 +11932,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     @Override
     protected void onDestroy() {
         duelActivityDestroyed = true;
+        if (paidDuel != null) paidDuel.destroy();
         isQuestionTimerRunning = false;
         wasTimerRunningBeforePause = false;
         wasBoardSelectTimerRunningBeforePause = false;

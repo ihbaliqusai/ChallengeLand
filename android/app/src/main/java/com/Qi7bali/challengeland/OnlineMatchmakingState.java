@@ -11,6 +11,8 @@ final class OnlineMatchmakingState {
         if (me.equals(other)) return false;
         Map<String, Object> theirs = OnlineDuelState.map(queue.get(other));
         Map<String, Object> mine = OnlineDuelState.map(queue.get(me));
+        int myStake = amount(mine), theirStake = amount(theirs);
+        if (myStake < 0 || theirStake < 0 || myStake != theirStake) return false;
         if ("matched".equals(mine.get("status")) && "matched".equals(theirs.get("status"))
                 && other.equals(mine.get("acceptedBy")) && me.equals(theirs.get("acceptedBy"))) return true;
         if (!available(theirs, me, now) || !available(mine, other, now)) return false;
@@ -23,6 +25,20 @@ final class OnlineMatchmakingState {
         queue.put(me, mine);
         queue.put(other, theirs);
         return true;
+    }
+
+    private static int amount(Map<String, Object> request) {
+        Object value = request.get("stakeCoins");
+        if (value == null) return 0; // Older clients participate in the free queue only.
+        if (!(value instanceof Number)) return -1;
+        long amount = ((Number) value).longValue();
+        return amount == ((Number) value).doubleValue() && amount <= Integer.MAX_VALUE
+                && validAmount((int) amount) ? (int) amount : -1;
+    }
+
+    static boolean validAmount(int amount) {
+        return amount == 0 || amount == 50 || amount == 100 || amount == 250
+                || amount == 500 || amount == 1000 || amount == 2500 || amount == 5000;
     }
 
     private static boolean available(Map<String, Object> request, String claimant, long now) {

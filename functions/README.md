@@ -98,6 +98,65 @@ RTDN always re-queries Play; the notification is a trigger rather than proof of 
 
 ## Release verification
 
+### Friend challenges on coins
+
+`friendStakes` (us-central1) supports `invite`, `respond`, `start`, `claim`,
+`answer`, `sync`, and `forfeit`. Mutations require a payload-bound `operationId`.
+Invites accept `peerUid` and `stakeCoins` (50, 100, 250, 500, 1000, 2500, 5000).
+Acceptance uses `challengeId`, `status: "accepted"`, and `expectedAmount` matching
+the displayed contribution. Decline/cancel use `declined`/`cancelled`.
+
+Acceptance atomically debits both `users/{uid}.coins`, writes an independent
+`friend_stake_escrows/{matchId}` financial receipt and private
+`friend_stake_matches/{matchId}`, reserves both players, and publishes a read-only
+`friend_stake_views/{matchId}` for those participants. The private collections and
+operation receipts have no client access. Paid games never read scores or winner
+claims from the existing client-authored RTDB games and never consume a key.
+
+Both participants must call `start` within two minutes. The server picks two free
+text categories, selects six questions and shuffles options privately. `claim`
+accepts `matchId`, `turn`, `col`, `row`; only that turn's player receives its
+`question: {id,text,options}`. `answer` accepts `optionIndex` (0–3, or -1 for a
+missed answer); correctness and 200/400/600 row points are computed by the server.
+The first release uses multiple choice at full row points. No question answer key
+is published in the match view, though the question source is the existing app's
+bank, so this does not claim to defeat external question lookup or collusion.
+Rebuild the bundled free question subset after bank changes with
+`npm run questions:stakes` (currently 2,954 questions).
+
+`forfeit` refunds before both players start and awards the entire pot to the
+opponent after start. Six completed turns determine the winner from server
+scores; a tie refunds both contributions. Selection has a 45-second server
+deadline and answering 30 seconds; a missed deadline scores zero and advances
+the turn. `sync` repairs deadlines; `recoverFriendStakes` runs every minute to
+recover abandoned ready sessions, overdue turns and the 15-minute hard expiry.
+Hard expiry or corrupt private gameplay state refunds from the independent
+escrow receipt. Client reports cannot request a system-error refund. Settlement
+and both account credits commit in the same transaction and cannot replay.
+
+Every hold and settlement increments `users.friendStakeRevision`; an active hold
+sets `friendStakeMatchId`, and settlement clears it. Clients cannot edit these
+markers, delete an account with a hold, or overwrite coins during a hold. Wallet
+snapshot writers must hydrate a newer revision before writing a stale balance.
+The broader legacy wallet still permits client-authored coin changes outside a
+hold. This change protects match settlement and concurrent wallet snapshots; it
+does **not** make all existing earned/spent coins server-authoritative. Complete
+that separate economy migration before treating these stakes as a secure
+real-money or redeemable-value system.
+
+The callable, recovery schedule, and Firestore rules were deployed together to
+`challengeland` on 2026-10-19 at 18:47 UTC with explicit user approval. Both
+functions report `ACTIVE`, the authenticated recovery job is `ENABLED` every
+minute, and an unauthenticated callable probe returns 401 `UNAUTHENTICATED`
+instead of the prior 404. Live rules match the local file (SHA256
+`a544af3b8714e790fe774bd2df745d55c02a010087af3890ef21aff09067145d`).
+The first automatic recovery execution completed successfully at 18:48:02 UTC
+with `recovered: 0`, confirming the deployed scheduler and runtime access.
+Release testing on two real accounts should still cover disconnects, process
+termination, simultaneous acceptance, ties and retries.
+`node --test --test-isolation=none test/*.test.js` runs the suite in sandboxes that
+prohibit the test runner's child-process spawning.
+
 ### Social notifications
 
 `notifyFriendRequest` and `notifySocialInvite` observe committed pending requests in

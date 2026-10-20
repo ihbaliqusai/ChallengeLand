@@ -117,16 +117,24 @@ void main() {
       }
       if (size.width != 640) {
         final boundary = tester.renderObject<RenderRepaintBoundary>(artwork);
-        await tester.runAsync(() async {
-          final rendered = await boundary.toImage(pixelRatio: 2);
-          final bytes =
-              await rendered.toByteData(format: ui.ImageByteFormat.png);
-          final name = size.width == 800 ? 'landscape' : 'mobile';
-          await Directory('build').create(recursive: true);
-          await File('build/game-modes-$name-ar.png')
-              .writeAsBytes(bytes!.buffer.asUint8List());
-          rendered.dispose();
-        });
+        final previousShadows = debugDisableShadows;
+        debugDisableShadows = false;
+        boundary.markNeedsPaint();
+        await tester.pump();
+        try {
+          await tester.runAsync(() async {
+            final rendered = await boundary.toImage(pixelRatio: 2);
+            final bytes =
+                await rendered.toByteData(format: ui.ImageByteFormat.png);
+            final name = size.width == 800 ? 'landscape' : 'mobile';
+            await Directory('build').create(recursive: true);
+            await File('build/game-modes-$name-ar.png')
+                .writeAsBytes(bytes!.buffer.asUint8List());
+            rendered.dispose();
+          });
+        } finally {
+          debugDisableShadows = previousShadows;
+        }
       }
       await tester.tap(find.byTooltip('إغلاق'));
       expect(calls, ['close']);

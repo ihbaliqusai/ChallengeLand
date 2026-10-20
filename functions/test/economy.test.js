@@ -444,3 +444,73 @@ test("an uncommitted admission is refunded after a crash without refunding start
   result = await x.call({ action: "state" });
   assert.equal(result.state.hearts, 4);
 });
+
+test("VIP bonus requires active membership, grants exact bundle once per cycle, and prevents duplicates", async () => {
+  const x = setup();
+  const time = Date.UTC(2026, 9, 18, 12);
+  const expiry = time + 30 * 86400000;
+  x.db.seed("users/p1", { coins: 500, gems: 20 });
+  x.db.seed("economy_accounts/p1", fresh(time));
+
+  // Non-VIP claim rejected
+  await assert.rejects(
+    x.call({ action: "claimVipBonus", operationId: "vip_claim_1" }),
+    { code: "failed-precondition" }
+  );
+
+  // Seed active VIP
+  x.db.seed("commerce_accounts/p1/entitlements/current", {
+    isVip: true,
+    expiresAtMillis: expiry,
+  });
+
+  // Successful claim
+  const result = await x.call({ action: "claimVipBonus", operationId: "vip_claim_2" });
+  assert.equal(result.currency.coins, 1500);
+  assert.equal(result.currency.gems, 120);
+  assert.equal(result.state.keys, 3);
+  assert.equal(result.state.tickets, 6); // 3 welcome + 3 bonus
+  assert.equal(result.state.hearts, 3);
+  assert.equal(result.state.claimedVipExpiry, expiry);
+
+  // Duplicate claim rejected
+  await assert.rejects(
+    x.call({ action: "claimVipBonus", operationId: "vip_claim_3" }),
+    { code: "already-exists" }
+  );
+
+  // After subscription renewal with new expiry, can claim new cycle bonus
+  const newExpiry = expiry + 30 * 86400000;
+  x.db.seed("commerce_accounts/p1/entitlements/current", {
+    isVip: true,
+    expiresAtMillis: newExpiry,
+  });
+  const renewed = await x.call({ action: "claimVipBonus", operationId: "vip_claim_4" });
+  assert.equal(renewed.currency.coins, 2500);
+  assert.equal(renewed.currency.gems, 220);
+  assert.equal(renewed.state.keys, 6);
+  assert.equal(renewed.state.tickets, 9);
+  assert.equal(renewed.state.hearts, 6);
+  assert.equal(renewed.state.claimedVipExpiry, newExpiry);
+  // An older entitlement arriving late must never reopen an already claimed period.
+  x.db.seed("commerce_accounts/p1/entitlements/current", { isVip: true, expiresAtMillis: expiry });
+  await assert.rejects(x.call({ action: "claimVipBonus", operationId: "old_period" }), { code: "already-exists" });
+});
+
+test("ad resource rewards grant exactly one unit, bind retries, and reject unsupported resources", async () => {
+  const x = setup();
+  let state = (await x.call({ action: "state" })).state;
+  for (const resource of ["keys", "hearts", "tickets"]) {
+    const input = { action: "adReward", resource, operationId: `ad_${resource}` };
+    const first = await x.call(input);
+    const replay = await x.call(input);
+    assert.equal(first.state[resource], state[resource] + 1);
+    assert.equal(replay.state[resource], first.state[resource]);
+    state = replay.state;
+  }
+  await assert.rejects(x.call({ action: "adReward", resource: "coins", operationId: "bad_resource" }), { code: "invalid-argument" });
+  await assert.rejects(x.call({ action: "adReward", resource: "tickets", operationId: "ad_keys" }), { code: "already-exists" });
+  const full = fresh(Date.UTC(2026, 9, 18, 12)); full.keys = 2147483647;
+  x.db.seed("economy_accounts/p1", full);
+  await assert.rejects(x.call({ action: "adReward", resource: "keys", operationId: "full_wallet" }), { code: "failed-precondition" });
+});

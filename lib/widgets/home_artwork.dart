@@ -6,6 +6,7 @@ abstract final class HomeArtwork {
   static const store = 'assets/home/store.webp';
   static const campaign = 'assets/home/campaign.webp';
   static const modes = 'assets/home/modes.webp';
+  static const play = 'assets/home/play.png';
   static const gems = 'assets/home/gems.webp';
   static const coins = 'assets/home/coins.webp';
   static const keys = 'assets/home/keys.png';

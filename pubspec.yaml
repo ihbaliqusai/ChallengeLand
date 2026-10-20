@@ -50,6 +50,7 @@ flutter:
     - assets/ui/person_welcome.webp
     - assets/ui/home_menu.webp
     - assets/ui/game_modes.webp
+    - assets/ui/play_stake_dialog.png
     - assets/ui/weekly_reward.webp
     - assets/ui/rate.png
     - assets/ui/box1.png
@@ -70,10 +71,12 @@ flutter:
     - assets/store/pack_keys_1.webp
     - assets/store/pack_hearts_1.webp
     - assets/store/pack_tickets_1.webp
+    - assets/store/exchange_hearts_1.webp
     - assets/store/exchange_hearts_3.webp
     - assets/store/exchange_keys_3.webp
     - assets/store/exchange_keys_1.webp
     - assets/store/exchange_bundle_3.webp
+    - assets/store/exchange_tickets_1.webp
     - assets/store/exchange_tickets_3.webp
     - assets/store/exchange_bundle_10.webp
     - assets/store/membership.webp
@@ -86,6 +89,12 @@ flutter:
     - assets/store/return_watch.webp
     - assets/store/reward_daily.webp
     - assets/store/reward_watch.webp
+    - assets/store/rent_cal_badge.png
+    - assets/store/rent_close.png
+    - assets/store/rent_coin.png
+    - assets/store/rent_gem.png
+    - assets/store/rent_title.png
+    - assets/store/btn_rent_green.png
     - assets/social/friends_challenges.jfif
     - assets/home/campaign.webp
     - assets/home/lobby_background.jfif
@@ -97,12 +106,21 @@ flutter:
     - assets/home/tickets.png
     - assets/home/menu.webp
     - assets/home/modes.webp
+    - assets/home/play.png
     - assets/home/store.webp
     - assets/ui/splash_poster.webp
     - assets/ui/million_challenge_logo.png
     - assets/images/campaign/worlds/
     - assets/images/campaign/ui/
     - assets/characters/
+    - assets/characters/contestant_khaled.png
+    - assets/characters/contestant_omar.png
+    - assets/characters/contestant_fahad.png
+    - assets/characters/contestant_mazen.png
+    - assets/characters/contestant_mahmoud.png
+    - assets/characters/contestant_ellen.png
+    - assets/characters/contestant_sarah.png
+    - assets/characters/contestant_talia.png
     - assets/categories/
     - assets/fonts/NotoSansArabic-OFL.txt
     - assets/videos/

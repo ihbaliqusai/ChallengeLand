@@ -11,12 +11,16 @@ class LobbyActionPanel extends StatelessWidget {
     this.gold = false,
     this.badge,
     this.showNotification = false,
+    this.notificationColor = const Color(0xFFFF4F56),
+    this.notificationAnimation,
   });
 
   final String title, subtitle;
   final IconData icon;
   final VoidCallback onPressed;
   final bool gold, showNotification;
+  final Color notificationColor;
+  final Animation<double>? notificationAnimation;
   final String? badge;
 
   @override
@@ -123,13 +127,19 @@ class LobbyActionPanel extends StatelessWidget {
                                         fontWeight: FontWeight.w900)),
                             ])))),
             if (showNotification)
-              const Positioned(
+              Positioned(
                   top: -2,
                   right: 2,
-                  child: DecoratedBox(
-                      decoration: BoxDecoration(
-                          color: Color(0xFFFF4F56), shape: BoxShape.circle),
-                      child: SizedBox.square(dimension: 9))),
+                  child: FadeTransition(
+                    opacity: MediaQuery.disableAnimationsOf(context)
+                        ? const AlwaysStoppedAnimation(1)
+                        : notificationAnimation ??
+                            const AlwaysStoppedAnimation(1),
+                    child: DecoratedBox(
+                        decoration: BoxDecoration(
+                            color: notificationColor, shape: BoxShape.circle),
+                        child: const SizedBox.square(dimension: 9)),
+                  )),
           ]),
         ),
       ),

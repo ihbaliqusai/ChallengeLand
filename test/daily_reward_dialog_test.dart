@@ -20,6 +20,8 @@ class _Rewards extends ChangeNotifier implements AppState {
   @override
   bool claimedToday = false;
   @override
+  bool dailyStreakLoaded = true;
+  @override
   bool claimingDailyReward = false;
   @override
   String? dailyRewardError;
@@ -182,4 +184,48 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     });
   }
+
+  testWidgets(
+      'DailyRewardDialog.show does not display if already claimed today',
+      (tester) async {
+    final state = _Rewards()
+      ..dailyStreakLoaded = true
+      ..claimedToday = true;
+    addTearDown(state.dispose);
+
+    late BuildContext ctx;
+    await tester.pumpWidget(
+      _app(
+        state,
+        Builder(
+          builder: (context) {
+            ctx = context;
+            return const SizedBox();
+          },
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await DailyRewardDialog.show(ctx);
+    await tester.pump();
+
+    expect(find.byType(DailyRewardDialog), findsNothing);
+  });
+
+  testWidgets(
+      'weekly dialog stays closed when availability could not be loaded',
+      (tester) async {
+    final state = _Rewards()..dailyStreakLoaded = false;
+    addTearDown(state.dispose);
+    late BuildContext ctx;
+    await tester.pumpWidget(_app(state, Builder(builder: (context) {
+      ctx = context;
+      return const SizedBox.shrink();
+    })));
+    await tester.pump();
+    await DailyRewardDialog.show(ctx);
+    await tester.pump();
+    expect(find.byType(DailyRewardDialog), findsNothing);
+  });
 }

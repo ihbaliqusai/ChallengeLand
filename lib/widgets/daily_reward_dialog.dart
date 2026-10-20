@@ -18,10 +18,17 @@ class DailyRewardDialog extends StatefulWidget {
   static Future<void> show(BuildContext context,
       {bool autoOpen = false}) async {
     if (_isShowing) return;
-    _isShowing = true;
     final state = context.read<AppState>();
-    final settings = context.read<AppSettings>();
+    if (state.dailyStreakLoaded && state.claimedToday) return;
+    _isShowing = true;
     try {
+      if (!state.dailyStreakLoaded) {
+        await state.loadLevelData();
+      }
+      if (!context.mounted || !state.dailyStreakLoaded || state.claimedToday) {
+        return;
+      }
+      final settings = context.read<AppSettings>();
       await showDialog<void>(
         context: context,
         barrierDismissible: false,
@@ -191,6 +198,7 @@ class _DailyRewardDialogState extends State<DailyRewardDialog>
       child: Directionality(
         textDirection: TextDirection.rtl,
         child: Dialog(
+          alignment: Alignment.center,
           backgroundColor: Colors.transparent,
           insetPadding:
               const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -209,15 +217,15 @@ class _DailyRewardDialogState extends State<DailyRewardDialog>
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                                child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
+                      Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Center(
+                            child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
                                   Text('صندوق الأسبوع',
+                                      textAlign: TextAlign.center,
                                       style: TextStyle(
                                           color: _gold,
                                           fontSize: compact ? 22 : 26,
@@ -232,15 +240,21 @@ class _DailyRewardDialogState extends State<DailyRewardDialog>
                                   const SizedBox(height: 2),
                                   Text(
                                       'الأسبوع ${((_day - 1) ~/ 7) + 1} • الأيام $weekStart–$weekEnd من سلسلة 30 يومًا',
+                                      textAlign: TextAlign.center,
                                       style: TextStyle(
                                           color: const Color(0xFFD2C4E7),
                                           height: 1.25,
                                           fontSize: compact ? 11 : 12)),
-                                ])),
-                            const SizedBox(width: 12),
-                            WeeklyRewardClose(
+                                ]),
+                          ),
+                          PositionedDirectional(
+                            end: 0,
+                            top: 0,
+                            child: WeeklyRewardClose(
                                 onPressed: _claiming ? null : _close),
-                          ]),
+                          ),
+                        ],
+                      ),
                       SizedBox(height: compact ? 8 : 12),
                       if (wide)
                         Row(
@@ -252,16 +266,20 @@ class _DailyRewardDialogState extends State<DailyRewardDialog>
                             ])
                       else ...[_hero(claimed), _details(reward, claimed)],
                       SizedBox(height: compact ? 8 : 14),
-                      Row(children: [
-                        const Expanded(
-                            child: Text('مسار هذا الأسبوع',
+                      Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Text('مسار هذا الأسبوع',
+                                textAlign: TextAlign.center,
                                 style: TextStyle(
                                     color: Colors.white,
-                                    fontWeight: FontWeight.w800))),
-                        Text('$completed / ${weekEnd - weekStart + 1}',
-                            style: const TextStyle(
-                                color: _gold, fontWeight: FontWeight.w800)),
-                      ]),
+                                    fontWeight: FontWeight.w800)),
+                            const SizedBox(width: 8),
+                            Text('$completed / ${weekEnd - weekStart + 1}',
+                                textDirection: TextDirection.ltr,
+                                style: const TextStyle(
+                                    color: _gold, fontWeight: FontWeight.w800)),
+                          ]),
                       SizedBox(height: compact ? 4 : 8),
                       ClipRRect(
                           borderRadius: BorderRadius.circular(6),

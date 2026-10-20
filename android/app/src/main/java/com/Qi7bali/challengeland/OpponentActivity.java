@@ -15,11 +15,14 @@ import android.widget.Toast;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DatabaseError;
+import com.google.firebase.functions.FirebaseFunctions;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.util.Random;
+import java.util.Map;
+import java.util.HashMap;
 
 public class OpponentActivity extends AppCompatActivity {
 
@@ -32,6 +35,10 @@ public class OpponentActivity extends AppCompatActivity {
     private boolean resolvingOpponent = false;
     private boolean closed = false;
     private String duelSessionId = "";
+    private String stakeMatchId = "";
+    private boolean stakeCancelling = false;
+    private String randomStakeId = "";
+    private int randomStakeCoins;
     private Runnable stopRequestListener;
     private final Handler queueHeartbeatHandler = new Handler();
     private final Runnable queueHeartbeat = new Runnable() {
@@ -80,6 +87,8 @@ public class OpponentActivity extends AppCompatActivity {
         txtStatus = findViewById(R.id.txtStatus);
         btnCancel = findViewById(R.id.btnCancel);
         btnCancel.setOnClickListener(v -> {
+            if (!stakeMatchId.isEmpty()) { leaveStakeIntro(); return; }
+            if (!randomStakeId.isEmpty()) { cancelRandomSearch(); return; }
             cleanupPendingRequest();
             finish();
         });
@@ -111,6 +120,23 @@ public class OpponentActivity extends AppCompatActivity {
 
         matchMode = getIntent().getStringExtra("matchMode") == null ? "" : getIntent().getStringExtra("matchMode");
         friendCode = getIntent().getStringExtra("friendCode") == null ? "" : getIntent().getStringExtra("friendCode").trim().toUpperCase();
+        stakeMatchId = getIntent().getStringExtra("stakeMatchId") == null ? "" : getIntent().getStringExtra("stakeMatchId");
+        randomStakeCoins = getIntent().getIntExtra("stakeCoins", 0);
+        if (stakeMatchId.isEmpty() && randomStakeCoins != 0) {
+            randomStakeId = savedInstanceState == null ? getIntent().getStringExtra("randomStakeId")
+                    : savedInstanceState.getString("randomStakeId");
+            if (randomStakeId == null || randomStakeId.isEmpty()) randomStakeId = java.util.UUID.randomUUID().toString();
+            getIntent().putExtra("randomStakeId", randomStakeId);
+            try {
+                if (!RandomStakeLedger.reserve(this, randomStakeId, randomStakeCoins)) {
+                    Toast.makeText(this, "رصيدك لا يكفي أو أن مبلغ المباراة غير صالح.", Toast.LENGTH_LONG).show();
+                    finish(); return;
+                }
+            } catch (RuntimeException failure) {
+                Toast.makeText(this, "تعذر حفظ حجز القطع. حاول مجددًا.", Toast.LENGTH_LONG).show();
+                finish(); return;
+            }
+        }
 
         txtOpponent1.setText(userName);
         Data.setImageSource(this, imgPhoto1, userPhoto);
@@ -121,8 +147,13 @@ public class OpponentActivity extends AppCompatActivity {
 
         scheduleCancelButton();
         startBrowsingOpponents();
+        if (!stakeMatchId.isEmpty()) {
+            requestAccepted = true;
+            loadStakedOpponent();
+            return;
+        }
         ownRequestInserted = true;
-        Data.resetDuelSearch(userID, "friend".equals(matchMode) ? "__friend_pending__" : "", () -> {
+        Data.resetDuelSearch(userID, "friend".equals(matchMode) ? "__friend_pending__" : "", randomStakeCoins, () -> {
             if (closed || isFinishing()) return;
             queueHeartbeatHandler.postDelayed(queueHeartbeat, 30_000L);
             if ("friend".equals(matchMode) && !friendCode.isEmpty()) {
@@ -147,6 +178,90 @@ public class OpponentActivity extends AppCompatActivity {
             }
         };
         cancelButtonHandler.postDelayed(cancelButtonRunnable, 3000);
+    }
+
+    /** Accepted paid invitations use this same opponent intro without creating a second RTDB match. */
+    private void loadStakedOpponent() {
+        if (closed || launchingGame || resolvingOpponent) return;
+        resolvingOpponent = true;
+        setStatus("جاري تجهيز المواجهة...");
+        Map<String, Object> request = new HashMap<>();
+        request.put("action", "sync"); request.put("matchId", stakeMatchId);
+        FirebaseFunctions.getInstance("us-central1").getHttpsCallable("friendStakes").call(request)
+            .addOnSuccessListener(response -> {
+                resolvingOpponent = false;
+                if (closed || launchingGame || isFinishing()) return;
+                try {
+                    Map<?, ?> payload = (Map<?, ?>) response.getData();
+                    Map<?, ?> match = (Map<?, ?>) payload.get("match");
+                    String owner = String.valueOf(match.get("ownerId"));
+                    String joiner = String.valueOf(match.get("joinerId"));
+                    if (!stakeMatchId.equals(match.get("matchId"))
+                        || !(userID.equals(owner) || userID.equals(joiner))
+                        || !(match.get("protocolVersion") instanceof Number)
+                        || ((Number) match.get("protocolVersion")).intValue() != 2) {
+                        stakeIntroError("أرسل دعوة جديدة بالتحديث الحالي للعب التحدي الأصلي."); return;
+                    }
+                    if ("settled".equals(match.get("status"))) {
+                        Toast.makeText(this, "انتهت هذه المواجهة وتمت تسوية القطع.", Toast.LENGTH_LONG).show();
+                        finish(); return;
+                    }
+                    duelSessionId = stakeMatchId;
+                    final boolean ownerSeat = userID.equals(owner);
+                    final String peer = ownerSeat ? joiner : owner;
+                    matchmakingHandler.postDelayed(() -> {
+                        if (closed || launchingGame || isFinishing()) return;
+                        User player = new User(peer); player.name = "صديقك";
+                        stopBrowsingOpponents(player, ownerSeat);
+                    }, 4000L);
+                    new Data().getUserFromFirebase(peer, new OnGetUserInfoListener() {
+                        @Override public void onStart() {}
+                        @Override public void onSuccess(User player) {
+                            if (closed || launchingGame || isFinishing()) return;
+                            if (player == null) player = new User(peer);
+                            player.id = peer;
+                            if (player.name == null || player.name.trim().isEmpty()) player.name = "صديقك";
+                            stopBrowsingOpponents(player, ownerSeat);
+                        }
+                        @Override public void onFailed(DatabaseError error) {
+                            if (closed || launchingGame || isFinishing()) return;
+                            User player = new User(peer); player.name = "صديقك";
+                            stopBrowsingOpponents(player, ownerSeat);
+                        }
+                    });
+                } catch (RuntimeException invalid) {
+                    stakeIntroError("تعذر تحميل بيانات المواجهة. أعد المحاولة.");
+                }
+            }).addOnFailureListener(error -> {
+                resolvingOpponent = false;
+                if (!closed && !isFinishing()) stakeIntroError("تعذر الاتصال. تحقق من الإنترنت وأعد المحاولة.");
+            });
+    }
+
+    private void stakeIntroError(String message) {
+        new android.app.AlertDialog.Builder(this).setMessage(message).setCancelable(false)
+            .setPositiveButton("إعادة المحاولة", (dialog, which) -> loadStakedOpponent())
+            .setNegativeButton("رجوع", (dialog, which) -> leaveStakeIntro()).show();
+    }
+
+    private void leaveStakeIntro() {
+        if (stakeCancelling || closed || launchingGame) return;
+        new android.app.AlertDialog.Builder(this).setTitle("مغادرة التحدي؟")
+            .setMessage("قبل بدء اللعب تُعاد القطع. إذا بدأت المباراة فالانسحاب يُحسب خسارة.")
+            .setNegativeButton("متابعة", null)
+            .setPositiveButton("مغادرة", (dialog, which) -> {
+                stakeCancelling = true;
+                Map<String, Object> request = new HashMap<>();
+                request.put("action", "forfeit"); request.put("matchId", stakeMatchId);
+                request.put("operationId", "intro_leave_" + stakeMatchId);
+                FirebaseFunctions.getInstance("us-central1").getHttpsCallable("friendStakes").call(request)
+                    .addOnCompleteListener(result -> {
+                        stakeCancelling = false;
+                        if (isFinishing() || isDestroyed()) return;
+                        if (result.isSuccessful()) { cleanupPendingRequest(); finish(); }
+                        else Toast.makeText(this, "تعذر تأكيد المغادرة. تحقق من الاتصال وحاول مجددًا.", Toast.LENGTH_LONG).show();
+                    });
+            }).show();
     }
 
     private void startFriendInviteFlow() {
@@ -286,7 +401,7 @@ public class OpponentActivity extends AppCompatActivity {
         if (closed || launchingGame) {
             return;
         }
-        new Data().getRandomRequest(userID, new OnRandomRequestListener() {
+        new Data().getRandomRequest(userID, randomStakeCoins, new OnRandomRequestListener() {
             @Override
             public void onStart() {
             }
@@ -445,6 +560,7 @@ public class OpponentActivity extends AppCompatActivity {
     }
 
     private void stopBrowsingOpponents(final User opponent, final boolean meOwner) {
+        if (launchingGame || closed || !activateRandomStake()) return;
         launchingGame = true;
         requestAccepted = true;
         browsingOpponents = false;
@@ -474,6 +590,15 @@ public class OpponentActivity extends AppCompatActivity {
                 intent.putExtra("mode", "online");
                 intent.putExtra("meOwner", meOwner);
                 intent.putExtra("duelSessionId", duelSessionId);
+                if (!stakeMatchId.isEmpty()) {
+                    intent.putExtra("stakeMatchId", stakeMatchId);
+                    intent.putExtra("stakeGameplayVersion", 2);
+                }
+                int stakeCoins = getIntent().getIntExtra("stakeCoins", 0);
+                if (stakeCoins > 0) {
+                    intent.putExtra("stakeCoins", stakeCoins);
+                    intent.putExtra("randomStakeId", randomStakeId);
+                }
                 intent.putExtra("matchMode", "board");
                 intent.putExtra("characterIndex", AppPrefs.getEffectiveCharacter(OpponentActivity.this));
                 try {
@@ -498,6 +623,7 @@ public class OpponentActivity extends AppCompatActivity {
     }
 
     private void launchBotMatch() {
+        if (launchingGame || closed || !activateRandomStake()) return;
         launchingGame = true;
         requestAccepted = true;
         browsingOpponents = false;
@@ -510,6 +636,26 @@ public class OpponentActivity extends AppCompatActivity {
             ownRequestInserted = false;
         }
 
+        final int stakeCoins = getIntent().getIntExtra("stakeCoins", 0);
+        final int botIntel;
+        final int botLevel;
+        if (stakeCoins <= 0) {
+            botIntel = 50;
+            botLevel = 5;
+        } else if (stakeCoins <= 100) {
+            botIntel = 68;
+            botLevel = 7;
+        } else if (stakeCoins <= 500) {
+            botIntel = 80;
+            botLevel = 8;
+        } else if (stakeCoins <= 2000) {
+            botIntel = 90;
+            botLevel = 9;
+        } else {
+            botIntel = 96;
+            botLevel = 10;
+        }
+
         imgPhoto22.clearAnimation();
         imgPhoto21.clearAnimation();
         imgPhoto21.setVisibility(View.INVISIBLE);
@@ -517,7 +663,7 @@ public class OpponentActivity extends AppCompatActivity {
         imgPhoto2.setVisibility(View.VISIBLE);
         setRandomOpponentImage(imgPhoto2, 14);
         txtOpponent2.setText("الكمبيوتر");
-        txtLevel2.setText("6");
+        txtLevel2.setText(String.valueOf(botLevel));
         setStatus("لم نجد لاعباً متاحاً الآن. سنبدأ ضد خصم آلي...");
 
         Handler handler = new Handler();
@@ -529,15 +675,19 @@ public class OpponentActivity extends AppCompatActivity {
                 intent.putExtra("mode", "online");
                 intent.putExtra("meOwner", true);
                 intent.putExtra("matchMode", "board");
+                if (stakeCoins > 0) {
+                    intent.putExtra("stakeCoins", stakeCoins);
+                    intent.putExtra("randomStakeId", randomStakeId);
+                }
                 intent.putExtra("characterIndex", AppPrefs.getEffectiveCharacter(OpponentActivity.this));
                 try {
                     JSONObject opponentJson = new JSONObject();
                     opponentJson.put("id", "fictitious");
                     opponentJson.put("name", "الكمبيوتر");
                     opponentJson.put("photo", "");
-                    opponentJson.put("level", 6);
+                    opponentJson.put("level", botLevel);
                     opponentJson.put("score", 0);
-                    opponentJson.put("intelligence", 65);
+                    opponentJson.put("intelligence", botIntel);
                     opponentJson.put("bot", true);
                     JSONArray opponentsArray = new JSONArray();
                     opponentsArray.put(opponentJson);
@@ -564,6 +714,48 @@ public class OpponentActivity extends AppCompatActivity {
         }
     }
 
+    private boolean activateRandomStake() {
+        if (randomStakeId.isEmpty()) return true;
+        try {
+            if (!userID.equals(ProgressionAccount.uid(this))
+                    || !RandomStakeLedger.activate(this, randomStakeId)) return false;
+            return true;
+        } catch (RuntimeException failure) {
+            setStatus("تعذر تثبيت حجز القطع. أعد المحاولة أو ألغِ البحث.");
+            if (btnCancel != null) btnCancel.setVisibility(View.VISIBLE);
+            return false;
+        }
+    }
+
+    private void cancelRandomSearch() {
+        if (closed || stakeCancelling || launchingGame) return;
+        stakeCancelling = true;
+        Data.withdrawDuelSearch(userID, new OnGetGameIdListener() {
+            @Override public void onSuccess(String opponent) {
+                if (closed || launchingGame) { stakeCancelling = false; return; }
+                if (!userID.equals(ProgressionAccount.uid(OpponentActivity.this))) { finish(); return; }
+                try {
+                    if (opponent.isEmpty()) RandomStakeLedger.cancel(OpponentActivity.this, randomStakeId);
+                    else {
+                        // A simultaneous match claim won the queue transaction: leaving forfeits,
+                        // so we must not both refund this contribution and pay the peer a pot.
+                        RandomStakeLedger.activate(OpponentActivity.this, randomStakeId);
+                        RandomStakeLedger.settle(OpponentActivity.this, randomStakeId, false, false);
+                    }
+                    cleanupPendingRequest();
+                    finish();
+                } catch (RuntimeException failure) {
+                    stakeCancelling = false;
+                    setStatus("تعذر حفظ تسوية القطع. أعد المحاولة.");
+                }
+            }
+            @Override public void onFailed(DatabaseError error) {
+                stakeCancelling = false;
+                setStatus("تعذر تأكيد إلغاء البحث. تحقق من الاتصال وحاول مجددًا.");
+            }
+        });
+    }
+
     private void cleanupPendingRequest() {
         closed = true;
         queueHeartbeatHandler.removeCallbacksAndMessages(null);
@@ -579,6 +771,12 @@ public class OpponentActivity extends AppCompatActivity {
     }
 
     @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putString("randomStakeId", randomStakeId);
+    }
+
+    @Override
     protected void onDestroy() {
         cleanupPendingRequest();
         super.onDestroy();
@@ -586,6 +784,8 @@ public class OpponentActivity extends AppCompatActivity {
 
     @Override
     public void onBackPressed() {
+        if (!stakeMatchId.isEmpty()) { leaveStakeIntro(); return; }
+        if (!randomStakeId.isEmpty()) { cancelRandomSearch(); return; }
         cleanupPendingRequest();
         super.onBackPressed();
     }

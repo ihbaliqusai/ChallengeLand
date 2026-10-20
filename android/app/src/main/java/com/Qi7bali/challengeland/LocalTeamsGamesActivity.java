@@ -18,6 +18,7 @@ import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.TypedValue;
 import android.view.Gravity;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
@@ -111,15 +112,15 @@ public class LocalTeamsGamesActivity extends AppCompatActivity {
         FrameLayout root = new FrameLayout(this);
         root.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
 
-        // 1. خلفية اللعبة الأصلية بجودة عالية
+        // 1. خلفية الفضاء النجمي الكوني الأصلية بجودة فائقة
         ImageView bg = new ImageView(this);
-        bg.setImageResource(R.drawable.bg_game2);
+        bg.setImageResource(R.drawable.bg_challenge_cosmic);
         bg.setScaleType(ImageView.ScaleType.CENTER_CROP);
         root.addView(bg, new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT));
 
-        // 2. طبقة حماية لونية بتدرج ملكي داكن وعميق
+        // 2. طبقة حماية لونية رقيقة لتنعيم النجوم وتعزيز التباين
         View scrim = new View(this);
         scrim.setBackground(pageScrimBg());
         root.addView(scrim, new FrameLayout.LayoutParams(
@@ -129,12 +130,12 @@ public class LocalTeamsGamesActivity extends AppCompatActivity {
         // 3. الحاوية الرئيسية (Shell)
         LinearLayout shell = new LinearLayout(this);
         shell.setOrientation(LinearLayout.VERTICAL);
-        shell.setPadding(dpx(16), dpx(10), dpx(16), dpx(10));
+        shell.setPadding(dpx(20), dpx(12), dpx(20), dpx(12));
         root.addView(shell, new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT));
 
-        // 4. رأس الصفحة الفخم (Grand Championship Header)
+        // 4. رأس الصفحة الفخم العائم (Grand Championship Header)
         shell.addView(createHeader(), new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
 
@@ -143,29 +144,29 @@ public class LocalTeamsGamesActivity extends AppCompatActivity {
         body.setOrientation(LinearLayout.HORIZONTAL);
         LinearLayout.LayoutParams bodyLp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f);
-        bodyLp.topMargin = dpx(8);
+        bodyLp.topMargin = dpx(10);
         shell.addView(body, bodyLp);
 
-        // العمود الأول: المواجهات المشتعلة (Active Duels)
+        // العمود الأول في RTL: المواجهات الجارية (Active Duels - يمين)
         View activeSection = createSection(
                 "المواجهات الجارية",
                 "مباريات مشتعلة جاهزة للاستئناف فوراً من آخر سؤال",
                 true
         );
         LinearLayout.LayoutParams activeLp = new LinearLayout.LayoutParams(0,
-                LinearLayout.LayoutParams.MATCH_PARENT, 1.08f);
-        activeLp.setMargins(0, 0, dpx(7), 0);
+                LinearLayout.LayoutParams.MATCH_PARENT, 1f);
+        activeLp.setMargins(0, 0, dpx(8), 0);
         body.addView(activeSection, activeLp);
 
-        // العمود الثاني: سجل الأبطال والتتويج (Champions Archive)
+        // العمود الثاني في RTL: سجل الأبطال والتتويج (Champions Archive - يسار)
         View historySection = createSection(
                 "سجل الأبطال والتتويج",
                 "أرشيف المواجهات المنتهية ونتائج الفائزين",
                 false
         );
         LinearLayout.LayoutParams historyLp = new LinearLayout.LayoutParams(0,
-                LinearLayout.LayoutParams.MATCH_PARENT, 0.92f);
-        historyLp.setMargins(dpx(7), 0, 0, 0);
+                LinearLayout.LayoutParams.MATCH_PARENT, 1f);
+        historyLp.setMargins(dpx(8), 0, 0, 0);
         body.addView(historySection, historyLp);
 
         setContentView(root);
@@ -176,53 +177,43 @@ public class LocalTeamsGamesActivity extends AppCompatActivity {
     // ==========================================
     private View createHeader() {
         LinearLayout header = new LinearLayout(this);
-        header.setOrientation(LinearLayout.VERTICAL);
-        header.setBackground(gradientCardBg(0xF40A1838, 0xFA040A1C, 0x66FFD700, 16, 1));
-        header.setPadding(dpx(14), dpx(8), dpx(14), dpx(8));
+        header.setOrientation(LinearLayout.HORIZONTAL);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        header.setPadding(0, dpx(2), 0, dpx(2));
 
-        // الصف العلوي: زر الرجوع + العنوان الفخم + الأزرار الرئيسية
-        LinearLayout topRow = new LinearLayout(this);
-        topRow.setOrientation(LinearLayout.HORIZONTAL);
-        topRow.setGravity(Gravity.CENTER_VERTICAL);
-
-        // زر العودة بتصميم زجاجي ملكي
-        Button backBtn = new Button(this);
-        backBtn.setText("‹");
-        backBtn.setTextColor(TEXT_WHITE);
-        backBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f);
-        backBtn.setTypeface(Typeface.DEFAULT_BOLD);
-        backBtn.setPadding(0, 0, 0, dpx(2));
-        backBtn.setBackground(withRipple(cardBg(0x33FFFFFF, 0x66FFD700, 999, 1), 0x44FFFFFF));
-        backBtn.setOnClickListener(new View.OnClickListener() {
+        // 1. زر العودة الدائري الفاخر
+        ImageView backBtn = new ImageView(this);
+        backBtn.setImageResource(R.drawable.ic_main_challenge_back);
+        backBtn.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        applyPressEffect(backBtn, new Runnable() {
             @Override
-            public void onClick(View v) {
+            public void run() {
                 finish();
             }
         });
-        topRow.addView(backBtn, new LinearLayout.LayoutParams(dpx(40), dpx(40)));
+        header.addView(backBtn, new LinearLayout.LayoutParams(dpx(44), dpx(44)));
 
-        // أيقونة البطولة التاجية
-        TextView crownEmblem = new TextView(this);
-        crownEmblem.setText("👑");
-        crownEmblem.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20f);
-        crownEmblem.setGravity(Gravity.CENTER);
-        crownEmblem.setBackground(cardBg(0x2BFFD700, 0x77FFD700, 999, 1));
-        LinearLayout.LayoutParams emblemLp = new LinearLayout.LayoutParams(dpx(40), dpx(40));
-        emblemLp.setMargins(dpx(10), 0, dpx(10), 0);
+        // 2. ميدالية التاج الذهبية الفخمة
+        ImageView crownEmblem = new ImageView(this);
+        crownEmblem.setImageResource(R.drawable.ic_main_challenge_crown);
+        crownEmblem.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        LinearLayout.LayoutParams emblemLp = new LinearLayout.LayoutParams(dpx(44), dpx(44));
+        emblemLp.setMargins(dpx(10), 0, dpx(12), 0);
         crownEmblem.setLayoutParams(emblemLp);
-        topRow.addView(crownEmblem);
+        header.addView(crownEmblem);
 
-        // عامود العنوان والهوية
+        // 3. عمود العنوان والهوية والإحصائيات
         LinearLayout titleCol = new LinearLayout(this);
         titleCol.setOrientation(LinearLayout.VERTICAL);
-        LinearLayout.LayoutParams titleLp = new LinearLayout.LayoutParams(0,
-                LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        LinearLayout.LayoutParams titleLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
         titleCol.setLayoutParams(titleLp);
 
         TextView tag = new TextView(this);
         tag.setText("بطولة التحدي الرئيسي • مواجهة فريقين محلياً على جهاز واحد");
         tag.setTextColor(GOLD_LIGHT);
-        tag.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f);
+        tag.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f);
         tag.setTypeface(Typeface.DEFAULT_BOLD);
         tag.setSingleLine(true);
         tag.setEllipsize(TextUtils.TruncateAt.END);
@@ -231,83 +222,69 @@ public class LocalTeamsGamesActivity extends AppCompatActivity {
         TextView title = new TextView(this);
         title.setText("إدارة مباريات التحدي الرئيسي");
         title.setTextColor(TEXT_WHITE);
-        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16.5f);
+        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 19f);
         title.setTypeface(Typeface.DEFAULT_BOLD);
+        LinearLayout.LayoutParams ttlLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        ttlLp.topMargin = dpx(1);
+        ttlLp.bottomMargin = dpx(3);
+        title.setLayoutParams(ttlLp);
         titleCol.addView(title);
 
-        topRow.addView(titleCol);
-
-        // زر التلفزيون السريع العام (TV Connection Guide)
-        Button tvGuideBtn = new Button(this);
-        tvGuideBtn.setText("📺 ربط الشاشة");
-        tvGuideBtn.setTextColor(CYAN_LIGHT);
-        tvGuideBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f);
-        tvGuideBtn.setTypeface(Typeface.DEFAULT_BOLD);
-        tvGuideBtn.setAllCaps(false);
-        tvGuideBtn.setBackground(withRipple(cardBg(0x250284C7, 0x8838BDF8, 999, 1), 0x4438BDF8));
-        tvGuideBtn.setPadding(dpx(12), 0, dpx(12), 0);
-        tvGuideBtn.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                showTvCodeDialog("", "بث مباريات التحدي المباشرة");
-            }
-        });
-        LinearLayout.LayoutParams tvLp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT, dpx(38));
-        tvLp.setMargins(0, 0, dpx(8), 0);
-        topRow.addView(tvGuideBtn, tvLp);
-
-        // الزر البطل: بدء مواجهة جديدة ⚔️
-        Button newMatchBtn = new Button(this);
-        newMatchBtn.setText("＋ مواجهة جديدة ⚔️");
-        newMatchBtn.setTextColor(TEXT_DARK);
-        newMatchBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f);
-        newMatchBtn.setTypeface(Typeface.DEFAULT_BOLD);
-        newMatchBtn.setAllCaps(false);
-        newMatchBtn.setBackground(withRipple(
-                gradientPillBg(0xFFFFC727, 0xFFFF8F00, 0xFFFFF1A8, 1),
-                0x33000000
-        ));
-        newMatchBtn.setPadding(dpx(16), 0, dpx(16), 0);
-        newMatchBtn.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                startNewMatch();
-            }
-        });
-        topRow.addView(newMatchBtn, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT, dpx(38)));
-
-        header.addView(topRow);
-
-        // شريط القياسات والإحصائيات السريعة (Telemetry Strip)
+        // شريط الإحصائيات الفورية (Telemetry Strip) تحت العنوان مباشرة
         LinearLayout statsRow = new LinearLayout(this);
         statsRow.setOrientation(LinearLayout.HORIZONTAL);
         statsRow.setGravity(Gravity.CENTER_VERTICAL);
-        LinearLayout.LayoutParams statsLp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        statsLp.topMargin = dpx(6);
-        statsRow.setLayoutParams(statsLp);
 
-        activeCountBadge = createChip(GOLD, 0x2BFFD700, 0x88FFD700, "⚡ 0 جارية");
+        activeCountBadge = createChip(0xFFFFD700, 0x33B45309, 0xFFFFB300, "0 جارية ⚡");
         statsRow.addView(activeCountBadge);
 
-        historyCountBadge = createChip(CYAN, 0x2B38BDF8, 0x8838BDF8, "🏆 0 بالسجل");
+        historyCountBadge = createChip(0xFF38BDF8, 0x330284C7, 0xFF38BDF8, "0 بالسجل 🏆");
         LinearLayout.LayoutParams hcLp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        hcLp.setMargins(dpx(6), 0, dpx(6), 0);
+        hcLp.setMargins(dpx(7), 0, dpx(7), 0);
         historyCountBadge.setLayoutParams(hcLp);
         statsRow.addView(historyCountBadge);
 
         totalStatsBadge = new TextView(this);
         totalStatsBadge.setTextColor(TEXT_MUTED);
-        totalStatsBadge.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f);
+        totalStatsBadge.setTextSize(TypedValue.COMPLEX_UNIT_SP, 9.5f);
         totalStatsBadge.setSingleLine(true);
         totalStatsBadge.setEllipsize(TextUtils.TruncateAt.END);
-        statsRow.addView(totalStatsBadge, new LinearLayout.LayoutParams(0,
-                LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        statsRow.addView(totalStatsBadge);
 
-        header.addView(statsRow);
+        titleCol.addView(statsRow);
+        header.addView(titleCol);
+
+        // مسافة مرنة بين العنوان والأزرار
+        View spacer = new View(this);
+        header.addView(spacer, new LinearLayout.LayoutParams(0, 0, 1f));
+
+        // 4. زر التلفزيون ("ربط الشاشة")
+        ImageView tvGuideBtn = new ImageView(this);
+        tvGuideBtn.setImageResource(R.drawable.btn_main_tv_guide);
+        tvGuideBtn.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        applyPressEffect(tvGuideBtn, new Runnable() {
+            @Override
+            public void run() {
+                showTvCodeDialog("", "بث مباريات التحدي المباشرة");
+            }
+        });
+        LinearLayout.LayoutParams tvLp = new LinearLayout.LayoutParams(dpx(124), dpx(42));
+        tvLp.setMargins(0, 0, dpx(12), 0);
+        header.addView(tvGuideBtn, tvLp);
+
+        // 5. زر النزال الرئيسي ("+ مواجهة جديدة")
+        ImageView newMatchBtn = new ImageView(this);
+        newMatchBtn.setImageResource(R.drawable.btn_main_new_match);
+        newMatchBtn.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        applyPressEffect(newMatchBtn, new Runnable() {
+            @Override
+            public void run() {
+                startNewMatch();
+            }
+        });
+        header.addView(newMatchBtn, new LinearLayout.LayoutParams(dpx(180), dpx(42)));
 
         return header;
     }
@@ -318,28 +295,21 @@ public class LocalTeamsGamesActivity extends AppCompatActivity {
     private View createSection(String title, String subtitle, boolean active) {
         LinearLayout section = new LinearLayout(this);
         section.setOrientation(LinearLayout.VERTICAL);
-        section.setBackground(gradientCardBg(
-                active ? 0xEE09183B : 0xEA07132D,
-                active ? 0xF7040C22 : 0xF3030818,
-                active ? 0x66FFD700 : 0x4438BDF8,
-                16, 1));
-        section.setPadding(dpx(12), dpx(8), dpx(12), dpx(8));
+        section.setBackgroundResource(R.drawable.bg_main_challenge_card);
+        section.setPadding(dpx(16), dpx(12), dpx(16), dpx(12));
 
         // رأس القسم
         LinearLayout head = new LinearLayout(this);
         head.setOrientation(LinearLayout.HORIZONTAL);
         head.setGravity(Gravity.CENTER_VERTICAL);
 
-        // أيقونة القسم الدائرية
-        TextView secIcon = new TextView(this);
-        secIcon.setText(active ? "⚡" : "🏆");
-        secIcon.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f);
-        secIcon.setGravity(Gravity.CENTER);
-        secIcon.setBackground(cardBg(
-                active ? 0x33FFD700 : 0x3338BDF8,
-                active ? 0x88FFD700 : 0x8838BDF8,
-                999, 1));
-        head.addView(secIcon, new LinearLayout.LayoutParams(dpx(28), dpx(28)));
+        // أيقونة القسم
+        ImageView secIcon = new ImageView(this);
+        secIcon.setImageResource(active ?
+                R.drawable.ic_main_challenge_lightning :
+                R.drawable.ic_main_challenge_mini_trophy);
+        secIcon.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        head.addView(secIcon, new LinearLayout.LayoutParams(dpx(36), dpx(36)));
 
         // عنوان القسم
         LinearLayout secTitleBox = new LinearLayout(this);
@@ -351,15 +321,15 @@ public class LocalTeamsGamesActivity extends AppCompatActivity {
 
         TextView titleView = new TextView(this);
         titleView.setText(title);
-        titleView.setTextColor(active ? GOLD : CYAN);
-        titleView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f);
+        titleView.setTextColor(active ? 0xFFFFC727 : 0xFF38BDF8);
+        titleView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f);
         titleView.setTypeface(Typeface.DEFAULT_BOLD);
         secTitleBox.addView(titleView);
 
         TextView subView = new TextView(this);
         subView.setText(subtitle);
         subView.setTextColor(TEXT_MUTED);
-        subView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 9f);
+        subView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 9.5f);
         subView.setSingleLine(true);
         subView.setEllipsize(TextUtils.TruncateAt.END);
         secTitleBox.addView(subView);
@@ -368,46 +338,34 @@ public class LocalTeamsGamesActivity extends AppCompatActivity {
 
         // زر تنظيف السجل (في قسم الأرشيف فقط)
         if (!active) {
-            Button clearBtn = new Button(this);
-            clearBtn.setText("🧹 تنظيف السجل");
-            clearBtn.setTextColor(TEXT_MUTED_LIGHT);
-            clearBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 9.5f);
-            clearBtn.setTypeface(Typeface.DEFAULT_BOLD);
-            clearBtn.setAllCaps(false);
-            clearBtn.setBackground(withRipple(cardBg(0x22FFFFFF, 0x44FFFFFF, 999, 1), 0x44FFFFFF));
-            clearBtn.setPadding(dpx(10), 0, dpx(10), 0);
-            clearBtn.setOnClickListener(new View.OnClickListener() {
+            ImageView clearBtn = new ImageView(this);
+            clearBtn.setImageResource(R.drawable.btn_main_clear_history);
+            clearBtn.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            applyPressEffect(clearBtn, new Runnable() {
                 @Override
-                public void onClick(View v) {
+                public void run() {
                     confirmClearHistory();
                 }
             });
-            head.addView(clearBtn, new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT, dpx(28)));
+            head.addView(clearBtn, new LinearLayout.LayoutParams(dpx(110), dpx(31)));
         }
 
         section.addView(head);
 
-        // خط إضاءة جمالي فاصل
-        View accentBar = new View(this);
-        accentBar.setBackground(gradientPillBg(
-                active ? 0xAAFFD700 : 0xAA38BDF8,
-                0x00000000, 0x00000000, 0));
-        LinearLayout.LayoutParams barLp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dpx(2));
-        barLp.topMargin = dpx(6);
-        barLp.bottomMargin = dpx(6);
-        accentBar.setLayoutParams(barLp);
-        section.addView(accentBar);
-
         // حاوية التمرير
         ScrollView scroller = new ScrollView(this);
         scroller.setVerticalScrollBarEnabled(false);
+        scroller.setFillViewport(true);
+        LinearLayout.LayoutParams scrollerLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f);
+        scrollerLp.topMargin = dpx(6);
+        scroller.setLayoutParams(scrollerLp);
+
         LinearLayout list = new LinearLayout(this);
         list.setOrientation(LinearLayout.VERTICAL);
         scroller.addView(list, new ScrollView.LayoutParams(
                 ScrollView.LayoutParams.MATCH_PARENT,
-                ScrollView.LayoutParams.WRAP_CONTENT));
+                ScrollView.LayoutParams.MATCH_PARENT));
 
         if (active) {
             activeList = list;
@@ -415,8 +373,7 @@ public class LocalTeamsGamesActivity extends AppCompatActivity {
             historyList = list;
         }
 
-        section.addView(scroller, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
+        section.addView(scroller);
 
         return section;
     }
@@ -445,26 +402,32 @@ public class LocalTeamsGamesActivity extends AppCompatActivity {
         }
 
         if (activeCount == 0) {
+            activeList.setGravity(Gravity.CENTER);
             activeList.addView(createEmptyView(
                     "لا توجد مواجهات نشطة حالياً",
                     "شكّل فريقين من أصدقائك أو عائلتك وابدأ معركة التحدي على جهاز واحد!",
                     true
             ));
+        } else {
+            activeList.setGravity(Gravity.TOP);
         }
 
         if (finishedCount == 0) {
+            historyList.setGravity(Gravity.CENTER);
             historyList.addView(createEmptyView(
                     "سجل الأبطال فارغ حتى الآن",
                     "المباريات المنتهية ونتائج تتويج الفرق الفائزة ستسجل هنا كذكرى للبطولة.",
                     false
             ));
+        } else {
+            historyList.setGravity(Gravity.TOP);
         }
 
         if (activeCountBadge != null) {
-            activeCountBadge.setText("⚡ " + activeCount + " جارية");
+            activeCountBadge.setText(activeCount + " جارية ⚡");
         }
         if (historyCountBadge != null) {
-            historyCountBadge.setText("🏆 " + finishedCount + " بالسجل");
+            historyCountBadge.setText(finishedCount + " بالسجل 🏆");
         }
         if (totalStatsBadge != null) {
             totalStatsBadge.setText("إجمالي المواجهات: " + all.size() + " مواجهة");
@@ -478,65 +441,52 @@ public class LocalTeamsGamesActivity extends AppCompatActivity {
         LinearLayout empty = new LinearLayout(this);
         empty.setOrientation(LinearLayout.VERTICAL);
         empty.setGravity(Gravity.CENTER);
-        empty.setPadding(dpx(16), dpx(24), dpx(16), dpx(24));
-        empty.setBackground(cardBg(0x35030816, 0x22FFFFFF, 14, 1));
+        empty.setPadding(dpx(16), dpx(10), dpx(16), dpx(10));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        lp.topMargin = dpx(6);
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT);
         empty.setLayoutParams(lp);
 
-        TextView iconView = new TextView(this);
-        iconView.setText(canCreate ? "⚔️" : "🏆");
-        iconView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 26f);
-        iconView.setGravity(Gravity.CENTER);
-        iconView.setBackground(cardBg(
-                0x22FFFFFF,
-                canCreate ? 0x55FFD700 : 0x5538BDF8,
-                999, 1));
-        LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(dpx(54), dpx(54));
-        iconLp.bottomMargin = dpx(10);
-        iconView.setLayoutParams(iconLp);
-        empty.addView(iconView);
+        ImageView graphic = new ImageView(this);
+        graphic.setImageResource(canCreate ?
+                R.drawable.img_empty_swords :
+                R.drawable.img_empty_trophy);
+        graphic.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        LinearLayout.LayoutParams gLp = new LinearLayout.LayoutParams(dpx(165), dpx(165));
+        empty.addView(graphic, gLp);
 
         TextView tvTitle = new TextView(this);
         tvTitle.setText(title);
         tvTitle.setTextColor(TEXT_WHITE);
-        tvTitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f);
+        tvTitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16.5f);
         tvTitle.setTypeface(Typeface.DEFAULT_BOLD);
         tvTitle.setGravity(Gravity.CENTER);
-        empty.addView(tvTitle);
+        LinearLayout.LayoutParams tLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        tLp.topMargin = dpx(12);
+        empty.addView(tvTitle, tLp);
 
         TextView tvSub = new TextView(this);
         tvSub.setText(subtitle);
         tvSub.setTextColor(TEXT_MUTED);
-        tvSub.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f);
+        tvSub.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f);
         tvSub.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams subLp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        subLp.topMargin = dpx(4);
+        subLp.topMargin = dpx(5);
         empty.addView(tvSub, subLp);
 
         if (canCreate) {
-            Button quickBtn = new Button(this);
-            quickBtn.setText("＋ بدء أول مواجهة الآن ⚡");
-            quickBtn.setTextColor(TEXT_DARK);
-            quickBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f);
-            quickBtn.setTypeface(Typeface.DEFAULT_BOLD);
-            quickBtn.setAllCaps(false);
-            quickBtn.setBackground(withRipple(
-                    gradientPillBg(GOLD, GOLD_WARM, 0xFFFFF1A8, 1),
-                    0x33000000
-            ));
-            quickBtn.setPadding(dpx(18), 0, dpx(18), 0);
-            quickBtn.setOnClickListener(new View.OnClickListener() {
+            ImageView quickBtn = new ImageView(this);
+            quickBtn.setImageResource(R.drawable.btn_main_start_first);
+            quickBtn.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            applyPressEffect(quickBtn, new Runnable() {
                 @Override
-                public void onClick(View v) {
+                public void run() {
                     startNewMatch();
                 }
             });
-            LinearLayout.LayoutParams btnLp = new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT, dpx(34));
-            btnLp.topMargin = dpx(12);
+            LinearLayout.LayoutParams btnLp = new LinearLayout.LayoutParams(dpx(195), dpx(42));
+            btnLp.topMargin = dpx(16);
             empty.addView(quickBtn, btnLp);
         }
 
@@ -561,11 +511,11 @@ public class LocalTeamsGamesActivity extends AppCompatActivity {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setBackground(gradientCardBg(
-                active ? 0xF20F224D : 0xEE0A1835,
-                active ? 0xF607132D : 0xF5050C1F,
-                active ? 0x88FFD700 : 0x4438BDF8,
-                15, 1));
-        card.setPadding(dpx(12), dpx(9), dpx(12), dpx(9));
+                active ? 0xF0081836 : 0xEE0A1835,
+                active ? 0xF6040F24 : 0xF5050C1F,
+                active ? 0x8838BDF8 : 0x4438BDF8,
+                18, 1));
+        card.setPadding(dpx(14), dpx(11), dpx(14), dpx(11));
         LinearLayout.LayoutParams cardLp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         cardLp.bottomMargin = dpx(8);
@@ -576,12 +526,16 @@ public class LocalTeamsGamesActivity extends AppCompatActivity {
         topRow.setOrientation(LinearLayout.HORIZONTAL);
         topRow.setGravity(Gravity.CENTER_VERTICAL);
 
+        // الوقت (على اليمين في RTL)
         TextView timeView = new TextView(this);
-        timeView.setText("🕒 " + formatRelativeTime(updated));
+        timeView.setText(formatRelativeTime(updated) + " 🕒");
         timeView.setTextColor(TEXT_MUTED);
-        timeView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 9f);
-        topRow.addView(timeView, new LinearLayout.LayoutParams(0,
-                LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        timeView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 9.5f);
+        topRow.addView(timeView);
+
+        // مسافة تدفع الشارات إلى اليسار
+        View topSpacer = new View(this);
+        topRow.addView(topSpacer, new LinearLayout.LayoutParams(0, 0, 1f));
 
         // شارة مرحلة اللعب أو شارة الفائز
         TextView statusBadge = new TextView(this);
@@ -589,18 +543,23 @@ public class LocalTeamsGamesActivity extends AppCompatActivity {
             String phaseText = "لوحة التحدي";
             int badgeColor = GOLD;
             int bgBadge = 0x2BFFD700;
+            int strokeColor = GOLD;
             if (LocalTeamsGameStore.PHASE_CATEGORY_SELECT.equals(phase)) {
-                phaseText = "اختيار الفئات";
+                phaseText = "اختيار الفئات ⚡";
                 badgeColor = PURPLE_LIGHT;
-                bgBadge = 0x33A855F7;
+                bgBadge = 0x337C3AED;
+                strokeColor = PURPLE;
             } else if (LocalTeamsGameStore.PHASE_QUESTION.equals(phase)) {
-                phaseText = "سؤال جاري";
+                phaseText = "سؤال جاري ⚡";
                 badgeColor = EMERALD_LIGHT;
                 bgBadge = 0x3310B981;
+                strokeColor = EMERALD;
+            } else {
+                phaseText = "لوحة التحدي ⚡";
             }
-            statusBadge.setText("⚡ " + phaseText);
+            statusBadge.setText(phaseText);
             statusBadge.setTextColor(badgeColor);
-            statusBadge.setBackground(cardBg(bgBadge, badgeColor, 999, 1));
+            statusBadge.setBackground(cardBg(bgBadge, strokeColor, 999, 1));
         } else {
             String winnerText = "تعادل ملحمي";
             int badgeColor = TEXT_MUTED_LIGHT;
@@ -615,23 +574,23 @@ public class LocalTeamsGamesActivity extends AppCompatActivity {
             statusBadge.setTextColor(badgeColor);
             statusBadge.setBackground(cardBg(0x33000000, badgeColor, 999, 1));
         }
-        statusBadge.setTextSize(TypedValue.COMPLEX_UNIT_SP, 8.5f);
+        statusBadge.setTextSize(TypedValue.COMPLEX_UNIT_SP, 9f);
         statusBadge.setTypeface(Typeface.DEFAULT_BOLD);
-        statusBadge.setPadding(dpx(8), dpx(2), dpx(8), dpx(2));
+        statusBadge.setPadding(dpx(9), dpx(2), dpx(9), dpx(2));
         topRow.addView(statusBadge);
 
         // شارة كود التلفزيون السريع (قابلة للنقر)
         if (!TextUtils.isEmpty(tvCode)) {
             TextView tvCodeChip = new TextView(this);
-            tvCodeChip.setText("📺 PIN: " + tvCode);
+            tvCodeChip.setText("PIN: " + tvCode + " 📺");
             tvCodeChip.setTextColor(CYAN_LIGHT);
-            tvCodeChip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 8.5f);
+            tvCodeChip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 9f);
             tvCodeChip.setTypeface(Typeface.DEFAULT_BOLD);
-            tvCodeChip.setPadding(dpx(7), dpx(2), dpx(7), dpx(2));
-            tvCodeChip.setBackground(cardBg(0x250284C7, 0x6638BDF8, 999, 1));
+            tvCodeChip.setPadding(dpx(8), dpx(2), dpx(8), dpx(2));
+            tvCodeChip.setBackground(cardBg(0x28075985, 0xFF38BDF8, 999, 1));
             LinearLayout.LayoutParams tvChipLp = new LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-            tvChipLp.setMargins(dpx(5), 0, 0, 0);
+            tvChipLp.setMargins(dpx(7), 0, 0, 0);
             tvCodeChip.setLayoutParams(tvChipLp);
             tvCodeChip.setOnClickListener(new View.OnClickListener() {
                 @Override
@@ -650,18 +609,19 @@ public class LocalTeamsGamesActivity extends AppCompatActivity {
         duelRow.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout.LayoutParams duelLp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        duelLp.topMargin = dpx(6);
-        duelLp.bottomMargin = dpx(6);
+        duelLp.topMargin = dpx(8);
+        duelLp.bottomMargin = dpx(8);
         duelRow.setLayoutParams(duelLp);
 
-        // بوكس الفريق الأول (A)
+        // بوكس الفريق الأول (A - يمين في RTL)
         boolean aIsLeading = scoreA > scoreB;
         LinearLayout teamABox = createTeamBox(
                 teamA,
                 scoreA,
                 "🛡️ الفريق الأول",
-                GOLD,
-                0x22FFD700,
+                0xFF86EFAC,
+                0xFF22C55E,
+                0x28059669,
                 aIsLeading,
                 Gravity.RIGHT
         );
@@ -674,41 +634,42 @@ public class LocalTeamsGamesActivity extends AppCompatActivity {
         centerVsBox.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams cvsLp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        cvsLp.setMargins(dpx(8), 0, dpx(8), 0);
+        cvsLp.setMargins(dpx(10), 0, dpx(10), 0);
         centerVsBox.setLayoutParams(cvsLp);
 
         TextView vsBadge = new TextView(this);
         vsBadge.setText("VS");
-        vsBadge.setTextColor(GOLD_LIGHT);
-        vsBadge.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f);
+        vsBadge.setTextColor(0xFFFDE68A);
+        vsBadge.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f);
         vsBadge.setTypeface(Typeface.DEFAULT_BOLD);
         vsBadge.setGravity(Gravity.CENTER);
-        vsBadge.setBackground(gradientPillBg(0x66020617, 0x991E293B, 0x88FFD700, 1));
-        vsBadge.setLayoutParams(new LinearLayout.LayoutParams(dpx(32), dpx(32)));
+        vsBadge.setBackground(cardBg(0xFF09142C, 0xFFF59E0B, 999, 2));
+        vsBadge.setLayoutParams(new LinearLayout.LayoutParams(dpx(40), dpx(40)));
         centerVsBox.addView(vsBadge);
 
         TextView turnSub = new TextView(this);
         turnSub.setText(turn + "/" + totalTurns);
         turnSub.setTextColor(TEXT_MUTED);
-        turnSub.setTextSize(TypedValue.COMPLEX_UNIT_SP, 8f);
+        turnSub.setTextSize(TypedValue.COMPLEX_UNIT_SP, 9f);
         turnSub.setTypeface(Typeface.DEFAULT_BOLD);
         turnSub.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams tsLp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        tsLp.topMargin = dpx(2);
+        tsLp.topMargin = dpx(3);
         turnSub.setLayoutParams(tsLp);
         centerVsBox.addView(turnSub);
 
         duelRow.addView(centerVsBox);
 
-        // بوكس الفريق الثاني (B)
+        // بوكس الفريق الثاني (B - يسار في RTL)
         boolean bIsLeading = scoreB > scoreA;
         LinearLayout teamBBox = createTeamBox(
                 teamB,
                 scoreB,
                 "الفريق الثاني ⚔️",
-                CYAN,
-                0x2238BDF8,
+                0xFF7DD3FC,
+                0xFF38BDF8,
+                0x280284C7,
                 bIsLeading,
                 Gravity.LEFT
         );
@@ -723,45 +684,54 @@ public class LocalTeamsGamesActivity extends AppCompatActivity {
             progressRow.setOrientation(LinearLayout.VERTICAL);
             LinearLayout.LayoutParams prLp = new LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-            prLp.bottomMargin = dpx(6);
+            prLp.bottomMargin = dpx(8);
             progressRow.setLayoutParams(prLp);
 
             LinearLayout progressInfo = new LinearLayout(this);
             progressInfo.setOrientation(LinearLayout.HORIZONTAL);
+            progressInfo.setGravity(Gravity.CENTER_VERTICAL);
 
             TextView turnInfo = new TextView(this);
             turnInfo.setText("التقدم: الجولة " + turn + " من إجمالي " + totalTurns);
             turnInfo.setTextColor(TEXT_MUTED);
-            turnInfo.setTextSize(TypedValue.COMPLEX_UNIT_SP, 8.5f);
+            turnInfo.setTextSize(TypedValue.COMPLEX_UNIT_SP, 9.5f);
             progressInfo.addView(turnInfo, new LinearLayout.LayoutParams(0,
                     LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
 
             int percent = (int) Math.min(100, Math.max(0, (turn * 100.0f) / Math.max(1, totalTurns)));
             TextView percentInfo = new TextView(this);
             percentInfo.setText(percent + "%");
-            percentInfo.setTextColor(GOLD_LIGHT);
-            percentInfo.setTextSize(TypedValue.COMPLEX_UNIT_SP, 8.5f);
+            percentInfo.setTextColor(TEXT_WHITE);
+            percentInfo.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f);
             percentInfo.setTypeface(Typeface.DEFAULT_BOLD);
             progressInfo.addView(percentInfo);
 
             progressRow.addView(progressInfo);
 
-            // مسار التقدم البصري
+            // مسار التقدم البصري مع مؤشر نقطي مضيء
             FrameLayout progressTrack = new FrameLayout(this);
             progressTrack.setBackground(cardBg(0x331E293B, 0x22FFFFFF, 999, 1));
             LinearLayout.LayoutParams trackLp = new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT, dpx(4));
-            trackLp.topMargin = dpx(2);
+                    LinearLayout.LayoutParams.MATCH_PARENT, dpx(5));
+            trackLp.topMargin = dpx(3);
             progressTrack.setLayoutParams(trackLp);
 
             View progressFill = new View(this);
-            progressFill.setBackground(gradientPillBg(GOLD, EMERALD, 0x00000000, 0));
+            progressFill.setBackground(gradientPillBg(CYAN, EMERALD, 0x00000000, 0));
             FrameLayout.LayoutParams fillLp = new FrameLayout.LayoutParams(
-                    Math.max(dpx(6), (int) (dpx(220) * (percent / 100.0f))),
+                    Math.max(dpx(8), (int) (dpx(280) * (percent / 100.0f))),
                     FrameLayout.LayoutParams.MATCH_PARENT);
             fillLp.gravity = Gravity.RIGHT;
             progressFill.setLayoutParams(fillLp);
             progressTrack.addView(progressFill);
+
+            // النقطة النيون المضيئة عند نهاية المسار
+            View dot = new View(this);
+            dot.setBackground(cardBg(0xFF4ADE80, 0xFFFFFFFF, 999, 1));
+            FrameLayout.LayoutParams dotLp = new FrameLayout.LayoutParams(dpx(8), dpx(8));
+            dotLp.gravity = Gravity.RIGHT | Gravity.CENTER_VERTICAL;
+            dot.setLayoutParams(dotLp);
+            progressTrack.addView(dot);
 
             progressRow.addView(progressTrack);
             card.addView(progressRow);
@@ -802,81 +772,66 @@ public class LocalTeamsGamesActivity extends AppCompatActivity {
             card.addView(bannerRow);
         }
 
-        // 4. أزرار التحكم والإجراءات (Action Footer)
+        // 4. أزرار التحكم والإجراءات ثلاثية الأبعاد الفاخرة (Action Footer)
         LinearLayout actionRow = new LinearLayout(this);
         actionRow.setOrientation(LinearLayout.HORIZONTAL);
         actionRow.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout.LayoutParams arLp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        arLp.topMargin = dpx(4);
         actionRow.setLayoutParams(arLp);
 
         if (active) {
-            // زر استئناف اللعب (Primary Action)
-            Button resumeBtn = new Button(this);
-            resumeBtn.setText("⚔️ متابعة التحدي");
-            resumeBtn.setTextColor(TEXT_WHITE);
-            resumeBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f);
-            resumeBtn.setTypeface(Typeface.DEFAULT_BOLD);
-            resumeBtn.setAllCaps(false);
-            resumeBtn.setBackground(withRipple(
-                    gradientPillBg(EMERALD_DARK, EMERALD, EMERALD_LIGHT, 1),
-                    0x33FFFFFF
-            ));
-            resumeBtn.setPadding(dpx(12), 0, dpx(12), 0);
-            resumeBtn.setOnClickListener(new View.OnClickListener() {
+            // 1. زر استئناف اللعب ثلاثي الأبعاد الأخضر (متابعة التحدي ⚔️)
+            ImageView resumeBtn = new ImageView(this);
+            resumeBtn.setImageResource(R.drawable.btn_match_resume);
+            resumeBtn.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            applyPressEffect(resumeBtn, new Runnable() {
                 @Override
-                public void onClick(View v) {
+                public void run() {
                     resumeMatch(id);
                 }
             });
-            LinearLayout.LayoutParams resLp = new LinearLayout.LayoutParams(0, dpx(34), 1f);
-            resLp.setMargins(dpx(4), 0, 0, 0);
+            LinearLayout.LayoutParams resLp = new LinearLayout.LayoutParams(dpx(195), dpx(40));
             actionRow.addView(resumeBtn, resLp);
 
-            // زر البث للتلفزيون
-            Button tvBtn = new Button(this);
-            tvBtn.setText("📺 للشاشة");
-            tvBtn.setTextColor(GOLD);
-            tvBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f);
-            tvBtn.setTypeface(Typeface.DEFAULT_BOLD);
-            tvBtn.setAllCaps(false);
-            tvBtn.setBackground(withRipple(
-                    gradientPillBg(0x33FFD700, 0x55B45309, 0x88FFD700, 1),
-                    0x44FFD700
-            ));
-            tvBtn.setPadding(dpx(10), 0, dpx(10), 0);
-            tvBtn.setOnClickListener(new View.OnClickListener() {
+            // 2. زر البث للشاشة ("للشاشة")
+            ImageView tvBtn = new ImageView(this);
+            tvBtn.setImageResource(R.drawable.btn_match_tv);
+            tvBtn.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            applyPressEffect(tvBtn, new Runnable() {
                 @Override
-                public void onClick(View v) {
+                public void run() {
                     showTvCodeDialog(tvCode, teamA + " ضد " + teamB);
                 }
             });
-            LinearLayout.LayoutParams tvActLp = new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT, dpx(34));
-            tvActLp.setMargins(dpx(4), 0, 0, 0);
+            LinearLayout.LayoutParams tvActLp = new LinearLayout.LayoutParams(dpx(88), dpx(40));
+            tvActLp.setMargins(dpx(8), 0, 0, 0);
             actionRow.addView(tvBtn, tvActLp);
         } else {
             TextView archInfo = new TextView(this);
             archInfo.setText("📁 مواجهة مكتملة ومحفوظة بالسجل");
             archInfo.setTextColor(TEXT_MUTED);
-            archInfo.setTextSize(TypedValue.COMPLEX_UNIT_SP, 9f);
+            archInfo.setTextSize(TypedValue.COMPLEX_UNIT_SP, 9.5f);
             actionRow.addView(archInfo, new LinearLayout.LayoutParams(0,
                     LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         }
 
-        // زر الحذف
-        Button deleteBtn = new Button(this);
-        deleteBtn.setText("🗑️");
-        deleteBtn.setTextColor(RED);
-        deleteBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f);
-        deleteBtn.setBackground(withRipple(cardBg(0x2BEE4444, 0x66EE4444, 999, 1), 0x44EF4444));
-        deleteBtn.setOnClickListener(new View.OnClickListener() {
+        // مسافة مرنة لدفع زر الحذف لليسار
+        View btnSpacer = new View(this);
+        actionRow.addView(btnSpacer, new LinearLayout.LayoutParams(0, 0, 1f));
+
+        // 3. زر الحذف الدائري الياقوتي ثلاثي الأبعاد
+        ImageView deleteBtn = new ImageView(this);
+        deleteBtn.setImageResource(R.drawable.btn_match_delete);
+        deleteBtn.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        applyPressEffect(deleteBtn, new Runnable() {
             @Override
-            public void onClick(View v) {
+            public void run() {
                 confirmDelete(id, teamA + " ضد " + teamB);
             }
         });
-        actionRow.addView(deleteBtn, new LinearLayout.LayoutParams(dpx(36), dpx(34)));
+        actionRow.addView(deleteBtn, new LinearLayout.LayoutParams(dpx(40), dpx(40)));
 
         card.addView(actionRow);
 
@@ -891,6 +846,7 @@ public class LocalTeamsGamesActivity extends AppCompatActivity {
             int score,
             String subTag,
             int themeColor,
+            int strokeColor,
             int bgFill,
             boolean isLeading,
             int gravity
@@ -898,10 +854,10 @@ public class LocalTeamsGamesActivity extends AppCompatActivity {
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
         box.setGravity(gravity);
-        box.setBackground(cardBg(bgFill, 0x33FFFFFF, 10, 1));
-        box.setPadding(dpx(8), dpx(6), dpx(8), dpx(6));
+        box.setBackground(cardBg(bgFill, strokeColor, 14, 2));
+        box.setPadding(dpx(12), dpx(8), dpx(12), dpx(8));
 
-        // سطر التاج (الفريق الأول / الفريق الثاني) مع تاج الصدارة
+        // سطر التاج (الفريق الأول / الفريق الثاني)
         LinearLayout tagRow = new LinearLayout(this);
         tagRow.setOrientation(LinearLayout.HORIZONTAL);
         tagRow.setGravity(gravity | Gravity.CENTER_VERTICAL);
@@ -909,14 +865,15 @@ public class LocalTeamsGamesActivity extends AppCompatActivity {
         if (isLeading) {
             TextView crown = new TextView(this);
             crown.setText("👑 ");
-            crown.setTextSize(TypedValue.COMPLEX_UNIT_SP, 8.5f);
+            crown.setTextSize(TypedValue.COMPLEX_UNIT_SP, 9f);
             tagRow.addView(crown);
         }
 
         TextView tagView = new TextView(this);
         tagView.setText(subTag);
         tagView.setTextColor(themeColor);
-        tagView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 8f);
+        tagView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 9f);
+        tagView.setTypeface(Typeface.DEFAULT_BOLD);
         tagRow.addView(tagView);
 
         box.addView(tagRow);
@@ -925,18 +882,23 @@ public class LocalTeamsGamesActivity extends AppCompatActivity {
         TextView nameView = new TextView(this);
         nameView.setText(teamName);
         nameView.setTextColor(TEXT_WHITE);
-        nameView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f);
+        nameView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f);
         nameView.setTypeface(Typeface.DEFAULT_BOLD);
         nameView.setSingleLine(true);
         nameView.setEllipsize(TextUtils.TruncateAt.END);
         nameView.setGravity(gravity);
+        LinearLayout.LayoutParams nLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        nLp.topMargin = dpx(2);
+        nLp.bottomMargin = dpx(2);
+        nameView.setLayoutParams(nLp);
         box.addView(nameView);
 
-        // نتيجة الفريق (Score Pill)
+        // نتيجة الفريق
         TextView scoreView = new TextView(this);
         scoreView.setText(score + " نقطة");
         scoreView.setTextColor(isLeading ? GOLD_LIGHT : TEXT_MUTED_LIGHT);
-        scoreView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f);
+        scoreView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f);
         scoreView.setTypeface(Typeface.DEFAULT_BOLD);
         scoreView.setGravity(gravity);
         box.addView(scoreView);
@@ -1164,9 +1126,18 @@ public class LocalTeamsGamesActivity extends AppCompatActivity {
     }
 
     private void confirmClearHistory() {
+        ArrayList<JSONObject> all = LocalTeamsGameStore.all(this);
+        int finished = 0;
+        for (JSONObject record : all) {
+            if (LocalTeamsGameStore.isFinished(record)) finished++;
+        }
+        if (finished == 0) {
+            Toast.makeText(this, "سجل الأبطال فارغ بالفعل!", Toast.LENGTH_SHORT).show();
+            return;
+        }
         showCustomConfirmDialog(
                 "🧹 تنظيف سجل المباريات",
-                "هل تريد حذف جميع المباريات المنتهية من السجل؟",
+                "هل تريد حذف جميع المباريات المنتهية (" + finished + " مباراة) من السجل؟",
                 "نعم، تنظيف",
                 new Runnable() {
                     @Override
@@ -1285,10 +1256,36 @@ public class LocalTeamsGamesActivity extends AppCompatActivity {
         return dateFormat.format(new Date(timeMs));
     }
 
+    private void applyPressEffect(View view, final Runnable onClick) {
+        view.setClickable(true);
+        view.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(final View v, MotionEvent event) {
+                switch (event.getAction()) {
+                    case MotionEvent.ACTION_DOWN:
+                        v.animate().scaleX(0.94f).scaleY(0.94f).setDuration(70).start();
+                        return true;
+                    case MotionEvent.ACTION_UP:
+                        v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(80).withEndAction(new Runnable() {
+                            @Override
+                            public void run() {
+                                if (onClick != null) onClick.run();
+                            }
+                        }).start();
+                        return true;
+                    case MotionEvent.ACTION_CANCEL:
+                        v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(80).start();
+                        return true;
+                }
+                return false;
+            }
+        });
+    }
+
     private GradientDrawable pageScrimBg() {
         return new GradientDrawable(
                 GradientDrawable.Orientation.TOP_BOTTOM,
-                new int[]{0xF2070E22, 0xF6040816, 0xFA02040B});
+                new int[]{0x88040816, 0x99060C1F, 0xBB040814});
     }
 
     private GradientDrawable cardBg(int fillColor, int strokeColor, int radiusDp, int strokeDp) {

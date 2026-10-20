@@ -20,8 +20,11 @@ public final class GameEconomy {
     public interface Callback { void complete(Map<String, Object> value, String error); }
     private static final java.util.WeakHashMap<Activity, Boolean> admitted = new java.util.WeakHashMap<>();
     private static final java.util.WeakHashMap<Activity, Boolean> admitting = new java.util.WeakHashMap<>();
+    private static final java.util.WeakHashMap<Activity, String> paidAccount = new java.util.WeakHashMap<>();
+    private static final java.util.WeakHashMap<Activity, Set<String>> paidCategories = new java.util.WeakHashMap<>();
     private static final Set<String> flushingAccounts = new HashSet<>();
     public static boolean ensure(Activity a, boolean campaign, int order, ArrayList<String> categories, Runnable next) {
+        if (!campaign && isStaked(a)) return ensureStaked(a, categories, next);
         // Preserve the existing first-stage guest tutorial before account creation.
         // Registered progression and purchases always use the server wallet.
         if (campaign && order == 1 && "guest_local".equals(ProgressionAccount.uid(a))) return true;
@@ -68,6 +71,66 @@ public final class GameEconomy {
                 admitted.put(a, true); next.run();
             });
         });
+        return false;
+    }
+
+    private static boolean isStaked(Activity a) {
+        String match = a.getIntent().getStringExtra("stakeMatchId");
+        return match != null && !match.isEmpty();
+    }
+
+    /** Paid admission is verified against the escrow match; an intent amount never grants free entry. */
+    private static boolean ensureStaked(Activity a, ArrayList<String> categories, Runnable next) {
+        final String match = a.getIntent().getStringExtra("stakeMatchId");
+        final String uid = ProgressionAccount.uid(a);
+        final String account = uid + ":" + match;
+        Set<String> covered = paidCategories.get(a);
+        boolean allCovered = covered != null && account.equals(paidAccount.get(a));
+        if (allCovered) for (String category : categories) {
+            if (!covered.contains(CategoryConfig.normalize(category))) { allCovered = false; break; }
+        }
+        if (allCovered) return true;
+        if (Boolean.TRUE.equals(admitting.get(a))) return false;
+        admitting.put(a, true);
+        Map<String, Object> request = new HashMap<>();
+        request.put("action", "sync"); request.put("matchId", match);
+        FirebaseFunctions.getInstance("us-central1").getHttpsCallable("friendStakes").call(request)
+            .addOnSuccessListener(response -> {
+                admitting.remove(a);
+                if (a.isFinishing() || a.isDestroyed() || !uid.equals(ProgressionAccount.uid(a))) return;
+                try {
+                    Map<?, ?> result = (Map<?, ?>) response.getData();
+                    Map<?, ?> state = (Map<?, ?>) result.get("match");
+                    Object members = state.get("members");
+                    if (!match.equals(state.get("matchId")) || !(members instanceof java.util.List)
+                        || !((java.util.List<?>) members).contains(uid)
+                        || !(state.get("protocolVersion") instanceof Number)
+                        || ((Number) state.get("protocolVersion")).intValue() != 2
+                        || !("waiting".equals(state.get("status")) || "active".equals(state.get("status")))) {
+                        showFailure(a, "انتهت هذه المواجهة أو يلزم إرسال دعوة جديدة بالتحديث الحالي.", next);
+                        return;
+                    }
+                    Set<String> allowed = new HashSet<>();
+                    Object picks = state.get("picks");
+                    Object own = picks instanceof Map ? ((Map<?, ?>) picks).get(uid) : null;
+                    Object chosen = own instanceof Map ? ((Map<?, ?>) own).get("category") : null;
+                    if (chosen instanceof String) allowed.add(CategoryConfig.normalize((String) chosen));
+                    for (String category : categories) if (!allowed.contains(CategoryConfig.normalize(category))) {
+                        showFailure(a, "أكد اختيار التصنيف أولاً لبدء التحدي.", next);
+                        return;
+                    }
+                    paidAccount.put(a, account); paidCategories.put(a, allowed);
+                    // Category tickets were reserved by pickCategory. A paid match never calls begin/commit.
+                    clearSelection(a);
+                    next.run();
+                } catch (RuntimeException invalid) {
+                    showFailure(a, "تعذر التحقق من حجز قطع المباراة. أعد المحاولة.", next);
+                }
+            }).addOnFailureListener(error -> {
+                admitting.remove(a);
+                if (!a.isFinishing() && !a.isDestroyed() && uid.equals(ProgressionAccount.uid(a)))
+                    showFailure(a, errorMessage(error), next);
+            });
         return false;
     }
     private static void showFailure(Activity a, String error, Runnable retry) {
@@ -249,12 +312,14 @@ public final class GameEconomy {
         });
     }
     public static void commit(Activity a) {
+        if (isStaked(a)) return;
         String id = a.getIntent().getStringExtra("economySessionId");
         if (id == null) return;
         Map<String, Object> data = new HashMap<>(); data.put("action", "commit"); data.put("operationId", "commit_" + id); data.put("sessionId", id);
         request(a, data, (v, e) -> {});
     }
     private static void cancelUnstarted(Activity a) {
+        if (isStaked(a)) return;
         String id = a.getIntent().getStringExtra("economySessionId");
         if (id == null) return;
         Map<String, Object> data = new HashMap<>(); data.put("action", "cancel");
@@ -262,6 +327,7 @@ public final class GameEconomy {
         request(a, data, (v, error) -> {});
     }
     public static void finish(Activity a, boolean won) {
+        if (isStaked(a)) return;
         String id = a.getIntent().getStringExtra("economySessionId");
         if (id == null) return;
         boolean campaign = "campaign".equals(NativeProgression.mode(a));

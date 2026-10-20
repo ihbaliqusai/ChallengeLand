@@ -14,6 +14,7 @@ public final class NativeProgressionCheck {
     public static void main(String[] args) {
         verifyAllModes();
         verifyCampaignCoinPolicy();
+        verifyStakeCoinPolicy();
         verifyAnswerAndResultReceipts();
         verifyDrawsAbandonmentAndEmptyLobbies();
         verifyAccountIsolationAndMigration();
@@ -99,6 +100,36 @@ public final class NativeProgressionCheck {
         equal(PlayerStats.matchXp(campaign), 103, "campaign completion XP preserved without answer coins");
         equal(PlayerStats.matchTrophies(campaign), 22, "campaign trophies preserved without answer coins");
         equal(PlayerProgress.getCoins(campaign), 0, "campaign currency exclusively comes from stage payout");
+    }
+
+    private static void verifyStakeCoinPolicy() {
+        for (String result : new String[]{"win", "loss", "draw"}) {
+            VerificationContext device = new VerificationContext();
+            Match game = new Match(device, "stake_" + result, "board", true, false);
+            game.getIntent().putExtra("stakeCoins", 50);
+            PlayerProgress.setCurrency(game, 1000, 10);
+            check(RandomStakeLedger.reserve(game, result, 50), "stake reserved");
+            RandomStakeLedger.activate(game, result);
+            answer(game, "q1", true);
+            answer(game, "q2", false);
+            equal(PlayerProgress.getCoins(game), 950, "stake answers do not mint coins");
+            PlayerStats.recordGameEnd(game, result.equals("draw") ? ProgressionRules.DRAW
+                    : result.equals("win") ? ProgressionRules.WIN : ProgressionRules.LOSS, 200);
+            PlayerProgress.onGameFinished(game, result.equals("win"), 200, 1, false, false);
+            equal(PlayerProgress.getCoins(game), 950, "stake completion cannot erase a loss with a bonus");
+            check(PlayerProgress.getXp(game) > 13, "stake matches retain answer and completion XP");
+            RandomStakeLedger.settle(game, result, result.equals("win"), result.equals("draw"));
+            equal(PlayerProgress.getCoins(game), result.equals("win") ? 1050 : result.equals("draw") ? 1000 : 950,
+                    "final balance has exactly one net stake change");
+        }
+        VerificationContext device = new VerificationContext();
+        Match friend = new Match(device, "paid_friend", "board", true, true);
+        friend.getIntent().putExtra("stakeMatchId", "server-match");
+        PlayerProgress.setCurrency(friend, 950, 10);
+        answer(friend, "q1", true);
+        PlayerStats.recordGameEnd(friend, true, 200);
+        PlayerProgress.onGameFinished(friend, true, 200, 1, false, false);
+        equal(PlayerProgress.getCoins(friend), 950, "server stakes do not generate legacy answer or completion coins");
     }
 
     private static void verifyAnswerAndResultReceipts() {

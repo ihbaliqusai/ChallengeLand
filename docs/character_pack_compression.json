@@ -1,0 +1,170 @@
+﻿[
+    {
+        "source":  "video_main1.mp4",
+        "output":  "android/app/src/main/res/raw/video_layan.mp4",
+        "sourceBytes":  10063884,
+        "outputBytes":  321401,
+        "sourceSha256":  "CE4FECBFB6E62E07FCD836CA1B7CAAEFB5435A933F69DFE8CE41444D35C4F5A2"
+    },
+    {
+        "source":  "video_main1_correct.mp4",
+        "output":  "android/app/src/main/res/raw/video_layan_correct.mp4",
+        "sourceBytes":  10015781,
+        "outputBytes":  263322,
+        "sourceSha256":  "E7B99A706CD6A47C15C58B037A7CFC0F91009F97C291352DD32F80614BA365E3"
+    },
+    {
+        "source":  "video_main1_wrong.mp4",
+        "output":  "android/app/src/main/res/raw/video_layan_wrong.mp4",
+        "sourceBytes":  10049841,
+        "outputBytes":  276990,
+        "sourceSha256":  "FF022DC076BF821DAF6AFA577866557F03F4A421F023A0616A84352904BA7056"
+    },
+    {
+        "source":  "video_main2.mp4",
+        "output":  "android/app/src/main/res/raw/video_rashid.mp4",
+        "sourceBytes":  9849073,
+        "outputBytes":  267833,
+        "sourceSha256":  "8F2529CEC54A5723E2B0E7171B1406ED2F49724963E05AD87450B02041C8A1F7"
+    },
+    {
+        "source":  "video_main2_correct.mp4",
+        "output":  "android/app/src/main/res/raw/video_rashid_correct.mp4",
+        "sourceBytes":  10083287,
+        "outputBytes":  266347,
+        "sourceSha256":  "FD9BB2292A80ED8FE332CCE778189B6A3B8A57FCC387972F853565C49AB70B2A"
+    },
+    {
+        "source":  "video_main2_wrong.mp4",
+        "output":  "android/app/src/main/res/raw/video_rashid_wrong.mp4",
+        "sourceBytes":  10050149,
+        "outputBytes":  197769,
+        "sourceSha256":  "C315FEC9CAA090151BFEB6605751B6A97C4E05F051F847C59B04236F9AC0CD61"
+    },
+    {
+        "source":  "video_main4.mp4",
+        "output":  "android/app/src/main/res/raw/video_jana.mp4",
+        "sourceBytes":  10053098,
+        "outputBytes":  249538,
+        "sourceSha256":  "1EEA2509F6004107452349ABAEF8BE17305D7AF13FFA272CE1DC5D213E6C3B99"
+    },
+    {
+        "source":  "video_main4_correct.mp4",
+        "output":  "android/app/src/main/res/raw/video_jana_correct.mp4",
+        "sourceBytes":  9395523,
+        "outputBytes":  229576,
+        "sourceSha256":  "D921C0C20B1378F7A0AEE80B050FC74FA69C48CEE26AEB78320E0E42A41CF5A4"
+    },
+    {
+        "source":  "video_main4_wrong.mp4",
+        "output":  "android/app/src/main/res/raw/video_jana_wrong.mp4",
+        "sourceBytes":  9483230,
+        "outputBytes":  193071,
+        "sourceSha256":  "35079491C458DD714BECE013140E384C98005B8B053CC3DC8424E5FD9FAB5462"
+    },
+    {
+        "source":  "video_main5.mp4",
+        "output":  "android/app/src/main/res/raw/video_yazan.mp4",
+        "sourceBytes":  10058618,
+        "outputBytes":  307651,
+        "sourceSha256":  "11269A9154B8467DC8DFAD2F0BC82C78695737569AE69E3D675A7C3D1F70B405"
+    },
+    {
+        "source":  "video_main5_correct.mp4",
+        "output":  "android/app/src/main/res/raw/video_yazan_correct.mp4",
+        "sourceBytes":  9546505,
+        "outputBytes":  349069,
+        "sourceSha256":  "975881841FA38E4B9A46BFD29DDAB64EAE8668EE6275F26D9CD0052FCB8C17DA"
+    },
+    {
+        "source":  "video_main5_wrong.mp4",
+        "output":  "android/app/src/main/res/raw/video_yazan_wrong.mp4",
+        "sourceBytes":  9998260,
+        "outputBytes":  274532,
+        "sourceSha256":  "92A194B3594EF7CFAC463CBB4BEB18C8CF02CE52D8AADFC2B1301DB1C500AF0E"
+    },
+    {
+        "source":  "video_main7.mp4",
+        "output":  "android/app/src/main/res/raw/video_nour.mp4",
+        "sourceBytes":  10041138,
+        "outputBytes":  369777,
+        "sourceSha256":  "49C4C808B95ACC28A9EEBD80562532238E73E51B4E51222AE1568ED449E3FAEC"
+    },
+    {
+        "source":  "video_main7_correct.mp4",
+        "output":  "android/app/src/main/res/raw/video_nour_correct.mp4",
+        "sourceBytes":  10047058,
+        "outputBytes":  299988,
+        "sourceSha256":  "B7A1894E31FD7B6E9E1A6444EC2E690A10DB263E8795EA9F14E47726F1C5E689"
+    },
+    {
+        "source":  "video_main7_wrong.mp4",
+        "output":  "android/app/src/main/res/raw/video_nour_wrong.mp4",
+        "sourceBytes":  10034289,
+        "outputBytes":  265101,
+        "sourceSha256":  "EF6D159124963D78EE370314256F0656A3665F6BF065E0542D1919C3B7321372"
+    },
+    {
+        "source":  "video_main8.mp4",
+        "output":  "android/app/src/main/res/raw/video_zaid.mp4",
+        "sourceBytes":  9913520,
+        "outputBytes":  204462,
+        "sourceSha256":  "4C3D6F93F70C9FD3596FB66781DCC20C945CB93F38C97528A650CBF8D2E21CE4"
+    },
+    {
+        "source":  "video_main8_correct.mp4",
+        "output":  "android/app/src/main/res/raw/video_zaid_correct.mp4",
+        "sourceBytes":  10009623,
+        "outputBytes":  242367,
+        "sourceSha256":  "095AF8F8C39056E7BAFD21BB6D8B9F4C232566672CFAC7632BBF7CB87A2BC08C"
+    },
+    {
+        "source":  "video_main8_wrong.mp4",
+        "output":  "android/app/src/main/res/raw/video_zaid_wrong.mp4",
+        "sourceBytes":  9876520,
+        "outputBytes":  232179,
+        "sourceSha256":  "2B2E4A75BF7C3B20169DE6690BF8FCC318F0C53F8BA584CFF853018128318F01"
+    },
+    {
+        "source":  "video_main10.mp4",
+        "output":  "android/app/src/main/res/raw/video_salman.mp4",
+        "sourceBytes":  9932910,
+        "outputBytes":  335905,
+        "sourceSha256":  "63F61A880E3F537D911BDDBFDCC16B3880D3B29DAA3840153B87BA23DC5B78E5"
+    },
+    {
+        "source":  "video_main10_correct.mp4",
+        "output":  "android/app/src/main/res/raw/video_salman_correct.mp4",
+        "sourceBytes":  9691644,
+        "outputBytes":  353739,
+        "sourceSha256":  "FAC003AA2E3FDBDFC2E02123A5697F8FE4E25455DBB1700E8D2A9843DB36976E"
+    },
+    {
+        "source":  "video_main10_wrong.mp4",
+        "output":  "android/app/src/main/res/raw/video_salman_wrong.mp4",
+        "sourceBytes":  10038680,
+        "outputBytes":  346140,
+        "sourceSha256":  "39AF96822D8DC3DB3F75C442A4FF87C1B554E8D529C8B29B68D95CC79B0B3193"
+    },
+    {
+        "source":  "video_main12.mp4",
+        "output":  "android/app/src/main/res/raw/video_adam.mp4",
+        "sourceBytes":  10010093,
+        "outputBytes":  240089,
+        "sourceSha256":  "D67B64E0D8BEFD677377BB26207622E1C783844DD6DEE003FEEC9677B64E5437"
+    },
+    {
+        "source":  "video_main12_correct.mp4",
+        "output":  "android/app/src/main/res/raw/video_adam_correct.mp4",
+        "sourceBytes":  10010093,
+        "outputBytes":  240089,
+        "sourceSha256":  "4D9DAE021008B3F839DA96EE2C714AA42F9E48C9D47CB8CE8D7E8A5C7E9DD9A4"
+    },
+    {
+        "source":  "video_main12_wrong.mp4",
+        "output":  "android/app/src/main/res/raw/video_adam_wrong.mp4",
+        "sourceBytes":  10035319,
+        "outputBytes":  230915,
+        "sourceSha256":  "A96B3B4490D32D0AF0D2EFE54CA5ED4B816BD7AFE2F4917B2ED9369E8DA18D85"
+    }
+]

@@ -2,15 +2,74 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
 import '../models/social_player_activity.dart';
+import 'native_bridge_service.dart';
 
 /// Shared social protocol. Membership, deadlines and transitions are also
 /// enforced by Firestore rules; UI state is never the authority.
 class SocialService {
-  SocialService({FirebaseFirestore? firestore, DateTime Function()? clock})
+  SocialService(
+      {FirebaseFirestore? firestore,
+      DateTime Function()? clock,
+      NativeBridgeService? nativeBridge})
       : db = firestore ?? FirebaseFirestore.instance,
-        _clock = clock;
+        _clock = clock,
+        _nativeBridge = nativeBridge;
   final FirebaseFirestore db;
   final DateTime Function()? _clock;
+  final NativeBridgeService? _nativeBridge;
+  static const stakeAmounts = <int>[50, 100, 250, 500, 1000, 2500, 5000];
+
+  static int stakeCoins(Map<String, dynamic> data) =>
+      data['serverStake'] == true && data['stakeCoins'] is num
+          ? (data['stakeCoins'] as num).toInt()
+          : 0;
+
+  static String stakeDescription(Map<String, dynamic> data) {
+    final amount = stakeCoins(data);
+    return amount > 0
+        ? 'الدخول: $amount قطعة لكل لاعب • الجائزة: ${amount * 2} قطعة • دون مفتاح'
+        : '';
+  }
+
+  Future<void> _stakeRequest(Map<String, dynamic> data) async {
+    try {
+      await (_nativeBridge ?? NativeBridgeService()).friendStakes({
+        ...data,
+        'operationId': db.collection('social_challenges').doc().id,
+      });
+    } on EconomyOperationException catch (error) {
+      throw SocialException(error.message);
+    }
+  }
+
+  Future<void> sendStakedChallenge(String uid, String peer, int amount) async {
+    pairId(uid, peer);
+    if (!stakeAmounts.contains(amount)) {
+      throw const SocialException('اختر مبلغًا متاحًا لتحدي القطع.');
+    }
+    await _stakeRequest({
+      'action': 'invite',
+      'peerUid': peer,
+      'stakeCoins': amount,
+      'gameplayVersion': 2,
+    });
+  }
+
+  Future<void> respondStakedChallenge(String id, String status,
+      {required int expectedAmount}) async {
+    if (!stakeAmounts.contains(expectedAmount) ||
+        !['accepted', 'declined', 'cancelled'].contains(status)) {
+      throw const SocialException('هذا الإجراء غير متاح لتحدي القطع.');
+    }
+    await _stakeRequest({
+      'action': 'respond',
+      'challengeId': id,
+      'status': status,
+      'expectedAmount': expectedAmount,
+      'gameplayVersion': 2,
+    });
+  }
+
   DateTime? _serverAnchor;
   final _elapsed = Stopwatch();
   Future<void>? _clockSync;
@@ -327,6 +386,9 @@ class SocialService {
       final now = this.now;
       if (data == null || !(data['members'] as List).contains(uid)) {
         throw const SocialException('الطلب غير موجود.');
+      }
+      if (challenge && data['serverStake'] == true) {
+        throw const SocialException('يجب تحديث تحدي القطع عبر الخادم.');
       }
       if (status != 'removed' && !pending(data, now)) {
         throw const SocialException('انتهت صلاحية الطلب.');

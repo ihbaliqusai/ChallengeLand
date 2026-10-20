@@ -10,9 +10,14 @@ import '../services/native_bridge_service.dart';
 
 /// Displays the chosen contestant using the native game's existing idle loop.
 class HomeCharacterArtwork extends StatefulWidget {
-  const HomeCharacterArtwork({super.key, required this.character});
+  const HomeCharacterArtwork({
+    super.key,
+    required this.character,
+    this.onTap,
+  });
 
   final GameCharacter character;
+  final VoidCallback? onTap;
 
   @override
   State<HomeCharacterArtwork> createState() => _HomeCharacterArtworkState();
@@ -40,35 +45,55 @@ class _HomeCharacterArtworkState extends State<HomeCharacterArtwork> {
   }
 
   @override
-  Widget build(BuildContext context) => Semantics(
-        image: true,
-        label: 'الشخصية المختارة: ${widget.character.nameAr}',
-        excludeSemantics: true,
-        child: _withAnimation(FutureBuilder<Uint8List?>(
-          key: ValueKey(widget.character.index),
-          future: _artwork,
-          builder: (context, snapshot) {
-            final bytes = snapshot.data;
-            // The roster asset is only a face portrait. Stretching it into the
-            // hero area causes a large face to flash before the native art loads.
-            const placeholder =
-                SizedBox.expand(key: ValueKey('home-character-placeholder'));
-            if (bytes == null) return placeholder;
-            return LayoutBuilder(builder: (context, area) {
-              final decodeHeight =
-                  (area.maxHeight * MediaQuery.devicePixelRatioOf(context))
-                      .ceil()
-                      .clamp(1, 2390);
-              return Image.memory(bytes,
-                  key: ValueKey('home-character-${widget.character.id}'),
-                  fit: BoxFit.contain,
-                  cacheHeight: decodeHeight,
-                  excludeFromSemantics: true,
-                  errorBuilder: (_, __, ___) => placeholder);
-            });
+  Widget build(BuildContext context) {
+    Widget content = Semantics(
+      image: true,
+      button: widget.onTap != null,
+      label: 'الشخصية المختارة: ${widget.character.nameAr}',
+      hint: widget.onTap != null ? 'اضغط لتغيير واستعراض الشخصية' : null,
+      excludeSemantics: true,
+      child: _withAnimation(FutureBuilder<Uint8List?>(
+        key: ValueKey(widget.character.index),
+        future: _artwork,
+        builder: (context, snapshot) {
+          final bytes = snapshot.data;
+          // The roster asset is only a face portrait. Stretching it into the
+          // hero area causes a large face to flash before the native art loads.
+          const placeholder =
+              SizedBox.expand(key: ValueKey('home-character-placeholder'));
+          if (bytes == null) return placeholder;
+          return LayoutBuilder(builder: (context, area) {
+            final decodeHeight =
+                (area.maxHeight * MediaQuery.devicePixelRatioOf(context))
+                    .ceil()
+                    .clamp(1, 2390);
+            return Image.memory(bytes,
+                key: ValueKey('home-character-${widget.character.id}'),
+                fit: BoxFit.contain,
+                cacheHeight: decodeHeight,
+                excludeFromSemantics: true,
+                errorBuilder: (_, __, ___) => placeholder);
+          });
+        },
+      )),
+    );
+
+    if (widget.onTap != null) {
+      content = MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            HapticFeedback.selectionClick();
+            widget.onTap!();
           },
-        )),
+          child: content,
+        ),
       );
+    }
+
+    return content;
+  }
 
   Widget _withAnimation(Widget fallback) {
     if (!context.read<NativeBridgeService>().supportsAnimatedCharacters ||

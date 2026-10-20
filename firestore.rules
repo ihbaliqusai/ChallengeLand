@@ -382,7 +382,18 @@ service cloud.firestore {
     }
 
     match /users/{uid} {
-      allow read, create, update, delete: if isOwner(uid);
+      allow read: if isOwner(uid);
+      // The existing game economy retains its own reward paths. A held friend
+      // stake cannot be overwritten by a stale client wallet snapshot, and its
+      // revision/lock markers are exclusively owned by the settlement server.
+      allow create: if isOwner(uid) &&
+        request.resource.data.get('friendStakeRevision', 0) == 0 &&
+        request.resource.data.get('friendStakeMatchId', '') == '';
+      allow update: if isOwner(uid) &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['friendStakeRevision', 'friendStakeMatchId']) &&
+        (resource.data.get('friendStakeMatchId', '') == '' ||
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['coins']));
+      allow delete: if isOwner(uid) && resource.data.get('friendStakeMatchId', '') == '';
 
       match /progressionDevices/{deviceId} {
         allow read, delete: if isOwner(uid);
@@ -563,21 +574,31 @@ service cloud.firestore {
     }
     match /social_challenges/{id} {
       allow get: if socialSignedIn() && (!exists(/databases/$(database)/documents/social_challenges/$(id)) || socialMember(resource.data));
-      allow list, delete: if socialMember(resource.data);
+      allow list: if socialMember(resource.data);
+      allow delete: if socialMember(resource.data) && resource.data.get('serverStake', false) == false;
       allow create: if socialEnvelope(id, true);
-      allow update: if socialTransition(true) ||
-        ((resource.data.status != 'pending' || resource.data.expiresAt <= request.time) &&
+      allow update: if (resource.data.get('serverStake', false) == false && socialTransition(true)) ||
+        (socialChallengeEnded(resource.data) &&
+          (resource.data.status != 'pending' || resource.data.expiresAt <= request.time) &&
           resource.data.updatedAt <= request.time - duration.value(30, 's') && socialEnvelope(id, true));
+    }
+    function socialChallengeEnded(d) {
+      let matchPath = /databases/$(database)/documents/friend_stake_views/$(d.get('stakeMatchId', '_'));
+      return d.get('serverStake', false) == false ||
+        (d.status != 'accepted' && (d.status != 'pending' || d.expiresAt <= request.time)) ||
+        (d.status == 'accepted' && exists(matchPath) && get(matchPath).data.status == 'settled');
     }
     match /social_reservations/{uid} {
       allow get: if socialSignedIn();
       allow delete: if socialOwner(uid) &&
+        resource.data.get('serverStake', false) == false &&
         (!exists(/databases/$(database)/documents/social_reservations/$(uid)) ||
           resource.data.expiresAt <= request.time ||
           !existsAfter(/databases/$(database)/documents/users/$(uid)) ||
           (get(/databases/$(database)/documents/player_presence/$(uid)).data.state in ['in_match', 'away'] &&
             getAfter(/databases/$(database)/documents/player_presence/$(uid)).data.state == 'available'));
       allow create, update: if socialSignedIn() && socialFree(uid) &&
+        (!exists(/databases/$(database)/documents/social_reservations/$(uid)) || resource.data.get('serverStake', false) == false || resource.data.get('settled', false) == true) &&
         request.resource.data.keys().hasOnly(['challengeId', 'acceptedAt', 'expiresAt']) &&
         request.resource.data.acceptedAt == request.time && request.resource.data.expiresAt is timestamp &&
         request.resource.data.expiresAt > request.time + duration.value(110, 's') &&
@@ -586,8 +607,28 @@ service cloud.firestore {
     }
     function socialReservationFor(uid, id) {
       let d = getAfter(/databases/$(database)/documents/social_challenges/$(id)).data;
-      return d.status == 'accepted' && d.acceptedAt == request.time &&
+      return d.get('serverStake', false) == false && d.status == 'accepted' && d.acceptedAt == request.time &&
         request.auth.uid == d.toUid && uid in d.members;
+    }
+
+    // Paid friend games have a separate server authority. No RTDB board,
+    // client score, invitation mutation or report can settle a pot.
+    match /friend_stake_matches/{matchId} {
+      allow read, write: if false;
+    }
+    match /friend_stake_escrows/{matchId} {
+      allow read, write: if false;
+    }
+    match /friend_stake_views/{matchId} {
+      allow read: if socialSignedIn() && request.auth.uid in resource.data.members;
+      allow write: if false;
+    }
+    match /friend_stake_locks/{uid} {
+      allow read: if socialOwner(uid);
+      allow write: if false;
+    }
+    match /friend_stake_operations/{uid}/items/{operationId} {
+      allow read, write: if false;
     }
 
     match /public_profiles/{uid} {

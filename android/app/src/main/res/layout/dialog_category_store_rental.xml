@@ -1,0 +1,712 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_gravity="center"
+    android:paddingTop="34dp">
+
+    <!-- Main Card Body -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/bg_category_rental_dialog"
+        android:orientation="vertical"
+        android:paddingStart="16dp"
+        android:paddingTop="38dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="16dp">
+
+        <ScrollView
+            android:id="@+id/scrollRentalContent"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:overScrollMode="never"
+            android:scrollbars="vertical">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <!-- Dialog Title -->
+                <TextView
+                    android:id="@+id/txtRentalTitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="@font/baloo"
+                    android:gravity="center"
+                    android:includeFontPadding="false"
+                    android:text="استئجار التصنيف"
+                    android:textColor="#FFD54F"
+                    android:textSize="21sp"
+                    android:textStyle="bold" />
+
+                <!-- Category Name Chip -->
+                <LinearLayout
+                    android:id="@+id/llCategoryChip"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/bg_category_chip"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingStart="14dp"
+                    android:paddingTop="5dp"
+                    android:paddingEnd="14dp"
+                    android:paddingBottom="5dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="🏷️"
+                        android:textSize="14sp" />
+
+                    <TextView
+                        android:id="@+id/txtCategoryChipName"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="6dp"
+                        android:fontFamily="@font/baloo"
+                        android:includeFontPadding="false"
+                        android:text="معلومات عامة"
+                        android:textColor="#FFFFFF"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <!-- Subtitle Guidance -->
+                <TextView
+                    android:id="@+id/txtRentalSubtitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:fontFamily="@font/baloo"
+                    android:gravity="center"
+                    android:includeFontPadding="false"
+                    android:lineSpacingExtra="2dp"
+                    android:text="اختر المدة المناسبة للاستمتاع بالتصنيف في كافة التحديات والمباريات:"
+                    android:textColor="#94A3B8"
+                    android:textSize="11.5sp" />
+
+                <!-- Active Rental Hours Pill (if already active) -->
+                <LinearLayout
+                    android:id="@+id/llActiveRental"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginTop="10dp"
+                    android:background="@drawable/bg_category_rental_active"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingStart="12dp"
+                    android:paddingTop="6dp"
+                    android:paddingEnd="12dp"
+                    android:paddingBottom="6dp"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="⏱️"
+                        android:textSize="13sp" />
+
+                    <TextView
+                        android:id="@+id/txtActiveRentalText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="6dp"
+                        android:fontFamily="@font/baloo"
+                        android:includeFontPadding="false"
+                        android:text="الاستئجار الحالي: 24 ساعة متبقية • الاستئجار الجديد يمدد رصيدك"
+                        android:textColor="#FFD54F"
+                        android:textSize="11sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <!-- Match Access: Ticket Option Card -->
+                <LinearLayout
+                    android:id="@+id/llTicketCard"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:background="@drawable/bg_category_card_ticket"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:padding="10dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="🎟️"
+                        android:textSize="20sp" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="10dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="@font/baloo"
+                            android:includeFontPadding="false"
+                            android:text="تذكرة لمباراة واحدة"
+                            android:textColor="#FFFFFF"
+                            android:textSize="13.5sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/txtTicketBalance"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="1dp"
+                            android:fontFamily="@font/baloo"
+                            android:includeFontPadding="false"
+                            android:text="رصيدك: 8 تذاكر"
+                            android:textColor="#A7F3D0"
+                            android:textSize="11sp" />
+                    </LinearLayout>
+
+                    <Button
+                        android:id="@+id/btnUseTicket"
+                        android:layout_width="wrap_content"
+                        android:layout_height="36dp"
+                        android:background="@drawable/btn_ticket_action"
+                        android:fontFamily="@font/baloo"
+                        android:includeFontPadding="false"
+                        android:paddingStart="14dp"
+                        android:paddingEnd="14dp"
+                        android:stateListAnimator="@null"
+                        android:text="استخدام تذكرة"
+                        android:textColor="#FFFFFF"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <!-- Match Access: Rewarded Ad Card -->
+                <LinearLayout
+                    android:id="@+id/llAdCard"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/bg_category_card_ad"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:padding="10dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="🎬"
+                        android:textSize="20sp" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="10dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="@font/baloo"
+                            android:includeFontPadding="false"
+                            android:text="إعلان • مباراة واحدة"
+                            android:textColor="#FFFFFF"
+                            android:textSize="13.5sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="1dp"
+                            android:fontFamily="@font/baloo"
+                            android:includeFontPadding="false"
+                            android:text="شاهد إعلاناً لفتح الفئة للمباراة الحالية مجاناً"
+                            android:textColor="#BAE6FD"
+                            android:textSize="11sp" />
+                    </LinearLayout>
+
+                    <Button
+                        android:id="@+id/btnWatchAd"
+                        android:layout_width="wrap_content"
+                        android:layout_height="36dp"
+                        android:background="@drawable/btn_ad_action"
+                        android:fontFamily="@font/baloo"
+                        android:includeFontPadding="false"
+                        android:paddingStart="12dp"
+                        android:paddingEnd="12dp"
+                        android:stateListAnimator="@null"
+                        android:text="مشاهدة إعلان 🎥"
+                        android:textColor="#FFFFFF"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <!-- Rental Voucher Card (if player holds vouchers) -->
+                <LinearLayout
+                    android:id="@+id/llRentalVoucherCard"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/bg_category_card_voucher"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:padding="10dp"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="🎟️"
+                        android:textSize="20sp" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="10dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="@font/baloo"
+                            android:includeFontPadding="false"
+                            android:text="قسيمة استئجار أسبوعية"
+                            android:textColor="#FFD54F"
+                            android:textSize="13.5sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/txtRentalVoucherSubtitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="1dp"
+                            android:fontFamily="@font/baloo"
+                            android:includeFontPadding="false"
+                            android:text="استئجار أسبوع (7 أيام) مجاناً بواسطة القسيمة"
+                            android:textColor="#FEF08A"
+                            android:textSize="11sp" />
+                    </LinearLayout>
+
+                    <Button
+                        android:id="@+id/btnUseRentalVoucher"
+                        android:layout_width="wrap_content"
+                        android:layout_height="36dp"
+                        android:background="@drawable/btn_voucher_action"
+                        android:fontFamily="@font/baloo"
+                        android:includeFontPadding="false"
+                        android:paddingStart="12dp"
+                        android:paddingEnd="12dp"
+                        android:stateListAnimator="@null"
+                        android:text="استخدام القسيمة"
+                        android:textColor="#451A03"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <!-- Offer 1: Day (24 Hours) -->
+                <LinearLayout
+                    android:id="@+id/llCardDay"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:background="@drawable/bg_category_card_day"
+                    android:orientation="vertical"
+                    android:padding="12dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="📅"
+                            android:textSize="16sp" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:fontFamily="@font/baloo"
+                            android:includeFontPadding="false"
+                            android:text="يوم واحد (24 ساعة)"
+                            android:textColor="#FFFFFF"
+                            android:textSize="14sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:orientation="horizontal">
+
+                        <Button
+                            android:id="@+id/btnDayCoins"
+                            android:layout_width="0dp"
+                            android:layout_height="40dp"
+                            android:layout_marginEnd="5dp"
+                            android:layout_weight="1"
+                            android:background="@drawable/btn_rental_coins"
+                            android:fontFamily="@font/baloo"
+                            android:includeFontPadding="false"
+                            android:stateListAnimator="@null"
+                            android:text="🪙 1500 قطعة"
+                            android:textColor="#FFD54F"
+                            android:textSize="13.5sp"
+                            android:textStyle="bold" />
+
+                        <Button
+                            android:id="@+id/btnDayGems"
+                            android:layout_width="0dp"
+                            android:layout_height="40dp"
+                            android:layout_marginStart="5dp"
+                            android:layout_weight="1"
+                            android:background="@drawable/btn_rental_gems"
+                            android:fontFamily="@font/baloo"
+                            android:includeFontPadding="false"
+                            android:stateListAnimator="@null"
+                            android:text="💎 15 جوهرة"
+                            android:textColor="#38BDF8"
+                            android:textSize="13.5sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- Offer 2: Week (7 Days) - Most Popular -->
+                <LinearLayout
+                    android:id="@+id/llCardWeek"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:background="@drawable/bg_category_card_week"
+                    android:orientation="vertical"
+                    android:padding="12dp">
+
+                    <RelativeLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content">
+
+                        <LinearLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_alignParentStart="true"
+                            android:layout_centerVertical="true"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="⚡"
+                                android:textSize="16sp" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="8dp"
+                                android:fontFamily="@font/baloo"
+                                android:includeFontPadding="false"
+                                android:text="أسبوع (7 أيام)"
+                                android:textColor="#FFFFFF"
+                                android:textSize="14sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_alignParentEnd="true"
+                            android:layout_centerVertical="true"
+                            android:background="@drawable/bg_category_badge_gold"
+                            android:fontFamily="@font/baloo"
+                            android:includeFontPadding="false"
+                            android:paddingStart="8dp"
+                            android:paddingTop="3dp"
+                            android:paddingEnd="8dp"
+                            android:paddingBottom="3dp"
+                            android:text="الأكثر طلباً ⭐"
+                            android:textColor="#FFD54F"
+                            android:textSize="10.5sp"
+                            android:textStyle="bold" />
+                    </RelativeLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:orientation="horizontal">
+
+                        <Button
+                            android:id="@+id/btnWeekCoins"
+                            android:layout_width="0dp"
+                            android:layout_height="40dp"
+                            android:layout_marginEnd="5dp"
+                            android:layout_weight="1"
+                            android:background="@drawable/btn_rental_coins"
+                            android:fontFamily="@font/baloo"
+                            android:includeFontPadding="false"
+                            android:stateListAnimator="@null"
+                            android:text="🪙 4500 قطعة"
+                            android:textColor="#FFD54F"
+                            android:textSize="13.5sp"
+                            android:textStyle="bold" />
+
+                        <Button
+                            android:id="@+id/btnWeekGems"
+                            android:layout_width="0dp"
+                            android:layout_height="40dp"
+                            android:layout_marginStart="5dp"
+                            android:layout_weight="1"
+                            android:background="@drawable/btn_rental_gems"
+                            android:fontFamily="@font/baloo"
+                            android:includeFontPadding="false"
+                            android:stateListAnimator="@null"
+                            android:text="💎 45 جوهرة"
+                            android:textColor="#38BDF8"
+                            android:textSize="13.5sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- Offer 3: Month (30 Days) - Best Value -->
+                <LinearLayout
+                    android:id="@+id/llCardMonth"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:background="@drawable/bg_category_card_month"
+                    android:orientation="vertical"
+                    android:padding="12dp">
+
+                    <RelativeLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content">
+
+                        <LinearLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_alignParentStart="true"
+                            android:layout_centerVertical="true"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="👑"
+                                android:textSize="16sp" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="8dp"
+                                android:fontFamily="@font/baloo"
+                                android:includeFontPadding="false"
+                                android:text="شهر (30 يوماً)"
+                                android:textColor="#FFFFFF"
+                                android:textSize="14sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_alignParentEnd="true"
+                            android:layout_centerVertical="true"
+                            android:background="@drawable/bg_category_badge_purple"
+                            android:fontFamily="@font/baloo"
+                            android:includeFontPadding="false"
+                            android:paddingStart="8dp"
+                            android:paddingTop="3dp"
+                            android:paddingEnd="8dp"
+                            android:paddingBottom="3dp"
+                            android:text="أفضل توفير 💎"
+                            android:textColor="#C084FC"
+                            android:textSize="10.5sp"
+                            android:textStyle="bold" />
+                    </RelativeLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:orientation="horizontal">
+
+                        <Button
+                            android:id="@+id/btnMonthCoins"
+                            android:layout_width="0dp"
+                            android:layout_height="40dp"
+                            android:layout_marginEnd="5dp"
+                            android:layout_weight="1"
+                            android:background="@drawable/btn_rental_coins"
+                            android:fontFamily="@font/baloo"
+                            android:includeFontPadding="false"
+                            android:stateListAnimator="@null"
+                            android:text="🪙 9000 قطعة"
+                            android:textColor="#FFD54F"
+                            android:textSize="13.5sp"
+                            android:textStyle="bold" />
+
+                        <Button
+                            android:id="@+id/btnMonthGems"
+                            android:layout_width="0dp"
+                            android:layout_height="40dp"
+                            android:layout_marginStart="5dp"
+                            android:layout_weight="1"
+                            android:background="@drawable/btn_rental_gems"
+                            android:fontFamily="@font/baloo"
+                            android:includeFontPadding="false"
+                            android:stateListAnimator="@null"
+                            android:text="💎 90 جوهرة"
+                            android:textColor="#38BDF8"
+                            android:textSize="13.5sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- Permanent Ownership Card -->
+                <LinearLayout
+                    android:id="@+id/llCardPermanent"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:background="@drawable/bg_category_card_permanent"
+                    android:orientation="vertical"
+                    android:padding="12dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="👑"
+                            android:textSize="16sp" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:fontFamily="@font/baloo"
+                            android:includeFontPadding="false"
+                            android:text="امتلاك دائم للأبد"
+                            android:textColor="#FCD34D"
+                            android:textSize="14sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:fontFamily="@font/baloo"
+                        android:includeFontPadding="false"
+                        android:text="فتح دائم للتصنيف على حسابك بدون أي قيود أو اشتراك"
+                        android:textColor="#FEF08A"
+                        android:textSize="11sp" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:orientation="horizontal">
+
+                        <Button
+                            android:id="@+id/btnOwnGems"
+                            android:layout_width="0dp"
+                            android:layout_height="40dp"
+                            android:layout_weight="1"
+                            android:background="@drawable/btn_rental_coins"
+                            android:fontFamily="@font/baloo"
+                            android:includeFontPadding="false"
+                            android:stateListAnimator="@null"
+                            android:text="شراء دائم • 150 💎 جوهرة"
+                            android:textColor="#FFD54F"
+                            android:textSize="13sp"
+                            android:textStyle="bold" />
+
+                        <Button
+                            android:id="@+id/btnOwnVoucher"
+                            android:layout_width="0dp"
+                            android:layout_height="40dp"
+                            android:layout_marginStart="8dp"
+                            android:layout_weight="1"
+                            android:background="@drawable/btn_voucher_action"
+                            android:fontFamily="@font/baloo"
+                            android:includeFontPadding="false"
+                            android:stateListAnimator="@null"
+                            android:text="قسيمة امتلاك دائم"
+                            android:textColor="#451A03"
+                            android:textSize="13sp"
+                            android:textStyle="bold"
+                            android:visibility="gone" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- Footer Note -->
+                <TextView
+                    android:id="@+id/txtFooterNote"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:fontFamily="@font/baloo"
+                    android:gravity="center"
+                    android:includeFontPadding="false"
+                    android:text="✓ يفتح التصنيف فوراً لجميع المباريات والمنافسات مع إمكانية التمديد في أي وقت."
+                    android:textColor="#94A3B8"
+                    android:textSize="10.5sp" />
+
+            </LinearLayout>
+        </ScrollView>
+    </LinearLayout>
+
+    <!-- Top Floating Artwork Avatar (Centered & Overlapping Top Edge) -->
+    <FrameLayout
+        android:id="@+id/flCategoryAvatar"
+        android:layout_width="68dp"
+        android:layout_height="68dp"
+        android:layout_gravity="top|center_horizontal"
+        android:background="@drawable/bg_category_rental_avatar"
+        android:elevation="6dp"
+        android:padding="8dp">
+
+        <ImageView
+            android:id="@+id/imgCategoryArtwork"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:contentDescription="Category Artwork"
+            android:scaleType="fitCenter" />
+    </FrameLayout>
+
+    <!-- Close Button (Top Corner) -->
+    <TextView
+        android:id="@+id/btnCloseRentalDialog"
+        android:layout_width="34dp"
+        android:layout_height="34dp"
+        android:layout_gravity="top|end"
+        android:layout_marginTop="42dp"
+        android:layout_marginEnd="10dp"
+        android:background="@drawable/bg_category_rental_close"
+        android:clickable="true"
+        android:elevation="6dp"
+        android:focusable="true"
+        android:gravity="center"
+        android:text="✕"
+        android:textColor="#FFFFFF"
+        android:textSize="15sp"
+        android:textStyle="bold" />
+
+</FrameLayout>

@@ -327,6 +327,21 @@ public final class OnlineDuelStateTest {
         check(OnlineMatchmakingState.claim(queue, "alice", "bob", "cancelled-pair", now), "pair before cancel");
         OnlineDuelState.map(queue.get("alice")).put("status", "cancelled");
         check(!OnlineMatchmakingState.claim(queue, "bob", "alice", "resurrected", now), "cancelled matched pair stays cancelled");
+        queue.put("alice", waiting("", now));
+        queue.put("bob", waiting("", now));
+        OnlineDuelState.map(queue.get("alice")).put("stakeCoins", 50L);
+        check(!OnlineMatchmakingState.claim(queue, "alice", "bob", "paid-free", now), "paid search never matches old free client");
+        OnlineDuelState.map(queue.get("bob")).put("stakeCoins", 100L);
+        check(!OnlineMatchmakingState.claim(queue, "alice", "bob", "different-tier", now), "different stakes cannot match");
+        OnlineDuelState.map(queue.get("bob")).put("stakeCoins", 50L);
+        check(OnlineMatchmakingState.claim(queue, "alice", "bob", "same-tier", now), "equal stakes match atomically");
+        for (Object invalid : new Object[]{15L, 30L, -1L, 4294967346L, 50.5, "50"}) {
+            queue.put("alice", waiting("", now));
+            queue.put("bob", waiting("", now));
+            OnlineDuelState.map(queue.get("alice")).put("stakeCoins", invalid);
+            OnlineDuelState.map(queue.get("bob")).put("stakeCoins", invalid);
+            check(!OnlineMatchmakingState.claim(queue, "alice", "bob", "invalid-tier", now), "invalid stake cannot join queue");
+        }
         System.out.println("PASS: " + checks + " duel and matchmaking checks (150 complete matches)");
     }
 }

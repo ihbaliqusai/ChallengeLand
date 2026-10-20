@@ -26,6 +26,7 @@ const _purple = Color(0xFFE3ADFF);
 const _gold = storeGold;
 const _cyan = Color(0xFF74EEFF);
 const _green = Color(0xFF64F119);
+const _red = Color(0xFFFF5252);
 
 // These supplied banners include price artwork; cover that area with live billing
 // UI so a price baked into an image can never become the checkout price label.
@@ -92,11 +93,34 @@ class _StoreScreenState extends State<StoreScreen> {
   int _offerIndex = 0;
   InAppPurchaseService? _purchaseService;
   Timer? _refreshTimer;
+  Timer? _offerAutoPlayTimer;
   bool _busy = false;
   bool _onlyUnowned = false;
 
   bool get _arabic => context.read<AppSettings>().isArabic;
   String _tr(String ar, String en) => _arabic ? ar : en;
+
+  void _startOfferAutoPlay() {
+    _offerAutoPlayTimer?.cancel();
+    _offerAutoPlayTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (!mounted) return;
+      if (_section != _StoreSection.featured) return;
+      if (!_offerController.hasClients) return;
+      if (_busy || ModalRoute.of(context)?.isCurrent != true) return;
+      if (MediaQuery.of(context).disableAnimations) return;
+      if (_offerController.position.isScrollingNotifier.value) return;
+      final offersCount = StoreCatalog.products
+          .where((p) => p.kind == StoreProductKind.bundle)
+          .length;
+      if (offersCount <= 1) return;
+      final next = (_offerIndex + 1) % offersCount;
+      _offerController.animateToPage(
+        next,
+        duration: const Duration(milliseconds: 600),
+        curve: Curves.easeInOutCubic,
+      );
+    });
+  }
 
   @override
   void initState() {
@@ -118,12 +142,16 @@ class _StoreScreenState extends State<StoreScreen> {
     _refreshTimer = Timer.periodic(const Duration(minutes: 1), (_) {
       if (mounted) setState(() {});
     });
+    if (_section == _StoreSection.featured) {
+      _startOfferAutoPlay();
+    }
   }
 
   @override
   void dispose() {
     _purchaseService?.removeDeliveryListener(_onDelivered);
     _refreshTimer?.cancel();
+    _offerAutoPlayTimer?.cancel();
     _scrollController.dispose();
     _searchController.dispose();
     _offerController.dispose();
@@ -163,7 +191,9 @@ class _StoreScreenState extends State<StoreScreen> {
     _snack(_tr('تم تسليم مشترياتك وتحديث حسابك.',
         'Your purchase was delivered and your account updated.'));
     final product = StoreCatalog.byId(id);
-    if (product != null && (product.coins > 0 || product.gems > 0)) {
+    if (product != null &&
+        product.kind != StoreProductKind.subscription &&
+        (product.coins > 0 || product.gems > 0)) {
       showCurrencyRewardOverlay(context,
           coins: product.coins, gems: product.gems);
     }
@@ -174,6 +204,11 @@ class _StoreScreenState extends State<StoreScreen> {
     setState(() => _section = section);
     if (_scrollController.hasClients) _scrollController.jumpTo(0);
     unawaited(context.read<AppSettings>().playHaptic());
+    if (section == _StoreSection.featured) {
+      _startOfferAutoPlay();
+    } else {
+      _offerAutoPlayTimer?.cancel();
+    }
   }
 
   void _snack(String message, {bool error = false}) {
@@ -298,14 +333,25 @@ class _StoreScreenState extends State<StoreScreen> {
         icon: _icon(product),
         accent: _accent(product),
         body: [
-          if (product.coins > 0 || product.gems > 0)
-            _rewardSummary(product.coins, product.gems),
+          if (product.coins > 0 ||
+              product.gems > 0 ||
+              product.keys > 0 ||
+              product.tickets > 0 ||
+              product.hearts > 0)
+            _rewardSummary(product.coins, product.gems,
+                keys: product.keys,
+                tickets: product.tickets,
+                hearts: product.hearts),
           if (product.kind == StoreProductKind.categoryPass)
             _benefit(
                 Icons.lock_open_rounded,
                 _tr('فتح دائم لجميع الفئات المميزة الحالية',
                     'Permanent access to all current premium categories')),
           if (product.kind == StoreProductKind.subscription) ...[
+            _benefit(
+                Icons.card_giftcard_rounded,
+                _tr('حزمة مكافآت الانضمام: 100 جوهرة + 1000 قطعة + 3 مفاتيح وتذاكر وقلوب',
+                    'Welcome pack: 100 gems + 1,000 coins + 3 keys, tickets & hearts')),
             _benefit(
                 Icons.category_rounded,
                 _tr('جميع الفئات المميزة طوال صلاحية الاشتراك',
@@ -314,6 +360,10 @@ class _StoreScreenState extends State<StoreScreen> {
                 Icons.block_rounded,
                 _tr('بدون إعلانات إجبارية؛ إعلانات المكافآت اختيارية',
                     'No forced ads; reward ads remain optional')),
+            _benefit(
+                Icons.military_tech_rounded,
+                _tr('شارة العضوية المميزة VIP وهيبة الأبطال',
+                    'Prestige VIP badge and club status')),
           ],
           if (product.kind == StoreProductKind.resource) ...[
             _benefit(
@@ -382,18 +432,17 @@ class _StoreScreenState extends State<StoreScreen> {
                           decoration: BoxDecoration(
                               color: _muted.withValues(alpha: 0.45),
                               borderRadius: BorderRadius.circular(10)))),
-                  Row(children: [
-                    _iconTile(icon, accent, size: 46),
-                    const SizedBox(width: 14),
-                    Expanded(
-                        child: Text(title,
-                            style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w800,
-                                fontSize: 22)))
-                  ]),
+                  Center(child: _iconTile(icon, accent, size: 50)),
+                  const SizedBox(height: 12),
+                  Text(title,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 22)),
                   const SizedBox(height: 10),
                   Text(subtitle,
+                      textAlign: TextAlign.center,
                       style: const TextStyle(color: _muted, height: 1.6)),
                   const SizedBox(height: 20),
                   ...body,
@@ -404,10 +453,12 @@ class _StoreScreenState extends State<StoreScreen> {
                       accent: accent,
                       onPressed: () => Navigator.of(sheetContext).pop(true)),
                   const SizedBox(height: 6),
-                  TextButton(
-                      onPressed: () => Navigator.of(sheetContext).pop(false),
-                      child: Text(_tr('إلغاء', 'Cancel'),
-                          style: const TextStyle(color: _muted))),
+                  Center(
+                    child: TextButton(
+                        onPressed: () => Navigator.of(sheetContext).pop(false),
+                        child: Text(_tr('إلغاء', 'Cancel'),
+                            style: const TextStyle(color: _muted))),
+                  ),
                 ]),
           )),
         ),
@@ -503,8 +554,8 @@ class _StoreScreenState extends State<StoreScreen> {
         icon: isCoins ? Icons.monetization_on_rounded : Icons.diamond_rounded,
         accent: isCoins ? _gold : _cyan,
         body: [
-          _receiptRow(_tr('المبلغ المطلوب', 'Cost'),
-              '${_number(price)} $currencyName'),
+          _receiptRow(
+              _tr('المبلغ المطلوب', 'Cost'), '${_number(price)} $currencyName'),
           const SizedBox(height: 12),
           _receiptRow(
               _tr('المحتوى المستلم', 'Resources received'), grantSummary),
@@ -634,8 +685,10 @@ class _StoreScreenState extends State<StoreScreen> {
     final confirmed = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-                title: Text(category.name),
-                content: Text(description),
+                title: Center(
+                    child: Text(category.name, textAlign: TextAlign.center)),
+                content: Text(description, textAlign: TextAlign.center),
+                actionsAlignment: MainAxisAlignment.center,
                 actions: [
                   TextButton(
                       onPressed: () => Navigator.pop(ctx, false),
@@ -681,33 +734,246 @@ class _StoreScreenState extends State<StoreScreen> {
       };
     }
 
+    final remainingHours = app.getCategoryRemainingRentalHours(category.name);
+
     final choice = await showModalBottomSheet<Map<String, dynamic>>(
-        context: context,
-        isScrollControlled: true,
-        builder: (ctx) => SafeArea(
-                child: SingleChildScrollView(
-                    child: Column(mainAxisSize: MainAxisSize.min, children: [
-              ListTile(title: Text('استئجار ${category.name}')),
-              for (final entry in offers.entries)
-                for (final currency in ['coins', 'gems'])
-                  ListTile(
-                      title: Text(
-                          '${durationLabel(entry.key)} • ${(entry.value as Map)[currency]} ${currency == 'coins' ? _tr('قطعة', 'coins') : _tr('جوهرة', 'gems')}'),
-                      onTap: () => Navigator.pop(ctx, {
-                            'action': 'rent',
-                            'duration': entry.key,
-                            'currency': currency
-                          })),
-              if (app.economyWallet.rentalVouchers > 0)
-                ListTile(
-                    title: Text(_tr('قسيمة استئجار • أسبوع (7 أيام)',
-                        'Rental voucher • 1 week (7 days)')),
-                    onTap: () => Navigator.pop(ctx, {
-                          'action': 'rent',
-                          'duration': 'week',
-                          'currency': 'voucher'
-                        })),
-            ]))));
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: const Color(0xB8000000),
+      elevation: 0,
+      builder: (ctx) => SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 460),
+              child: Stack(
+                clipBehavior: Clip.none,
+                alignment: Alignment.topCenter,
+                children: [
+                  Container(
+                    margin: const EdgeInsets.only(top: 38),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(28),
+                      border: Border.all(
+                        color: const Color(0xFFFFD54F).withValues(alpha: 0.75),
+                        width: 1.8,
+                      ),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x40FFD54F),
+                          blurRadius: 24,
+                          spreadRadius: 1,
+                          offset: Offset(0, 4),
+                        ),
+                        BoxShadow(
+                          color: Color(0xE6000000),
+                          blurRadius: 32,
+                          spreadRadius: 8,
+                          offset: Offset(0, 12),
+                        ),
+                      ],
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Color(0xFF26105C),
+                          Color(0xFF180838),
+                          Color(0xFF0F0424),
+                        ],
+                      ),
+                    ),
+                    padding: const EdgeInsets.fromLTRB(18, 46, 18, 22),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        GameStoreText(
+                          _tr('استئجار التصنيف', 'Rent Category'),
+                          size: 23,
+                          color: const Color(0xFFFFD54F),
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: _cyan.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                                color: _cyan.withValues(alpha: 0.35)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.category_rounded,
+                                  color: _cyan, size: 16),
+                              const SizedBox(width: 6),
+                              Text(
+                                category.name,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          _tr(
+                            'اختر المدة المناسبة للاستمتاع بالتصنيف في كافة التحديات والمباريات:',
+                            'Select a duration to enjoy this category in all match modes:',
+                          ),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: _muted,
+                            fontSize: 11.5,
+                            height: 1.4,
+                          ),
+                        ),
+                        if (remainingHours > 0) ...[
+                          const SizedBox(height: 10),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: _gold.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                  color: _gold.withValues(alpha: 0.4)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.timer_outlined,
+                                    color: _gold, size: 16),
+                                const SizedBox(width: 6),
+                                Flexible(
+                                  child: Text(
+                                    _tr(
+                                      'الاستئجار الحالي: $remainingHours ساعة متبقية • الاستئجار الجديد يمدد رصيدك',
+                                      'Current rental: $remainingHours hours left • Extends existing duration',
+                                    ),
+                                    style: const TextStyle(
+                                        color: _gold,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        if (app.economyWallet.rentalVouchers > 0) ...[
+                          const SizedBox(height: 14),
+                          _buildRentalVoucherPill(
+                            ctx: ctx,
+                            durationText:
+                                _tr('أسبوع (7 أيام)', '1 week (7 days)'),
+                            titleText: _tr('قسيمة استئجار', 'Rental voucher'),
+                          ),
+                        ],
+                        const SizedBox(height: 14),
+                        for (final entry in offers.entries)
+                          _buildDurationRentalCard(
+                            ctx: ctx,
+                            durationKey: entry.key,
+                            durationText: durationLabel(entry.key),
+                            offerMap: entry.value as Map,
+                          ),
+                        const SizedBox(height: 8),
+                        Text(
+                          _tr(
+                            '✓ يفتح التصنيف فوراً لجميع المباريات والمنافسات مع إمكانية التمديد في أي وقت.',
+                            '✓ Unlocks immediately for all challenges with the ability to extend anytime.',
+                          ),
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: _muted.withValues(alpha: 0.8),
+                            fontSize: 10.5,
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Positioned(
+                    top: 0,
+                    child: Container(
+                      width: 74,
+                      height: 74,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Color(0xFF5B1FAF),
+                            Color(0xFF26105C),
+                          ],
+                        ),
+                        border: Border.all(
+                          color: const Color(0xFFFFD54F),
+                          width: 2.4,
+                        ),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x66FFD54F),
+                            blurRadius: 16,
+                            spreadRadius: 2,
+                          ),
+                        ],
+                      ),
+                      padding: const EdgeInsets.all(10),
+                      child: ClipOval(
+                        child: Image.asset(
+                          category.assetPath,
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, __, ___) => const Icon(
+                            Icons.timer_rounded,
+                            color: Color(0xFFFFD54F),
+                            size: 34,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 24,
+                    right: 8,
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(20),
+                        onTap: () => Navigator.of(ctx).pop(),
+                        child: Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white.withValues(alpha: 0.08),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.2),
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.close_rounded,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
     if (choice != null && mounted) {
       final duration = durationLabel(choice['duration'] as String);
       final price = choice['currency'] == 'voucher'
@@ -722,6 +988,338 @@ class _StoreScreenState extends State<StoreScreen> {
               'تم استئجار تصنيف «${category.name}» لمدة $duration.',
               '${category.name} is rented for $duration.'));
     }
+  }
+
+  Widget _buildDurationRentalCard({
+    required BuildContext ctx,
+    required String durationKey,
+    required String durationText,
+    required Map offerMap,
+  }) {
+    final hasCoins = offerMap.containsKey('coins');
+    final hasGems = offerMap.containsKey('gems');
+    final isWeek = durationKey == 'week';
+    final isMonth = durationKey == 'month';
+
+    final badgeText = isWeek
+        ? _tr('الأكثر طلباً ⭐', 'Popular ⭐')
+        : isMonth
+            ? _tr('أفضل توفير 💎', 'Best Value 💎')
+            : null;
+    final badgeColor = isWeek ? _gold : _cyan;
+
+    final durationIcon = isMonth
+        ? Icons.workspace_premium_rounded
+        : isWeek
+            ? Icons.bolt_rounded
+            : Icons.today_rounded;
+    final durationIconColor = isMonth
+        ? _purple
+        : isWeek
+            ? _gold
+            : _cyan;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        color: Colors.white.withValues(alpha: 0.04),
+        border: Border.all(
+          color: (isWeek
+                  ? _gold
+                  : isMonth
+                      ? _purple
+                      : Colors.white)
+              .withValues(alpha: 0.25),
+          width: 1.2,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(durationIcon, color: durationIconColor, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                durationText,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 14.5,
+                ),
+              ),
+              const Spacer(),
+              if (badgeText != null)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: badgeColor.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(8),
+                    border:
+                        Border.all(color: badgeColor.withValues(alpha: 0.45)),
+                  ),
+                  child: Text(
+                    badgeText,
+                    style: TextStyle(
+                      color: badgeColor,
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              if (hasCoins)
+                Expanded(
+                  child: _buildRentalOptionPill(
+                    ctx: ctx,
+                    durationKey: durationKey,
+                    currencyKey: 'coins',
+                    durationText: durationText,
+                    priceAmount: offerMap['coins'],
+                    priceCurrencyText: _tr('قطعة', 'coins'),
+                    isCoins: true,
+                  ),
+                ),
+              if (hasCoins && hasGems) const SizedBox(width: 8),
+              if (hasGems)
+                Expanded(
+                  child: _buildRentalOptionPill(
+                    ctx: ctx,
+                    durationKey: durationKey,
+                    currencyKey: 'gems',
+                    durationText: durationText,
+                    priceAmount: offerMap['gems'],
+                    priceCurrencyText: _tr('جوهرة', 'gems'),
+                    isCoins: false,
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRentalOptionPill({
+    required BuildContext ctx,
+    required String durationKey,
+    required String currencyKey,
+    required String durationText,
+    required dynamic priceAmount,
+    required String priceCurrencyText,
+    required bool isCoins,
+  }) {
+    final semanticsText = '$durationText • $priceAmount $priceCurrencyText';
+    final accentColor = isCoins ? _gold : _cyan;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () => Navigator.pop(ctx, {
+          'action': 'rent',
+          'duration': durationKey,
+          'currency': currencyKey,
+        }),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: accentColor.withValues(alpha: 0.45),
+              width: 1.2,
+            ),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                accentColor.withValues(alpha: 0.16),
+                accentColor.withValues(alpha: 0.05),
+              ],
+            ),
+          ),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      isCoins
+                          ? Icons.monetization_on_rounded
+                          : Icons.diamond_rounded,
+                      color: accentColor,
+                      size: 19,
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      '$priceAmount',
+                      style: TextStyle(
+                        color: accentColor,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      priceCurrencyText,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Positioned.fill(
+                child: Center(
+                  child: Text(
+                    semanticsText,
+                    style: const TextStyle(
+                      color: Colors.transparent,
+                      fontSize: 1,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRentalVoucherPill({
+    required BuildContext ctx,
+    required String durationText,
+    required String titleText,
+  }) {
+    final semanticsText = '$titleText • $durationText';
+    const greenAccent = Color(0xFF00E676);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: () => Navigator.pop(ctx, {
+          'action': 'rent',
+          'duration': 'week',
+          'currency': 'voucher',
+        }),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: greenAccent.withValues(alpha: 0.6),
+              width: 1.5,
+            ),
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFF1B5E3C),
+                Color(0xFF0E3824),
+              ],
+            ),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x3300E676),
+                blurRadius: 10,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: greenAccent.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.confirmation_number_rounded,
+                      color: greenAccent,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _tr('قسيمة استئجار مجانية جاهزة! 🎟️',
+                              'Free Rental Voucher Ready! 🎟️'),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          _tr('استأجر لمدة أسبوع كامل مجاناً دون إنفاق أي رصيد',
+                              'Rent for a full week for free without spending currency'),
+                          style: TextStyle(
+                            color: greenAccent.withValues(alpha: 0.9),
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: greenAccent,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      _tr('استخدام', 'Use'),
+                      style: const TextStyle(
+                        color: Colors.black87,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              Positioned.fill(
+                child: Center(
+                  child: Text(
+                    semanticsText,
+                    style: const TextStyle(
+                      color: Colors.transparent,
+                      fontSize: 1,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _watchAd() async {
@@ -848,10 +1446,10 @@ class _StoreScreenState extends State<StoreScreen> {
     if (mounted && retryVerification) await _restorePurchases();
   }
 
-  Future<void> _openCharacters() async {
+  Future<void> _openCharacters([int? initialIndex]) async {
     if (_busy) return;
-    await Navigator.of(context).push<void>(
-        MaterialPageRoute(builder: (_) => const CharacterSelectScreen()));
+    await Navigator.of(context).push<void>(MaterialPageRoute(
+        builder: (_) => CharacterSelectScreen(initialIndex: initialIndex)));
     if (!mounted) return;
     final app = context.read<AppState>();
     await Future.wait([app.loadCharacterState(), app.loadCurrency()]);
@@ -993,7 +1591,8 @@ class _StoreScreenState extends State<StoreScreen> {
                                     const SizedBox(height: 16),
                                     _resourceBalancesHUD(app),
                                     const SizedBox(height: 24),
-                                    if (app.economyWallet.offers.isNotEmpty) ...[
+                                    if (app
+                                        .economyWallet.offers.isNotEmpty) ...[
                                       _sectionTitle(
                                           _tr('شحن بالنقود أو الجواهر',
                                               'EXCHANGE CURRENCY'),
@@ -1259,7 +1858,10 @@ class _StoreScreenState extends State<StoreScreen> {
           child: PageView.builder(
             controller: _offerController,
             itemCount: offers.length,
-            onPageChanged: (index) => setState(() => _offerIndex = index),
+            onPageChanged: (index) {
+              setState(() => _offerIndex = index);
+              _startOfferAutoPlay();
+            },
             itemBuilder: (context, index) {
               final product = offers[index];
               final artwork = _offerArtwork[product.id]!;
@@ -1312,12 +1914,14 @@ class _StoreScreenState extends State<StoreScreen> {
                                     child: IconButton(
                                         tooltip:
                                             _tr('العرض التالي', 'Next offer'),
-                                        onPressed: () =>
-                                            _offerController.animateToPage(
-                                                (index + 1) % offers.length,
-                                                duration: const Duration(
-                                                    milliseconds: 300),
-                                                curve: Curves.easeOutCubic),
+                                        onPressed: () {
+                                          _offerController.animateToPage(
+                                              (index + 1) % offers.length,
+                                              duration: const Duration(
+                                                  milliseconds: 300),
+                                              curve: Curves.easeOutCubic);
+                                          _startOfferAutoPlay();
+                                        },
                                         // The arrow is already part of the supplied image.
                                         icon: const SizedBox(
                                             width: 24, height: 24)))),
@@ -1370,9 +1974,12 @@ class _StoreScreenState extends State<StoreScreen> {
                     selected: i == _offerIndex,
                     button: true,
                     child: InkResponse(
-                        onTap: () => _offerController.animateToPage(i,
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.easeOutCubic),
+                        onTap: () {
+                          _offerController.animateToPage(i,
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeOutCubic);
+                          _startOfferAutoPlay();
+                        },
                         child: Container(
                             width: 9,
                             height: 9,
@@ -1574,19 +2181,38 @@ class _StoreScreenState extends State<StoreScreen> {
           children: [
             for (final character in [
               CharacterCatalog.all[2],
-              CharacterCatalog.all[7]
+              CharacterCatalog.all[7],
+              ...CharacterCatalog.all.skip(8),
             ])
               SizedBox(
                 width: width,
-                child: GameStoreCharacterCard(
-                  key: ValueKey('store-character-${character.id}'),
-                  gems: character.unlock.kind == CharacterUnlockKind.gems,
-                  title: character.nameAr,
-                  label: app.isCharacterUnlocked(character)
-                      ? _tr('تم الامتلاك', 'Owned')
-                      : '${_number(character.unlock.value)} ${character.unlock.kind == CharacterUnlockKind.coins ? _tr('نقود', 'coins') : _tr('جواهر', 'gems')}',
-                  onPressed: disabled ? null : _openCharacters,
-                ),
+                child: character.index >= 8
+                    ? GameStoreRosterCard(
+                        key: ValueKey('store-character-${character.id}'),
+                        name: character.nameAr,
+                        description: _tr(character.tagAr, 'New character'),
+                        asset: character.fullBodyAsset,
+                        label: app.isCharacterUnlocked(character)
+                            ? _tr('تم الامتلاك', 'Owned')
+                            : character.unlock.isLevelGated
+                                ? _tr('المستوى ${character.unlock.value}',
+                                    'Level ${character.unlock.value}')
+                                : '${_number(character.unlock.value)} ${character.unlock.kind == CharacterUnlockKind.coins ? _tr('نقود', 'coins') : _tr('جواهر', 'gems')}',
+                        onPressed: disabled
+                            ? null
+                            : () => _openCharacters(character.index),
+                      )
+                    : GameStoreCharacterCard(
+                        key: ValueKey('store-character-${character.id}'),
+                        gems: character.unlock.kind == CharacterUnlockKind.gems,
+                        title: character.nameAr,
+                        label: app.isCharacterUnlocked(character)
+                            ? _tr('تم الامتلاك', 'Owned')
+                            : '${_number(character.unlock.value)} ${character.unlock.kind == CharacterUnlockKind.coins ? _tr('نقود', 'coins') : _tr('جواهر', 'gems')}',
+                        onPressed: disabled
+                            ? null
+                            : () => _openCharacters(character.index),
+                      ),
               ),
           ],
         );
@@ -1691,7 +2317,11 @@ class _StoreScreenState extends State<StoreScreen> {
               style: const TextStyle(color: _green, fontSize: 12)),
         ],
       ],
-      const SizedBox(height: 12),
+      const SizedBox(height: 16),
+      _vipWelcomeBonusCard(app, disabled),
+      const SizedBox(height: 20),
+      _vipPerksShowcase(),
+      const SizedBox(height: 16),
       Text(
           _tr('يتجدد تلقائياً كل شهر. يمكنك إلغاء التجديد من Google Play في أي وقت؛ يستمر الوصول حتى نهاية الفترة المدفوعة.',
               'Renews automatically every month. Cancel renewal in Google Play at any time; access continues until the paid period ends.'),
@@ -1723,6 +2353,281 @@ class _StoreScreenState extends State<StoreScreen> {
                 style: const TextStyle(color: _green))),
       ])),
     ]);
+  }
+
+  Widget _vipWelcomeBonusCard(AppState app, bool disabled) {
+    final canClaim = app.canClaimVipBonus;
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF2C104D),
+            Color(0xFF1E0A36),
+          ],
+        ),
+        border: Border.all(
+          color: const Color(0xFFFFD54F).withValues(alpha: 0.6),
+          width: 1.8,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFFFD54F).withValues(alpha: 0.15),
+            blurRadius: 18,
+            spreadRadius: 2,
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+      child: Column(
+        children: [
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.stars_rounded,
+                    color: Color(0xFFFFD54F), size: 20),
+                const SizedBox(width: 8),
+                GameStoreText(
+                  _tr('هدية الانضمام الفورية للأبطال 🎁',
+                      'Instant Champions Welcome Pack 🎁'),
+                  size: 18,
+                  color: const Color(0xFFFFD54F),
+                ),
+                const SizedBox(width: 8),
+                const Icon(Icons.stars_rounded,
+                    color: Color(0xFFFFD54F), size: 20),
+              ],
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            _tr(
+              'باقة حصرية تضاف لرصيدك فوراً عند الاشتراك لتنطلق بقوة الأبطال:',
+              'Exclusive instant resource bundle granted to empower your journey:',
+            ),
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+                color: Color(0xFFE2D9F3), fontSize: 12, height: 1.4),
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _vipRewardCapsule(
+                  '100', _tr('جوهرة', 'Gems'), Icons.diamond_rounded, _cyan),
+              _vipRewardCapsule('1,000', _tr('قطعة', 'Coins'),
+                  Icons.monetization_on_rounded, _gold),
+              _vipRewardCapsule('3', _tr('مفاتيح', 'Keys'),
+                  Icons.vpn_key_rounded, const Color(0xFFFFB74D)),
+              _vipRewardCapsule('3', _tr('تذاكر', 'Tickets'),
+                  Icons.confirmation_number_rounded, _purple),
+              _vipRewardCapsule(
+                  '3', _tr('قلوب', 'Hearts'), Icons.favorite_rounded, _red),
+            ],
+          ),
+          if (app.isVip) ...[
+            const SizedBox(height: 14),
+            if (canClaim)
+              ElevatedButton.icon(
+                key: const ValueKey('claim-vip-bonus-button'),
+                onPressed: disabled || _busy
+                    ? null
+                    : () async {
+                        setState(() => _busy = true);
+                        try {
+                          final ok = await app.claimVipBonus();
+                          if (ok && mounted) {
+                            showCurrencyRewardOverlay(context,
+                                coins: 1000, gems: 100);
+                            _snack(_tr(
+                                'تهانينا! تم استلام هدية نادي الأبطال بنجاح 💎🪙🗝️',
+                                'Congratulations! Champions Club gift claimed successfully 💎🪙🗝️'));
+                          } else if (mounted) {
+                            _snack(
+                                _tr('تعذر استلام هدية العضوية. حدّث الأرصدة وحاول مجددًا.',
+                                    'Could not claim your membership gift. Refresh your balance and try again.'),
+                                error: true);
+                          }
+                        } catch (e) {
+                          if (mounted) _snack(e.toString(), error: true);
+                        } finally {
+                          if (mounted) setState(() => _busy = false);
+                        }
+                      },
+                icon: const Icon(Icons.card_giftcard_rounded,
+                    color: Colors.black87, size: 20),
+                label: Text(
+                  _tr('استلام هدية نادي الأبطال الآن',
+                      'Claim Champions Club Gift Now'),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w800, color: Colors.black87),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFFD54F),
+                  foregroundColor: Colors.black87,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                  elevation: 4,
+                ),
+              )
+            else
+              _pill(
+                  _tr('تم استلام هدية العضوية لهذه الدورة ✓',
+                      'Membership gift claimed for current period ✓'),
+                  _green),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _vipRewardCapsule(
+      String amount, String label, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.4), width: 1.2),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 16),
+          const SizedBox(width: 5),
+          Text(amount,
+              style: TextStyle(
+                  color: color, fontWeight: FontWeight.w900, fontSize: 13)),
+          const SizedBox(width: 4),
+          Text(label,
+              style: const TextStyle(color: Colors.white70, fontSize: 11)),
+        ],
+      ),
+    );
+  }
+
+  Widget _vipPerksShowcase() {
+    final perks = [
+      (
+        icon: Icons.category_rounded,
+        color: _cyan,
+        title: _tr('فتح كل الفئات والتصنيفات', 'All Categories Unlocked'),
+        desc: _tr(
+            'وصول كامل وغير محدود لجميع الفئات والتصنيفات المميزة طوال مدة اشتراكك دون تذاكر أو استئجار.',
+            'Unlimited access to all premium categories throughout your subscription without tickets or rentals.'),
+      ),
+      (
+        icon: Icons.block_rounded,
+        color: _green,
+        title: _tr('لعب نقي 100% بدون إعلانات إجبارية', 'Zero Forced Ads'),
+        desc: _tr(
+            'استمتع باللعب المتواصل والمباريات دون أي فواصل إعلانية مزعجة. إعلانات المكافآت تبقى اختيارية.',
+            'Enjoy seamless matches without intrusive popups. Reward ads remain optional.'),
+      ),
+      (
+        icon: Icons.workspace_premium_rounded,
+        color: _gold,
+        title: _tr('شارة وتاج عضوية VIP الفاخرة', 'Royal VIP Crown Badge'),
+        desc: _tr(
+            'بطاقة عضوية الأبطال المميزة مع عرض حالة اشتراكك ومزاياه في المتجر.',
+            'Your Champions Club membership card displays your active status and benefits in the store.'),
+      ),
+      (
+        icon: Icons.card_giftcard_rounded,
+        color: _purple,
+        title: _tr('باقة موارد مستمرة مع كل تجديد', 'Renewable Resource Gifts'),
+        desc: _tr(
+            'استلم 100 جوهرة و1000 قطعة و3 مفاتيح و3 تذاكر و3 قلوب من زر هدية العضوية مرة واحدة لكل دورة اشتراك شهري.',
+            'Claim 100 gems, 1,000 coins, 3 keys, 3 tickets and 3 hearts using the membership gift button once per monthly cycle.'),
+      ),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: GameStoreText(
+                _tr('المزايا الملكية الحصرية', 'Royal VIP Privileges'),
+                size: 20,
+                color: const Color(0xFFFFD54F),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          _tr('ارتقِ بتجربة اللعب لأعلى مستويات الاحتراف',
+              'Elevate your gaming to the highest competitive level'),
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: _muted, fontSize: 11),
+        ),
+        const SizedBox(height: 12),
+        _responsiveWrap(
+          minWidth: 260,
+          children: perks.map((perk) {
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                color: Colors.white.withValues(alpha: 0.04),
+                border: Border.all(color: perk.color.withValues(alpha: 0.25)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: perk.color.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(perk.icon, color: perk.color, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          perk.title,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          perk.desc,
+                          style: const TextStyle(
+                            color: _muted,
+                            fontSize: 10.5,
+                            height: 1.35,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
   }
 
   Widget _exchanges(AppState app, bool disabled) => _responsiveWrap(
@@ -1983,16 +2888,13 @@ class _StoreScreenState extends State<StoreScreen> {
                 accent: _cyan,
                 compact: true,
                 onPressed: disabled ? null : () => _unlockCategory(category)),
-            TextButton.icon(
-                onPressed: disabled ? null : () => _rentalOptions(category),
-                icon: const Icon(Icons.schedule_rounded),
-                label: const Text('استئجار يوم / أسبوع / شهر')),
-            Text(
-                'التذاكر: ${app.economyWallet.tickets} • تستخدم عند اختيار التصنيف للمباراة',
-                style: const TextStyle(color: _muted, fontSize: 11)),
-            if (adReady)
+            const SizedBox(height: 8),
+            _rentalButton(category, disabled),
+            if (adReady) ...[
+              const SizedBox(height: 4),
               const Text('تصريح مباراة واحدة جاهز',
                   style: TextStyle(color: _green, fontSize: 12)),
+            ],
             if (!available &&
                 !adReady &&
                 CategoryCatalog.allowsAd(category.name))
@@ -2014,6 +2916,50 @@ class _StoreScreenState extends State<StoreScreen> {
                         'امتلاك دائم باستخدام قسيمة واحدة'),
                 child: const Text('استخدام قسيمة امتلاك')),
         ]));
+  }
+
+  Widget _rentalButton(GameCategory category, bool disabled) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: disabled ? null : () => _rentalOptions(category),
+        child: Opacity(
+          opacity: disabled ? 0.55 : 1.0,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Image.asset(
+                'assets/store/btn_rent_green.png',
+                height: 44,
+                fit: BoxFit.contain,
+              ),
+              const Opacity(
+                opacity: 0.0,
+                child: Text(
+                  'إستئجار',
+                  style: TextStyle(fontSize: 1),
+                ),
+              ),
+              const Opacity(
+                opacity: 0.0,
+                child: Text(
+                  'استئجار',
+                  style: TextStyle(fontSize: 1),
+                ),
+              ),
+              const Opacity(
+                opacity: 0.0,
+                child: Text(
+                  'استئجار يوم / أسبوع / شهر',
+                  style: TextStyle(fontSize: 14),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _freeRewards(AppState app, AdService ads, bool disabled) {
@@ -2269,35 +3215,40 @@ class _StoreScreenState extends State<StoreScreen> {
   Widget _sectionTitle(String title, String subtitle, {Widget? action}) =>
       LayoutBuilder(
           builder: (context, constraints) => Column(children: [
-                Row(children: [
-                  Expanded(
-                      child: Container(
-                          height: 2,
-                          decoration: const BoxDecoration(
-                              gradient: LinearGradient(colors: [
-                            Colors.transparent,
-                            Color(0xFF8E83A5)
-                          ])))),
-                  const SizedBox(width: 12),
-                  ConstrainedBox(
-                      constraints: BoxConstraints(
-                          maxWidth: (constraints.maxWidth - 24) * .6),
-                      child: GameStoreText(title, size: 23, maxLines: 2)),
-                  const SizedBox(width: 12),
-                  Expanded(
-                      child: action != null
-                          ? Align(
-                              alignment: AlignmentDirectional.centerEnd,
-                              child: FittedBox(
-                                  fit: BoxFit.scaleDown, child: action))
-                          : Container(
+                Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Row(children: [
+                      Expanded(
+                          child: Container(
+                              height: 2,
+                              decoration: const BoxDecoration(
+                                  gradient: LinearGradient(colors: [
+                                Colors.transparent,
+                                Color(0xFF8E83A5)
+                              ])))),
+                      const SizedBox(width: 12),
+                      ConstrainedBox(
+                          constraints: BoxConstraints(
+                              maxWidth: (constraints.maxWidth - 24) * .6),
+                          child: GameStoreText(title, size: 23, maxLines: 2)),
+                      const SizedBox(width: 12),
+                      Expanded(
+                          child: Container(
                               height: 2,
                               decoration: const BoxDecoration(
                                   gradient: LinearGradient(colors: [
                                 Color(0xFF8E83A5),
                                 Colors.transparent
                               ])))),
-                ]),
+                    ]),
+                    if (action != null)
+                      PositionedDirectional(
+                        end: 0,
+                        child: FittedBox(fit: BoxFit.scaleDown, child: action),
+                      ),
+                  ],
+                ),
                 if (subtitle.isNotEmpty &&
                     MediaQuery.sizeOf(context).height >= 500) ...[
                   const SizedBox(height: 5),
@@ -2308,7 +3259,12 @@ class _StoreScreenState extends State<StoreScreen> {
                 ],
               ]));
 
-  Widget _rewardSummary(int coins, int gems, {bool centered = false}) => Wrap(
+  Widget _rewardSummary(int coins, int gems,
+          {int keys = 0,
+          int tickets = 0,
+          int hearts = 0,
+          bool centered = false}) =>
+      Wrap(
           spacing: 8,
           runSpacing: 8,
           alignment: centered ? WrapAlignment.center : WrapAlignment.start,
@@ -2318,7 +3274,16 @@ class _StoreScreenState extends State<StoreScreen> {
                   _tr('نقود', 'coins')),
             if (gems > 0)
               _currencyReward(
-                  gems, Icons.diamond_rounded, _cyan, _tr('جوهرة', 'gems'))
+                  gems, Icons.diamond_rounded, _cyan, _tr('جوهرة', 'gems')),
+            if (keys > 0)
+              _currencyReward(keys, Icons.vpn_key_rounded,
+                  const Color(0xFFFFB74D), _tr('مفاتيح', 'keys')),
+            if (tickets > 0)
+              _currencyReward(tickets, Icons.confirmation_number_rounded,
+                  _purple, _tr('تذاكر', 'tickets')),
+            if (hearts > 0)
+              _currencyReward(
+                  hearts, Icons.favorite_rounded, _red, _tr('قلوب', 'hearts')),
           ]);
 
   Widget _currencyReward(
@@ -2428,8 +3393,6 @@ class _StoreScreenState extends State<StoreScreen> {
     return resourceGrantText(grants);
   }
 
-
-
   Widget _resourceBalancesHUD(AppState app) {
     final wallet = app.economyWallet;
     return LayoutBuilder(builder: (context, constraints) {
@@ -2510,7 +3473,8 @@ class _StoreScreenState extends State<StoreScreen> {
               ),
               child: Column(children: [
                 Row(children: [
-                  const Icon(Icons.info_outline_rounded, color: _cyan, size: 16),
+                  const Icon(Icons.info_outline_rounded,
+                      color: _cyan, size: 16),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -2616,7 +3580,8 @@ class _StoreScreenState extends State<StoreScreen> {
                       alignment: Alignment.center,
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
-                        child: GameStoreText(title, size: (h * 0.12).clamp(9.0, 15.0)),
+                        child: GameStoreText(title,
+                            size: (h * 0.12).clamp(9.0, 15.0)),
                       ),
                     ),
                   ),
@@ -2707,8 +3672,12 @@ class _StoreScreenState extends State<StoreScreen> {
         return 'assets/store/exchange_keys_1.webp';
       case 'keys_3':
         return 'assets/store/exchange_keys_3.webp';
+      case 'hearts_1':
+        return 'assets/store/exchange_hearts_1.webp';
       case 'hearts_3':
         return 'assets/store/exchange_hearts_3.webp';
+      case 'tickets_1':
+        return 'assets/store/exchange_tickets_1.webp';
       case 'tickets_3':
         return 'assets/store/exchange_tickets_3.webp';
       case 'play_bundle':
@@ -2722,8 +3691,14 @@ class _StoreScreenState extends State<StoreScreen> {
         if (grants.containsKey('keys') && (grants['keys'] ?? 0) >= 3) {
           return 'assets/store/exchange_keys_3.webp';
         }
+        if (grants.containsKey('hearts') && grants['hearts'] == 1) {
+          return 'assets/store/exchange_hearts_1.webp';
+        }
         if (grants.containsKey('hearts') && (grants['hearts'] ?? 0) >= 3) {
           return 'assets/store/exchange_hearts_3.webp';
+        }
+        if (grants.containsKey('tickets') && grants['tickets'] == 1) {
+          return 'assets/store/exchange_tickets_1.webp';
         }
         if (grants.containsKey('tickets') && (grants['tickets'] ?? 0) >= 3) {
           return 'assets/store/exchange_tickets_3.webp';
@@ -2750,8 +3725,7 @@ class _StoreScreenState extends State<StoreScreen> {
           for (final entry in offers)
             SizedBox(
               width: width,
-              child:
-                  _inGameExchangeCard(entry.key, entry.value, app, disabled),
+              child: _inGameExchangeCard(entry.key, entry.value, app, disabled),
             ),
         ],
       );
@@ -2783,7 +3757,8 @@ class _StoreScreenState extends State<StoreScreen> {
       return _panel(
         accent: accent,
         padding: 14,
-        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        child:
+            Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Row(children: [
             _iconTile(
               grants.length > 1
@@ -2798,16 +3773,17 @@ class _StoreScreenState extends State<StoreScreen> {
             ),
             const SizedBox(width: 10),
             Expanded(
-              child:
-                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                GameStoreText(title, size: 16),
-                const SizedBox(height: 2),
-                Text(
-                  _tr('إضافة فورية إلى رصيد حسابك',
-                      'Added instantly to your account'),
-                  style: const TextStyle(color: _muted, fontSize: 11),
-                ),
-              ]),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    GameStoreText(title, size: 16),
+                    const SizedBox(height: 2),
+                    Text(
+                      _tr('إضافة فورية إلى رصيد حسابك',
+                          'Added instantly to your account'),
+                      style: const TextStyle(color: _muted, fontSize: 11),
+                    ),
+                  ]),
             ),
           ]),
           const SizedBox(height: 12),
@@ -2848,9 +3824,11 @@ class _StoreScreenState extends State<StoreScreen> {
     final hasEnoughGems = app.gems >= gemsPrice;
 
     return Semantics(
-      label: '$title: ${_number(coinsPrice)} ${_tr('قطعة', 'coins')}، ${_number(gemsPrice)} ${_tr('جوهرة', 'gems')}',
+      label:
+          '$title: ${_number(coinsPrice)} ${_tr('قطعة', 'coins')}، ${_number(gemsPrice)} ${_tr('جوهرة', 'gems')}',
       child: Tooltip(
-        message: '$title\n${_number(coinsPrice)} ${_tr('قطعة', 'coins')} • ${_number(gemsPrice)} ${_tr('جوهرة', 'gems')}',
+        message:
+            '$title\n${_number(coinsPrice)} ${_tr('قطعة', 'coins')} • ${_number(gemsPrice)} ${_tr('جوهرة', 'gems')}',
         child: AspectRatio(
           aspectRatio: 1168 / 450,
           child: LayoutBuilder(builder: (context, box) {
@@ -2882,13 +3860,17 @@ class _StoreScreenState extends State<StoreScreen> {
                         children: [
                           FittedBox(
                             fit: BoxFit.scaleDown,
-                            child: GameStoreText(title, size: (h * 0.14).clamp(10.0, 16.0)),
+                            child: GameStoreText(title,
+                                size: (h * 0.14).clamp(10.0, 16.0)),
                           ),
                           FittedBox(
                             fit: BoxFit.scaleDown,
                             child: Text(
-                              _tr('إضافة فورية إلى رصيد حسابك', 'Added instantly to your account'),
-                              style: TextStyle(color: _muted, fontSize: (h * 0.08).clamp(8.0, 11.0)),
+                              _tr('إضافة فورية إلى رصيد حسابك',
+                                  'Added instantly to your account'),
+                              style: TextStyle(
+                                  color: _muted,
+                                  fontSize: (h * 0.08).clamp(8.0, 11.0)),
                             ),
                           ),
                         ],
@@ -2928,7 +3910,8 @@ class _StoreScreenState extends State<StoreScreen> {
                                 ),
                                 alignment: Alignment.center,
                                 child: Icon(Icons.lock_outline_rounded,
-                                    color: Colors.white70, size: (h * 0.14).clamp(10.0, 16.0)),
+                                    color: Colors.white70,
+                                    size: (h * 0.14).clamp(10.0, 16.0)),
                               ),
                             ),
                           if (!_arabic)
@@ -2939,7 +3922,10 @@ class _StoreScreenState extends State<StoreScreen> {
                                   gradient: const LinearGradient(
                                     begin: Alignment.topCenter,
                                     end: Alignment.bottomCenter,
-                                    colors: [Color(0xFF7CE424), Color(0xFF43980B)],
+                                    colors: [
+                                      Color(0xFF7CE424),
+                                      Color(0xFF43980B)
+                                    ],
                                   ),
                                 ),
                                 alignment: Alignment.center,
@@ -2995,7 +3981,8 @@ class _StoreScreenState extends State<StoreScreen> {
                                 ),
                                 alignment: Alignment.center,
                                 child: Icon(Icons.lock_outline_rounded,
-                                    color: Colors.white70, size: (h * 0.14).clamp(10.0, 16.0)),
+                                    color: Colors.white70,
+                                    size: (h * 0.14).clamp(10.0, 16.0)),
                               ),
                             ),
                           if (!_arabic)
@@ -3006,7 +3993,10 @@ class _StoreScreenState extends State<StoreScreen> {
                                   gradient: const LinearGradient(
                                     begin: Alignment.topCenter,
                                     end: Alignment.bottomCenter,
-                                    colors: [Color(0xFF7CE424), Color(0xFF43980B)],
+                                    colors: [
+                                      Color(0xFF7CE424),
+                                      Color(0xFF43980B)
+                                    ],
                                   ),
                                 ),
                                 alignment: Alignment.center,
@@ -3059,15 +4049,21 @@ class _StoreScreenState extends State<StoreScreen> {
   Widget _resourceGrid(List<StoreProduct> products, InAppPurchaseService iap,
           AppState app, bool disabled) =>
       LayoutBuilder(builder: (context, constraints) {
-        final bundles = products.where((p) => p.id.startsWith('resources_')).toList();
-        final singles = products.where((p) => !p.id.startsWith('resources_')).toList();
+        final bundles =
+            products.where((p) => p.id.startsWith('resources_')).toList();
+        final singles =
+            products.where((p) => !p.id.startsWith('resources_')).toList();
 
         final maxWidth = constraints.maxWidth;
         final bundleColumns = maxWidth < 400 ? 2 : (maxWidth < 800 ? 2 : 4);
         final singleColumns = maxWidth < 400 ? 3 : (maxWidth < 800 ? 3 : 6);
 
-        final bundleWidth = ((maxWidth - (bundleColumns - 1) * 10) / bundleColumns).clamp(110.0, 320.0);
-        final singleWidth = ((maxWidth - (singleColumns - 1) * 8) / singleColumns).clamp(80.0, 220.0);
+        final bundleWidth =
+            ((maxWidth - (bundleColumns - 1) * 10) / bundleColumns)
+                .clamp(110.0, 320.0);
+        final singleWidth =
+            ((maxWidth - (singleColumns - 1) * 8) / singleColumns)
+                .clamp(80.0, 220.0);
 
         return Column(
           children: [
@@ -3104,16 +4100,75 @@ class _StoreScreenState extends State<StoreScreen> {
         );
       });
 
+  bool _isAdProduct(String id) =>
+      id == 'keys_1' || id == 'hearts_1' || id == 'tickets_1';
+
+  String _adResourceKey(String id) => switch (id) {
+        'keys_1' => 'keys',
+        'hearts_1' => 'hearts',
+        'tickets_1' => 'tickets',
+        _ => '',
+      };
+
+  Future<void> _claimResourceWithAd(String productId) async {
+    if (_busy) return;
+    final app = context.read<AppState>();
+    AdService? adService;
+    try {
+      adService = context.read<AdService>();
+    } catch (_) {}
+    final resourceKey = _adResourceKey(productId);
+    if (resourceKey.isEmpty) return;
+
+    final resourceName = switch (resourceKey) {
+      'keys' => _tr('مفتاح إضافي', 'Extra Key'),
+      'hearts' => _tr('قلب إضافي', 'Extra Heart'),
+      'tickets' => _tr('تذكرة تصنيف', 'Category Ticket'),
+      _ => '',
+    };
+
+    setState(() => _busy = true);
+    try {
+      final watched = await adService?.showActionRewardedAd() ?? false;
+      if (!mounted) return;
+      if (!watched) {
+        _snack(
+          _tr('الإعلان غير متاح حالياً أو لم تكتمل مشاهدته.',
+              'The ad is currently unavailable or was not watched to completion.'),
+          error: true,
+        );
+        return;
+      }
+      final granted = await app.claimAdResource(resourceKey);
+      if (mounted && granted) {
+        _snack(_tr('تمت إضافة $resourceName بنجاح!',
+            '$resourceName added successfully!'));
+      }
+    } catch (_) {
+      if (mounted) {
+        _snack(
+            _tr('تعذر إضافة المكافأة. حاول مجدداً.',
+                'Could not add reward. Try again.'),
+            error: true);
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Widget _resourceProductCard(StoreProduct product, InAppPurchaseService iap,
       AppState app, bool disabled) {
     final details = iap.getProductDetails(product.id);
     final price = details?.price;
-    final canBuy = !disabled &&
-        !iap.isLoading &&
-        app.isCommerceReady &&
-        iap.isAvailable &&
-        price != null &&
-        price.isNotEmpty;
+    final isAd = _isAdProduct(product.id);
+    final canBuy = isAd
+        ? (!disabled && !_busy)
+        : (!disabled &&
+            !iap.isLoading &&
+            app.isCommerceReady &&
+            iap.isAvailable &&
+            price != null &&
+            price.isNotEmpty);
 
     final asset = _resourceProductAsset(product.id);
     if (asset == null) {
@@ -3122,11 +4177,15 @@ class _StoreScreenState extends State<StoreScreen> {
 
     final is10Pack = product.id.endsWith('_10');
     final aspectRatio = _resourceProductAspect(product.id);
+    final buttonLabel = isAd ? _tr('إعلان مجاني', 'Free Ad') : price;
+    final semanticPrice = isAd
+        ? _tr('إعلان مجاني', 'Free Ad')
+        : (canBuy ? price : _tr('غير متاح حالياً', 'Unavailable'));
 
     return Semantics(
-      label: '${_title(product)}: ${_subtitle(product)}, ${canBuy ? price : _tr('غير متاح حالياً', 'Unavailable')}',
+      label: '${_title(product)}: ${_subtitle(product)}, $semanticPrice',
       child: Tooltip(
-        message: '${_title(product)}\n${_subtitle(product)}\n${canBuy ? price : _tr('غير متاح حالياً', 'Unavailable')}',
+        message: '${_title(product)}\n${_subtitle(product)}\n$semanticPrice',
         child: AspectRatio(
           aspectRatio: aspectRatio,
           child: LayoutBuilder(builder: (context, box) {
@@ -3153,7 +4212,8 @@ class _StoreScreenState extends State<StoreScreen> {
                       decoration: BoxDecoration(
                         color: const Color(0xFF38154D),
                         borderRadius: BorderRadius.circular(h * 0.04),
-                        border: Border.all(color: const Color(0xFFFFB834), width: 1.5),
+                        border: Border.all(
+                            color: const Color(0xFFFFB834), width: 1.5),
                       ),
                       alignment: Alignment.center,
                       child: FittedBox(
@@ -3170,7 +4230,35 @@ class _StoreScreenState extends State<StoreScreen> {
                       ),
                     ),
                   ),
-                if (!_arabic)
+                if (isAd)
+                  Positioned(
+                    top: h * 0.08,
+                    left: w * 0.28,
+                    right: w * 0.28,
+                    child: Container(
+                      height: h * 0.08,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0F264A),
+                        borderRadius: BorderRadius.circular(h * 0.04),
+                        border: Border.all(
+                            color: const Color(0xFF29B6F6), width: 1.5),
+                      ),
+                      alignment: Alignment.center,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          _tr('إعلان', 'AD'),
+                          style: TextStyle(
+                            color: const Color(0xFF4FC3F7),
+                            fontWeight: FontWeight.w900,
+                            fontSize: (h * 0.055).clamp(10.0, 16.0),
+                            fontFamily: 'Baloo',
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                if (!_arabic || is10Pack)
                   Positioned(
                     top: h * 0.55,
                     left: w * 0.08,
@@ -3183,13 +4271,16 @@ class _StoreScreenState extends State<StoreScreen> {
                         children: [
                           FittedBox(
                             fit: BoxFit.scaleDown,
-                            child: GameStoreText(_title(product), size: (h * 0.065).clamp(10.0, 15.0)),
+                            child: GameStoreText(_title(product),
+                                size: (h * 0.065).clamp(10.0, 15.0)),
                           ),
                           FittedBox(
                             fit: BoxFit.scaleDown,
                             child: Text(
                               _subtitle(product),
-                              style: TextStyle(color: _muted, fontSize: (h * 0.045).clamp(7.0, 10.0)),
+                              style: TextStyle(
+                                  color: _muted,
+                                  fontSize: (h * 0.045).clamp(7.0, 10.0)),
                               textAlign: TextAlign.center,
                               maxLines: 1,
                             ),
@@ -3207,53 +4298,84 @@ class _StoreScreenState extends State<StoreScreen> {
                     color: Colors.transparent,
                     child: InkWell(
                       borderRadius: BorderRadius.circular(h * 0.04),
-                      onTap: canBuy ? () => _buyProduct(product) : null,
+                      onTap: canBuy
+                          ? () => isAd
+                              ? _claimResourceWithAd(product.id)
+                              : _buyProduct(product)
+                          : null,
                       child: canBuy
                           ? Container(
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(h * 0.04),
-                                gradient: const LinearGradient(
+                                gradient: LinearGradient(
                                   begin: Alignment.topCenter,
                                   end: Alignment.bottomCenter,
-                                  colors: [
-                                    Color(0xFF7CE424),
-                                    Color(0xFF43980B),
-                                  ],
+                                  colors: isAd
+                                      ? const [
+                                          Color(0xFF29B6F6),
+                                          Color(0xFF0288D1),
+                                        ]
+                                      : const [
+                                          Color(0xFF7CE424),
+                                          Color(0xFF43980B),
+                                        ],
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFF43980B).withValues(alpha: 0.5),
+                                    color: (isAd
+                                            ? const Color(0xFF0288D1)
+                                            : const Color(0xFF43980B))
+                                        .withValues(alpha: 0.5),
                                     blurRadius: 4,
                                     offset: const Offset(0, 2),
                                   ),
                                 ],
                               ),
                               alignment: Alignment.center,
-                              padding: const EdgeInsets.symmetric(horizontal: 4),
-                              child: FittedBox(
-                                fit: BoxFit.scaleDown,
-                                child: Text(
-                                  price,
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: (h * 0.065).clamp(11.0, 18.0),
-                                    fontWeight: FontWeight.w900,
-                                    fontFamily: 'Baloo',
-                                    shadows: const [
-                                      Shadow(
-                                        color: Color(0x80000000),
-                                        blurRadius: 3,
-                                        offset: Offset(0, 1),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 4),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  if (isAd) ...[
+                                    Icon(
+                                      Icons.play_circle_fill_rounded,
+                                      color: Colors.white,
+                                      size: (h * 0.065).clamp(11.0, 16.0),
+                                    ),
+                                    const SizedBox(width: 3),
+                                  ],
+                                  Flexible(
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Text(
+                                        buttonLabel ?? '',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize:
+                                              (h * 0.065).clamp(11.0, 18.0),
+                                          fontWeight: FontWeight.w900,
+                                          fontFamily: 'Baloo',
+                                          shadows: const [
+                                            Shadow(
+                                              color: Color(0x80000000),
+                                              blurRadius: 3,
+                                              offset: Offset(0, 1),
+                                            ),
+                                          ],
+                                        ),
                                       ),
-                                    ],
+                                    ),
                                   ),
-                                ),
+                                ],
                               ),
                             )
-                          : (iap.isLoading
+                          : ((!isAd && iap.isLoading)
                               ? Container(
                                   decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(h * 0.04),
+                                    borderRadius:
+                                        BorderRadius.circular(h * 0.04),
                                     color: Colors.black.withValues(alpha: 0.3),
                                   ),
                                   alignment: Alignment.center,
@@ -3262,11 +4384,26 @@ class _StoreScreenState extends State<StoreScreen> {
                                     height: (h * 0.08).clamp(12.0, 20.0),
                                     child: const CircularProgressIndicator(
                                       strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white70),
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                          Colors.white70),
                                     ),
                                   ),
                                 )
-                              : const SizedBox.shrink()),
+                              : Container(
+                                  decoration: BoxDecoration(
+                                    borderRadius:
+                                        BorderRadius.circular(h * 0.04),
+                                    color: const Color(0xFF26304A),
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                        _tr('غير متاح حالياً', 'Unavailable'),
+                                        style: const TextStyle(
+                                            color: Colors.white70)),
+                                  ),
+                                )),
                     ),
                   ),
                 ),
@@ -3281,11 +4418,7 @@ class _StoreScreenState extends State<StoreScreen> {
   Widget _featuredResources(
       InAppPurchaseService iap, AppState app, bool disabled) {
     final products = StoreCatalog.products
-        .where((p) =>
-            p.id == 'resources_3_each' ||
-            p.id == 'resources_10_each' ||
-            p.id == 'keys_10' ||
-            p.id == 'hearts_10')
+        .where((p) => p.kind == StoreProductKind.resource)
         .toList();
     return Column(children: [
       _resourceGrid(products, iap, app, disabled),
@@ -3322,13 +4455,11 @@ class _StoreScreenState extends State<StoreScreen> {
           Expanded(
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              GameStoreText(
-                  _tr('أرصدة اللعب والمباريات', 'Play Resources'),
+              GameStoreText(_tr('أرصدة اللعب والمباريات', 'Play Resources'),
                   size: 16),
               const SizedBox(height: 3),
               Text(
-                _tr(
-                    'مفاتيحك: ${wallet.totalKeys} • قلوبك: ${wallet.totalHearts} • تذاكرك: ${wallet.tickets}',
+                _tr('مفاتيحك: ${wallet.totalKeys} • قلوبك: ${wallet.totalHearts} • تذاكرك: ${wallet.tickets}',
                     'Keys: ${wallet.totalKeys} • Hearts: ${wallet.totalHearts} • Tickets: ${wallet.tickets}'),
                 style: const TextStyle(color: _muted, fontSize: 12),
               ),
@@ -3447,23 +4578,23 @@ class _StoreScreenState extends State<StoreScreen> {
           for (final reward in wallet.rewardLog.reversed.take(4))
             Container(
               margin: const EdgeInsets.symmetric(vertical: 4),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               decoration: BoxDecoration(
                 color: Colors.black.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: const Color(0x22FFFFFF)),
               ),
               child: Row(children: [
-                const Icon(Icons.check_circle_rounded,
-                    color: _green, size: 15),
+                const Icon(Icons.check_circle_rounded, color: _green, size: 15),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     '${switch (reward['kind']) {
                       'welcome' => _tr('هدية البداية', 'Starter gift'),
-                      'campaign' => _tr('المرحلة ${reward['stage']}', 'Stage ${reward['stage']}'),
-                      'login' => _tr('وفاء اليوم ${reward['streak']}', 'Day ${reward['streak']} loyalty'),
+                      'campaign' => _tr('المرحلة ${reward['stage']}',
+                          'Stage ${reward['stage']}'),
+                      'login' => _tr('وفاء اليوم ${reward['streak']}',
+                          'Day ${reward['streak']} loyalty'),
                       _ => _tr('مهمة اللعب', 'Play mission')
                     }}: ${_resourceGrantLabel(Map<String, dynamic>.from(reward['grants'] as Map? ?? {}))}',
                     style: const TextStyle(color: _muted, fontSize: 11),

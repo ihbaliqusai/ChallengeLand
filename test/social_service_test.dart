@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:challenge_land/models/social_player_activity.dart';
 import 'package:challenge_land/services/social_service.dart';
+import 'package:challenge_land/services/native_bridge_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:clock/clock.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
@@ -15,7 +16,19 @@ class _DelayedProfiles extends SocialService {
       pending.future;
 }
 
+class _StakesBridge extends NativeBridgeService {
+  final calls = <Map<String, dynamic>>[];
+  String? failure;
+  @override
+  Future<Map<String, dynamic>> friendStakes(Map<String, dynamic> data) async {
+    calls.add(data);
+    if (failure != null) throw EconomyOperationException(failure!);
+    return {};
+  }
+}
+
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   late FakeFirebaseFirestore db;
   late SocialService service;
   late DateTime now;
@@ -31,6 +44,64 @@ void main() {
         'discoverable': true,
       });
     }
+  });
+
+  test(
+      'paid invitations and acceptance use server escrow without client writes',
+      () async {
+    final bridge = _StakesBridge();
+    final paid = SocialService(firestore: db, nativeBridge: bridge);
+    for (final amount in SocialService.stakeAmounts) {
+      await paid.sendStakedChallenge('alice', 'bob', amount);
+      expect(bridge.calls.last, containsPair('stakeCoins', amount));
+      expect(bridge.calls.last, containsPair('action', 'invite'));
+      expect(bridge.calls.last, containsPair('peerUid', 'bob'));
+      expect(bridge.calls.last, containsPair('gameplayVersion', 2));
+    }
+    expect(bridge.calls.map((c) => c['operationId']).toSet(), hasLength(7));
+    await paid.respondStakedChallenge('alice:bob', 'accepted',
+        expectedAmount: 50);
+    expect(bridge.calls.last, containsPair('expectedAmount', 50));
+    expect(bridge.calls.last, containsPair('status', 'accepted'));
+    expect(bridge.calls.last, containsPair('gameplayVersion', 2));
+    expect((await db.collection('social_challenges').get()).docs, isEmpty);
+    expect((await db.collection('social_reservations').get()).docs, isEmpty);
+  });
+
+  test(
+      'unsupported amounts fail before calling server and failures are visible',
+      () async {
+    final bridge = _StakesBridge();
+    final paid = SocialService(firestore: db, nativeBridge: bridge);
+    await expectLater(paid.sendStakedChallenge('alice', 'bob', 25),
+        throwsA(isA<SocialException>()));
+    expect(bridge.calls, isEmpty);
+    bridge.failure = 'رصيدك لا يكفي';
+    await expectLater(
+        paid.sendStakedChallenge('alice', 'bob', 50),
+        throwsA(isA<SocialException>()
+            .having((error) => error.message, 'message', 'رصيدك لا يكفي')));
+  });
+
+  test(
+      'paid invitations cannot be accepted through the free client transaction',
+      () async {
+    await db.doc('social_challenges/alice:bob').set({
+      'members': ['alice', 'bob'],
+      'fromUid': 'alice',
+      'toUid': 'bob',
+      'status': 'pending',
+      'serverStake': true,
+      'stakeCoins': 50,
+      'expiresAt': Timestamp.fromDate(now.add(const Duration(seconds: 30))),
+    });
+    await expectLater(
+        service.respond('bob', 'alice:bob', 'accepted', challenge: true),
+        throwsA(isA<SocialException>()));
+    expect(
+        (await db.doc('social_challenges/alice:bob').get()).data()?['status'],
+        'pending');
+    expect((await db.collection('social_reservations').get()).docs, isEmpty);
   });
 
   test(

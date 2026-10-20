@@ -9,6 +9,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class _AccountUser implements User {
   _AccountUser(this.uid);
@@ -122,6 +123,7 @@ class _Native implements NativeBridgeService {
   int installation = 0;
   int walletCoins = 500;
   int walletGems = 10;
+  List<Map<String, dynamic>> pendingSnapshotGrants = [];
   _CloudResponseGate? nextWalletResponse;
   bool failWalletSync = false;
   bool failAchievementSync = false;
@@ -238,7 +240,7 @@ class _Native implements NativeBridgeService {
         'walletCoins': walletCoins,
         'walletGems': walletGems,
         'appliedDeliveryIds': <String>[],
-        'pendingSnapshotGrants': <Map<String, dynamic>>[],
+        'pendingSnapshotGrants': pendingSnapshotGrants,
       };
   @override
   Future<Map<String, dynamic>> getCategoryState() async => {
@@ -362,6 +364,42 @@ class _Harness {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  test(
+      'local reward claim suppresses a stale read and belongs only to its account',
+      () async {
+    final today = DateTime.now().toUtc();
+    final date =
+        '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+    SharedPreferences.setMockInitialValues(
+        {'daily_reward_claimed_date_alice': date});
+    final h = _Harness();
+    addTearDown(h.close);
+    await h.seed('alice');
+    await h.seed('bob');
+    await h.signIn('alice');
+    await h.state.loadLevelData();
+    expect(h.state.claimedToday, isTrue);
+    await h.signIn('bob');
+    await h.state.loadLevelData();
+    expect(h.state.claimedToday, isFalse);
+  });
+
+  test('a saved daily claim expires on the next UTC day', () async {
+    final yesterday = DateTime.now().toUtc().subtract(const Duration(days: 1));
+    final date =
+        '${yesterday.year}-${yesterday.month.toString().padLeft(2, '0')}-${yesterday.day.toString().padLeft(2, '0')}';
+    SharedPreferences.setMockInitialValues(
+        {'daily_reward_claimed_date_alice': date});
+    final h = _Harness();
+    addTearDown(h.close);
+    await h.seed('alice');
+    await h.signIn('alice');
+    await h.state.loadLevelData();
+    expect(h.state.dailyStreakLoaded, isTrue);
+    expect(h.state.claimedToday, isFalse);
+  });
 
   test('stale devices preserve permanent purchases made on another device',
       () async {
@@ -688,6 +726,86 @@ void main() {
     expect(h.state.bestTrophies, 150);
     expect((await h.publicData('alice'))['xp'], 4000);
     expect((await h.publicData('alice'))['trophies'], 82);
+  });
+
+  test('a stale native wallet cannot restore held friend challenge coins',
+      () async {
+    final h = _Harness();
+    addTearDown(h.close);
+    await h.seed('alice');
+    await h.signIn('alice');
+    await h.db.doc('users/alice').set({
+      'coins': 450,
+      'friendStakeRevision': 1,
+      'friendStakeMatchId': 'paid-match',
+    }, SetOptions(merge: true));
+    h.native.walletCoins = 500;
+    await h.state.loadCurrency();
+    await _drain();
+    expect((await h.privateData('alice'))['coins'], 450);
+    expect(h.native.walletCoins, 450);
+    expect(h.state.coins, 450);
+
+    // A second snapshot must remain read-only while the hold is live.
+    h.native.walletCoins = 999;
+    await h.state.loadCurrency();
+    await _drain();
+    expect((await h.privateData('alice'))['coins'], 450);
+    expect(h.native.walletCoins, 450);
+  });
+
+  test(
+      'stake wallet refresh retains pending purchases without replaying receipts',
+      () async {
+    final h = _Harness();
+    addTearDown(h.close);
+    await h.seed('alice');
+    await h.signIn('alice');
+    h.native.pendingSnapshotGrants = [
+      {'deliveryId': 'new', 'coins': 100, 'gems': 3},
+      {'deliveryId': 'new', 'coins': 100, 'gems': 3},
+      {'deliveryId': 'already-saved', 'coins': 40, 'gems': 1},
+    ];
+    await h.db.doc('users/alice').set({
+      'coins': 450,
+      'gems': 10,
+      'friendStakeRevision': 1,
+      'friendStakeMatchId': 'paid-match',
+      'appliedCommerceDeliveryIds': ['already-saved'],
+    }, SetOptions(merge: true));
+    for (var retry = 0; retry < 2; retry++) {
+      await h.state.loadCurrency();
+      await _drain();
+      expect((await h.privateData('alice'))['coins'], 450);
+      expect(h.native.walletCoins, 550);
+      expect(h.native.walletGems, 13);
+    }
+  });
+
+  test('a friend challenge payout replaces a stale local balance once',
+      () async {
+    final h = _Harness();
+    addTearDown(h.close);
+    await h.seed('alice');
+    await h.signIn('alice');
+    await h.db.doc('users/alice').set({
+      'coins': 550,
+      'friendStakeRevision': 2,
+      'friendStakeMatchId': '',
+    }, SetOptions(merge: true));
+    h.native.walletCoins = 450;
+    await h.state.loadCurrency();
+    await _drain();
+    expect((await h.privateData('alice'))['coins'], 550);
+    expect(h.native.walletCoins, 550);
+    expect(h.state.coins, 550);
+
+    // Legitimate later local earnings still use the existing wallet flow.
+    h.native.walletCoins += 20;
+    await h.state.loadCurrency();
+    await _drain();
+    expect((await h.privateData('alice'))['coins'], 570);
+    expect((await h.privateData('alice'))['friendStakeRevision'], 2);
   });
 
   test('a delayed wallet refresh cannot overwrite the next account balance',

@@ -11,6 +11,35 @@ class EconomyOperationException implements Exception {
 }
 
 class NativeBridgeService {
+  Future<Map<String, dynamic>> friendStakes(Map<String, dynamic> data) async {
+    try {
+      return await _channel.invokeMapMethod<String, dynamic>(
+              'friendStakes', data) ??
+          <String, dynamic>{};
+    } on PlatformException catch (error) {
+      final code = error.code.toUpperCase().replaceAll('-', '_');
+      final message = error.message?.trim();
+      final rawMessage = message?.toUpperCase().replaceAll('-', '_');
+      final serviceMissing = code == 'NOT_FOUND' || code == 'UNIMPLEMENTED';
+      // Older Android versions only passed a generic code and the raw Firebase
+      // status as the message. Keep specific server messages (e.g. low balance).
+      final rawStatus =
+          rawMessage == 'NOT_FOUND' || rawMessage == 'UNIMPLEMENTED';
+      if ((serviceMissing &&
+              (message == null || message.isEmpty || rawStatus)) ||
+          (code == 'FRIEND_STAKES_FAILED' && rawStatus)) {
+        throw const EconomyOperationException(
+            'خدمة تحدي القطع غير متاحة حاليًا. حاول مجددًا لاحقًا.');
+      }
+      throw EconomyOperationException(message?.isNotEmpty == true
+          ? message!
+          : 'تعذر تحديث تحدي القطع. حاول مجددًا.');
+    } on MissingPluginException {
+      throw const EconomyOperationException(
+          'تحدي القطع غير متاح على هذا الجهاز.');
+    }
+  }
+
   Future<Map<String, dynamic>> economy(Map<String, dynamic> data) async {
     try {
       final response =
@@ -454,13 +483,27 @@ class NativeBridgeService {
     });
   }
 
-  Future<void> launchRandomMatch() async {
-    await _channel.invokeMethod('launchRandomMatch');
+  Future<void> launchRandomMatch({int? stakeCoins}) async {
+    await _channel.invokeMethod('launchRandomMatch', <String, dynamic>{
+      if (stakeCoins != null && stakeCoins > 0) 'stakeCoins': stakeCoins,
+    });
   }
 
   Future<void> launchFriendChallenge({required String friendCode}) async {
     await _channel.invokeMethod('launchFriendChallenge', <String, dynamic>{
       'friendCode': friendCode,
+    });
+  }
+
+  Future<void> launchStakedFriendChallenge({
+    required String friendCode,
+    required String matchId,
+    required int stakeCoins,
+  }) async {
+    await _channel.invokeMethod('launchFriendChallenge', <String, dynamic>{
+      'friendCode': friendCode,
+      'stakeMatchId': matchId,
+      'stakeCoins': stakeCoins,
     });
   }
 
@@ -734,7 +777,7 @@ class NativeBridgeService {
     }
   }
 
-  /// يحفظ الشخصية المختارة (الفهرس 0..7) كمصدر وحيد يقرأه المحرّك في كل الأطوار.
+  /// يحفظ فهرس الشخصية المختارة كمصدر وحيد يقرأه المحرّك في كل الأطوار.
   Future<bool> setSelectedCharacter(int index) async {
     try {
       final result = await _channel.invokeMethod<bool>(

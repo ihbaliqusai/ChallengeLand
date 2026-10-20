@@ -105,6 +105,19 @@ class MainActivity : FlutterActivity() {
                             else result.success(value)
                         }
                     }
+                    "friendStakes" -> {
+                        val data = (call.arguments as? Map<*, *>)?.entries
+                            ?.filter { it.key is String && it.value != null }
+                            ?.associate { it.key as String to it.value!! } ?: emptyMap()
+                        com.google.firebase.functions.FirebaseFunctions.getInstance("us-central1")
+                            .getHttpsCallable("friendStakes").call(data)
+                            .addOnSuccessListener { response -> result.success(response.data) }
+                            .addOnFailureListener { error ->
+                                val callableError = error as? com.google.firebase.functions.FirebaseFunctionsException
+                                result.error(callableError?.code?.name ?: "FRIEND_STAKES_FAILED",
+                                    error.message, callableError?.details)
+                            }
+                    }
                     "preloadLocalQuestions" -> {
                         LocalQuestions.preload(applicationContext) { result.success(true) }
                     }
@@ -162,8 +175,12 @@ class MainActivity : FlutterActivity() {
                     }
                     "launchRandomMatch" -> {
                         PlayerProgress.recordRandomMatchPlayed(this)
+                        val stakeCoins = (call.argument<Number>("stakeCoins"))?.toInt() ?: 0
                         val intent = Intent(this, OpponentActivity::class.java).apply {
                             putExtra("matchMode", "random")
+                            if (stakeCoins > 0) {
+                                putExtra("stakeCoins", stakeCoins)
+                            }
                         }
                         startActivity(intent)
                         result.success(true)
@@ -176,10 +193,15 @@ class MainActivity : FlutterActivity() {
                     "launchFriendChallenge" -> {
                         PlayerProgress.recordFriendMatchPlayed(this)
                         val friendCode = call.argument<String>("friendCode") ?: ""
+                        val stakeMatchId = call.argument<String>("stakeMatchId")?.trim().orEmpty()
                         val intent = Intent(this, OpponentActivity::class.java).apply {
                             putExtra("matchMode", "friend")
                             putExtra("friendCode", friendCode)
                             putExtra("socialAccepted", true)
+                            if (stakeMatchId.isNotEmpty()) {
+                                putExtra("stakeMatchId", stakeMatchId)
+                                putExtra("stakeGameplayVersion", 2)
+                            }
                         }
                         startActivity(intent)
                         result.success(true)
@@ -859,13 +881,17 @@ class MainActivity : FlutterActivity() {
                             R.drawable.contestant_khaled, R.drawable.contestant_omar,
                             R.drawable.contestant_fahad, R.drawable.contestant_mazen,
                             R.drawable.contestant_mahmoud, R.drawable.contestant_ellen,
-                            R.drawable.contestant_sarah, R.drawable.contestant_talia
+                            R.drawable.contestant_sarah, R.drawable.contestant_talia,
+                            R.drawable.contestant_layan, R.drawable.contestant_rashid,
+                            R.drawable.contestant_jana, R.drawable.contestant_yazan,
+                            R.drawable.contestant_nour, R.drawable.contestant_zaid,
+                            R.drawable.contestant_salman, R.drawable.contestant_adam
                         )
                         val index = call.argument<Int>("index") ?: -1
                         if (index !in artwork.indices) {
                             result.error("INVALID_CHARACTER", "Unknown character index", null)
                         } else {
-                            // Read the existing packaged PNG off the UI thread.
+                            // Read the packaged PNG/WebP off the UI thread.
                             val appResources = applicationContext.resources
                             kotlin.concurrent.thread(name = "home-character-artwork") {
                                 try {
@@ -885,7 +911,7 @@ class MainActivity : FlutterActivity() {
                     }
                     "setSelectedCharacter" -> {
                         val index = call.argument<Int>("index") ?: -1
-                        if (index in 0..7) {
+                        if (CharacterUnlocks.isValid(index)) {
                             AppPrefs.setSelectedCharacter(this, index)
                             result.success(true)
                         } else {
@@ -896,9 +922,9 @@ class MainActivity : FlutterActivity() {
                         val index   = call.argument<Int>("index") ?: -1
                         val payWith = call.argument<String>("payWith") ?: "coins"
                         val cost    = call.argument<Int>("cost") ?: 0
-                        val prices = mapOf(2 to ("coins" to 12000), 4 to ("gems" to 300), 7 to ("gems" to 800))
-                        val expected = prices[index]
-                        if (expected == null || expected.first != payWith || expected.second != cost) {
+                        val expectedCurrency = CharacterUnlocks.purchaseCurrency(index)
+                        val expectedCost = CharacterUnlocks.purchaseCost(index)
+                        if (expectedCurrency.isEmpty() || expectedCurrency != payWith || expectedCost != cost) {
                             result.success(false)
                         } else if (AppPrefs.isCharacterPurchased(this, index)) {
                             result.success(true)

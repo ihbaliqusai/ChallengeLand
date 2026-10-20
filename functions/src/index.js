@@ -18,6 +18,7 @@ const { CommerceError } = require("./domain");
 const { createPlayVerifier } = require("./play");
 const { createCommerceService } = require("./commerce");
 const { createEconomyService } = require("./economy");
+const { createFriendStakesService } = require("./friend_stakes");
 
 initializeApp();
 setGlobalOptions({ region: "us-central1", maxInstances: 20, memory: "256MiB", timeoutSeconds: 60 });
@@ -76,6 +77,25 @@ exports.gameEconomy = onCall({ enforceAppCheck }, async request => {
     logger.warn("Economy operation failed", { uid, code });
     throw new HttpsError(code, error instanceof CommerceError ? error.message : "تعذر تحديث الرصيد. حاول مجدداً.");
   }
+});
+
+const friendStakes = createFriendStakesService({ db: getFirestore() });
+exports.friendStakes = onCall({ enforceAppCheck }, async request => {
+  const uid = requireAccount(request);
+  try { return await friendStakes.execute(uid, request.data || {}); }
+  catch (error) {
+    const code = error instanceof CommerceError ? error.code : "internal";
+    logger.warn("Friend stake operation failed", { uid, code });
+    throw new HttpsError(code, error instanceof CommerceError ? error.message : "تعذر تحديث تحدي القطع. حاول مجددًا.");
+  }
+});
+
+// No caller may request a refund. Only verified server match state, deadlines,
+// a draw, or cancellation before both players start can release held coins.
+exports.recoverFriendStakes = onSchedule({
+  schedule: "every 1 minutes", timeZone: "UTC", timeoutSeconds: 540,
+}, async () => {
+  logger.info("Friend stake recovery completed", await friendStakes.recoverExpired());
 });
 
 let duelNotifications;

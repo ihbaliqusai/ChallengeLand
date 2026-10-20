@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/game_character.dart';
 import '../models/game_category.dart';
@@ -110,6 +111,7 @@ class AppState extends ChangeNotifier {
   int streakDay = 0;
   bool claimedToday = false;
   bool dailyStreakLoaded = false;
+  String? _localDailyClaimDate;
   bool _claimingStreak = false;
   bool _dailyRewardWalletPending = false;
   bool _achievementWalletPending = false;
@@ -125,7 +127,7 @@ class AppState extends ChangeNotifier {
   User? get currentUser => user ?? _authService.currentUser;
 
   // ── Character selection ─────────────────────────────────────────────────────
-  /// The chosen character index (0..7), or -1 when the player has not picked one
+  /// The chosen catalog index, or -1 when the player has not picked one
   /// yet. Stored natively (single source of truth read by the game engine).
   int selectedCharacterIndex = -1;
 
@@ -363,6 +365,30 @@ class AppState extends ChangeNotifier {
     return ok;
   }
 
+  Future<bool> claimAdResource(String resource) async {
+    if (!['keys', 'hearts', 'tickets'].contains(resource)) return false;
+    final uid = currentUser?.uid;
+    await economyAction({'action': 'adReward', 'resource': resource});
+    return !_disposed && uid != null && currentUser?.uid == uid;
+  }
+
+  bool get canClaimVipBonus =>
+      economyLoaded &&
+      isVip &&
+      vipExpiresAtMillis > DateTime.now().millisecondsSinceEpoch &&
+      economyWallet.claimedVipExpiry < vipExpiresAtMillis;
+
+  Future<bool> claimVipBonus() async {
+    if (!isVip) return false;
+    final uid = currentUser?.uid;
+    try {
+      await economyAction({'action': 'claimVipBonus'});
+      return !_disposed && uid != null && currentUser?.uid == uid;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Connectivity flag fed from the main app shell. Defaults to true so the
   /// first frame renders the online UI; the connectivity listener will flip it
   /// almost immediately if the device is actually offline.
@@ -447,6 +473,7 @@ class AppState extends ChangeNotifier {
       claimedToday = true;
       dailyStreakLoaded = true;
       _dailyRewardWalletPending = false;
+      unawaited(_saveLocalDailyRewardClaim(uid));
       return result.reward;
     } catch (_) {
       if (generation == _authGeneration) {
@@ -504,25 +531,76 @@ class AppState extends ChangeNotifier {
     final uid = currentUser?.uid;
     final generation = _authGeneration;
     if (uid == null) return;
-    await checkAndAwardXpForGames();
-    try {
-      final doc = await _firestore.collection('users').doc(uid).get();
-      if (generation != _authGeneration || currentUser?.uid != uid) return;
-      final data = doc.data() ?? {};
-
-      final progress = DailyRewardProgress.fromData(data, DateTime.now());
-      streakDay = progress.day;
-      claimedToday = progress.claimed && !_dailyRewardWalletPending;
-      dailyStreakLoaded = true;
-      notifyListeners();
-    } catch (e) {
-      if (generation != _authGeneration || currentUser?.uid != uid) return;
-      // Firestore read failed (offline/network). Retain defaults and notify
-      // so UI shows day 1 rather than an endless spinner.
-      streakDay = streakDay > 0 ? streakDay : 1;
-      dailyStreakLoaded = true;
-      notifyListeners();
+    await _hydrateLocalDailyRewardClaim(uid);
+    if (_disposed || generation != _authGeneration || currentUser?.uid != uid) {
+      return;
     }
+    final xpSync = checkAndAwardXpForGames();
+    final streakFetch = () async {
+      try {
+        final doc = await _firestore
+            .collection('users')
+            .doc(uid)
+            .get(const GetOptions(source: Source.server))
+            .timeout(const Duration(seconds: 8));
+        if (generation != _authGeneration || currentUser?.uid != uid) return;
+        final data = doc.data() ?? {};
+
+        final progress = DailyRewardProgress.fromData(data, DateTime.now());
+        streakDay = progress.day;
+        claimedToday = (progress.claimed ||
+                _localDailyClaimDate == _todayCalendarDateString()) &&
+            !_dailyRewardWalletPending;
+        dailyStreakLoaded = true;
+        if (progress.claimed) {
+          unawaited(_saveLocalDailyRewardClaim(uid));
+        }
+        notifyListeners();
+      } catch (e) {
+        if (generation != _authGeneration || currentUser?.uid != uid) return;
+        // A failed read cannot prove that a reward is available. A locally
+        // confirmed claim still suppresses automatic reopening while offline.
+        streakDay = streakDay > 0 ? streakDay : 1;
+        dailyStreakLoaded = claimedToday;
+        notifyListeners();
+      }
+    }();
+    await Future.wait([xpSync, streakFetch]);
+  }
+
+  static String _todayCalendarDateString() {
+    final now = DailyRewardProgress.calendarDate(DateTime.now());
+    return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _saveLocalDailyRewardClaim(String uid) async {
+    final claimDate = _todayCalendarDateString();
+    if (!_disposed && currentUser?.uid == uid) _localDailyClaimDate = claimDate;
+    try {
+      final prefs = await SharedPreferences.getInstance().timeout(
+        const Duration(milliseconds: 300),
+      );
+      await prefs.setString('daily_reward_claimed_date_$uid', claimDate);
+    } catch (_) {}
+  }
+
+  Future<void> _hydrateLocalDailyRewardClaim(String uid) async {
+    final generation = _authGeneration;
+    try {
+      final prefs = await SharedPreferences.getInstance().timeout(
+        const Duration(milliseconds: 300),
+      );
+      final saved = prefs.getString('daily_reward_claimed_date_$uid');
+      if (_disposed ||
+          generation != _authGeneration ||
+          currentUser?.uid != uid) {
+        return;
+      }
+      if (saved != null && saved == _todayCalendarDateString()) {
+        _localDailyClaimDate = saved;
+        claimedToday = true;
+      }
+    } catch (_) {}
   }
 
   Future<void> checkAndAwardXpForGames() async {
@@ -723,6 +801,7 @@ class AppState extends ChangeNotifier {
         _resetSessionState();
         await _nativeBridgeService.resetLegacyUser();
       }
+      unawaited(_hydrateLocalDailyRewardClaim(nextUser.uid));
       if (generation != _authGeneration) return;
       await _loadAndSyncUserData(nextUser.uid, generation);
       if (generation != _authGeneration) return;
@@ -842,14 +921,22 @@ class AppState extends ChangeNotifier {
     );
   }
 
-  Future<void> openRandomMatch() async {
+  Future<void> openRandomMatch({int? stakeCoins}) async {
     await _syncLegacyUser();
-    await _nativeBridgeService.launchRandomMatch();
+    await _nativeBridgeService.launchRandomMatch(stakeCoins: stakeCoins);
   }
 
   Future<void> openFriendChallenge(String friendCode) async {
     await _syncLegacyUser();
     await _nativeBridgeService.launchFriendChallenge(friendCode: friendCode);
+  }
+
+  Future<void> openStakedFriendChallenge(String friendCode,
+      {required String matchId, required int stakeCoins}) async {
+    await _syncLegacyUser();
+    await _nativeBridgeService.launchStakedFriendChallenge(
+        friendCode: friendCode, matchId: matchId, stakeCoins: stakeCoins);
+    await loadCurrency();
   }
 
   Future<void> loadCurrency() async {
@@ -1212,7 +1299,9 @@ class AppState extends ChangeNotifier {
     try {
       // An interrupted reward delivery must not be erased by an older wallet.
       if (_dailyRewardWalletPending || _achievementWalletPending) return;
-      if (currentUser?.uid != uid || _commerceHydratedUid != uid) return;
+      if (_disposed || currentUser?.uid != uid || _commerceHydratedUid != uid) {
+        return;
+      }
       final commerce = await _nativeBridgeService.getCommerceState();
       if (currentUser?.uid != uid ||
           _commerceHydratedUid != uid ||
@@ -1226,19 +1315,84 @@ class AppState extends ChangeNotifier {
           : <String>[];
       final currentCoins = (commerce['walletCoins'] as num?)?.toInt() ?? coins;
       final currentGems = (commerce['walletGems'] as num?)?.toInt() ?? gems;
-      await _firestore.collection('users').doc(uid).set(
-        <String, dynamic>{
-          'coins': currentCoins,
-          'gems': currentGems,
-          'unlockedCategories': FieldValue.arrayUnion(unlockedCategories),
-          'characterIndex': selectedCharacterIndex,
-          'purchasedCharacters':
-              FieldValue.arrayUnion(purchasedCharacters.toList()),
-          'currencyUpdatedAt': FieldValue.serverTimestamp(),
-          'appliedCommerceDeliveryIds': deliveryIds,
-        },
-        SetOptions(merge: true),
-      );
+      final userRef = _firestore.collection('users').doc(uid);
+      final remoteWallet = await _firestore
+          .runTransaction<Map<String, dynamic>?>((transaction) async {
+        final snapshot = await transaction.get(userRef);
+        if (_disposed ||
+            currentUser?.uid != uid ||
+            _commerceHydratedUid != uid) {
+          return null;
+        }
+        final data = snapshot.data() ?? <String, dynamic>{};
+        final revision = (data['friendStakeRevision'] as num?)?.toInt() ?? 0;
+        final held = (data['friendStakeMatchId'] as String? ?? '').isNotEmpty;
+        final refreshWallet =
+            held || revision != (_friendStakeRevisions[uid] ?? 0);
+        transaction.set(
+            userRef,
+            <String, dynamic>{
+              if (!refreshWallet) 'coins': currentCoins,
+              if (!refreshWallet) 'gems': currentGems,
+              'unlockedCategories': FieldValue.arrayUnion(unlockedCategories),
+              'characterIndex': selectedCharacterIndex,
+              'purchasedCharacters':
+                  FieldValue.arrayUnion(purchasedCharacters.toList()),
+              if (!refreshWallet)
+                'currencyUpdatedAt': FieldValue.serverTimestamp(),
+              if (!refreshWallet) 'appliedCommerceDeliveryIds': deliveryIds,
+            },
+            SetOptions(merge: true));
+        return refreshWallet
+            ? {...data, 'friendStakeRevision': revision}
+            : null;
+      });
+      if (_disposed || currentUser?.uid != uid || _commerceHydratedUid != uid) {
+        return;
+      }
+      if (remoteWallet != null) {
+        // Escrow and payouts can arrive while Android still displays its old
+        // balance. Read and compare inside the write transaction so its retry
+        // cannot put the reserved coins back or erase a newer prize.
+        final remoteIds = (remoteWallet['appliedCommerceDeliveryIds'] as List?)
+                ?.whereType<String>()
+                .toSet() ??
+            <String>{};
+        var restoredCoins = (remoteWallet['coins'] as num?)?.toInt() ?? 0;
+        var restoredGems = (remoteWallet['gems'] as num?)?.toInt() ?? 0;
+        final pending = commerce['pendingSnapshotGrants'];
+        final recovered = <String>{};
+        if (pending is List) {
+          for (final grant in pending.whereType<Map>()) {
+            final id = grant['deliveryId']?.toString() ?? '';
+            if (id.isEmpty || remoteIds.contains(id) || !recovered.add(id)) {
+              continue;
+            }
+            restoredCoins += (grant['coins'] as num?)?.toInt() ?? 0;
+            restoredGems += (grant['gems'] as num?)?.toInt() ?? 0;
+          }
+        }
+        restoredCoins = restoredCoins.clamp(0, 2147483647);
+        restoredGems = restoredGems.clamp(0, 2147483647);
+        final hydrated = await _nativeBridgeService.hydrateCommerceWallet(
+          accountUid: uid,
+          coins: restoredCoins,
+          gems: restoredGems,
+          deliveryIds: remoteIds.toList(),
+        );
+        if (!hydrated ||
+            _disposed ||
+            currentUser?.uid != uid ||
+            _commerceHydratedUid != uid) {
+          return;
+        }
+        _friendStakeRevisions[uid] =
+            (remoteWallet['friendStakeRevision'] as num?)?.toInt() ?? 0;
+        coins = restoredCoins;
+        gems = restoredGems;
+        notifyListeners();
+        return;
+      }
       if (currentUser?.uid == uid && deliveryIds.isNotEmpty) {
         await _nativeBridgeService.confirmCommerceSnapshot(deliveryIds,
             accountUid: uid);
@@ -1251,6 +1405,8 @@ class AppState extends ChangeNotifier {
   Future<void> _saveCurrencySnapshot(String uid) async {
     await _saveFullUserSnapshot(uid);
   }
+
+  final Map<String, int> _friendStakeRevisions = {};
 
   Future<void> syncPublicProfile({
     int? level,
@@ -1321,6 +1477,7 @@ class AppState extends ChangeNotifier {
     streakDay = 0;
     claimedToday = false;
     dailyStreakLoaded = false;
+    _localDailyClaimDate = null;
     _claimingStreak = false;
     dailyRewardError = null;
     _dailyRewardWalletPending = false;

@@ -12,6 +12,7 @@ import '../../core/app_state.dart';
 import '../../models/room.dart';
 import '../../core/player_rank.dart';
 import '../campaign/campaign_map_screen.dart';
+import '../character/character_select_screen.dart';
 import '../../models/store_catalog.dart';
 import 'store_screen.dart';
 import 'leaderboard_screen.dart';
@@ -25,16 +26,18 @@ import '../../services/campaign_result_handler.dart';
 import '../../services/invite_service.dart';
 import '../../services/native_bridge_service.dart';
 import '../../widgets/friend_challenge_modal.dart';
+import '../../widgets/incoming_invite_dialog.dart';
 import '../social/social_screen.dart';
 import '../../widgets/special_offer_dialog.dart';
 import '../../widgets/special_offer_badge.dart';
-import '../../widgets/cross_promo_millionaire_badge.dart';
 import '../../widgets/daily_reward_dialog.dart';
 import '../../widgets/home_quick_action.dart';
 import '../../widgets/home_menu_artwork.dart';
 import '../../widgets/game_modes_artwork.dart';
 import '../../widgets/home_artwork.dart';
 import '../../widgets/home_character_artwork.dart';
+import '../../widgets/play_stake_dialog.dart';
+import '../../widgets/lobby_action_panel.dart';
 import '../../services/rate_game_service.dart';
 import '../../services/cross_promo_service.dart';
 
@@ -116,14 +119,24 @@ class _HomeScreenState extends State<HomeScreen>
     final appState = context.read<AppState>();
     // انتظار تحميل بيانات السلسلة من Firestore إذا كانت لا تزال قيد التحميل
     int waitCount = 0;
-    while (!appState.dailyStreakLoaded && waitCount < 12 && mounted) {
+    while (!appState.dailyStreakLoaded && waitCount < 15 && mounted) {
       await Future<void>.delayed(const Duration(milliseconds: 200));
       waitCount++;
     }
     if (!mounted) return;
 
-    final shouldShow =
-        appState.isOnline && !appState.claimedToday && appState.user != null;
+    // إذا لم تكتمل عملية تحميل السلسلة بعد، أو لم يكن المستخدم متصلاً أو ليس مسجلاً، لا تظهر النافذة مطلقاً
+    if (!appState.dailyStreakLoaded ||
+        !appState.isOnline ||
+        appState.user == null) {
+      if (mounted) {
+        _checkAndShowSpecialOffer();
+      }
+      return;
+    }
+
+    // تظهر النافذة فقط وفقط إذا لم يتم الاستلام اليوم (أي أن الصندوق متاح للتحصيل)
+    final shouldShow = !appState.claimedToday;
 
     if (shouldShow && mounted) {
       await DailyRewardDialog.show(context);
@@ -167,210 +180,58 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   void _showIncomingInviteDialog(InviteCandidate candidate) {
-    final isFriend = candidate.type == InviteType.friendChallenge;
-    final primaryColor =
-        isFriend ? const Color(0xFFFFD700) : const Color(0xFF38BDF8);
-
     showDialog<void>(
       context: context,
       barrierDismissible: true,
-      builder: (ctx) => Dialog(
-        backgroundColor: Colors.transparent,
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          constraints: const BoxConstraints(maxWidth: 420),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF0F1E4A), Color(0xFF080D24)],
-            ),
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(
-              color: primaryColor.withValues(alpha: 0.5),
-              width: 1.5,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: primaryColor.withValues(alpha: 0.2),
-                blurRadius: 28,
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    colors: isFriend
-                        ? [const Color(0xFFFFD700), const Color(0xFFF59E0B)]
-                        : [const Color(0xFF38BDF8), const Color(0xFF0284C7)],
-                  ),
-                ),
-                child: Icon(
-                  isFriend
-                      ? Icons.sports_esports_rounded
-                      : Icons.groups_rounded,
-                  color: isFriend ? const Color(0xFF0B1437) : Colors.white,
-                  size: 28,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                candidate.title,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                candidate.subtitle,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Color(0xFF94A3B8),
-                  fontSize: 13,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF070F28),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: primaryColor.withValues(alpha: 0.4),
-                  ),
-                ),
-                child: Text(
-                  candidate.code,
-                  style: TextStyle(
-                    color: primaryColor,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 2,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 18),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () {
-                        Navigator.of(ctx).pop();
-                        final inviteService = context.read<InviteService>();
-                        inviteService.dismissInviteCode(candidate.code);
-                        inviteService.dismissInviteCode(candidate.rawText);
-                      },
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.white70,
-                        side: BorderSide(
-                          color: Colors.white.withValues(alpha: 0.2),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      child: const Text('تجاهل'),
+      builder: (ctx) => IncomingInviteDialog(
+        candidate: candidate,
+        onDismiss: () {
+          Navigator.of(ctx).pop();
+          final inviteService = context.read<InviteService>();
+          inviteService.dismissInviteCode(candidate.code);
+          inviteService.dismissInviteCode(candidate.rawText);
+        },
+        onAccept: () async {
+          Navigator.of(ctx).pop();
+          final inviteService = context.read<InviteService>();
+          await inviteService.dismissInviteCode(candidate.code);
+          await inviteService.dismissInviteCode(candidate.rawText);
+
+          if (!mounted) return;
+
+          if (candidate.type == InviteType.friendChallenge) {
+            FriendChallengeModal.show(
+              context,
+              initialFriendCode: candidate.code,
+            );
+          } else {
+            final userId = context.read<AppState>().user?.uid;
+            if (userId != null) {
+              try {
+                final joinResult = await context.read<RoomService>().joinRoom(
+                      roomId: candidate.code,
+                      userId: userId,
+                    );
+                if (!mounted) return;
+                await Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => RoomLobbyScreen(
+                      roomId: candidate.code,
+                      isJoiningMidGame: joinResult.joinedMidGame,
                     ),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    flex: 2,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: isFriend
-                              ? [
-                                  const Color(0xFFFFD700),
-                                  const Color(0xFFF59E0B)
-                                ]
-                              : [
-                                  const Color(0xFF38BDF8),
-                                  const Color(0xFF0284C7)
-                                ],
-                        ),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: ElevatedButton(
-                        onPressed: () async {
-                          Navigator.of(ctx).pop();
-                          final inviteService = context.read<InviteService>();
-                          await inviteService.dismissInviteCode(candidate.code);
-                          await inviteService
-                              .dismissInviteCode(candidate.rawText);
-
-                          if (!mounted) return;
-
-                          if (isFriend) {
-                            FriendChallengeModal.show(
-                              context,
-                              initialFriendCode: candidate.code,
-                            );
-                          } else {
-                            final userId = context.read<AppState>().user?.uid;
-                            if (userId != null) {
-                              try {
-                                final joinResult =
-                                    await context.read<RoomService>().joinRoom(
-                                          roomId: candidate.code,
-                                          userId: userId,
-                                        );
-                                if (!mounted) return;
-                                await Navigator.of(context).push(
-                                  MaterialPageRoute<void>(
-                                    builder: (_) => RoomLobbyScreen(
-                                      roomId: candidate.code,
-                                      isJoiningMidGame:
-                                          joinResult.joinedMidGame,
-                                    ),
-                                  ),
-                                );
-                                return;
-                              } catch (_) {}
-                            }
-                            if (!mounted) return;
-                            Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) => RoomsScreen(
-                                    initialRoomCode: candidate.code),
-                              ),
-                            );
-                          }
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.transparent,
-                          shadowColor: Colors.transparent,
-                          foregroundColor:
-                              isFriend ? const Color(0xFF0B1437) : Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        child: Text(
-                          isFriend ? 'بدء التحدي الآن ⚔️' : 'انضمام للغرفة 🏆',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+                );
+                return;
+              } catch (_) {}
+            }
+            if (!mounted) return;
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => RoomsScreen(initialRoomCode: candidate.code),
               ),
-            ],
-          ),
-        ),
+            );
+          }
+        },
       ),
     );
   }
@@ -679,11 +540,9 @@ void _showOnlineRequiredToast(BuildContext context) {
 //  TOP BAR
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 Future<void> _showGameModesSheet(BuildContext context) {
-  return showModalBottomSheet<void>(
+  return showDialog<void>(
     context: context,
-    backgroundColor: Colors.transparent,
-    barrierColor: Colors.black.withValues(alpha: 0.50),
-    isScrollControlled: true,
+    barrierColor: Colors.black.withValues(alpha: 0.65),
     builder: (sheetContext) => _GameModesSheet(rootContext: context),
   );
 }
@@ -723,11 +582,14 @@ class _GameModesSheet extends StatelessWidget {
             media.size.width - media.padding.horizontal - 24,
             (media.size.height - media.padding.vertical - 24) *
                 GameModesArtwork.aspectRatio));
-    return SafeArea(
-        child: Center(
-            child: Padding(
-      padding: const EdgeInsets.all(12),
-      child: SizedBox(
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      insetPadding: const EdgeInsets.all(12),
+      alignment: Alignment.center,
+      child: Center(
+        child: SizedBox(
           width: width,
           child: GameModesArtwork(
             isOnline: appState.isOnline,
@@ -742,8 +604,10 @@ class _GameModesSheet extends StatelessWidget {
                 context, () => rootContext.read<AppState>().openOfflineGame()),
             onUnavailable: () =>
                 _runMode(context, () => _showOnlineRequiredToast(rootContext)),
-          )),
-    )));
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -805,6 +669,7 @@ class _HomeMenuButtonState extends State<_HomeMenuButton> {
   @override
   Widget build(BuildContext context) {
     final hasDailyReward = widget.appState.isOnline &&
+        widget.appState.dailyStreakLoaded &&
         widget.appState.streakDay > 0 &&
         !widget.appState.claimedToday;
     final hasAttention = hasDailyReward || _pendingRewards > 0;
@@ -867,6 +732,7 @@ class _HomeMenuSheet extends StatelessWidget {
         math.min(media.size.width - media.padding.horizontal - 24,
             availableHeight * HomeMenuArtwork.aspectRatio));
     final dailyReady = liveState.isOnline &&
+        liveState.dailyStreakLoaded &&
         liveState.streakDay > 0 &&
         !liveState.claimedToday;
     return SafeArea(
@@ -1015,21 +881,21 @@ class _HomeLobbyLayout extends StatelessWidget {
             math.min(balanceWidth, 44 * 1616 / 884) * resourceScale;
         final walletWidth =
             balanceWidth * 2 + keysWidth + ticketsWidth + walletGap * 3;
-        final badgeHeight =
-            portrait ? 56.0 : (panelHeight * .20).clamp(42.0, 64.0);
+        final badgeHeight = portrait
+            ? (compact ? 44.0 : 50.0)
+            : (panelHeight * .18).clamp(36.0, 52.0);
         final bannerHeight = portrait
-            ? 66.0
-            : math.min(
-                panelWidth * .32, (panelHeight - badgeHeight * 2 - 28) / 2);
+            ? (compact ? 50.0 : 56.0)
+            : math.min(panelWidth * .28, (panelHeight - badgeHeight - 24) / 3);
         Widget fitBadge(Widget badge) => SizedBox(
             height: badgeHeight,
             width: portrait ? (panelWidth - 12) / 2 : panelWidth,
             child: FittedBox(fit: BoxFit.contain, child: badge));
         Widget banner(String asset, String label, VoidCallback onPressed,
-                {bool enabled = true}) =>
+                {bool enabled = true, double? width, double? height}) =>
             SizedBox(
-                width: portrait ? (panelWidth - 12) / 2 : panelWidth,
-                height: bannerHeight,
+                width: width ?? (portrait ? (panelWidth - 12) / 2 : panelWidth),
+                height: height ?? bannerHeight,
                 child: FittedBox(
                     child: _BattleButton(
                         asset: asset,
@@ -1044,7 +910,35 @@ class _HomeLobbyLayout extends StatelessWidget {
             () => _showGameModesSheet(context));
         final promotions = [
           if (!appState.isVip) fitBadge(const SpecialOfferBadge()),
-          fitBadge(const CrossPromoMillionaireBadge()),
+          fitBadge(LobbyActionPanel(
+            key: const ValueKey('home-play-button'),
+            title: 'العب',
+            subtitle: 'اختر مبلغ المباراة ومنافسك',
+            icon: Icons.play_arrow_rounded,
+            gold: true,
+            showNotification: true,
+            notificationColor: const Color(0xFF34D399),
+            notificationAnimation: TweenSequence<double>([
+              TweenSequenceItem(
+                tween: Tween(begin: 1.0, end: 0.0)
+                    .chain(CurveTween(curve: Curves.easeInOut)),
+                weight: 50,
+              ),
+              TweenSequenceItem(
+                tween: Tween(begin: 0.0, end: 1.0)
+                    .chain(CurveTween(curve: Curves.easeInOut)),
+                weight: 50,
+              ),
+            ]).animate(idleCtrl),
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              if (!appState.isOnline) {
+                _showOnlineRequiredToast(context);
+                return;
+              }
+              PlayStakeDialog.show(context);
+            },
+          )),
         ];
         return Stack(children: [
           Positioned(
@@ -1083,8 +977,10 @@ class _HomeLobbyLayout extends StatelessWidget {
                             ? '${appState.economyWallet.totalKeys}'
                             : '…',
                         enabled: appState.isOnline,
-                        onPressed: () => _openOnlineScreen(context,
-                            const StoreScreen(initialKind: StoreProductKind.resource)))),
+                        onPressed: () => _openOnlineScreen(
+                            context,
+                            const StoreScreen(
+                                initialKind: StoreProductKind.resource)))),
                 const SizedBox(width: walletGap),
                 SizedBox(
                     width: ticketsWidth,
@@ -1095,8 +991,10 @@ class _HomeLobbyLayout extends StatelessWidget {
                             ? '${appState.economyWallet.tickets}'
                             : '…',
                         enabled: appState.isOnline,
-                        onPressed: () => _openOnlineScreen(context,
-                            const StoreScreen(initialKind: StoreProductKind.resource)))),
+                        onPressed: () => _openOnlineScreen(
+                            context,
+                            const StoreScreen(
+                                initialKind: StoreProductKind.resource)))),
               ])),
           Positioned(
               top: headerHeight + 2,
@@ -1111,7 +1009,12 @@ class _HomeLobbyLayout extends StatelessWidget {
               height: characterHeight,
               child: HomeCharacterArtwork(
                   key: const ValueKey('home-selected-character'),
-                  character: appState.selectedCharacter)),
+                  character: appState.selectedCharacter,
+                  onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const CharacterSelectScreen(),
+                        ),
+                      ))),
           Positioned(
               top: portrait ? headerHeight + 12 : 74,
               left: 12,
@@ -1157,17 +1060,15 @@ class _HomeLobbyLayout extends StatelessWidget {
                             modes
                           ]),
                       const Spacer(),
-                      Row(
-                          textDirection: TextDirection.rtl,
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: promotions),
+                      ...promotions.expand(
+                          (badge) => [badge, const SizedBox(height: 6)]),
                     ])
                   : Column(children: [
                       ...promotions.expand(
-                          (badge) => [badge, const SizedBox(height: 10)]),
+                          (badge) => [badge, const SizedBox(height: 6)]),
                       const Spacer(),
                       campaign,
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
                       modes,
                     ])),
         ]);

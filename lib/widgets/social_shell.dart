@@ -169,7 +169,17 @@ class _SocialShellState extends State<SocialShell> with WidgetsBindingObserver {
           history.length > 40 ? history.sublist(history.length - 40) : history);
       _handled.add(token);
       try {
-        await app.openFriendChallenge(code);
+        final stake = SocialService.stakeCoins(data);
+        if (data['serverStake'] == true) {
+          final matchId = data['stakeMatchId']?.toString() ?? '';
+          if (matchId.isEmpty || !SocialService.stakeAmounts.contains(stake)) {
+            throw const SocialException('بيانات تحدي القطع غير مكتملة.');
+          }
+          await app.openStakedFriendChallenge(code,
+              matchId: matchId, stakeCoins: stake);
+        } else {
+          await app.openFriendChallenge(code);
+        }
       } catch (_) {
         _handled.remove(token);
         history.remove(token);
@@ -189,16 +199,20 @@ class _SocialShellState extends State<SocialShell> with WidgetsBindingObserver {
   }
 
   Future<void> _respond(String id, String status,
-      {bool challenge = true}) async {
+      {bool challenge = true, int stakeCoins = 0}) async {
     if (_working || _uid == null) return;
     setState(() {
       _working = true;
       _error = null;
     });
     try {
-      await context
-          .read<SocialService>()
-          .respond(_uid!, id, status, challenge: challenge);
+      final service = context.read<SocialService>();
+      if (challenge && stakeCoins > 0) {
+        await service.respondStakedChallenge(id, status,
+            expectedAmount: stakeCoins);
+      } else {
+        await service.respond(_uid!, id, status, challenge: challenge);
+      }
     } catch (error) {
       if (mounted) {
         setState(() => _error = error is SocialException
@@ -240,6 +254,9 @@ class _SocialShellState extends State<SocialShell> with WidgetsBindingObserver {
     final isFriend = request != null &&
         request == (friends.isNotEmpty ? friends.first : null);
     final isIncoming = request?.data()['toUid'] == _uid;
+    final stakeCoins = request == null || isFriend
+        ? 0
+        : SocialService.stakeCoins(request.data());
     return Stack(children: [
       widget.child,
       if (_foreground && ((request != null) || _error != null))
@@ -294,6 +311,20 @@ class _SocialShellState extends State<SocialShell> with WidgetsBindingObserver {
                                       icon: const Icon(Icons.close_rounded),
                                     )),
                             ]),
+                            if (stakeCoins > 0) ...[
+                              const SizedBox(height: 6),
+                              Text(
+                                  SocialService.stakeDescription(
+                                      request!.data()),
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                      color: Color(0xFFFFD166),
+                                      fontWeight: FontWeight.bold)),
+                              const Text(
+                                  'التعادل أو خلل المباراة يعيد القطع. الانسحاب بعد البدء خسارة.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(fontSize: 11)),
+                            ],
                             if (_error != null && request != null)
                               Padding(
                                   padding:
@@ -311,14 +342,18 @@ class _SocialShellState extends State<SocialShell> with WidgetsBindingObserver {
                                             ? null
                                             : () => _respond(
                                                 request.id, 'accepted',
-                                                challenge: !isFriend),
-                                        child: const Text('قبول')),
+                                                challenge: !isFriend,
+                                                stakeCoins: stakeCoins),
+                                        child: Text(stakeCoins > 0
+                                            ? 'قبول بـ$stakeCoins قطعة'
+                                            : 'قبول')),
                                     TextButton(
                                         onPressed: _working
                                             ? null
                                             : () => _respond(
                                                 request.id, 'declined',
-                                                challenge: !isFriend),
+                                                challenge: !isFriend,
+                                                stakeCoins: stakeCoins),
                                         child: const Text('رفض')),
                                   ],
                                   if (request != null && !isIncoming)
@@ -326,7 +361,8 @@ class _SocialShellState extends State<SocialShell> with WidgetsBindingObserver {
                                         onPressed: _working
                                             ? null
                                             : () => _respond(
-                                                request.id, 'cancelled'),
+                                                request.id, 'cancelled',
+                                                stakeCoins: stakeCoins),
                                         child: const Text('إلغاء الدعوة')),
                                   if (_error != null)
                                     IconButton(

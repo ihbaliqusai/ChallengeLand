@@ -17,6 +17,9 @@ class StoreProduct {
     required this.kind,
     this.coins = 0,
     this.gems = 0,
+    this.keys = 0,
+    this.tickets = 0,
+    this.hearts = 0,
     this.oneTime = false,
     this.featured = false,
     this.badge = '',
@@ -28,6 +31,9 @@ class StoreProduct {
   final StoreProductKind kind;
   final int coins;
   final int gems;
+  final int keys;
+  final int tickets;
+  final int hearts;
   final bool oneTime;
   final bool featured;
   final String badge;
@@ -44,45 +50,57 @@ class CoinExchange {
 abstract final class StoreCatalog {
   static const products = <StoreProduct>[
     StoreProduct(
-        id: 'keys_1',
-        title: 'مفتاح واحد',
-        subtitle: 'دخول مباراة كاملة في التحديات',
-        kind: StoreProductKind.resource),
-    StoreProduct(
-        id: 'hearts_1',
-        title: 'قلب إضافي واحد',
-        subtitle: 'محاولة إضافية محفوظة لتحدي المراحل',
-        kind: StoreProductKind.resource),
-    StoreProduct(
-        id: 'tickets_1',
-        title: 'تذكرة تصنيف واحدة',
-        subtitle: 'افتح تصنيفاً مقفلاً لمباراة واحدة',
-        kind: StoreProductKind.resource),
-    StoreProduct(
-        id: 'keys_10',
-        title: '10 مفاتيح',
-        subtitle: '10 مفاتيح إضافية محفوظة لدخول التحديات',
-        kind: StoreProductKind.resource),
-    StoreProduct(
-        id: 'hearts_10',
-        title: '10 قلوب إضافية',
-        subtitle: 'قلوب محفوظة لتحدي المراحل',
-        kind: StoreProductKind.resource),
-    StoreProduct(
-        id: 'tickets_10',
-        title: '10 تذاكر تصنيفات',
-        subtitle: 'كل تذكرة تفتح تصنيفاً لمباراة واحدة',
-        kind: StoreProductKind.resource),
-    StoreProduct(
         id: 'resources_3_each',
         title: 'باقة اللعب',
         subtitle: '3 مفاتيح + 3 تذاكر + 3 قلوب إضافية',
-        kind: StoreProductKind.resource),
+        kind: StoreProductKind.resource,
+        keys: 3,
+        tickets: 3,
+        hearts: 3),
     StoreProduct(
         id: 'resources_10_each',
         title: 'باقة اللعب الكبيرة',
         subtitle: '10 مفاتيح + 10 تذاكر + 10 قلوب إضافية',
-        kind: StoreProductKind.resource),
+        kind: StoreProductKind.resource,
+        keys: 10,
+        tickets: 10,
+        hearts: 10),
+    StoreProduct(
+        id: 'keys_1',
+        title: 'مفتاح واحد',
+        subtitle: 'مفتاح إضافي مقابل مشاهدة إعلان',
+        kind: StoreProductKind.resource,
+        keys: 1),
+    StoreProduct(
+        id: 'hearts_1',
+        title: 'قلب واحد',
+        subtitle: 'محاولة إضافية مقابل مشاهدة إعلان',
+        kind: StoreProductKind.resource,
+        hearts: 1),
+    StoreProduct(
+        id: 'tickets_1',
+        title: 'تذكرة واحدة',
+        subtitle: 'تذكرة تصنيف مقابل مشاهدة إعلان',
+        kind: StoreProductKind.resource,
+        tickets: 1),
+    StoreProduct(
+        id: 'keys_10',
+        title: '10 مفاتيح',
+        subtitle: '10 مفاتيح إضافية محفوظة لدخول التحديات',
+        kind: StoreProductKind.resource,
+        keys: 10),
+    StoreProduct(
+        id: 'hearts_10',
+        title: '10 قلوب',
+        subtitle: '10 قلوب إضافية محفوظة لتحدي المراحل',
+        kind: StoreProductKind.resource,
+        hearts: 10),
+    StoreProduct(
+        id: 'tickets_10',
+        title: '10 تذاكر',
+        subtitle: '10 تذاكر لفتح أي تصنيف لمباراة واحدة',
+        kind: StoreProductKind.resource,
+        tickets: 10),
     StoreProduct(
         id: 'pack_starter',
         title: 'بداية المغامرة',
@@ -149,10 +167,15 @@ abstract final class StoreCatalog {
     StoreProduct(
         id: 'vip_monthly',
         title: 'عضوية نادي الأبطال',
-        subtitle: 'كل الفئات المميزة وبدون إعلانات إجبارية طوال الاشتراك',
+        subtitle: '100 جوهرة + 1000 قطعة + 3 مفاتيح وتذاكر وقلوب مع كل مزايا VIP',
         kind: StoreProductKind.subscription,
+        coins: 1000,
+        gems: 100,
+        keys: 3,
+        tickets: 3,
+        hearts: 3,
         featured: true,
-        badge: 'عضوية شهرية'),
+        badge: 'عضوية الأبطال VIP'),
     StoreProduct(
         id: 'category_all_access',
         title: 'مكتبة الفئات الكاملة',

@@ -18,6 +18,7 @@ public final class NativeProgression {
             if (state.containsKey(ID)) i.putExtra(ID, state.getString(ID));
             if (state.containsKey(ACCOUNT)) i.putExtra(ACCOUNT, state.getString(ACCOUNT));
             if (state.containsKey("economySessionId")) i.putExtra("economySessionId", state.getString("economySessionId"));
+            if (state.containsKey("randomStakeId")) i.putExtra("randomStakeId", state.getString("randomStakeId"));
         }
         String matchId = i.getStringExtra(ID), account = i.getStringExtra(ACCOUNT);
         if (matchId == null || matchId.trim().isEmpty()) i.putExtra(ID, UUID.randomUUID().toString());
@@ -29,6 +30,7 @@ public final class NativeProgression {
         state.putString(ID, a.getIntent().getStringExtra(ID));
         state.putString(ACCOUNT, a.getIntent().getStringExtra(ACCOUNT));
         state.putString("economySessionId", a.getIntent().getStringExtra("economySessionId"));
+        state.putString("randomStakeId", a.getIntent().getStringExtra("randomStakeId"));
     }
 
     public static String fallbackId(Activity a) {

@@ -8,14 +8,16 @@ import '../../core/app_state.dart';
 import '../../models/social_player_activity.dart';
 import '../../services/social_service.dart';
 import '../../widgets/friend_challenge_modal.dart';
+import '../../widgets/friend_stake_selector.dart';
 import '../../widgets/social_player_card.dart';
 import '../../widgets/social_artwork.dart';
 import '../../widgets/social_stream_builder.dart';
 import 'player_profile_screen.dart';
 
 class SocialScreen extends StatefulWidget {
-  const SocialScreen({super.key, this.initialTab = 0});
+  const SocialScreen({super.key, this.initialTab = 0, this.initialStake = 0});
   final int initialTab;
+  final int initialStake;
   @override
   State<SocialScreen> createState() => _SocialScreenState();
 }
@@ -69,7 +71,7 @@ class _SocialScreenState extends State<SocialScreen>
     setState(() => _busy.add(key));
     try {
       await action();
-      if (mounted && account == _account) {
+      if (mounted && account == _account && successMessage.isNotEmpty) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(successMessage)));
       }
@@ -162,67 +164,453 @@ class _SocialScreenState extends State<SocialScreen>
       {bool primary = false, IconData? icon, bool closeOptions = true}) {
     final working = _busy.contains(key);
     final actionOwner = _account;
+    final isDestructive = label.contains('حظر') || label == 'رفض';
+    final isStaked = label.contains('قطع') || key.startsWith('stake:');
+    final isFriend = label.contains('إضافة صديق') || key.startsWith('friend:');
+    final role = primary
+        ? _PlayerActionRole.primary
+        : isStaked
+            ? _PlayerActionRole.staked
+            : isFriend
+                ? _PlayerActionRole.friend
+                : isDestructive
+                    ? _PlayerActionRole.destructive
+                    : _PlayerActionRole.standard;
+
     return _PlayerOptionAction(
-      requiresAvailable: label == 'تحدٍّ مباشر',
+      requiresAvailable: label == 'تحدٍّ مباشر' || label == 'تحدٍّ على قطع',
+      isDestructive: isDestructive,
+      role: role,
+      label: label,
       builder: (buttonContext, available) {
-        final callback = working || (label == 'تحدٍّ مباشر' && !available)
+        final callback = working ||
+                ((label == 'تحدٍّ مباشر' || label == 'تحدٍّ على قطع') &&
+                    !available)
             ? null
             : () {
                 if (closeOptions) Navigator.of(buttonContext).pop();
                 if (actionOwner != _account) return;
                 unawaited(_action(key, action,
-                    successMessage: label == 'تحدٍّ مباشر'
-                        ? 'أُرسلت الدعوة؛ تبدأ المواجهة بعد قبول اللاعب.'
-                        : label == 'إضافة صديق' || label == 'إرسال الطلب'
-                            ? 'أُرسل طلب الصداقة؛ سيصل إشعار إلى اللاعب.'
-                            : 'تم تحديث الطلب.'));
+                    successMessage: label == 'تحدٍّ على قطع'
+                        ? ''
+                        : label == 'تحدٍّ مباشر'
+                            ? 'أُرسلت الدعوة؛ تبدأ المواجهة بعد قبول اللاعب.'
+                            : label == 'إضافة صديق' || label == 'إرسال الطلب'
+                                ? 'أُرسل طلب الصداقة؛ سيصل إشعار إلى اللاعب.'
+                                : 'تم تحديث الطلب.'));
               };
-        final child = Row(mainAxisSize: MainAxisSize.min, children: [
-          if (working) ...[
-            const SizedBox(
-                width: 14,
-                height: 14,
-                child: CircularProgressIndicator(strokeWidth: 2, color: _mint)),
-            const SizedBox(width: 6),
-          ] else if (icon != null) ...[
-            Icon(icon, size: 17),
-            const SizedBox(width: 6)
-          ],
-          Flexible(child: Text(working ? 'جارٍ الإرسال…' : label)),
-        ]);
-        final shape =
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12));
-        return primary
-            ? FilledButton(
-                style: FilledButton.styleFrom(
-                    foregroundColor: const Color(0xFF142755),
-                    backgroundColor: const Color(0xFF76D2FF),
-                    disabledBackgroundColor: const Color(0xFF646086),
-                    shape: shape,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 12),
-                    textStyle: Theme.of(context)
-                        .textTheme
-                        .labelLarge
-                        ?.copyWith(fontSize: 12, fontWeight: FontWeight.w800)),
-                onPressed: callback,
-                child: child)
-            : OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFFF6F1FF),
-                    side:
-                        const BorderSide(color: Color(0xFFB6A0ED), width: 1.5),
-                    shape: shape,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 12),
-                    textStyle: Theme.of(context)
-                        .textTheme
-                        .labelLarge
-                        ?.copyWith(fontSize: 12, fontWeight: FontWeight.w600)),
-                onPressed: callback,
-                child: child);
+        final enabled = callback != null;
+        return ElevatedButton(
+          onPressed: callback,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.transparent,
+            shadowColor: Colors.transparent,
+            disabledBackgroundColor: Colors.transparent,
+            disabledForegroundColor: const Color(0xFF8E83A3),
+            padding: EdgeInsets.zero,
+            elevation: 0,
+            minimumSize: Size.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+          ),
+          child: _actionButtonFace(
+            role: role,
+            label: working ? 'جارٍ الإرسال…' : label,
+            icon: icon,
+            enabled: enabled,
+            working: working,
+          ),
+        );
       },
     );
+  }
+
+  Widget _actionButtonFace({
+    required _PlayerActionRole role,
+    required String label,
+    required IconData? icon,
+    required bool enabled,
+    required bool working,
+  }) {
+    final Gradient bgGradient;
+    final Border border;
+    final List<BoxShadow> shadows;
+    final TextStyle textStyle;
+    final Widget iconWidget;
+
+    switch (role) {
+      case _PlayerActionRole.primary:
+        bgGradient = enabled
+            ? const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0xFF4EE3FF),
+                  Color(0xFF139EF4),
+                  Color(0xFF0075D1),
+                ],
+              )
+            : const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFF384A5C), Color(0xFF263340)],
+              );
+        border = Border.all(
+          color: enabled ? const Color(0xFF9EEBFF) : const Color(0xFF4C5D70),
+          width: 1.5,
+        );
+        shadows = enabled
+            ? const [
+                BoxShadow(
+                  color: Color(0xFF004B8C),
+                  offset: Offset(0, 4),
+                  blurRadius: 0,
+                ),
+                BoxShadow(
+                  color: Color(0x6600B4FF),
+                  offset: Offset(0, 2),
+                  blurRadius: 6,
+                ),
+              ]
+            : const [];
+        textStyle = TextStyle(
+          color: enabled ? Colors.white : const Color(0xFF8697A8),
+          fontWeight: FontWeight.w900,
+          fontSize: 16,
+          shadows: enabled
+              ? const [
+                  Shadow(
+                    offset: Offset(0, 1),
+                    blurRadius: 2,
+                    color: Color(0x88002040),
+                  ),
+                ]
+              : null,
+        );
+        iconWidget = Icon(
+          icon ?? Icons.bolt_rounded,
+          color: enabled ? const Color(0xFFFFD600) : const Color(0xFF6E7E91),
+          size: 24,
+        );
+        break;
+
+      case _PlayerActionRole.staked:
+        bgGradient = enabled
+            ? const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0xFF451E75),
+                  Color(0xFF2C1150),
+                  Color(0xFF1E0938),
+                ],
+              )
+            : const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFF2D1F3E), Color(0xFF1D1429)],
+              );
+        border = Border.all(
+          color: enabled ? const Color(0xFFE5AA38) : const Color(0xFF54436A),
+          width: 2.0,
+        );
+        shadows = enabled
+            ? const [
+                BoxShadow(
+                  color: Color(0xFF120325),
+                  offset: Offset(0, 4),
+                  blurRadius: 0,
+                ),
+                BoxShadow(
+                  color: Color(0x44E5AA38),
+                  offset: Offset(0, 2),
+                  blurRadius: 4,
+                ),
+              ]
+            : const [];
+        textStyle = TextStyle(
+          color: enabled ? const Color(0xFFFFF9E6) : const Color(0xFF7E6F94),
+          fontWeight: FontWeight.w900,
+          fontSize: 15,
+          shadows: enabled
+              ? const [
+                  Shadow(
+                    offset: Offset(0, 1),
+                    blurRadius: 2,
+                    color: Colors.black87,
+                  ),
+                ]
+              : null,
+        );
+        iconWidget = Container(
+          width: 22,
+          height: 22,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: enabled
+                ? const LinearGradient(
+                    colors: [Color(0xFFFFDF7A), Color(0xFFDCA028)],
+                  )
+                : const LinearGradient(
+                    colors: [Color(0xFF867657), Color(0xFF5A4F3A)],
+                  ),
+            boxShadow: enabled
+                ? const [
+                    BoxShadow(color: Color(0x66FFCC00), blurRadius: 4),
+                  ]
+                : null,
+          ),
+          child: Center(
+            child: Text(
+              '\$',
+              style: TextStyle(
+                color:
+                    enabled ? const Color(0xFF5A3800) : const Color(0xFF332B1E),
+                fontWeight: FontWeight.w900,
+                fontSize: 13,
+                height: 1.1,
+              ),
+            ),
+          ),
+        );
+        break;
+
+      case _PlayerActionRole.friend:
+        bgGradient = enabled
+            ? const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0xFF451E75),
+                  Color(0xFF2C1150),
+                  Color(0xFF1E0938),
+                ],
+              )
+            : const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFF2D1F3E), Color(0xFF1D1429)],
+              );
+        border = Border.all(
+          color: enabled ? const Color(0xFFE5AA38) : const Color(0xFF54436A),
+          width: 2.0,
+        );
+        shadows = enabled
+            ? const [
+                BoxShadow(
+                  color: Color(0xFF120325),
+                  offset: Offset(0, 4),
+                  blurRadius: 0,
+                ),
+                BoxShadow(
+                  color: Color(0x44E5AA38),
+                  offset: Offset(0, 2),
+                  blurRadius: 4,
+                ),
+              ]
+            : const [];
+        textStyle = TextStyle(
+          color: enabled ? const Color(0xFFFFF9E6) : const Color(0xFF7E6F94),
+          fontWeight: FontWeight.w900,
+          fontSize: 15,
+          shadows: enabled
+              ? const [
+                  Shadow(
+                    offset: Offset(0, 1),
+                    blurRadius: 2,
+                    color: Colors.black87,
+                  ),
+                ]
+              : null,
+        );
+        iconWidget = Icon(
+          icon ?? Icons.person_add_alt_1_rounded,
+          color: enabled ? const Color(0xFF5ED3FF) : const Color(0xFF6A798A),
+          size: 22,
+        );
+        break;
+
+      case _PlayerActionRole.destructive:
+        bgGradient = enabled
+            ? const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0xFF5A1625),
+                  Color(0xFF380A15),
+                  Color(0xFF26040C),
+                ],
+              )
+            : const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFF33161C), Color(0xFF210C10)],
+              );
+        border = Border.all(
+          color: enabled ? const Color(0xFF8E372B) : const Color(0xFF4D231E),
+          width: 2.0,
+        );
+        shadows = enabled
+            ? const [
+                BoxShadow(
+                  color: Color(0xFF190206),
+                  offset: Offset(0, 4),
+                  blurRadius: 0,
+                ),
+                BoxShadow(
+                  color: Color(0x44FF3B56),
+                  offset: Offset(0, 2),
+                  blurRadius: 4,
+                ),
+              ]
+            : const [];
+        textStyle = TextStyle(
+          color: enabled ? Colors.white : const Color(0xFF8C6D73),
+          fontWeight: FontWeight.w900,
+          fontSize: 16,
+          shadows: enabled
+              ? const [
+                  Shadow(
+                    offset: Offset(0, 1),
+                    blurRadius: 2,
+                    color: Colors.black87,
+                  ),
+                ]
+              : null,
+        );
+        iconWidget = Container(
+          width: 22,
+          height: 22,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: enabled
+                ? const LinearGradient(
+                    colors: [Color(0xFFE53935), Color(0xFF8E1B1B)],
+                  )
+                : const LinearGradient(
+                    colors: [Color(0xFF6E2827), Color(0xFF471717)],
+                  ),
+            border: Border.all(
+              color:
+                  enabled ? const Color(0xFFFF8585) : const Color(0xFF854747),
+              width: 1.5,
+            ),
+            boxShadow: enabled
+                ? const [
+                    BoxShadow(color: Color(0x66FF1744), blurRadius: 4),
+                  ]
+                : null,
+          ),
+          child: const Center(
+            child: Icon(
+              Icons.block_rounded,
+              color: Colors.white,
+              size: 14,
+            ),
+          ),
+        );
+        break;
+
+      case _PlayerActionRole.standard:
+        bgGradient = enabled
+            ? const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0xFF451E75),
+                  Color(0xFF2C1150),
+                  Color(0xFF1E0938),
+                ],
+              )
+            : const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFF2D1F3E), Color(0xFF1D1429)],
+              );
+        border = Border.all(
+          color: enabled ? const Color(0xFFB593E8) : const Color(0xFF54436A),
+          width: 1.5,
+        );
+        shadows = enabled
+            ? const [
+                BoxShadow(
+                  color: Color(0xFF120325),
+                  offset: Offset(0, 4),
+                  blurRadius: 0,
+                ),
+              ]
+            : const [];
+        textStyle = TextStyle(
+          color: enabled ? const Color(0xFFFFF9E6) : const Color(0xFF7E6F94),
+          fontWeight: FontWeight.w800,
+          fontSize: 15,
+        );
+        iconWidget = Icon(
+          icon ?? Icons.touch_app_rounded,
+          color: enabled ? const Color(0xFFD3BEFF) : const Color(0xFF6A798A),
+          size: 20,
+        );
+        break;
+    }
+
+    return Ink(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        gradient: bgGradient,
+        border: border,
+        boxShadow: shadows,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (working) ...[
+            const SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(strokeWidth: 2, color: _mint),
+            ),
+            const SizedBox(width: 6),
+          ] else ...[
+            iconWidget,
+            const SizedBox(width: 6),
+          ],
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                label,
+                style: textStyle,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _sendStakedChallenge(String uid, String peer) async {
+    final amount = await FriendStakeSelector.choose(context,
+        initialAmount: widget.initialStake);
+    if (amount == null || !mounted || _account != uid) return;
+    await service.sendStakedChallenge(uid, peer, amount);
+    if (mounted && _account == uid) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(
+              'أُرسلت دعوة بـ$amount قطعة؛ الجائزة ${amount * 2} قطعة بعد قبول صديقك.')));
+    }
+  }
+
+  Future<void> _respondToChallenge(String uid,
+      QueryDocumentSnapshot<Map<String, dynamic>> request, String status) {
+    final amount = SocialService.stakeCoins(request.data());
+    return amount > 0
+        ? service.respondStakedChallenge(request.id, status,
+            expectedAmount: amount)
+        : service.respond(uid, request.id, status, challenge: true);
   }
 
   Widget _list(List<WidgetBuilder> items, {String? storageKey}) =>
@@ -277,14 +665,13 @@ class _SocialScreenState extends State<SocialScreen>
       child: Text(text,
           style: const TextStyle(color: _muted, fontSize: 12, height: 1.7)));
 
-  Widget _discoveryHero(int online, int available) =>
-      Center(
-          child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 380),
-              child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  child: SocialDiscoveryArtwork(
-                      online: online, available: available))));
+  Widget _discoveryHero(int online, int available) => Center(
+      child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 380),
+          child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              child: SocialDiscoveryArtwork(
+                  online: online, available: available))));
   String _filterLabel(SocialPlayerActivity? activity) => switch (activity) {
         null => 'الكل',
         SocialPlayerActivity.online => 'متصل الآن',
@@ -394,6 +781,10 @@ class _SocialScreenState extends State<SocialScreen>
                         _button(doc.id, 'تحدٍّ مباشر',
                             () => service.send(uid, doc.id, challenge: true),
                             primary: true, icon: Icons.bolt_rounded),
+                      if (isOnline && doc.data()['state'] == 'available')
+                        _button('stake:${doc.id}', 'تحدٍّ على قطع',
+                            () => _sendStakedChallenge(uid, doc.id),
+                            icon: Icons.monetization_on_rounded),
                       if (!friends.contains(doc.id) &&
                           !pending.contains(doc.id))
                         _button('friend:${doc.id}', 'إضافة صديق',
@@ -403,7 +794,7 @@ class _SocialScreenState extends State<SocialScreen>
                         _statusBadge('طلب قائم', Icons.hourglass_top_rounded),
                       if (friends.contains(doc.id))
                         _statusBadge('صديقك', Icons.check_rounded),
-                      _managePlayer(uid, doc.id,
+                      ..._managePlayer(uid, doc.id,
                           isFriend: friends.contains(doc.id)),
                     ]));
           }
@@ -449,8 +840,9 @@ class _SocialScreenState extends State<SocialScreen>
         Text(label, style: const TextStyle(color: _muted, fontSize: 11))
       ]));
 
-  Widget _managePlayer(String uid, String peer, {required bool isFriend}) =>
-      Wrap(spacing: 8, runSpacing: 8, children: [
+  List<Widget> _managePlayer(String uid, String peer,
+          {required bool isFriend}) =>
+      [
         if (isFriend)
           _button(
               'manage:$peer',
@@ -461,7 +853,7 @@ class _SocialScreenState extends State<SocialScreen>
               icon: Icons.person_remove_alt_1_rounded),
         _button('manage:$peer', 'حظر اللاعب', () => service.block(uid, peer),
             icon: Icons.block_rounded),
-      ]);
+      ];
 
   Widget _panel({required Widget child}) => Container(
       margin: const EdgeInsets.fromLTRB(18, 0, 18, 12),
@@ -537,7 +929,11 @@ class _SocialScreenState extends State<SocialScreen>
                           _button(peer, 'تحدٍّ مباشر',
                               () => service.send(uid, peer, challenge: true),
                               primary: true, icon: Icons.bolt_rounded),
-                        _managePlayer(uid, peer, isFriend: true)
+                        if (available)
+                          _button('stake:$peer', 'تحدٍّ على قطع',
+                              () => _sendStakedChallenge(uid, peer),
+                              icon: Icons.monetization_on_rounded),
+                        ..._managePlayer(uid, peer, isFriend: true)
                       ]);
                 })),
       ], storageKey: 'social-friends');
@@ -566,6 +962,7 @@ class _SocialScreenState extends State<SocialScreen>
           (_) => _note('لا توجد دعوات قائمة. تحدَّ لاعبًا من ساحة اللاعبين.'),
         ...challenges.map((d) => (BuildContext _) {
               final incoming = d.data()['toUid'] == uid;
+              final stake = SocialService.stakeCoins(d.data());
               final peer = (incoming ? d.data()['fromUid'] : d.data()['toUid'])
                   as String;
               final seconds = (d.data()['expiresAt'] as Timestamp)
@@ -575,22 +972,30 @@ class _SocialScreenState extends State<SocialScreen>
                   .clamp(0, 30);
               return _player(peer,
                   subtitle:
-                      '${incoming ? 'يدعوك لمواجهة' : 'بانتظار القبول'} • $seconds ث',
+                      '${incoming ? 'يدعوك لمواجهة' : 'بانتظار القبول'} • $seconds ث'
+                      '${stake > 0 ? '\n${SocialService.stakeDescription(d.data())}' : ''}',
                   actions: [
+                    if (stake > 0)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: Text(
+                            '${SocialService.stakeDescription(d.data())}\n'
+                            'التعادل أو خلل المباراة يعيد القطع. الانسحاب بعد البدء خسارة.',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                                color: Color(0xFFFFD166),
+                                fontSize: 12,
+                                height: 1.6)),
+                      ),
                     if (incoming)
-                      _button(
-                          d.id,
-                          'قبول',
-                          () => service.respond(uid, d.id, 'accepted',
-                              challenge: true),
-                          primary: true,
-                          icon: Icons.check_rounded),
+                      _button(d.id, stake > 0 ? 'قبول بـ$stake قطعة' : 'قبول',
+                          () => _respondToChallenge(uid, d, 'accepted'),
+                          primary: true, icon: Icons.check_rounded),
                     _button(
                         d.id,
                         incoming ? 'رفض' : 'إلغاء',
-                        () => service.respond(
-                            uid, d.id, incoming ? 'declined' : 'cancelled',
-                            challenge: true))
+                        () => _respondToChallenge(
+                            uid, d, incoming ? 'declined' : 'cancelled'))
                   ]);
             }),
         (_) => _section('طلبات الصداقة', pending.length,
@@ -776,16 +1181,11 @@ class _SocialScreenState extends State<SocialScreen>
                   .apply(bodyColor: Colors.white, displayColor: Colors.white)),
           child: Scaffold(
               backgroundColor: const Color(0xFF160D36),
-              body: SafeArea(
-                  child: Center(
-                      child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1600),
-                child: Padding(
-                  padding: const EdgeInsets.all(6),
-                  child: RepaintBoundary(
-                    key: const ValueKey('social-screen-artwork'),
-                    child: SocialArtworkFrame(
-                        child: Column(children: [
+              body: RepaintBoundary(
+                key: const ValueKey('social-screen-artwork'),
+                child: SocialArtworkFrame(
+                  child: SafeArea(
+                    child: Column(children: [
                       SocialArtworkHeader(
                           onBack: () => Navigator.of(context).maybePop(),
                           onRefresh: enabled ? _retry : null),
@@ -794,7 +1194,7 @@ class _SocialScreenState extends State<SocialScreen>
                           child: TabBar(
                             controller: _tabs,
                             isScrollable: true,
-                            tabAlignment: TabAlignment.start,
+                            tabAlignment: TabAlignment.center,
                             labelColor: Colors.white,
                             unselectedLabelColor: const Color(0xFFD1CBE8),
                             labelStyle: theme.textTheme.titleSmall?.copyWith(
@@ -838,8 +1238,8 @@ class _SocialScreenState extends State<SocialScreen>
                                       begin: Alignment.topCenter,
                                       end: Alignment.bottomCenter,
                                       colors: [
-                                Color(0x7733205D),
-                                Color(0x77351B69)
+                                        Color(0x7733205D),
+                                        Color(0x77351B69)
                                       ])),
                               child: !signedIn
                                   ? _empty(
@@ -878,33 +1278,57 @@ class _SocialScreenState extends State<SocialScreen>
                             IconButton(
                                 tooltip: 'مشاركة رمز التحدي',
                                 onPressed: enabled
-                                    ? () => FriendChallengeModal.show(context)
+                                    ? () => FriendChallengeModal.show(context,
+                                        initialStake: widget.initialStake)
                                     : null,
                                 icon: Icon(Icons.qr_code_rounded,
                                     color: enabled
                                         ? socialGold
                                         : socialGold.withValues(alpha: .4))),
                           ])),
-                    ])),
+                    ]),
                   ),
                 ),
-              )))),
+              )),
         ));
   }
 }
 
+enum _PlayerActionRole {
+  primary,
+  staked,
+  friend,
+  destructive,
+  standard,
+}
+
 /// Lets the options dialog disable a challenge as live presence changes.
 class _PlayerOptionAction extends StatelessWidget {
-  const _PlayerOptionAction(
-      {required this.builder,
-      this.requiresAvailable = false,
-      this.available = true});
+  const _PlayerOptionAction({
+    required this.builder,
+    this.requiresAvailable = false,
+    this.available = true,
+    this.isDestructive = false,
+    this.role = _PlayerActionRole.standard,
+    this.label = '',
+  });
+
   final Widget Function(BuildContext, bool) builder;
-  final bool requiresAvailable, available;
+  final bool requiresAvailable, available, isDestructive;
+  final _PlayerActionRole role;
+  final String label;
+
   @override
   Widget build(BuildContext context) => builder(context, available);
+
   _PlayerOptionAction withAvailability(bool value) => _PlayerOptionAction(
-      builder: builder, requiresAvailable: requiresAvailable, available: value);
+        builder: builder,
+        requiresAvailable: requiresAvailable,
+        available: value,
+        isDestructive: isDestructive,
+        role: role,
+        label: label,
+      );
 }
 
 class _PlayerOptionsDialog extends StatefulWidget {
@@ -950,81 +1374,375 @@ class _PlayerOptionsDialogState extends State<_PlayerOptionsDialog> {
     super.dispose();
   }
 
+  Widget _goldenCloseButton(BuildContext context) {
+    return Tooltip(
+      message: 'إغلاق خيارات اللاعب',
+      child: Container(
+        width: 48,
+        height: 48,
+        decoration: const BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFFFFF0B3),
+              Color(0xFFFFD466),
+              Color(0xFFE5AA38),
+              Color(0xFF8A590C),
+            ],
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Color(0x66000000),
+              blurRadius: 6,
+              offset: Offset(0, 3),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.all(3.5),
+        child: Container(
+          decoration: const BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: RadialGradient(
+              colors: [Color(0xFFF7C752), Color(0xFFB8780E)],
+            ),
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: () => Navigator.pop(context),
+              child: const Center(
+                child: Icon(
+                  Icons.close_rounded,
+                  color: Color(0xFF4A2602),
+                  size: 26,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _avatarWithGlowDots(String photo, bool available) {
+    return Container(
+      width: 62,
+      height: 62,
+      decoration: const BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFFFFEA9F),
+            Color(0xFFFFD466),
+            Color(0xFFE5AA38),
+            Color(0xFF8A590C),
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x66000000),
+            blurRadius: 8,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(3.5),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned.fill(
+            child: ClipOval(
+              child: photo.startsWith('https://')
+                  ? Image.network(
+                      photo,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => _avatarIcon(),
+                    )
+                  : _avatarIcon(),
+            ),
+          ),
+          if (available) ...[
+            Positioned(
+              top: 1,
+              right: -1,
+              child: _neonGreenDot(),
+            ),
+            Positioned(
+              bottom: 3,
+              right: -2,
+              child: _neonGreenDot(),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _neonGreenDot() => Container(
+        width: 13,
+        height: 13,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: const Color(0xFF4CFF50),
+          border: Border.all(color: const Color(0xFFD4FFA6), width: 1.5),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0xFF39FF14),
+              blurRadius: 8,
+              spreadRadius: 2,
+            ),
+          ],
+        ),
+      );
+
+  Widget _avatarIcon() => Container(
+        color: const Color(0xFF281845),
+        child: const Icon(
+          Icons.person_rounded,
+          size: 38,
+          color: Color(0xFFE0D7F8),
+        ),
+      );
+
+  Widget _viewProfileButton(BuildContext context) {
+    return ElevatedButton(
+      onPressed: () {
+        Navigator.pop(context);
+        widget.onViewProfile();
+      },
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.transparent,
+        shadowColor: Colors.transparent,
+        disabledBackgroundColor: Colors.transparent,
+        padding: EdgeInsets.zero,
+        elevation: 0,
+        minimumSize: Size.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+      child: Ink(
+        height: 52,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          gradient: const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFFFFFFFF),
+              Color(0xFFF3F7FA),
+              Color(0xFFD6E2EC),
+            ],
+          ),
+          border: Border.all(
+            color: const Color(0xFFE5AA38),
+            width: 2.5,
+          ),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x66E5AA38),
+              blurRadius: 8,
+              offset: Offset(0, 3),
+            ),
+            BoxShadow(
+              color: Color(0x77000000),
+              blurRadius: 6,
+              offset: Offset(0, 3),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: const Color(0xFF261947),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFF4C3877), width: 1.5),
+              ),
+              child: const Icon(
+                Icons.person_rounded,
+                color: Colors.white,
+                size: 19,
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Flexible(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  'عرض الملف الشخصي',
+                  style: TextStyle(
+                    color: Color(0xFF1E1538),
+                    fontWeight: FontWeight.w900,
+                    fontSize: 18,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _ornateGoldenDivider() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              height: 2.5,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [
+                    Colors.transparent,
+                    Color(0xFF9E6D15),
+                    Color(0xFFFFD466)
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Transform.rotate(
+            angle: 0.785398,
+            child: Container(
+              width: 13,
+              height: 13,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0xFFFFF5CC),
+                    Color(0xFFFFD466),
+                    Color(0xFF9E6D15)
+                  ],
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFFFD466).withValues(alpha: 0.6),
+                    blurRadius: 8,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Container(
+              height: 2.5,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [
+                    Color(0xFFFFD466),
+                    Color(0xFF9E6D15),
+                    Colors.transparent
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) => Directionality(
       textDirection: TextDirection.rtl,
       child: Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-              maxWidth: 440,
-              maxHeight: (MediaQuery.sizeOf(context).height -
-                      MediaQuery.viewInsetsOf(context).bottom -
-                      40)
-                  .clamp(100, 900)),
-          child: Container(
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Color(0xFF7050BC), Color(0xFF38245F)]),
-                borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: const Color(0xFFBE9AFF), width: 2),
-                boxShadow: const [
-                  BoxShadow(
-                      color: Color(0x880D0723),
-                      blurRadius: 30,
-                      offset: Offset(0, 12))
-                ],
-              ),
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: FutureBuilder<Map<String, dynamic>>(
-                  future: _profile,
-                  initialData: widget.initialProfile,
-                  builder: (context, snapshot) {
-                    final data = snapshot.data ?? const <String, dynamic>{};
-                    final photo = data['photoUrl']?.toString() ?? '';
-                    final name = (data['username'] ?? 'لاعب').toString();
-                    return Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Row(children: [
-                            CircleAvatar(
-                                radius: 26,
-                                backgroundColor: const Color(0xFFD6E2F0),
-                                child: ClipOval(
-                                    child: photo.startsWith('https://')
-                                        ? Image.network(photo,
-                                            width: 52,
-                                            height: 52,
-                                            fit: BoxFit.cover,
-                                            errorBuilder: (_, __, ___) =>
-                                                const Icon(Icons.person_rounded,
-                                                    size: 35,
-                                                    color: Color(0xFF614E83)))
-                                        : const Icon(Icons.person_rounded,
-                                            size: 35,
-                                            color: Color(0xFF614E83)))),
-                            const SizedBox(width: 12),
-                            Expanded(
-                                child: Text(name,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w900,
-                                        fontSize: 20))),
-                            IconButton(
-                                tooltip: 'إغلاق خيارات اللاعب',
-                                onPressed: () => Navigator.pop(context),
-                                icon: const Icon(Icons.close_rounded,
-                                    color: Colors.white)),
-                          ]),
-                          const SizedBox(height: 12),
-                          StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+          backgroundColor: Colors.transparent,
+          insetPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+                maxWidth: 520,
+                maxHeight: (MediaQuery.sizeOf(context).height -
+                        MediaQuery.viewInsetsOf(context).bottom -
+                        24)
+                    .clamp(100, 900)),
+            child: RepaintBoundary(
+              key: const ValueKey('player-options-dialog-boundary'),
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(28),
+                      gradient: const LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Color(0xFFFFEA9F),
+                          Color(0xFFE5AA38),
+                          Color(0xFF9E6D15),
+                          Color(0xFFE5AA38),
+                          Color(0xFFFFEA9F),
+                        ],
+                        stops: [0.0, 0.25, 0.5, 0.75, 1.0],
+                      ),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0xAA070214),
+                          blurRadius: 36,
+                          spreadRadius: 4,
+                          offset: Offset(0, 14),
+                        ),
+                        BoxShadow(
+                          color: Color(0x55E5AA38),
+                          blurRadius: 18,
+                          spreadRadius: -2,
+                        ),
+                      ],
+                    ),
+                    padding: const EdgeInsets.all(3.0),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(25),
+                        gradient: const RadialGradient(
+                          center: Alignment(0, -0.4),
+                          radius: 1.2,
+                          colors: [
+                            Color(0xFF381768),
+                            Color(0xFF220C42),
+                            Color(0xFF130528),
+                          ],
+                        ),
+                        border: Border.all(
+                          color: const Color(0x55BE9AFF),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 18),
+                        child: FutureBuilder<Map<String, dynamic>>(
+                          future: _profile,
+                          initialData: widget.initialProfile,
+                          builder: (context, snapshot) {
+                            final data =
+                                snapshot.data ?? const <String, dynamic>{};
+                            final photo = data['photoUrl']?.toString() ?? '';
+                            final name =
+                                (data['username'] ?? 'لاعب').toString();
+                            return StreamBuilder<
+                                DocumentSnapshot<Map<String, dynamic>>>(
                               stream: _presence,
                               builder: (context, presence) {
                                 final available = SocialService.fresh(
@@ -1032,70 +1750,251 @@ class _PlayerOptionsDialogState extends State<_PlayerOptionsDialog> {
                                         widget.service.now) &&
                                     presence.data?.data()?['state'] ==
                                         'available';
+                                final statusLabel = presence.hasData
+                                    ? SocialActivity.lastSeenLabel(
+                                        presence.data?.data(),
+                                        widget.service.now)
+                                    : widget.initialStatus;
+
+                                final standardActions = <Widget>[];
+                                final destructiveActions = <Widget>[];
+
+                                for (final action in widget.actions) {
+                                  final resolved =
+                                      action is _PlayerOptionAction &&
+                                              action.requiresAvailable
+                                          ? action.withAvailability(available)
+                                          : action;
+                                  if (action is _PlayerOptionAction &&
+                                      action.isDestructive) {
+                                    destructiveActions.add(resolved);
+                                  } else {
+                                    standardActions.add(resolved);
+                                  }
+                                }
+
                                 return Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
-                                    children: [
-                                      Text(
-                                          presence.hasData
-                                              ? SocialActivity.lastSeenLabel(
-                                                  presence.data?.data(),
-                                                  widget.service.now)
-                                              : widget.initialStatus,
-                                          style: const TextStyle(
-                                              color: Color(0xFFE0D7F8),
-                                              fontSize: 12)),
-                                      const SizedBox(height: 14),
-                                      OutlinedButton.icon(
-                                          onPressed: () {
-                                            Navigator.pop(context);
-                                            widget.onViewProfile();
-                                          },
-                                          icon: const Icon(
-                                              Icons.account_box_rounded),
-                                          label: const Text('عرض الملف الشخصي'),
-                                          style: OutlinedButton.styleFrom(
-                                              textStyle: Theme.of(context)
-                                                  .textTheme
-                                                  .labelLarge
-                                                  ?.copyWith(
-                                                      fontSize: 13,
-                                                      fontWeight:
-                                                          FontWeight.w800),
-                                              foregroundColor:
-                                                  const Color(0xFF302343),
-                                              backgroundColor:
-                                                  const Color(0xFFE2EBF7),
-                                              padding: const EdgeInsets.all(13),
-                                              shape: RoundedRectangleBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(
-                                                          12)))),
-                                      const Padding(
-                                          padding: EdgeInsets.symmetric(
-                                              vertical: 14),
-                                          child: Divider(
-                                              color: Color(0xFF9A79CD),
-                                              height: 1)),
-                                      Wrap(
-                                          alignment: WrapAlignment.center,
-                                          spacing: 8,
-                                          runSpacing: 8,
-                                          children: widget.actions
-                                              .map((action) =>
-                                                  action is _PlayerOptionAction &&
-                                                          action
-                                                              .requiresAvailable
-                                                      ? action.withAvailability(
-                                                          available)
-                                                      : action)
-                                              .toList()),
-                                    ]);
-                              }),
-                        ]);
-                  },
-                ),
-              )),
-        ),
-      ));
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        _avatarWithGlowDots(photo, available),
+                                        const SizedBox(width: 14),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(
+                                                name,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(
+                                                  color: Color(0xFFFFFBE8),
+                                                  fontWeight: FontWeight.w900,
+                                                  fontSize: 25,
+                                                  letterSpacing: 0.5,
+                                                  shadows: [
+                                                    Shadow(
+                                                      offset: Offset(0, 3),
+                                                      blurRadius: 6,
+                                                      color: Color(0xAA2B0B00),
+                                                    ),
+                                                    Shadow(
+                                                      offset: Offset(0, 1),
+                                                      blurRadius: 2,
+                                                      color: Color(0xFF4A1E00),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                statusLabel,
+                                                style: TextStyle(
+                                                  color: available
+                                                      ? const Color(0xFF52FF68)
+                                                      : const Color(0xFFE0D7F8),
+                                                  fontWeight: FontWeight.w900,
+                                                  fontSize: 15,
+                                                  shadows: available
+                                                      ? const [
+                                                          Shadow(
+                                                            color: Color(
+                                                                0xCC39FF14),
+                                                            blurRadius: 10,
+                                                          ),
+                                                        ]
+                                                      : null,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        _goldenCloseButton(context),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 14),
+                                    _viewProfileButton(context),
+                                    _ornateGoldenDivider(),
+                                    LayoutBuilder(
+                                      builder: (context, constraints) {
+                                        final showRow =
+                                            constraints.maxWidth >= 340 &&
+                                                standardActions.length <= 3 &&
+                                                standardActions.isNotEmpty;
+                                        return Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            if (showRow)
+                                              Row(
+                                                children: [
+                                                  for (int i = 0;
+                                                      i <
+                                                          standardActions
+                                                              .length;
+                                                      i++) ...[
+                                                    if (i > 0)
+                                                      const SizedBox(width: 8),
+                                                    Expanded(
+                                                        child:
+                                                            standardActions[i]),
+                                                  ],
+                                                ],
+                                              )
+                                            else
+                                              Wrap(
+                                                alignment: WrapAlignment.center,
+                                                spacing: 8,
+                                                runSpacing: 8,
+                                                children: standardActions,
+                                              ),
+                                            if (destructiveActions
+                                                .isNotEmpty) ...[
+                                              const SizedBox(height: 10),
+                                              Center(
+                                                child: SizedBox(
+                                                  width: showRow ? 180 : null,
+                                                  child:
+                                                      destructiveActions.first,
+                                                ),
+                                              ),
+                                            ],
+                                          ],
+                                        );
+                                      },
+                                    ),
+                                  ],
+                                );
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                  const Positioned.fill(
+                    child: IgnorePointer(
+                      child: CustomPaint(
+                        painter: _DialogCornerBracketPainter(),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          )));
+}
+
+class _DialogCornerBracketPainter extends CustomPainter {
+  const _DialogCornerBracketPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final goldPaint = Paint()
+      ..color = const Color(0xFFFFD466)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0
+      ..strokeCap = StrokeCap.round;
+
+    final goldFill = Paint()
+      ..color = const Color(0xFFDCA028)
+      ..style = PaintingStyle.fill;
+
+    const diamondSize = 13.0;
+    const cornerOffset = 18.0;
+
+    void drawCorner(double cx, double cy, double dirX, double dirY) {
+      final diamondCenter =
+          Offset(cx + dirX * cornerOffset, cy + dirY * cornerOffset);
+      final path = Path()
+        ..moveTo(diamondCenter.dx, diamondCenter.dy - diamondSize / 2)
+        ..lineTo(diamondCenter.dx + diamondSize / 2, diamondCenter.dy)
+        ..lineTo(diamondCenter.dx, diamondCenter.dy + diamondSize / 2)
+        ..lineTo(diamondCenter.dx - diamondSize / 2, diamondCenter.dy)
+        ..close();
+
+      final glowPaint = Paint()
+        ..color = const Color(0x66FFFFFF)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+      canvas.drawPath(path, glowPaint);
+
+      final diamondFill = Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFFFFFFF), Color(0xFFE8F7FF), Color(0xFFBCE3F5)],
+        ).createShader(
+            Rect.fromCircle(center: diamondCenter, radius: diamondSize));
+      canvas.drawPath(path, diamondFill);
+
+      final diamondBorder = Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0;
+      canvas.drawPath(path, diamondBorder);
+
+      final bracketPath = Path();
+      bracketPath.moveTo(cx + dirX * 36, cy + dirY * 6);
+      bracketPath.quadraticBezierTo(
+        cx + dirX * 12,
+        cy + dirY * 6,
+        cx + dirX * 6,
+        cy + dirY * 12,
+      );
+      bracketPath.lineTo(cx + dirX * 6, cy + dirY * 36);
+      canvas.drawPath(bracketPath, goldPaint);
+
+      canvas.drawCircle(Offset(cx + dirX * 38, cy + dirY * 6), 2.0, goldFill);
+      canvas.drawCircle(Offset(cx + dirX * 6, cy + dirY * 38), 2.0, goldFill);
+    }
+
+    drawCorner(0, 0, 1, 1);
+    drawCorner(size.width, 0, -1, 1);
+    drawCorner(0, size.height, 1, -1);
+    drawCorner(size.width, size.height, -1, -1);
+
+    final flareCenter = Offset(size.width / 2, 0);
+    final flareGlow = Paint()
+      ..shader = const RadialGradient(
+        colors: [Color(0xFFFFFBE0), Color(0x88FFD566), Colors.transparent],
+        stops: [0.0, 0.4, 1.0],
+      ).createShader(Rect.fromCircle(center: flareCenter, radius: 24));
+    canvas.drawCircle(flareCenter, 24, flareGlow);
+
+    final topDiamond = Path()
+      ..moveTo(flareCenter.dx, flareCenter.dy - 3)
+      ..lineTo(flareCenter.dx + 8, flareCenter.dy)
+      ..lineTo(flareCenter.dx, flareCenter.dy + 3)
+      ..lineTo(flareCenter.dx - 8, flareCenter.dy)
+      ..close();
+    canvas.drawPath(topDiamond, Paint()..color = const Color(0xFFFFF9DB));
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

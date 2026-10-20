@@ -97,7 +97,8 @@ public class PlayerStats {
                 .putInt("xp", ProgressionRules.safeAdd(p.getInt("xp", 0), correct ? 10 : 3));
         // Campaign currency comes from the stage payout on Flutter. Legacy
         // board paths use this overload too, so enforce the mode policy here.
-        if (correct && grantCoins && !"campaign".equals(NativeProgression.mode(c))) {
+        if (correct && grantCoins && !"campaign".equals(NativeProgression.mode(c))
+                && !PlayerProgress.isCoinStake(c)) {
             e.putInt("coins", ProgressionRules.safeAdd(p.getInt("coins", 0), 20));
         }
         ProgressionAccount.commitOrRollback(p, e);

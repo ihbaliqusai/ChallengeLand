@@ -7,6 +7,7 @@ import 'package:challenge_land/models/game_character.dart';
 import 'package:challenge_land/models/economy_wallet.dart';
 import 'package:challenge_land/widgets/home_character_artwork.dart';
 import 'package:challenge_land/screens/home/home_screen.dart';
+import 'package:challenge_land/screens/character/character_select_screen.dart';
 import 'package:challenge_land/services/cross_promo_service.dart';
 import 'package:challenge_land/services/native_bridge_service.dart';
 import 'package:challenge_land/widgets/cross_promo_millionaire_badge.dart';
@@ -35,6 +36,8 @@ class _HomeState extends ChangeNotifier implements AppState {
   _HomeState({this.online = false});
   final bool online;
   int characterIndex = 1;
+  @override
+  int get selectedCharacterIndex => characterIndex;
   @override
   GameCharacter get selectedCharacter =>
       CharacterCatalog.byIndex(characterIndex);
@@ -80,6 +83,16 @@ class _HomeState extends ChangeNotifier implements AppState {
   bool get claimedToday => true;
   @override
   bool get dailyStreakLoaded => true;
+  @override
+  bool isCharacterUnlocked(GameCharacter character) => true;
+  @override
+  bool get hasChosenCharacter => true;
+  @override
+  Future<bool> selectCharacter(int index) async {
+    changeCharacter(index);
+    return true;
+  }
+
   @override
   Future<void> loadCurrency() async {}
   @override
@@ -395,7 +408,6 @@ void main() {
         final obstacles = [
           find.byTooltip('القائمة'),
           find.byType(HomeLevelBadge),
-          find.byType(CrossPromoMillionaireBadge),
           find.byType(SpecialOfferBadge),
           find.byTooltip('تحدي المراحل'),
           find.byTooltip('أوضاع اللعب'),
@@ -419,7 +431,7 @@ void main() {
             findsOneWidget);
         expect(
             tester.getRect(find.byTooltip('القائمة')).left, closeTo(12, .01));
-        expect(find.byType(CrossPromoMillionaireBadge), findsOneWidget);
+        expect(find.byType(CrossPromoMillionaireBadge), findsNothing);
         final campaignBounds = tester.getRect(find.byTooltip('تحدي المراحل'));
         final modesBounds = tester.getRect(find.byTooltip('أوضاع اللعب'));
         expect(campaignBounds.overlaps(modesBounds), isFalse);
@@ -440,10 +452,7 @@ void main() {
           find.byTooltip('تحدي المراحل'),
           find.byTooltip('أوضاع اللعب')
         ]) {
-          for (final badge in [
-            find.byType(CrossPromoMillionaireBadge),
-            find.byType(SpecialOfferBadge)
-          ]) {
+          for (final badge in [find.byType(SpecialOfferBadge)]) {
             expect(
                 tester.getRect(banner).overlaps(tester.getRect(badge)), isFalse,
                 reason: 'Home banners must remain clear of the bottom badges');
@@ -500,6 +509,43 @@ void main() {
     expect(find.byKey(const ValueKey('home-character-omar')), findsNothing);
     expect(find.byKey(const ValueKey('home-character-sarah')), findsOneWidget);
     expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('tapping home character navigates to character select screen',
+      (tester) async {
+    setupFirebaseCoreMocks();
+    await Firebase.initializeApp();
+    SharedPreferences.setMockInitialValues({
+      'has_rated_challenge_land': true,
+      'rate_reward_claimed': true,
+    });
+    await tester.binding.setSurfaceSize(const Size(800, 400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final state = _HomeState();
+    final promo = _Promo();
+    final native = _NativeBridge();
+    addTearDown(state.dispose);
+    addTearDown(promo.dispose);
+    await tester.pumpWidget(MultiProvider(
+      providers: [
+        ChangeNotifierProvider<AppState>.value(value: state),
+        ChangeNotifierProvider<CrossPromoService>.value(value: promo),
+        Provider<NativeBridgeService>.value(value: native),
+      ],
+      child: const MaterialApp(home: HomeScreen()),
+    ));
+    await tester.pump();
+    expect(
+        find.byKey(const ValueKey('home-selected-character')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('home-selected-character')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byType(CharacterSelectScreen), findsOneWidget);
+    expect(find.text('اختر شخصيتك وتألق'), findsOneWidget);
+
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(seconds: 1));
   });
@@ -856,13 +902,13 @@ void main() {
             ),
             findsNothing,
           );
-          expect(find.byType(CrossPromoMillionaireBadge), findsOneWidget);
+          expect(find.byType(CrossPromoMillionaireBadge), findsNothing);
           expect(
             find.descendant(
-              of: find.byType(CrossPromoMillionaireBadge),
+              of: find.byType(HomeScreen),
               matching: find.text('تحدي المليون'),
             ),
-            findsOneWidget,
+            findsNothing,
           );
           expect(tester.takeException(), isNull);
           if (rated && claimed) {

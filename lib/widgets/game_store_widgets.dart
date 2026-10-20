@@ -375,6 +375,86 @@ class GameStoreCharacterCard extends StatelessWidget {
       );
 }
 
+/// Native character card for roster additions with their own transparent art.
+class GameStoreRosterCard extends StatelessWidget {
+  const GameStoreRosterCard(
+      {super.key,
+      required this.name,
+      required this.description,
+      required this.asset,
+      required this.label,
+      required this.onPressed});
+  final String name, description, asset, label;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) => AspectRatio(
+        aspectRatio: 1452 / 1026,
+        child: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: const Color(0xFFB5A0F1), width: 2),
+            gradient: const RadialGradient(
+                center: Alignment(0, -.3),
+                radius: 1.3,
+                colors: [Color(0xFF45316C), Color(0xFF171532)]),
+          ),
+          child: Column(children: [
+            Expanded(
+                child: Row(children: [
+              Expanded(
+                  child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                    Text(name,
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        style: const TextStyle(
+                            color: Color(0xFFFFDC92),
+                            fontSize: 19,
+                            fontWeight: FontWeight.w900)),
+                    const SizedBox(height: 4),
+                    Text(description,
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            color: Color(0xFFD5C9ED), fontSize: 11)),
+                  ])),
+              const SizedBox(width: 6),
+              Expanded(
+                  child: Image.asset(asset,
+                      fit: BoxFit.contain, excludeFromSemantics: true)),
+            ])),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: Tooltip(
+                  message: '$name، $label',
+                  child: FilledButton(
+                    onPressed: onPressed,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF079E77),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: const BorderSide(color: Color(0xFFE5BE79))),
+                    ),
+                    child: Text(label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 13, fontWeight: FontWeight.w800)),
+                  )),
+            ),
+          ]),
+        ),
+      );
+}
+
 /// Equal card bounds and a common price footer, independent of source padding.
 class GameStoreCurrencyCard extends StatelessWidget {
   const GameStoreCurrencyCard({

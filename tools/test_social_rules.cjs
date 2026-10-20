@@ -174,3 +174,106 @@ test('reservation stays locked until expiry or a genuine presence return transit
   batch.delete(doc(alice, 'social_reservations/alice'));
   await assertSucceeds(batch.commit());
 });
+
+test('paid invitations can only be created and changed by the server', async () => {
+  await assertFails(send(alice, 'alice', 'bob', true, {
+    serverStake: true, stakeCoins: 50, prizeCoins: 100, stakeMatchId: 'paid-match',
+  }));
+  await seed('social_challenges/alice:bob', {
+    ...invitation(), createdAt: stamp(-1000), updatedAt: stamp(-1000),
+    serverStake: true, stakeCoins: 50, prizeCoins: 100, stakeMatchId: 'paid-match',
+  });
+  await assertSucceeds(getDoc(doc(bob, 'social_challenges/alice:bob')));
+  await assertFails(updateDoc(doc(bob, 'social_challenges/alice:bob'), {
+    status: 'accepted', acceptedAt: serverTimestamp(), updatedAt: serverTimestamp(),
+  }));
+  await assertFails(updateDoc(doc(alice, 'social_challenges/alice:bob'), {
+    stakeCoins: 1000, updatedAt: serverTimestamp(),
+  }));
+  await assertFails(deleteDoc(doc(alice, 'social_challenges/alice:bob')));
+});
+
+test('paid match answers, escrow and operation records remain server-only', async () => {
+  await seed('friend_stake_matches/paid-match', {
+    members: ['alice', 'bob'], correctOption: 2, status: 'active',
+  });
+  await seed('friend_stake_views/paid-match', {
+    members: ['alice', 'bob'], status: 'active', scores: { alice: 0, bob: 0 },
+  });
+  await assertFails(getDoc(doc(alice, 'friend_stake_matches/paid-match')));
+  await assertFails(setDoc(doc(alice, 'friend_stake_matches/paid-match'), {
+    members: ['alice', 'bob'], winnerId: 'alice', status: 'settled',
+  }));
+  await assertSucceeds(getDoc(doc(alice, 'friend_stake_views/paid-match')));
+  await assertSucceeds(getDoc(doc(bob, 'friend_stake_views/paid-match')));
+  await assertFails(getDoc(doc(carol, 'friend_stake_views/paid-match')));
+  await assertFails(updateDoc(doc(alice, 'friend_stake_views/paid-match'), {
+    status: 'settled', winnerId: 'alice',
+  }));
+  await assertFails(setDoc(doc(alice, 'friend_stake_locks/alice'), { active: false }));
+  await seed('friend_stake_escrows/paid-match', {
+    members: ['alice', 'bob'], stakeCoins: 50, status: 'held',
+  });
+  await assertFails(getDoc(doc(alice, 'friend_stake_escrows/paid-match')));
+  await assertFails(updateDoc(doc(alice, 'friend_stake_escrows/paid-match'), { status: 'refunded' }));
+  await assertFails(setDoc(doc(alice, 'friend_stake_operations/alice/items/replay'), {
+    result: { winnerId: 'alice' },
+  }));
+});
+
+test('a held stake cannot be undone by a wallet snapshot or account deletion', async () => {
+  await seed('users/alice', {
+    uid: 'alice', coins: 485, gems: 10,
+    friendStakeRevision: 1, friendStakeMatchId: 'paid-match',
+  });
+  await assertFails(updateDoc(doc(alice, 'users/alice'), { coins: 500 }));
+  await assertFails(updateDoc(doc(alice, 'users/alice'), { friendStakeMatchId: '' }));
+  await assertFails(updateDoc(doc(alice, 'users/alice'), { friendStakeRevision: 0 }));
+  await assertFails(deleteDoc(doc(alice, 'users/alice')));
+  await assertSucceeds(updateDoc(doc(alice, 'users/alice'), { username: 'Alice' }));
+  await seed('users/alice', {
+    uid: 'alice', coins: 515, gems: 10,
+    friendStakeRevision: 2, friendStakeMatchId: '',
+  });
+  await assertFails(updateDoc(doc(alice, 'users/alice'), { friendStakeRevision: 3 }));
+});
+
+test('paid reservations survive presence changes and cannot be replaced by free acceptance', async () => {
+  await seed('social_reservations/alice', {
+    challengeId: 'alice:bob', stakeMatchId: 'paid-match', serverStake: true,
+    acceptedAt: stamp(-1000), expiresAt: stamp(120000),
+  });
+  await assertFails(deleteDoc(doc(alice, 'social_reservations/alice')));
+  await assertFails(updateDoc(doc(alice, 'social_reservations/alice'), {
+    serverStake: false, expiresAt: stamp(-1000),
+  }));
+  await seed('player_presence/alice', {
+    uid: 'alice', heartbeatAt: stamp(0), state: 'in_match', discoverable: true,
+  });
+  const batch = writeBatch(alice);
+  batch.set(doc(alice, 'player_presence/alice'), {
+    uid: 'alice', heartbeatAt: serverTimestamp(), state: 'available', discoverable: true,
+  });
+  batch.delete(doc(alice, 'social_reservations/alice'));
+  await assertFails(batch.commit());
+});
+
+test('free challenges resume after paid invitation expiry or settlement, but not during a paid match', async () => {
+  const oldPaid = {
+    ...invitation(), serverStake: true, stakeCoins: 50, prizeCoins: 100,
+    stakeMatchId: 'paid-match', createdAt: stamp(-60000), updatedAt: stamp(-40000),
+    expiresAt: stamp(-1000),
+  };
+  await seed('social_challenges/alice:bob', oldPaid);
+  await assertSucceeds(send(alice));
+  await seed('social_challenges/alice:bob', { ...oldPaid, status: 'accepted' });
+  await seed('friend_stake_views/paid-match', {
+    members: ['alice', 'bob'], status: 'active',
+  });
+  await seed('social_limits/alice', { challengeSentAt: stamp(-20000) });
+  await assertFails(send(alice));
+  await seed('friend_stake_views/paid-match', {
+    members: ['alice', 'bob'], status: 'settled',
+  });
+  await assertSucceeds(send(alice));
+});

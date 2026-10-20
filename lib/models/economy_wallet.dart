@@ -7,6 +7,7 @@ class EconomyWallet {
       this.tickets = 0,
       this.categoryVouchers = 0,
       this.rentalVouchers = 0,
+      this.claimedVipExpiry = 0,
       this.nextResetMillis = 0,
       this.streak = 0,
       this.revision = 0,
@@ -27,6 +28,7 @@ class EconomyWallet {
       tickets,
       categoryVouchers,
       rentalVouchers,
+      claimedVipExpiry,
       nextResetMillis,
       streak,
       revision;
@@ -52,6 +54,7 @@ class EconomyWallet {
         tickets: count('tickets'),
         categoryVouchers: count('categoryVouchers'),
         rentalVouchers: count('rentalVouchers'),
+        claimedVipExpiry: count('claimedVipExpiry'),
         nextResetMillis: count('nextResetMillis'),
         streak: count('streak'),
         revision: count('revision'),

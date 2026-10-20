@@ -34,11 +34,18 @@ class _StoreAppState extends ChangeNotifier implements AppState {
     'offers': {
       'keys_1': {'resource': 'keys', 'amount': 1, 'coins': 700, 'gems': 7},
       'keys_3': {'resource': 'keys', 'amount': 3, 'coins': 1800, 'gems': 18},
+      'hearts_1': {'resource': 'hearts', 'amount': 1, 'coins': 600, 'gems': 6},
       'hearts_3': {
         'resource': 'hearts',
         'amount': 3,
         'coins': 1500,
         'gems': 15
+      },
+      'tickets_1': {
+        'resource': 'tickets',
+        'amount': 1,
+        'coins': 900,
+        'gems': 9
       },
       'tickets_3': {
         'resource': 'tickets',
@@ -71,6 +78,21 @@ class _StoreAppState extends ChangeNotifier implements AppState {
   @override
   Future<void> economyAction(Map<String, dynamic> data) async {
     economyActions.add(data);
+  }
+
+  @override
+  Future<bool> claimAdResource(String resource) async {
+    economyActions.add({'action': 'adReward', 'resource': resource});
+    return true;
+  }
+
+  bool canClaimVip = false;
+  @override
+  bool get canClaimVipBonus => canClaimVip;
+  @override
+  Future<bool> claimVipBonus() async {
+    economyActions.add({'action': 'claimVipBonus'});
+    return true;
   }
 
   bool commerceReady = true;
@@ -153,6 +175,8 @@ class _StoreAds extends AdService {
   bool available = true;
   int remaining = 5;
   int watchRequests = 0;
+  int actionAdRequests = 0;
+  bool actionAdResult = true;
   @override
   bool get canWatchAd => available && remaining > 0;
   @override
@@ -164,6 +188,12 @@ class _StoreAds extends AdService {
   Future<Map<String, int>?> showRewardedAd() async {
     watchRequests++;
     return null;
+  }
+
+  @override
+  Future<bool> showActionRewardedAd() async {
+    actionAdRequests++;
+    return actionAdResult;
   }
 }
 
@@ -251,7 +281,7 @@ void main() {
     purchases = InAppPurchaseService(nativeBridge: bridge);
     app = _StoreAppState();
     settings = _StoreSettings();
-    ads = AdService();
+    ads = _StoreAds();
     promo = _StorePromo();
   });
 
@@ -406,6 +436,27 @@ void main() {
             'assets/store/offer_champion.webp'));
     expect(find.text('Champion bundle'), findsOneWidget);
     expect(calls.where((call) => call.method == 'launchBilling'), isEmpty);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('offer carousel auto-advances offers periodically',
+      (tester) async {
+    await mount(tester, const Size(390, 780));
+    await assertClean(tester, 'Offer carousel initial');
+    expect(find.text('Starter bundle'), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pumpAndSettle();
+    expect(find.text('Explorer bundle'), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pumpAndSettle();
+    expect(find.text('Champion bundle'), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pumpAndSettle();
+    expect(find.text('Starter bundle'), findsOneWidget);
+
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
@@ -1039,17 +1090,34 @@ void main() {
     await mount(tester, const Size(1100, 600), repaintKey: boundaryKey);
     await assertClean(tester, 'Preview layout');
     Future<void> capture(String path) async {
-      final boundary = boundaryKey.currentContext!.findRenderObject()
-          as RenderRepaintBoundary;
-      await tester.runAsync(() async {
-        final rendered = await boundary.toImage(pixelRatio: 1);
-        final bytes = await rendered.toByteData(format: ui.ImageByteFormat.png);
-        expect(bytes, isNotNull);
-        final output = File(path);
-        await output.parent.create(recursive: true);
-        await output.writeAsBytes(bytes!.buffer.asUint8List(), flush: true);
-        rendered.dispose();
-      });
+      final previousShadows = debugDisableShadows;
+      debugDisableShadows = false;
+      try {
+        final context = boundaryKey.currentContext!;
+        final images = tester
+            .widgetList<Image>(find.byType(Image))
+            .map((image) => image.image)
+            .toSet();
+        await tester.runAsync(() =>
+            Future.wait(images.map((image) => precacheImage(image, context))));
+        await tester.pump();
+        final boundary = boundaryKey.currentContext!.findRenderObject()
+            as RenderRepaintBoundary;
+        boundary.markNeedsPaint();
+        await tester.pump();
+        await tester.runAsync(() async {
+          final rendered = await boundary.toImage(pixelRatio: 1);
+          final bytes =
+              await rendered.toByteData(format: ui.ImageByteFormat.png);
+          expect(bytes, isNotNull);
+          final output = File(path);
+          await output.parent.create(recursive: true);
+          await output.writeAsBytes(bytes!.buffer.asUint8List(), flush: true);
+          rendered.dispose();
+        });
+      } finally {
+        debugDisableShadows = previousShadows;
+      }
     }
 
     await capture('build/store-preview.png');
@@ -1344,6 +1412,135 @@ void main() {
     ]) {
       await select(tester, tab);
     }
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets(
+      'all exchange offers including tickets_1 and hearts_1 display rich artwork',
+      (tester) async {
+    await mount(tester, const Size(800, 600));
+    await select(tester, 'Resources');
+    final images = tester.widgetList<Image>(find.byType(Image)).where((img) {
+      final asset = img.image;
+      return asset is AssetImage && asset.assetName.contains('exchange_');
+    }).toList();
+    final names =
+        images.map((img) => (img.image as AssetImage).assetName).toSet();
+    expect(
+        names,
+        containsAll([
+          'assets/store/exchange_keys_1.webp',
+          'assets/store/exchange_keys_3.webp',
+          'assets/store/exchange_hearts_1.webp',
+          'assets/store/exchange_hearts_3.webp',
+          'assets/store/exchange_tickets_1.webp',
+          'assets/store/exchange_tickets_3.webp',
+          'assets/store/exchange_bundle_3.webp',
+          'assets/store/exchange_bundle_10.webp',
+        ]));
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets(
+      'all 8 resource packages appear and ad products grant free rewards via ads',
+      (tester) async {
+    await mount(tester, const Size(800, 800));
+
+    // Verify all 8 resource package products are present in the catalog
+    final resourceProductIds = [
+      'resources_3_each',
+      'resources_10_each',
+      'keys_1',
+      'hearts_1',
+      'tickets_1',
+      'keys_10',
+      'hearts_10',
+      'tickets_10',
+    ];
+    for (final id in resourceProductIds) {
+      final product = StoreCatalog.byId(id);
+      expect(product, isNotNull, reason: 'Product $id must exist in catalog');
+    }
+
+    // Verify Free Ad buttons are rendered for the 3 ad-based packages
+    final freeAdButtons = find.text('Free Ad');
+    expect(freeAdButtons, findsNWidgets(3));
+
+    final scrollable = find.byType(Scrollable).first;
+    await tester.scrollUntilVisible(freeAdButtons.first, 150,
+        scrollable: scrollable);
+    await tester.pumpAndSettle();
+    if (tester.getRect(freeAdButtons.first).top < 120) {
+      await tester.drag(scrollable, const Offset(0, 150));
+      await tester.pumpAndSettle();
+    }
+
+    // Tap on the first free ad button (keys_1)
+    await tester.tap(freeAdButtons.first);
+    await tester.pumpAndSettle();
+
+    // Verify that action ad was requested and economyAction adReward was executed
+    expect((ads as _StoreAds).actionAdRequests, 1);
+    expect(
+        app.economyActions.where((a) => a['action'] == 'adReward'), isNotEmpty);
+    expect(calls.where((call) => call.method == 'launchBilling'), isEmpty);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets(
+      'Champions Club displays welcome bonus package and claim button for VIP',
+      (tester) async {
+    app.membershipActive = true;
+    app.canClaimVip = true;
+    await mount(tester, const Size(800, 800),
+        initialKind: StoreProductKind.subscription);
+    await assertClean(tester, 'VIP membership view');
+
+    // Verify welcome pack title and 5 reward capsules
+    expect(
+        find.textContaining('Instant Champions Welcome Pack'), findsOneWidget);
+    expect(find.text('100'), findsOneWidget);
+    expect(find.text('1,000'), findsOneWidget);
+    expect(find.text('3'), findsNWidgets(3));
+
+    // Verify claim button is rendered
+    final claimButton = find.byKey(const ValueKey('claim-vip-bonus-button'));
+    expect(claimButton, findsOneWidget);
+
+    final scrollable = find.byType(Scrollable).first;
+    await tester.scrollUntilVisible(claimButton, 150, scrollable: scrollable);
+    await tester.pumpAndSettle();
+
+    // Tap claim button
+    await tester.tap(claimButton);
+    await tester.pumpAndSettle();
+
+    // Verify claimVipBonus action was executed
+    expect(app.economyActions.where((a) => a['action'] == 'claimVipBonus'),
+        isNotEmpty);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('unfinished or unavailable resource ads never grant a resource',
+      (tester) async {
+    (ads as _StoreAds).actionAdResult = false;
+    await mount(tester, const Size(800, 800));
+    await assertClean(tester, 'Resource ad unavailable');
+    final button = find.text('Free Ad').first;
+    await tester.scrollUntilVisible(button, 150,
+        scrollable: find.byType(Scrollable).first);
+    await tester.pumpAndSettle();
+    if (tester.getRect(button).top < 120) {
+      await tester.drag(find.byType(Scrollable).first, const Offset(0, 150));
+      await tester.pumpAndSettle();
+    }
+    await tester.tap(button);
+    await tester.pumpAndSettle();
+    expect((ads as _StoreAds).actionAdRequests, 1);
+    expect(app.economyActions, isEmpty);
+    expect(find.textContaining('not watched to completion'), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 }

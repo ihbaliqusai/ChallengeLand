@@ -6,8 +6,9 @@
   "main": "src/index.js",
   "engines": { "node": "22" },
   "scripts": {
+    "questions:stakes": "node scripts/build_stake_questions.js",
     "test": "node --test test/*.test.js",
-    "check": "node --check src/index.js && node --check src/commerce.js && node --check src/domain.js && node --check src/play.js && node --check src/duel_notifications.js && node --check src/social_notifications.js"
+    "check": "node --check src/index.js && node --check src/commerce.js && node --check src/domain.js && node --check src/play.js && node --check src/duel_notifications.js && node --check src/social_notifications.js && node --check src/friend_stakes.js"
   },
   "dependencies": {
     "firebase-admin": "^14.5.0",

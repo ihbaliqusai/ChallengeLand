@@ -32,7 +32,7 @@ function stable(value) {
 }
 function fresh(at) {
   return { version: 1, day: Math.floor(at / DAY), dailyKeys: 3, dailyHearts: 3,
-    keys: 0, hearts: 0, tickets: 3, categoryVouchers: 0, rentalVouchers: 0,
+    keys: 0, hearts: 0, tickets: 3, categoryVouchers: 0, rentalVouchers: 0, claimedVipExpiry: 0,
     welcomeGrantedAt: at, rewardLog: [{ id: "welcome", kind: "welcome", at, grants: { keys: 3, tickets: 3, hearts: 3 } }],
     owned: [], rentals: {}, adPermits: {}, milestones: [], streak: 0, lastLoginDay: -1,
     week: weekId(at), weekDays: [], weekCorrect: 0, weekRewardClaimed: false, revision: 0, reservations: {} };
@@ -40,6 +40,7 @@ function fresh(at) {
 function refresh(data, at) {
   const s = { ...fresh(at), ...data, owned: [...(data?.owned || [])], rentals: { ...(data?.rentals || {}) }, adPermits: { ...(data?.adPermits || {}) }, milestones: [...(data?.milestones || [])], reservations: { ...(data?.reservations || {}) } };
   s.rewardLog = [...(data?.rewardLog || (!data ? s.rewardLog : []))];
+  s.claimedVipExpiry = Number(data?.claimedVipExpiry || 0);
   // Existing accounts receive the introduction once, without overwriting banked purchases.
   // The initial three keys/hearts are the first day's free allowance, not a second grant.
   if (data && !data.welcomeGrantedAt) {
@@ -295,6 +296,36 @@ function createEconomyService({ db, now = Date.now }) {
         if (!r?.result?.session || r.result.session.status === "cancelled" || (r.result.session.mode === "campaign" && r.result.session.status !== "active")) throw new CommerceError("failed-precondition", "المباراة غير متاحة.");
         tx.set(ref, { ...r, result: { session: { ...r.result.session, committed: true } } });
         delete s.reservations[sha256(String(input.sessionId))];
+      } else if (action === "adReward") {
+        const resource = String(input.resource || "");
+        if (!["keys", "hearts", "tickets"].includes(resource)) {
+          throw new CommerceError("invalid-argument", "نوع المورد غير صالح.");
+        }
+        if (s[resource] + 1 > 2147483647) {
+          throw new CommerceError("failed-precondition", "بلغ الرصيد الحد الأقصى.");
+        }
+        s[resource] += 1;
+        recordReward(s, `ad_${resource}_${at}`, "ad", { [resource]: 1 }, at);
+      } else if (action === "claimVipBonus") {
+        if (!e.isVip || Number(e.expiresAtMillis || 0) <= at) {
+          throw new CommerceError("failed-precondition", "عضوية نادي الأبطال غير مفعلة.");
+        }
+        if (s.claimedVipExpiry >= Number(e.expiresAtMillis)) {
+          throw new CommerceError("already-exists", "تم استلام هدية العضوية لهذه الفترة بالفعل.");
+        }
+        if (s.keys + 3 > 2147483647 || s.hearts + 3 > 2147483647 || s.tickets + 3 > 2147483647) {
+          throw new CommerceError("failed-precondition", "بلغ الرصيد الحد الأقصى.");
+        }
+        s.keys += 3;
+        s.hearts += 3;
+        s.tickets += 3;
+        s.claimedVipExpiry = Number(e.expiresAtMillis);
+        const newCoins = Math.min(2147483647, integer(u.coins) + 1000);
+        const newGems = Math.min(2147483647, integer(u.gems) + 100);
+        userUpdate = { coins: newCoins, gems: newGems };
+        result.currency = { coins: newCoins, gems: newGems };
+        result.vipBonus = { coins: 1000, gems: 100, keys: 3, hearts: 3, tickets: 3 };
+        recordReward(s, `vip_welcome_${e.expiresAtMillis}`, "vip_welcome", { coins: 1000, gems: 100, keys: 3, hearts: 3, tickets: 3 }, at);
       } else if (!readOnly) throw new CommerceError("invalid-argument", "العملية غير معروفة.");
       s.revision = integer(s.revision + 1);
       for (const [ref, data] of deferredWrites) tx.set(ref, data);

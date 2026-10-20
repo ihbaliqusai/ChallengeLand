@@ -9,21 +9,25 @@ import '../core/app_state.dart';
 import '../models/player_profile.dart';
 import '../services/invite_service.dart';
 import '../services/social_service.dart';
+import 'friend_stake_selector.dart';
 
 class FriendChallengeModal extends StatefulWidget {
   const FriendChallengeModal({
     super.key,
     this.initialFriendCode,
     this.initialTab = 0,
+    this.initialStake = 0,
   });
 
   final String? initialFriendCode;
   final int initialTab;
+  final int initialStake;
 
   static Future<void> show(
     BuildContext context, {
     String? initialFriendCode,
     int initialTab = 0,
+    int initialStake = 0,
   }) {
     return showDialog<void>(
       context: context,
@@ -32,6 +36,7 @@ class FriendChallengeModal extends StatefulWidget {
       builder: (context) => FriendChallengeModal(
         initialFriendCode: initialFriendCode,
         initialTab: initialTab,
+        initialStake: initialStake,
       ),
     );
   }
@@ -47,9 +52,11 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
 
   bool _isVerifying = false;
   bool _isLaunching = false;
+  int _stakeCoins = 0;
   String? _errorMessage;
   PlayerProfile? _verifiedOpponent;
   Timer? _debounceTimer;
+  int _verificationVersion = 0;
 
   bool _showQrCode = false;
   List<PlayerProfile> _recentOpponents = [];
@@ -58,8 +65,11 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
-    if (widget.initialFriendCode != null && widget.initialFriendCode!.isNotEmpty) {
+    _stakeCoins = widget.initialStake;
+    _tabController = TabController(
+        length: 4, vsync: this, initialIndex: widget.initialTab.clamp(0, 3));
+    if (widget.initialFriendCode != null &&
+        widget.initialFriendCode!.isNotEmpty) {
       _friendCodeController.text = widget.initialFriendCode!.toUpperCase();
       _tabController.index = 2; // switch to enter code tab
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -106,7 +116,9 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
       final inviteService = context.read<InviteService>();
       final code = inviteService.extractFriendCode(clip.text!);
       final myCode = context.read<AppState>().friendCode;
-      if (code.isNotEmpty && code != myCode && _friendCodeController.text.isEmpty) {
+      if (code.isNotEmpty &&
+          code != myCode &&
+          _friendCodeController.text.isEmpty) {
         setState(() {
           _friendCodeController.text = code;
         });
@@ -116,6 +128,8 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
   }
 
   void _onCodeChanged(String value) {
+    _verificationVersion++;
+    _verifiedOpponent = null;
     if (_errorMessage != null) {
       setState(() => _errorMessage = null);
     }
@@ -134,7 +148,9 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
   }
 
   Future<void> _verifyEnteredCode(String rawCode) async {
-    final cleanCode = rawCode.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').toUpperCase();
+    final version = ++_verificationVersion;
+    final cleanCode =
+        rawCode.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').toUpperCase();
     final appState = context.read<AppState>();
     final myCode = appState.friendCode;
     final myUid = appState.user?.uid ?? '';
@@ -169,7 +185,11 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
         myUid: myUid,
       );
 
-      if (!mounted) return;
+      if (!mounted ||
+          version != _verificationVersion ||
+          appState.currentUser?.uid != myUid) {
+        return;
+      }
 
       if (profile != null) {
         setState(() {
@@ -191,7 +211,7 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
         });
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted && version == _verificationVersion) {
         setState(() {
           _isVerifying = false;
         });
@@ -205,7 +225,8 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
       if (clip?.text != null && clip!.text!.trim().isNotEmpty && mounted) {
         final inviteService = context.read<InviteService>();
         final code = inviteService.extractFriendCode(clip.text!);
-        final extracted = code.isNotEmpty ? code : clip.text!.trim().toUpperCase();
+        final extracted =
+            code.isNotEmpty ? code : clip.text!.trim().toUpperCase();
         setState(() {
           _friendCodeController.text = extracted;
         });
@@ -225,7 +246,8 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
         SnackBar(
           content: Row(
             children: [
-              const Icon(Icons.check_circle_rounded, color: Color(0xFF34D399), size: 18),
+              const Icon(Icons.check_circle_rounded,
+                  color: Color(0xFF34D399), size: 18),
               const SizedBox(width: 8),
               Text('تم نسخ كود التحدي: $code'),
             ],
@@ -262,7 +284,8 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
 
   Future<void> _launchChallenge(String targetCode) async {
     if (_isLaunching) return;
-    final cleanCode = targetCode.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').toUpperCase();
+    final cleanCode =
+        targetCode.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').toUpperCase();
     if (cleanCode.isEmpty) {
       setState(() => _errorMessage = 'يرجى إدخال كود صديقك');
       return;
@@ -284,8 +307,13 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
       final social = context.read<SocialService>();
       final inviteService = context.read<InviteService>();
       final peer = _verifiedOpponent?.friendCode == cleanCode
-          ? _verifiedOpponent!.uid : await social.findCode(cleanCode);
-      await social.send(user.uid, peer, challenge: true);
+          ? _verifiedOpponent!.uid
+          : await social.findCode(cleanCode);
+      if (_stakeCoins > 0) {
+        await social.sendStakedChallenge(user.uid, peer, _stakeCoins);
+      } else {
+        await social.send(user.uid, peer, challenge: true);
+      }
       // Save to recent opponents if we have a verified profile
       if (_verifiedOpponent != null) {
         await inviteService.saveRecentOpponent(_verifiedOpponent!);
@@ -294,23 +322,32 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
       if (!mounted) return;
       final messenger = ScaffoldMessenger.of(context);
       Navigator.of(context).pop();
-      messenger.showSnackBar(const SnackBar(content: Text('أُرسلت الدعوة. ستبدأ المواجهة بعد قبول الطرف الآخر خلال 30 ثانية.')));
+      messenger.showSnackBar(const SnackBar(
+          content: Text(
+              'أُرسلت الدعوة. ستبدأ المواجهة بعد قبول الطرف الآخر خلال 30 ثانية.')));
     } catch (e) {
       if (mounted) {
         setState(() {
           _isLaunching = false;
-          _errorMessage = e is SocialException ? e.message : 'تعذر إرسال الدعوة. تحقق من الاتصال وحاول مجددًا.';
+          _errorMessage = e is SocialException
+              ? e.message
+              : 'تعذر إرسال الدعوة. تحقق من الاتصال وحاول مجددًا.';
         });
       }
     }
   }
 
   Future<void> _startRandomMatch() async {
+    if (_isLaunching) return;
     final appState = context.read<AppState>();
     if (!appState.isOnline) {
       setState(() {
         _errorMessage = 'يجب توفر اتصال بالإنترنت للعب ضد منافس عشوائي';
       });
+      return;
+    }
+    if (appState.coins < _stakeCoins) {
+      setState(() => _errorMessage = 'رصيدك لا يكفي لمبلغ المباراة المختار.');
       return;
     }
 
@@ -322,8 +359,8 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
     try {
       HapticFeedback.mediumImpact();
       if (!mounted) return;
-      Navigator.of(context).pop();
-      await appState.openRandomMatch();
+      await appState.openRandomMatch(stakeCoins: _stakeCoins);
+      if (mounted) Navigator.of(context).pop();
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -345,7 +382,8 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
     final media = MediaQuery.of(context);
     final isLandscape = media.size.width > media.size.height;
     final dialogWidth = isLandscape ? 680.0 : 420.0;
-    final dialogMaxHeight = isLandscape ? media.size.height * 0.92 : media.size.height * 0.85;
+    final dialogMaxHeight =
+        isLandscape ? media.size.height * 0.92 : media.size.height * 0.85;
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -475,7 +513,8 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
           ),
           IconButton(
             onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 22),
+            icon: const Icon(Icons.close_rounded,
+                color: Colors.white70, size: 22),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
             tooltip: 'إغلاق',
@@ -514,7 +553,8 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
         labelColor: Colors.white,
         unselectedLabelColor: const Color(0xFF94A3B8),
         labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-        unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal, fontSize: 11),
+        unselectedLabelStyle:
+            const TextStyle(fontWeight: FontWeight.normal, fontSize: 11),
         labelPadding: const EdgeInsets.symmetric(horizontal: 4),
         tabs: const [
           Tab(
@@ -601,13 +641,18 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         gradient: const LinearGradient(
-                          colors: [Color(0xFF0284C7), Color(0xFF2563EB), Color(0xFF7C3AED)],
+                          colors: [
+                            Color(0xFF0284C7),
+                            Color(0xFF2563EB),
+                            Color(0xFF7C3AED)
+                          ],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF38BDF8).withValues(alpha: 0.5),
+                            color:
+                                const Color(0xFF38BDF8).withValues(alpha: 0.5),
                             blurRadius: 18,
                             spreadRadius: 2,
                           ),
@@ -663,11 +708,14 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    _buildFeatureChip(Icons.flash_on_rounded, 'بحث فوري', const Color(0xFFFFD700)),
+                    _buildFeatureChip(Icons.flash_on_rounded, 'بحث فوري',
+                        const Color(0xFFFFD700)),
                     const SizedBox(width: 8),
-                    _buildFeatureChip(Icons.military_tech_rounded, 'نقاط وتصنيف', const Color(0xFF38BDF8)),
+                    _buildFeatureChip(Icons.military_tech_rounded,
+                        'نقاط وتصنيف', const Color(0xFF38BDF8)),
                     const SizedBox(width: 8),
-                    _buildFeatureChip(Icons.smart_toy_rounded, 'خصم متكافئ', const Color(0xFF34D399)),
+                    _buildFeatureChip(Icons.smart_toy_rounded, 'خصم متكافئ',
+                        const Color(0xFF34D399)),
                   ],
                 ),
               ],
@@ -683,11 +731,13 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
               decoration: BoxDecoration(
                 color: const Color(0xFFEF4444).withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.5)),
+                border: Border.all(
+                    color: const Color(0xFFEF4444).withValues(alpha: 0.5)),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.error_outline_rounded, color: Color(0xFFEF4444), size: 16),
+                  const Icon(Icons.error_outline_rounded,
+                      color: Color(0xFFEF4444), size: 16),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -709,7 +759,11 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
             width: double.infinity,
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [Color(0xFF0284C7), Color(0xFF2563EB), Color(0xFF7C3AED)],
+                colors: [
+                  Color(0xFF0284C7),
+                  Color(0xFF2563EB),
+                  Color(0xFF7C3AED)
+                ],
               ),
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
@@ -740,9 +794,12 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
                         color: Colors.white,
                       ),
                     )
-                  : const Icon(Icons.play_arrow_rounded, size: 24, color: Color(0xFFFFD700)),
+                  : const Icon(Icons.play_arrow_rounded,
+                      size: 24, color: Color(0xFFFFD700)),
               label: Text(
-                _isLaunching ? 'جاري بدء البحث...' : 'ابدأ البحث عن منافس الآن ⚡',
+                _isLaunching
+                    ? 'جاري بدء البحث...'
+                    : 'ابدأ البحث عن منافس الآن ⚡',
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -808,118 +865,262 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
   // ── Tab 1: My Challenge Card ────────────────────────────────────────────────
 
   Widget _buildMyCardTab(String myCode, String playerName, int userLevel) {
+    final appState = context.watch<AppState>();
+    final character = appState.selectedCharacter;
+    final photoUrl = appState.user?.photoURL;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Gamer Identity Card
+          // ── VIP Challenger Pass ───────────────────────────────────────────
           Container(
-            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
+              gradient: const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  const Color(0xFF1E293B).withValues(alpha: 0.7),
-                  const Color(0xFF0F172A).withValues(alpha: 0.9),
+                  Color(0xFF131D38),
+                  Color(0xFF090E21),
                 ],
               ),
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: const Color(0xFFFFD700).withValues(alpha: 0.3),
+                color: const Color(0xFFFFD700).withValues(alpha: 0.45),
+                width: 1.4,
               ),
-            ),
-            child: Row(
-              children: [
-                // Avatar Badge
-                Stack(
-                  alignment: Alignment.bottomRight,
-                  children: [
-                    Container(
-                      width: 54,
-                      height: 54,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: const Color(0xFFFFD700),
-                          width: 2,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFFFFD700).withValues(alpha: 0.3),
-                            blurRadius: 10,
-                          ),
-                        ],
-                        image: const DecorationImage(
-                          image: AssetImage('assets/ui/user.png'),
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFD700),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        'Lv.$userLevel',
-                        style: const TextStyle(
-                          color: Color(0xFF0F172A),
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFFFD700).withValues(alpha: 0.12),
+                  blurRadius: 20,
+                  spreadRadius: 1,
                 ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        playerName,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        overflow: TextOverflow.ellipsis,
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.6),
+                  blurRadius: 18,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Top Gold Foil Ribbon
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        const Color(0xFFFFD700).withValues(alpha: 0.25),
+                        const Color(0xFFF59E0B).withValues(alpha: 0.1),
+                        Colors.transparent,
+                      ],
+                    ),
+                    borderRadius:
+                        const BorderRadius.vertical(top: Radius.circular(19)),
+                    border: Border(
+                      bottom: BorderSide(
+                        color: const Color(0xFFFFD700).withValues(alpha: 0.2),
                       ),
-                      const SizedBox(height: 2),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.military_tech_rounded,
+                        color: Color(0xFFFFD700),
+                        size: 16,
+                      ),
+                      const SizedBox(width: 6),
                       const Text(
-                        'جاهز للمواجهة ⚔️',
+                        'بطاقة التحدي الرسمية • OFFICIAL CHALLENGER PASS',
+                        style: TextStyle(
+                          color: Color(0xFFFFD700),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                      const Spacer(),
+                      Container(
+                        width: 7,
+                        height: 7,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF34D399),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Text(
+                        'جاهز للمواجهة',
                         style: TextStyle(
                           color: Color(0xFF34D399),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ],
                   ),
                 ),
-                // QR Toggle button
-                IconButton.filledTonal(
-                  onPressed: () {
-                    setState(() => _showQrCode = !_showQrCode);
-                  },
-                  style: IconButton.styleFrom(
-                    backgroundColor: _showQrCode
-                        ? const Color(0xFFFFD700)
-                        : const Color(0xFF334155).withValues(alpha: 0.7),
-                    foregroundColor: _showQrCode ? const Color(0xFF0F172A) : Colors.white,
+
+                // Player Info & Avatar Row
+                Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Row(
+                    children: [
+                      // Avatar with Level Badge
+                      Stack(
+                        alignment: Alignment.bottomRight,
+                        children: [
+                          Container(
+                            width: 58,
+                            height: 58,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: RadialGradient(
+                                colors: [
+                                  character.color.withValues(alpha: 0.35),
+                                  const Color(0xFF0F172A),
+                                ],
+                              ),
+                              border: Border.all(
+                                color: const Color(0xFFFFD700),
+                                width: 2,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFFFFD700)
+                                      .withValues(alpha: 0.3),
+                                  blurRadius: 12,
+                                ),
+                              ],
+                            ),
+                            padding: const EdgeInsets.all(4),
+                            child: ClipOval(
+                              child: photoUrl != null
+                                  ? Image.network(
+                                      photoUrl,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) => Image.asset(
+                                        character.asset,
+                                        fit: BoxFit.contain,
+                                      ),
+                                    )
+                                  : Image.asset(
+                                      character.asset,
+                                      fit: BoxFit.contain,
+                                    ),
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [
+                                  Color(0xFFFFD700),
+                                  Color(0xFFF59E0B),
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(8),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.5),
+                                  blurRadius: 4,
+                                ),
+                              ],
+                            ),
+                            child: Text(
+                              'Lv.$userLevel',
+                              style: const TextStyle(
+                                color: Color(0xFF0F172A),
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(width: 14),
+
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              playerName,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16.5,
+                                fontWeight: FontWeight.w900,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 3),
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color:
+                                        character.color.withValues(alpha: 0.18),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    'شخصية: ${character.nameAr}',
+                                    style: TextStyle(
+                                      color: character.color,
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                const Text(
+                                  '• 1 ضد 1',
+                                  style: TextStyle(
+                                    color: Color(0xFF94A3B8),
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // QR Toggle button
+                      IconButton.filledTonal(
+                        onPressed: () {
+                          HapticFeedback.selectionClick();
+                          setState(() => _showQrCode = !_showQrCode);
+                        },
+                        style: IconButton.styleFrom(
+                          backgroundColor: _showQrCode
+                              ? const Color(0xFFFFD700)
+                              : const Color(0xFF1E293B),
+                          foregroundColor: _showQrCode
+                              ? const Color(0xFF0F172A)
+                              : Colors.white,
+                        ),
+                        icon: const Icon(Icons.qr_code_2_rounded, size: 22),
+                        tooltip: _showQrCode ? 'إخفاء الرمز' : 'عرض رمز QR',
+                      ),
+                    ],
                   ),
-                  icon: const Icon(Icons.qr_code_2_rounded, size: 22),
-                  tooltip: _showQrCode ? 'إخفاء الرمز' : 'عرض رمز QR',
                 ),
               ],
             ),
           ),
           const SizedBox(height: 12),
 
-          // QR Code Display Card (Expandable)
+          // ── QR Code Display Card (Expandable) ─────────────────────────────
           if (_showQrCode && myCode.isNotEmpty)
             Container(
               margin: const EdgeInsets.only(bottom: 12),
@@ -969,21 +1170,38 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
               ),
             ),
 
-          // Stylized Challenge Code Card
+          // ── Stylized Challenge Code Card ──────────────────────────────────
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: const Color(0xFF080E24),
-              borderRadius: BorderRadius.circular(14),
+              color: const Color(0xFF070D1E),
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: const Color(0xFFFFD700).withValues(alpha: 0.5),
-                width: 1.2,
+                color: const Color(0xFFFFD700).withValues(alpha: 0.55),
+                width: 1.4,
               ),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFFFD700).withValues(alpha: 0.1),
+                  blurRadius: 14,
+                ),
+              ],
             ),
             child: Row(
               children: [
-                const Icon(Icons.vpn_key_rounded, color: Color(0xFFFFD700), size: 20),
-                const SizedBox(width: 10),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFD700).withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.vpn_key_rounded,
+                    color: Color(0xFFFFD700),
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -992,88 +1210,174 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
                         'كود التحدي الخاص بك',
                         style: TextStyle(
                           color: Color(0xFF94A3B8),
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                       Text(
                         myCode.isNotEmpty ? myCode : '---',
                         style: const TextStyle(
                           color: Color(0xFFFFD700),
-                          fontSize: 20,
+                          fontSize: 22,
                           fontWeight: FontWeight.w900,
-                          letterSpacing: 3,
+                          letterSpacing: 3.5,
                         ),
                       ),
                     ],
                   ),
                 ),
                 ElevatedButton.icon(
-                  onPressed: myCode.isNotEmpty ? () => _copyMyCode(myCode) : null,
+                  onPressed:
+                      myCode.isNotEmpty ? () => _copyMyCode(myCode) : null,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1E3A8A),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    backgroundColor: const Color(0xFFFFD700),
+                    foregroundColor: const Color(0xFF0F172A),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
                     ),
+                    elevation: 0,
                   ),
                   icon: const Icon(Icons.copy_rounded, size: 16),
                   label: const Text(
-                    'نسخ',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                    'نسخ الكود',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900),
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
 
-          // Quick Share Row
+          // ── Quick Share Buttons Row ───────────────────────────────────────
           Row(
             children: [
               // WhatsApp Direct Share
               Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: myCode.isNotEmpty ? () => _shareToWhatsApp(myCode, playerName) : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF25D366),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 11),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [
+                        Color(0xFF25D366),
+                        Color(0xFF128C7E),
+                      ],
                     ),
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF25D366).withValues(alpha: 0.35),
+                        blurRadius: 12,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
                   ),
-                  icon: const Icon(Icons.send_rounded, size: 16),
-                  label: const Text(
-                    'مشاركة عبر واتساب',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  child: ElevatedButton.icon(
+                    onPressed: myCode.isNotEmpty
+                        ? () => _shareToWhatsApp(myCode, playerName)
+                        : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      shadowColor: Colors.transparent,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    icon: const Icon(Icons.send_rounded, size: 17),
+                    label: const Text(
+                      'دعوة عبر واتساب',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
                   ),
                 ),
               ),
               const SizedBox(width: 10),
+
               // Full Share
               Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: myCode.isNotEmpty ? () => _shareGeneral(myCode, playerName) : null,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF38BDF8),
-                    side: BorderSide(
-                      color: const Color(0xFF38BDF8).withValues(alpha: 0.5),
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [
+                        Color(0xFF0284C7),
+                        Color(0xFF0369A1),
+                      ],
                     ),
-                    padding: const EdgeInsets.symmetric(vertical: 11),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF0284C7).withValues(alpha: 0.35),
+                        blurRadius: 12,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
                   ),
-                  icon: const Icon(Icons.share_rounded, size: 16),
-                  label: const Text(
-                    'مشاركة عامة',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  child: ElevatedButton.icon(
+                    onPressed: myCode.isNotEmpty
+                        ? () => _shareGeneral(myCode, playerName)
+                        : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      shadowColor: Colors.transparent,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    icon: const Icon(Icons.share_rounded, size: 17),
+                    label: const Text(
+                      'مشاركة الكود',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
                   ),
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 12),
+
+          // ── Quick Info Note ───────────────────────────────────────────────
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0B142D).withValues(alpha: 0.6),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.08),
+              ),
+            ),
+            child: const Row(
+              children: [
+                Icon(
+                  Icons.auto_awesome_rounded,
+                  color: Color(0xFFFFD700),
+                  size: 16,
+                ),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'عند نسخ صديقك للكود وفتح اللعبة، سيظهر له التحدي تلقائياً للبدء فوراً دون عناء الكتابة!',
+                    style: TextStyle(
+                      color: Color(0xFF94A3B8),
+                      fontSize: 11,
+                      height: 1.35,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 14),
           // Quick Match against random opponent banner
@@ -1128,7 +1432,8 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF0284C7),
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
                     ),
@@ -1215,7 +1520,8 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
                         : null,
                   ),
                   onChanged: _onCodeChanged,
-                  onSubmitted: (val) => _launchChallenge(val),
+                  onSubmitted:
+                      _stakeCoins == 0 ? (val) => _launchChallenge(val) : null,
                 ),
               ),
               const SizedBox(width: 8),
@@ -1225,13 +1531,15 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF334155),
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
                 icon: const Icon(Icons.paste_rounded, size: 16),
-                label: const Text('لصق', style: TextStyle(fontWeight: FontWeight.bold)),
+                label: const Text('لصق',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ],
           ),
@@ -1241,7 +1549,8 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
             const SizedBox(height: 8),
             Row(
               children: [
-                const Icon(Icons.info_outline_rounded, color: Color(0xFFF87171), size: 14),
+                const Icon(Icons.info_outline_rounded,
+                    color: Color(0xFFF87171), size: 14),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
@@ -1277,7 +1586,8 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
                     height: 44,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      border: Border.all(color: const Color(0xFF38BDF8), width: 1.5),
+                      border: Border.all(
+                          color: const Color(0xFF38BDF8), width: 1.5),
                       image: const DecorationImage(
                         image: AssetImage('assets/ui/user.png'),
                         fit: BoxFit.cover,
@@ -1318,11 +1628,14 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: const Color(0xFF34D399).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFF34D399).withValues(alpha: 0.5)),
+                      border: Border.all(
+                          color:
+                              const Color(0xFF34D399).withValues(alpha: 0.5)),
                     ),
                     child: const Text(
                       'جاهز للتحدي ⚔️',
@@ -1337,6 +1650,13 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
               ),
             ),
 
+          const SizedBox(height: 14),
+
+          FriendStakeSelector(
+            amount: _stakeCoins,
+            enabled: !_isLaunching,
+            onChanged: (amount) => setState(() => _stakeCoins = amount),
+          ),
           const SizedBox(height: 14),
 
           // Start Challenge Button
@@ -1378,7 +1698,11 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
                     )
                   : const Icon(Icons.flash_on_rounded, size: 20),
               label: Text(
-                _isLaunching ? 'جارٍ إرسال الدعوة...' : 'إرسال دعوة مواجهة ⚔️',
+                _isLaunching
+                    ? 'جارٍ إرسال الدعوة...'
+                    : _stakeCoins > 0
+                        ? 'إرسال دعوة بـ$_stakeCoins قطعة'
+                        : 'إرسال دعوة مواجهة ⚔️',
                 style: const TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.bold,
@@ -1436,7 +1760,8 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
                   shape: BoxShape.circle,
                   color: Colors.white.withValues(alpha: 0.05),
                 ),
-                child: const Icon(Icons.people_outline_rounded, color: Colors.white38, size: 36),
+                child: const Icon(Icons.people_outline_rounded,
+                    color: Colors.white38, size: 36),
               ),
               const SizedBox(height: 12),
               const Text(
@@ -1468,8 +1793,10 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
       separatorBuilder: (_, __) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
         final opponent = _recentOpponents[index];
-        final cleanCode = opponent.uid.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').toUpperCase();
-        final displayCode = cleanCode.length > 10 ? cleanCode.substring(0, 10) : cleanCode;
+        final cleanCode =
+            opponent.uid.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').toUpperCase();
+        final displayCode =
+            cleanCode.length > 10 ? cleanCode.substring(0, 10) : cleanCode;
 
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -1524,13 +1851,16 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF1E3A8A),
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
                 icon: const Icon(Icons.flash_on_rounded, size: 14),
-                label: const Text('تحدي', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                label: const Text('تحدي',
+                    style:
+                        TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
               ),
             ],
           ),

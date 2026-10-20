@@ -5,6 +5,8 @@ import 'package:challenge_land/core/app_state.dart';
 import 'package:challenge_land/screens/social/player_profile_screen.dart';
 import 'package:challenge_land/screens/social/social_screen.dart';
 import 'package:challenge_land/services/social_service.dart';
+import 'package:challenge_land/services/native_bridge_service.dart';
+import 'package:challenge_land/widgets/friend_stake_selector.dart';
 import 'package:challenge_land/widgets/social_shell.dart';
 import 'package:challenge_land/widgets/social_artwork.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -37,6 +39,7 @@ class _App extends ChangeNotifier implements AppState {
   @override
   int get trophies => 100;
   final launched = <String>[];
+  final paidLaunched = <String>[];
   void switchAccount(String uid) {
     currentUser = _User(uid);
     notifyListeners();
@@ -48,7 +51,22 @@ class _App extends ChangeNotifier implements AppState {
   }
 
   @override
+  Future<void> openStakedFriendChallenge(String code,
+      {required String matchId, required int stakeCoins}) async {
+    paidLaunched.add('$code:$matchId:$stakeCoins');
+  }
+
+  @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _StakesBridge extends NativeBridgeService {
+  final calls = <Map<String, dynamic>>[];
+  @override
+  Future<Map<String, dynamic>> friendStakes(Map<String, dynamic> data) async {
+    calls.add(data);
+    return {};
+  }
 }
 
 class _StalledSocialService extends SocialService {
@@ -215,6 +233,109 @@ void main() {
 
   Finder option(String label) =>
       find.descendant(of: find.byType(Dialog), matching: find.text(label));
+
+  testWidgets(
+      'paid friend invitation shows cost and pool before server acceptance',
+      (tester) async {
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final bridge = _StakesBridge();
+    service =
+        SocialService(firestore: db, clock: () => now, nativeBridge: bridge);
+    final ref = db.doc('social_challenges/alice:bob');
+    await ref.set({
+      'members': ['alice', 'bob'],
+      'fromUid': 'alice',
+      'toUid': 'bob',
+      'status': 'pending',
+      'mode': 'duel',
+      'serverStake': true,
+      'stakeCoins': 50,
+      'prizeCoins': 100,
+      'stakeMatchId': 'paid-match',
+      'createdAt': Timestamp.fromDate(now),
+      'expiresAt': Timestamp.fromDate(now.add(const Duration(seconds: 30))),
+    });
+    final app = _App('bob');
+    await pump(tester, app, size: const Size(640, 480));
+    expect(find.text('قبول بـ50 قطعة'), findsOneWidget);
+    expect(find.textContaining('الجائزة: 100 قطعة'), findsOneWidget);
+    await tester.tap(find.text('قبول بـ50 قطعة'));
+    await tester.pumpAndSettle();
+    expect(bridge.calls.single, containsPair('expectedAmount', 50));
+    expect(bridge.calls.single, containsPair('status', 'accepted'));
+    expect((await ref.get()).data()?['status'], 'pending');
+    expect(app.launched, isEmpty);
+    expect(app.paidLaunched, isEmpty);
+
+    // Only the server's accepted document plus matching reservation may launch.
+    final acceptedAt = Timestamp.fromDate(now);
+    await db.doc('social_reservations/bob').set({
+      'challengeId': ref.id,
+      'acceptedAt': acceptedAt,
+      'expiresAt': Timestamp.fromDate(now.add(const Duration(minutes: 2))),
+    });
+    await ref.update({'status': 'accepted', 'acceptedAt': acceptedAt});
+    for (var i = 0; i < 20 && app.paidLaunched.isEmpty; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(app.paidLaunched, ['ALICE:paid-match:50']);
+    expect(app.launched, isEmpty);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets(
+      'paid friend selector offers all seven stakes and sends explicit amount',
+      (tester) async {
+    int? chosen;
+    await tester.pumpWidget(MaterialApp(
+        theme: ThemeData.dark(),
+        home: Scaffold(
+            body: Builder(
+                builder: (context) => TextButton(
+                    onPressed: () async {
+                      chosen = await FriendStakeSelector.choose(context);
+                    },
+                    child: const Text('اختيار'))))));
+    await tester.tap(find.text('اختيار'));
+    await tester.pumpAndSettle();
+    for (final amount in SocialService.stakeAmounts) {
+      expect(find.byKey(ValueKey('friendStake:$amount')), findsOneWidget);
+    }
+    expect(find.byKey(const ValueKey('friendStake:0')), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('friendStake:5000')));
+    await tester.pumpAndSettle();
+    expect(find.text('تدفع 5000 قطعة • الفائز يحصل على 10000 قطعة'),
+        findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('sendStakedChallenge')));
+    await tester.pumpAndSettle();
+    expect(chosen, 5000);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'paid social challenge sends chosen price only after player confirms',
+      (tester) async {
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final bridge = _StakesBridge();
+    service =
+        SocialService(firestore: db, clock: () => now, nativeBridge: bridge);
+    await pump(tester, _App('alice'), screen: true, size: const Size(640, 480));
+    await openOptions(tester, 'bob');
+    await tester.tap(option('تحدٍّ على قطع'));
+    await tester.pumpAndSettle();
+    expect(bridge.calls, isEmpty);
+    await tester.tap(find.byKey(const ValueKey('friendStake:50')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('sendStakedChallenge')));
+    await tester.pumpAndSettle();
+    expect(bridge.calls.single, containsPair('stakeCoins', 50));
+    expect(bridge.calls.single, containsPair('peerUid', 'bob'));
+    expect((await db.doc('social_challenges/alice:bob').get()).exists, isFalse);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
 
   void expectChallengeUnavailable(WidgetTester tester) {
     final label = option('تحدٍّ مباشر');
@@ -928,6 +1049,5 @@ void main() {
     expect(find.byKey(const ValueKey('player:bob')), findsNothing);
     expect(find.byType(CircularProgressIndicator), findsNothing);
     expect(tester.takeException(), isNull);
-    await tester.pumpWidget(const SizedBox());
   });
 }

@@ -36,7 +36,7 @@ final class GameOfflineContestantsController {
     private static final int POINTS_PER_CORRECT = 100;
 
     /** Number of distinct contestant characters available. */
-    private static final int CHARACTER_COUNT = 8;
+    private static final int CHARACTER_COUNT = CharacterUnlocks.CHARACTER_COUNT;
 
     // Full-body contestant artwork (988 x 2390), drawn standing behind the podium.
     private static final int[] CONTESTANT_DRAWABLES = {
@@ -47,7 +47,15 @@ final class GameOfflineContestantsController {
             R.drawable.contestant_mahmoud,
             R.drawable.contestant_ellen,
             R.drawable.contestant_sarah,
-            R.drawable.contestant_talia
+            R.drawable.contestant_talia,
+            R.drawable.contestant_layan,
+            R.drawable.contestant_rashid,
+            R.drawable.contestant_jana,
+            R.drawable.contestant_yazan,
+            R.drawable.contestant_nour,
+            R.drawable.contestant_zaid,
+            R.drawable.contestant_salman,
+            R.drawable.contestant_adam
     };
     // Matching face avatars (537 x 761) used in the score board (and the setup screen).
     private static final int[] EMOTE_DRAWABLES = {
@@ -58,11 +66,20 @@ final class GameOfflineContestantsController {
             R.drawable.emote_mahmoud,
             R.drawable.emote_ellen,
             R.drawable.emote_sarah,
-            R.drawable.emote_talia
+            R.drawable.emote_talia,
+            R.drawable.emote_layan,
+            R.drawable.emote_rashid,
+            R.drawable.emote_jana,
+            R.drawable.emote_yazan,
+            R.drawable.emote_nour,
+            R.drawable.emote_zaid,
+            R.drawable.emote_salman,
+            R.drawable.emote_adam
     };
     /** Fixed name for each character; slot 0 (the human) uses the account name instead. */
     private static final String[] CHARACTER_NAMES = {
-            "خالد", "عمر", "فهد", "مازن", "محمود", "إلين", "سارة", "تاليا"
+            "خالد", "عمر", "فهد", "مازن", "محمود", "إلين", "سارة", "تاليا",
+            "ليان", "راشد", "جنى", "يزن", "ريناد", "زيد", "سلمان", "آدم"
     };
 
     /** Per-character looping idle clip (res/raw); 0 means fall back to the static image. */
@@ -74,7 +91,15 @@ final class GameOfflineContestantsController {
             R.raw.video_mahmoud,
             R.raw.video_ellen,
             R.raw.video_sarah,
-            R.raw.video_talia
+            R.raw.video_talia,
+            R.raw.video_layan,
+            R.raw.video_rashid,
+            R.raw.video_jana,
+            R.raw.video_yazan,
+            R.raw.video_nour,
+            R.raw.video_zaid,
+            R.raw.video_salman,
+            R.raw.video_adam
     };
 
     // Per-character one-shot reaction clips played when the round is revealed; the
@@ -99,6 +124,22 @@ final class GameOfflineContestantsController {
         CONTESTANT_VIDEOS_WRONG[6]   = R.raw.video_sarah_wrong;
         CONTESTANT_VIDEOS_CORRECT[7] = R.raw.video_talia_correct;   // Talia
         CONTESTANT_VIDEOS_WRONG[7]   = R.raw.video_talia_wrong;
+        CONTESTANT_VIDEOS_CORRECT[8] = R.raw.video_layan_correct;
+        CONTESTANT_VIDEOS_WRONG[8] = R.raw.video_layan_wrong;
+        CONTESTANT_VIDEOS_CORRECT[9] = R.raw.video_rashid_correct;
+        CONTESTANT_VIDEOS_WRONG[9] = R.raw.video_rashid_wrong;
+        CONTESTANT_VIDEOS_CORRECT[10] = R.raw.video_jana_correct;
+        CONTESTANT_VIDEOS_WRONG[10] = R.raw.video_jana_wrong;
+        CONTESTANT_VIDEOS_CORRECT[11] = R.raw.video_yazan_correct;
+        CONTESTANT_VIDEOS_WRONG[11] = R.raw.video_yazan_wrong;
+        CONTESTANT_VIDEOS_CORRECT[12] = R.raw.video_nour_correct;
+        CONTESTANT_VIDEOS_WRONG[12] = R.raw.video_nour_wrong;
+        CONTESTANT_VIDEOS_CORRECT[13] = R.raw.video_zaid_correct;
+        CONTESTANT_VIDEOS_WRONG[13] = R.raw.video_zaid_wrong;
+        CONTESTANT_VIDEOS_CORRECT[14] = R.raw.video_salman_correct;
+        CONTESTANT_VIDEOS_WRONG[14] = R.raw.video_salman_wrong;
+        CONTESTANT_VIDEOS_CORRECT[15] = R.raw.video_adam_correct;
+        CONTESTANT_VIDEOS_WRONG[15] = R.raw.video_adam_wrong;
     }
 
     /** Podium artwork aspect (width / height, 1086 x 1448). */
@@ -183,16 +224,16 @@ final class GameOfflineContestantsController {
     private View soloStageProgressFill;
     private int lastEarnedStars = 0;
 
-    // Character figure genders: indices 0-4 are male, 5-7 female (see CONTESTANT_DRAWABLES).
-    private static final int[] MALE_FIGURES = {0, 1, 2, 3, 4};
-    private static final int[] FEMALE_FIGURES = {5, 6, 7};
+    // Match the complete Flutter roster when assigning other players' figures.
+    private static final int[] MALE_FIGURES = {0, 1, 2, 3, 4, 9, 11, 13, 14, 15};
+    private static final int[] FEMALE_FIGURES = {5, 6, 7, 8, 10, 12};
     private static final java.util.HashSet<String> FEMALE_NAMES = new java.util.HashSet<>(
             java.util.Arrays.asList(
                     "ليلى", "هدى", "منى", "سارة", "رنا", "إلين", "الين", "ايلين", "إيلين", "تاليا", "تالا",
-                    "فاطمة", "عائشة", "مريم", "نور", "نوره", "نورة", "سلمى", "رؤى", "دانة",
+                    "فاطمة", "عائشة", "مريم", "نور", "نوره", "نورة", "ريناد", "سلمى", "رؤى", "دانة",
                     "جنى", "لمى", "رهف", "شهد", "غلا", "أسماء", "اسماء", "هند", "ريم", "ريما",
                     "دلال", "عبير", "حنان", "إيمان", "ايمان", "آلاء", "الاء", "بيان", "جود",
-                    "لين", "لينا", "دينا", "ميس", "ميساء", "روان", "رغد", "سمر", "رولا", "وعد",
+                    "لين", "لينا", "ليان", "دينا", "ميس", "ميساء", "روان", "رغد", "سمر", "رولا", "وعد",
                     "غدير", "أمل", "امل", "رزان", "ربى", "شذى", "علا", "عُلا", "هيا", "جواهر",
                     "لطيفة", "موضي", "العنود", "سديم", "رفيف", "تولين", "بتول", "مزنة", "ندى",
                     "أروى", "اروى", "بشرى", "صفاء", "وفاء", "هبة", "هناء", "رقية", "خديجة",
