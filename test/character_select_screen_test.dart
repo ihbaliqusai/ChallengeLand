@@ -1,3 +1,5 @@
+import 'support/asset_images.dart';
+import 'package:challenge_land/core/shared_assets.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -58,13 +60,15 @@ void main() {
 
   setUpAll(() async {
     await (FontLoader('MaterialIcons')
-          ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf')))
+          ..addFont(
+              SharedAssets.bundle.load('fonts/MaterialIcons-Regular.otf')))
         .load();
     await (FontLoader('NotoSansArabic')
-          ..addFont(rootBundle.load('assets/fonts/NotoSansArabic.ttf')))
+          ..addFont(
+              SharedAssets.bundle.load('assets/fonts/NotoSansArabic.ttf')))
         .load();
     final artwork =
-        await rootBundle.load('assets/characters/contestant_omar.png');
+        await SharedAssets.bundle.load('assets/characters/contestant_omar.png');
     expect(artwork.lengthInBytes, greaterThan(0));
   });
 
@@ -100,6 +104,12 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    await tester.runAsync(() => Future.wait([
+          for (final image in tester.widgetList<Image>(find.byType(Image)))
+            precacheImage(image.image,
+                tester.element(find.byType(CharacterSelectScreen))),
+        ]));
+    await tester.pumpAndSettle();
   }
 
   testWidgets('renders stage, rail and allows selecting different characters',
@@ -109,7 +119,7 @@ void main() {
 
     // Names belong to matches; the picker identifies characters by artwork.
     for (final character in CharacterCatalog.all) {
-      expect(find.textContaining(character.nameAr), findsNothing);
+      expect(find.text(character.nameAr), findsNothing);
     }
     expect(find.text('شخصيتك الحالية'), findsAtLeastNWidgets(1));
 
@@ -127,6 +137,35 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(appState.selectedCharacterIndex, 0);
+  });
+
+  testWidgets(
+      'swipe hint and dots reveal more characters without selecting them',
+      (tester) async {
+    final state = _FakeAppState();
+    await mount(tester, state: state);
+    expect(find.text('اسحب لليمين للمزيد'), findsOneWidget);
+    final rail = find.byKey(const ValueKey('character-scroll-rail'));
+    final initial =
+        tester.getRect(find.byKey(const ValueKey('character-rail-mahmoud')));
+    await tester.drag(rail, const Offset(180, 0));
+    await tester.pumpAndSettle();
+    expect(
+        tester
+            .getRect(find.byKey(const ValueKey('character-rail-mahmoud')))
+            .left,
+        greaterThan(initial.left));
+    await tester.tap(find.byKey(const ValueKey('character-page-2')));
+    await tester.pumpAndSettle();
+    expect(find.text('اسحب لليسار للعودة'), findsOneWidget);
+    expect(find.byKey(const ValueKey('character-rail-adam')).hitTestable(),
+        findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('character-swipe-hint')));
+    await tester.pumpAndSettle();
+    expect(find.text('اسحب لليمين للمزيد'), findsOneWidget);
+    expect(state.selectedCharacterIndex, 1);
+    expect(state.purchaseRequests, 0);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('opening character inspection sheet reveals bio and skills',
@@ -225,7 +264,7 @@ void main() {
     await mount(tester, state: state);
     for (final character in CharacterCatalog.all.skip(8)) {
       await tester.runAsync(() => precacheImage(
-          AssetImage(character.fullBodyAsset),
+          AssetImage(character.fullBodyAsset, bundle: SharedAssets.bundle),
           tester.element(find.byType(CharacterSelectScreen))));
       final tile = find.byKey(ValueKey('character-rail-${character.id}'));
       await tester.ensureVisible(tile);
@@ -233,10 +272,19 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text(character.tagAr), findsOneWidget);
       expect(find.textContaining(character.nameAr), findsNothing);
-      final artwork = find.byWidgetPredicate((widget) =>
-          widget is Image &&
-          widget.image is AssetImage &&
-          (widget.image as AssetImage).assetName == character.fullBodyAsset);
+      final artwork = find.descendant(
+        of: find.byKey(const ValueKey('character-standing-preview')),
+        matching: find.byWidgetPredicate((widget) =>
+            widget is Image &&
+            underlyingAsset(widget.image) is AssetImage &&
+            (underlyingAsset(widget.image) as AssetImage).assetName ==
+                character.fullBodyAsset),
+      );
+      await tester.runAsync(() => Future.wait([
+            for (final image in tester.widgetList<Image>(artwork))
+              precacheImage(image.image, tester.element(artwork)),
+          ]));
+      await tester.pump();
       expect(
           tester
               .widget<RawImage>(
@@ -294,6 +342,71 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets('reference layout shows three columns and a full-body reflection',
+      (tester) async {
+    final state = _FakeAppState()
+      .._selected = 4
+      .._unlocked.add(4);
+    await mount(tester, state: state, size: const Size(1100, 454));
+    final standing = find.byKey(const ValueKey('character-standing-preview'));
+    final reflection =
+        find.byKey(const ValueKey('character-mirror-reflection'));
+    for (final preview in [standing, reflection]) {
+      final artwork = find.descendant(
+        of: preview,
+        matching: find.byWidgetPredicate((widget) =>
+            widget is Image &&
+            underlyingAsset(widget.image) is AssetImage &&
+            (underlyingAsset(widget.image) as AssetImage).assetName ==
+                CharacterCatalog.byIndex(4).fullBodyAsset),
+      );
+      expect(artwork, findsOneWidget);
+      await tester.runAsync(() => precacheImage(
+          tester.widget<Image>(artwork).image, tester.element(artwork)));
+    }
+    final right =
+        tester.getRect(find.byKey(const ValueKey('character-rail-mahmoud')));
+    final middle =
+        tester.getRect(find.byKey(const ValueKey('character-rail-omar')));
+    final left =
+        tester.getRect(find.byKey(const ValueKey('character-rail-khaled')));
+    expect(right.left, greaterThan(middle.right));
+    expect(middle.left, greaterThan(left.right));
+    expect(left.left, greaterThan(1100 * 0.46));
+    expect(right.top, closeTo(middle.top, 0.01));
+    expect(right.width, greaterThan(150));
+    expect(find.byKey(const ValueKey('character-selected-mahmoud')),
+        findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pump();
+    final boundary = tester.renderObject<RenderRepaintBoundary>(
+        find.byKey(const ValueKey('character-select-screen')));
+    await tester.runAsync(() async {
+      final image = await boundary.toImage(pixelRatio: 2);
+      final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+      await Directory('build').create(recursive: true);
+      await File('build/character-select-reference.png')
+          .writeAsBytes(bytes!.buffer.asUint8List());
+      image.dispose();
+    });
+  });
+
+  testWidgets('device insets do not shift the characters away from the mirror',
+      (tester) async {
+    tester.view.padding = const FakeViewPadding(left: 72, right: 24);
+    addTearDown(tester.view.resetPadding);
+    await mount(tester, size: const Size(1100, 454), initialIndex: 3);
+    final standing = tester
+        .getRect(find.byKey(const ValueKey('character-standing-preview')));
+    final reflection = tester
+        .getRect(find.byKey(const ValueKey('character-mirror-reflection')));
+    expect(standing.left, closeTo(1100 * 0.44 * 0.095, 0.1));
+    expect(standing.bottom, closeTo(454 * 0.93, 0.1));
+    expect(reflection.center.dx, inInclusiveRange(1100 * 0.28, 1100 * 0.32));
+    expect(standing.right, lessThan(1100 * 0.23));
+    expect(tester.takeException(), isNull);
+  });
 
   for (final size in [
     const Size(800, 360), // standard landscape

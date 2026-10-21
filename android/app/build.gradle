@@ -66,6 +66,39 @@ flutter {
     source '../..'
 }
 
+// Directory declarations can silently reintroduce an entire duplicate roster.
+// Fail before packaging rather than publishing two copies of shared resources.
+tasks.register('verifySharedAssetManifest') {
+    def workspace = rootProject.projectDir.parentFile
+    def manifestFile = new File(workspace, 'pubspec.yaml')
+    def routesFile = new File(workspace, 'tools/shared_assets.json')
+    inputs.files(manifestFile, routesFile)
+    doLast {
+        def routes = new groovy.json.JsonSlurper().parse(routesFile)
+        def declarations = (manifestFile.getText('UTF-8') =~ /(?m)^\s+-\s+(?:asset:\s+)?(assets\/[^\r\n]+)/)
+                .collect { it[1].trim() }
+        def duplicates = routes.keySet().findAll { asset ->
+            declarations.any { declaration ->
+                declaration == asset || (declaration.endsWith('/') &&
+                    asset.substring(0, asset.lastIndexOf('/') + 1) == declaration)
+            }
+        }
+        if (!duplicates.isEmpty()) {
+            throw new GradleException('Shared Android assets must not be bundled again in Flutter: ' +
+                duplicates.join(', ') + '. Run node tools/prepare_shared_assets.cjs --sync-manifest.')
+        }
+        routes.values().each { source ->
+            if (!new File(workspace, source).isFile()) {
+                throw new GradleException('Missing canonical shared asset: ' + source)
+            }
+        }
+        if (new File(workspace, 'android/app/src/main/assets/questions.json').exists()) {
+            throw new GradleException('Questions must be packaged only as Flutter assets/questions.json.')
+        }
+    }
+}
+tasks.named('preBuild').configure { dependsOn('verifySharedAssetManifest') }
+
 dependencies {
     implementation 'androidx.multidex:multidex:2.0.1'
     implementation 'androidx.appcompat:appcompat:1.7.1'

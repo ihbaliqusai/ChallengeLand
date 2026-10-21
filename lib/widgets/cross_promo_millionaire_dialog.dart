@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../core/app_state.dart';
 import '../services/cross_promo_service.dart';
+import 'adaptive_asset_image.dart';
 
 class CrossPromoMillionaireDialog extends StatefulWidget {
   const CrossPromoMillionaireDialog({super.key});
@@ -429,7 +430,7 @@ class _CrossPromoMillionaireDialogState
           padding: const EdgeInsets.all(2.5),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(15.5),
-            child: Image.asset(
+            child: adaptiveAssetImage(
               'assets/ui/million_challenge_logo.png',
               fit: BoxFit.cover,
               errorBuilder: (_, __, ___) => Container(

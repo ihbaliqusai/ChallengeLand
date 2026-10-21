@@ -7,8 +7,10 @@ import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../core/app_state.dart';
+import '../../core/shared_assets.dart';
 import '../../services/campaign_result_handler.dart';
 import 'first_run_challenge_screen.dart';
+import '../../widgets/adaptive_asset_image.dart';
 
 /// Next-Generation AAA Gaming Login & Registration Screen for ChallengeLand.
 ///
@@ -113,8 +115,9 @@ class _LoginScreenState extends State<LoginScreen>
 
   Future<void> _initVideoPresenter() async {
     try {
-      final controller =
-          VideoPlayerController.asset('assets/videos/welcome.mp4');
+      final uri = await SharedAssets.welcomeVideoUri();
+      if (!mounted) return;
+      final controller = VideoPlayerController.contentUri(uri);
       _videoController = controller;
       await controller.initialize();
       await controller.setLooping(true);
@@ -315,7 +318,8 @@ class _LoginScreenState extends State<LoginScreen>
               isError
                   ? Icons.error_outline_rounded
                   : Icons.check_circle_outline_rounded,
-              color: isError ? const Color(0xFFF87171) : const Color(0xFF4ADE80),
+              color:
+                  isError ? const Color(0xFFF87171) : const Color(0xFF4ADE80),
               size: 20,
             ),
             const SizedBox(width: 10),
@@ -383,7 +387,9 @@ class _LoginScreenState extends State<LoginScreen>
 
               // ── 3. Radial Ambient Light Spotlights ───────────────────
               Positioned(
-                left: isLandscape ? screenSize.width * 0.15 : screenSize.width * 0.5,
+                left: isLandscape
+                    ? screenSize.width * 0.15
+                    : screenSize.width * 0.5,
                 top: screenSize.height * 0.2,
                 child: Container(
                   width: 320,
@@ -579,10 +585,26 @@ class _LoginScreenState extends State<LoginScreen>
               : (9 / 16),
           child: ColorFiltered(
             colorFilter: const ColorFilter.matrix(<double>[
-              1.0, 0.0, 0.0, 0.0, 0.0,
-              0.0, 1.0, 0.0, 0.0, 0.0,
-              0.0, 0.0, 1.0, 0.0, 0.0,
-              2.0, 2.0, 2.0, 0.0, -25.0,
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              0.0,
+              0.0,
+              2.0,
+              2.0,
+              2.0,
+              0.0,
+              -25.0,
             ]),
             child: VideoPlayer(_videoController!),
           ),
@@ -591,7 +613,7 @@ class _LoginScreenState extends State<LoginScreen>
     }
 
     // Fallback to static mascot image
-    return Image.asset(
+    return adaptiveAssetImage(
       'assets/ui/person_welcome.webp',
       fit: BoxFit.contain,
     );
@@ -716,65 +738,65 @@ class _LoginScreenState extends State<LoginScreen>
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-                // 1. Futuristic Mode Switcher Tabs
-                _buildSegmentedTabBar(),
+        // 1. Futuristic Mode Switcher Tabs
+        _buildSegmentedTabBar(),
 
-                const SizedBox(height: 12),
+        const SizedBox(height: 12),
 
-                // 2. Animated Form Fields
-                _buildFormFields(),
+        // 2. Animated Form Fields
+        _buildFormFields(),
 
-                // 3. Forgot Password Link (Only in Sign In mode)
-                if (!_isRegister)
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: TextButton(
-                      onPressed: state.isBusy ? null : _openForgotPasswordDialog,
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 4,
-                          vertical: 2,
-                        ),
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                      child: const Text(
-                        'نسيت كلمة المرور؟',
-                        style: TextStyle(
-                          color: Color(0xFF38BDF8),
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                  ),
+        // 3. Forgot Password Link (Only in Sign In mode)
+        if (!_isRegister)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              onPressed: state.isBusy ? null : _openForgotPasswordDialog,
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 4,
+                  vertical: 2,
+                ),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: const Text(
+                'نسيت كلمة المرور؟',
+                style: TextStyle(
+                  color: Color(0xFF38BDF8),
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ),
 
-                const SizedBox(height: 10),
+        const SizedBox(height: 10),
 
-                // 4. Primary Glowing CTA Button
-                _buildPrimaryButton(state),
+        // 4. Primary Glowing CTA Button
+        _buildPrimaryButton(state),
 
-                const SizedBox(height: 10),
+        const SizedBox(height: 10),
 
-                // 5. Divider with Glowing Line
-                _buildDivider(),
+        // 5. Divider with Glowing Line
+        _buildDivider(),
 
-                const SizedBox(height: 10),
+        const SizedBox(height: 10),
 
-                // 6. Google Sign-In Button
-                _buildGoogleButton(state),
+        // 6. Google Sign-In Button
+        _buildGoogleButton(state),
 
-                const SizedBox(height: 10),
+        const SizedBox(height: 10),
 
-                // 7. Instant Guest Play Mini-Card with Spoils
-                _buildGuestSpoilsCard(state),
+        // 7. Instant Guest Play Mini-Card with Spoils
+        _buildGuestSpoilsCard(state),
 
-                const SizedBox(height: 8),
+        const SizedBox(height: 8),
 
-                // 8. Footer Links (Privacy Policy & Server Ping)
-                _buildConsoleFooter(),
-              ],
-            );
+        // 8. Footer Links (Privacy Policy & Server Ping)
+        _buildConsoleFooter(),
+      ],
+    );
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(26),
@@ -1104,7 +1126,7 @@ class _LoginScreenState extends State<LoginScreen>
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Image.asset('assets/ui/google.png', width: 20, height: 20),
+            adaptiveAssetImage('assets/ui/google.png', width: 20, height: 20),
             const SizedBox(width: 8),
             const Flexible(
               child: FittedBox(
@@ -1388,7 +1410,8 @@ class _GamingTextField extends StatelessWidget {
         suffixIcon: suffixIcon,
         filled: true,
         fillColor: const Color(0xFF0B132B).withValues(alpha: 0.8),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         isDense: true,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
@@ -1799,7 +1822,8 @@ class _LegalDialog extends StatelessWidget {
             children: [
               const Row(
                 children: [
-                  Icon(Icons.policy_rounded, color: Color(0xFF38BDF8), size: 24),
+                  Icon(Icons.policy_rounded,
+                      color: Color(0xFF38BDF8), size: 24),
                   SizedBox(width: 8),
                   Text(
                     'سياسة الخصوصية وقواعد اللعب النظيف',

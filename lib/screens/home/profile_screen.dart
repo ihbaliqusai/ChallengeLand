@@ -7,6 +7,7 @@ import '../../core/player_rank.dart';
 import '../../core/trophy_league.dart';
 import '../../widgets/progression_guide.dart';
 import '../character/character_select_screen.dart';
+import '../../widgets/adaptive_asset_image.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -82,7 +83,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         body: Stack(
           children: [
             Positioned.fill(
-              child: Image.asset('assets/ui/bg_main.webp', fit: BoxFit.cover),
+              child: adaptiveAssetImage('assets/ui/bg_main.webp',
+                  fit: BoxFit.cover),
             ),
             Positioned.fill(
               child: DecoratedBox(
@@ -449,7 +451,7 @@ class _IdentityPanel extends StatelessWidget {
                           border: Border.all(color: rank.color, width: 2),
                         ),
                         child: ClipOval(
-                          child: Image.asset(
+                          child: adaptiveAssetImage(
                             appState.selectedCharacter.asset,
                             fit: BoxFit.cover,
                             errorBuilder: (_, __, ___) => const Icon(

@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../core/app_state.dart';
 import '../../models/achievement_rewards.dart';
 import '../../widgets/currency_reward_overlay.dart';
+import '../../widgets/adaptive_asset_image.dart';
 
 enum _AchStatus { done, progress, locked }
 
@@ -1386,7 +1387,8 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
         body: Stack(
           children: <Widget>[
             Positioned.fill(
-              child: Image.asset('assets/ui/bg_main.webp', fit: BoxFit.cover),
+              child: adaptiveAssetImage('assets/ui/bg_main.webp',
+                  fit: BoxFit.cover),
             ),
             Positioned.fill(
               child: DecoratedBox(

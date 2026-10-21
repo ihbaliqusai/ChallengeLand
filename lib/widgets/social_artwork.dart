@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'adaptive_asset_image.dart';
 
 const socialArtworkAsset = 'assets/social/friends_challenges.jfif';
 const socialGold = Color(0xFFE7C27C);
@@ -16,7 +17,7 @@ class SocialArtworkSlice extends StatelessWidget {
                     top: -source.top / source.height * area.maxHeight,
                     width: area.maxWidth / source.width,
                     height: area.maxHeight / source.height,
-                    child: Image.asset(socialArtworkAsset,
+                    child: adaptiveAssetImage(socialArtworkAsset,
                         fit: BoxFit.fill, excludeFromSemantics: true)),
               ])));
 }
@@ -144,10 +145,8 @@ class SocialArtworkHeader extends StatelessWidget {
                   shaderCallback: (rect) => const LinearGradient(
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
-                          colors: [
-                            Color(0xFFFFF3C3),
-                            Color(0xFFFFC94F)
-                          ]).createShader(rect),
+                          colors: [Color(0xFFFFF3C3), Color(0xFFFFC94F)])
+                      .createShader(rect),
                   child: const Text('الأصدقاء والتحديات',
                       style: TextStyle(
                           color: Colors.white,

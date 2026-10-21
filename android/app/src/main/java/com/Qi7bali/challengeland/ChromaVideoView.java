@@ -13,6 +13,7 @@ import android.opengl.GLES11Ext;
 import android.opengl.GLES20;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.os.Looper;
 import android.util.Log;
 import android.view.Surface;
 import android.view.TextureView;
@@ -71,10 +72,30 @@ final class ChromaVideoView extends TextureView
     private static final float[] QUAD_TEX = {0f, 0f, 1f, 0f, 0f, 1f, 1f, 1f};
 
     private final int idleResId;
-    private boolean released;
+    private volatile boolean released;
     private boolean paused;
     private Renderer renderer;
     private Runnable firstFrameListener;
+    private volatile Runnable textureFirstFrameListener;
+
+    // Decode once, then publish the same frame to two independent consumers.
+    // Sharing a Flutter texture ID between differently transformed previews can
+    // invalidate the renderer's cached image while the other preview uses it.
+    void startTextureOutputs(SurfaceTexture output, SurfaceTexture reflection,
+            int width, int height, Runnable onReady) {
+        if (released || renderer != null) return;
+        textureFirstFrameListener = onReady;
+        output.setDefaultBufferSize(width, height);
+        reflection.setDefaultBufferSize(width, height);
+        renderer = new Renderer(output, reflection, width, height);
+    }
+
+    void releaseTextureOutput(Runnable onReleased) {
+        released = true;
+        textureFirstFrameListener = null;
+        if (renderer == null) onReleased.run();
+        else renderer.shutdown(false, () -> new Handler(Looper.getMainLooper()).post(onReleased));
+    }
 
     void setOnFirstFrameListener(Runnable listener) {
         firstFrameListener = listener;
@@ -96,6 +117,7 @@ final class ChromaVideoView extends TextureView
     }
 
     void setPaused(boolean paused) {
+        if (this.paused == paused) return;
         this.paused = paused;
         Renderer current = renderer;
         if (current == null || released) return;
@@ -165,6 +187,7 @@ final class ChromaVideoView extends TextureView
         final HandlerThread thread;
         final Handler handler;
         final SurfaceTexture outputSurface;
+        final SurfaceTexture reflectionSurface;
         volatile boolean stopping;
         volatile boolean playbackPaused = paused;
         volatile boolean cleanupComplete;
@@ -177,6 +200,7 @@ final class ChromaVideoView extends TextureView
         private EGLDisplay eglDisplay = EGL14.EGL_NO_DISPLAY;
         private EGLContext eglContext = EGL14.EGL_NO_CONTEXT;
         private EGLSurface eglSurface = EGL14.EGL_NO_SURFACE;
+        private EGLSurface reflectionEglSurface = EGL14.EGL_NO_SURFACE;
         private int program;
         private int aPositionLoc;
         private int aTexCoordLoc;
@@ -193,7 +217,12 @@ final class ChromaVideoView extends TextureView
         private volatile int viewHeight;
 
         Renderer(SurfaceTexture surface, int width, int height) {
+            this(surface, null, width, height);
+        }
+
+        Renderer(SurfaceTexture surface, SurfaceTexture reflection, int width, int height) {
             outputSurface = surface;
+            reflectionSurface = reflection;
             viewWidth = width;
             viewHeight = height;
             thread = new HandlerThread("ChromaGL");
@@ -287,30 +316,50 @@ final class ChromaVideoView extends TextureView
             try {
                 videoTexture.updateTexImage();
                 videoTexture.getTransformMatrix(stMatrix);
-
-                GLES20.glViewport(0, 0, viewWidth, viewHeight);
-                GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
-                GLES20.glUseProgram(program);
-
-                GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
-                GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, oesTexId);
-
-                posBuffer.position(0);
-                GLES20.glVertexAttribPointer(aPositionLoc, 2, GLES20.GL_FLOAT, false, 0, posBuffer);
-                GLES20.glEnableVertexAttribArray(aPositionLoc);
-                texBuffer.position(0);
-                GLES20.glVertexAttribPointer(aTexCoordLoc, 2, GLES20.GL_FLOAT, false, 0, texBuffer);
-                GLES20.glEnableVertexAttribArray(aTexCoordLoc);
-
-                GLES20.glUniformMatrix4fv(uSTMatrixLoc, 1, false, stMatrix, 0);
-                GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
-
-                GLES20.glDisableVertexAttribArray(aPositionLoc);
-                GLES20.glDisableVertexAttribArray(aTexCoordLoc);
-
-                EGL14.eglSwapBuffers(eglDisplay, eglSurface);
+                // Latch the decoder only once. Both output queues receive the
+                // same frame, each with its own Flutter texture/cache identity.
+                renderOutput(eglSurface);
+                if (reflectionEglSurface != EGL14.EGL_NO_SURFACE) {
+                    renderOutput(reflectionEglSurface);
+                }
+                Runnable listener = textureFirstFrameListener;
+                if (listener != null) {
+                    textureFirstFrameListener = null;
+                    new Handler(Looper.getMainLooper()).post(() -> {
+                        if (!released) listener.run();
+                    });
+                }
             } catch (Exception e) {
                 Log.w(TAG, "drawFrame failed", e);
+            }
+        }
+
+        private void renderOutput(EGLSurface target) {
+            if (!EGL14.eglMakeCurrent(eglDisplay, target, target, eglContext)) {
+                throw new IllegalStateException("Could not bind character output surface");
+            }
+            GLES20.glViewport(0, 0, viewWidth, viewHeight);
+            GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
+            GLES20.glUseProgram(program);
+
+            GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
+            GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, oesTexId);
+
+            posBuffer.position(0);
+            GLES20.glVertexAttribPointer(aPositionLoc, 2, GLES20.GL_FLOAT, false, 0, posBuffer);
+            GLES20.glEnableVertexAttribArray(aPositionLoc);
+            texBuffer.position(0);
+            GLES20.glVertexAttribPointer(aTexCoordLoc, 2, GLES20.GL_FLOAT, false, 0, texBuffer);
+            GLES20.glEnableVertexAttribArray(aTexCoordLoc);
+
+            GLES20.glUniformMatrix4fv(uSTMatrixLoc, 1, false, stMatrix, 0);
+            GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
+
+            GLES20.glDisableVertexAttribArray(aPositionLoc);
+            GLES20.glDisableVertexAttribArray(aTexCoordLoc);
+
+            if (!EGL14.eglSwapBuffers(eglDisplay, target)) {
+                throw new IllegalStateException("Could not publish character frame");
             }
         }
 
@@ -319,6 +368,10 @@ final class ChromaVideoView extends TextureView
         // Never join the renderer from the UI thread. Keep output ownership until
         // the renderer has released EGL; TextureView must not release it earlier.
         void shutdown(boolean releaseOutput) {
+            shutdown(releaseOutput, null);
+        }
+
+        void shutdown(boolean releaseOutput, Runnable afterCleanup) {
             stopping = true;
             if (releaseOutput) {
                 outputReleaseRequested.set(true);
@@ -330,6 +383,7 @@ final class ChromaVideoView extends TextureView
                     teardown();
                 } finally {
                     cleanupComplete = true;
+                    if (afterCleanup != null) afterCleanup.run();
                     if (outputReleaseRequested.get()) releaseOutputSurface();
                     // A detached TextureView may retain its surface indefinitely.
                     // Do not retain a GL thread while waiting for its destruction.
@@ -375,6 +429,9 @@ final class ChromaVideoView extends TextureView
                 if (eglSurface != EGL14.EGL_NO_SURFACE) {
                     EGL14.eglDestroySurface(eglDisplay, eglSurface);
                 }
+                if (reflectionEglSurface != EGL14.EGL_NO_SURFACE) {
+                    EGL14.eglDestroySurface(eglDisplay, reflectionEglSurface);
+                }
                 if (eglContext != EGL14.EGL_NO_CONTEXT) {
                     EGL14.eglDestroyContext(eglDisplay, eglContext);
                 }
@@ -382,6 +439,7 @@ final class ChromaVideoView extends TextureView
                 EGL14.eglTerminate(eglDisplay);
             }
             eglSurface = EGL14.EGL_NO_SURFACE;
+            reflectionEglSurface = EGL14.EGL_NO_SURFACE;
             eglContext = EGL14.EGL_NO_CONTEXT;
             eglDisplay = EGL14.EGL_NO_DISPLAY;
             frameReady = false;
@@ -422,6 +480,13 @@ final class ChromaVideoView extends TextureView
                     new int[]{EGL14.EGL_NONE}, 0);
             if (eglSurface == EGL14.EGL_NO_SURFACE) {
                 throw new RuntimeException("eglCreateWindowSurface failed");
+            }
+            if (reflectionSurface != null) {
+                reflectionEglSurface = EGL14.eglCreateWindowSurface(eglDisplay,
+                        configs[0], reflectionSurface, new int[]{EGL14.EGL_NONE}, 0);
+                if (reflectionEglSurface == EGL14.EGL_NO_SURFACE) {
+                    throw new RuntimeException("Reflection eglCreateWindowSurface failed");
+                }
             }
             if (!EGL14.eglMakeCurrent(eglDisplay, eglSurface, eglSurface, eglContext)) {
                 throw new RuntimeException("eglMakeCurrent failed");

@@ -40,6 +40,7 @@ import '../../widgets/play_stake_dialog.dart';
 import '../../widgets/lobby_action_panel.dart';
 import '../../services/rate_game_service.dart';
 import '../../services/cross_promo_service.dart';
+import '../../widgets/adaptive_asset_image.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -686,7 +687,7 @@ class _HomeMenuButtonState extends State<_HomeMenuButton> {
               SizedBox(
                 width: 52,
                 height: 52,
-                child: Image.asset(HomeArtwork.menu,
+                child: adaptiveAssetImage(HomeArtwork.menu,
                     fit: BoxFit.contain, excludeFromSemantics: true),
               ),
               if (hasAttention)

@@ -18,6 +18,7 @@ import '../../widgets/game_store_widgets.dart';
 import '../character/character_select_screen.dart';
 import 'resource_shop_screen.dart';
 import '../legal/privacy_policy_screen.dart';
+import '../../widgets/adaptive_asset_image.dart';
 
 const _background = storeNavy;
 const _surface = Color(0xFF26105C);
@@ -928,7 +929,7 @@ class _StoreScreenState extends State<StoreScreen> {
                       ),
                       padding: const EdgeInsets.all(10),
                       child: ClipOval(
-                        child: Image.asset(
+                        child: adaptiveAssetImage(
                           category.assetPath,
                           fit: BoxFit.contain,
                           errorBuilder: (_, __, ___) => const Icon(
@@ -1895,7 +1896,7 @@ class _StoreScreenState extends State<StoreScreen> {
                                     onTap: canBuy
                                         ? () => _buyProduct(product)
                                         : null,
-                                    child: Image.asset(artwork.asset,
+                                    child: adaptiveAssetImage(artwork.asset,
                                         key: ValueKey(
                                             'store-offer-${product.id}'),
                                         fit: BoxFit.contain,
@@ -2186,33 +2187,23 @@ class _StoreScreenState extends State<StoreScreen> {
             ])
               SizedBox(
                 width: width,
-                child: character.index >= 8
-                    ? GameStoreRosterCard(
-                        key: ValueKey('store-character-${character.id}'),
-                        name: character.nameAr,
-                        description: _tr(character.tagAr, 'New character'),
-                        asset: character.fullBodyAsset,
-                        label: app.isCharacterUnlocked(character)
-                            ? _tr('تم الامتلاك', 'Owned')
-                            : character.unlock.isLevelGated
-                                ? _tr('المستوى ${character.unlock.value}',
-                                    'Level ${character.unlock.value}')
-                                : '${_number(character.unlock.value)} ${character.unlock.kind == CharacterUnlockKind.coins ? _tr('نقود', 'coins') : _tr('جواهر', 'gems')}',
-                        onPressed: disabled
-                            ? null
-                            : () => _openCharacters(character.index),
-                      )
-                    : GameStoreCharacterCard(
-                        key: ValueKey('store-character-${character.id}'),
-                        gems: character.unlock.kind == CharacterUnlockKind.gems,
-                        title: character.nameAr,
-                        label: app.isCharacterUnlocked(character)
-                            ? _tr('تم الامتلاك', 'Owned')
-                            : '${_number(character.unlock.value)} ${character.unlock.kind == CharacterUnlockKind.coins ? _tr('نقود', 'coins') : _tr('جواهر', 'gems')}',
-                        onPressed: disabled
-                            ? null
-                            : () => _openCharacters(character.index),
-                      ),
+                child: GameStoreCharacterCard(
+                  key: ValueKey('store-character-${character.id}'),
+                  gems: character.unlock.kind == CharacterUnlockKind.gems,
+                  title: character.nameAr,
+                  avatarAsset: (character.index == 2 || character.index == 7)
+                      ? null
+                      : character.asset,
+                  label: app.isCharacterUnlocked(character)
+                      ? _tr('تم الامتلاك', 'Owned')
+                      : character.unlock.isLevelGated
+                          ? _tr('المستوى ${character.unlock.value}',
+                              'Level ${character.unlock.value}')
+                          : '${_number(character.unlock.value)} ${character.unlock.kind == CharacterUnlockKind.coins ? _tr('نقود', 'coins') : _tr('جواهر', 'gems')}',
+                  onPressed: disabled
+                      ? null
+                      : () => _openCharacters(character.index),
+                ),
               ),
           ],
         );
@@ -2799,7 +2790,7 @@ class _StoreScreenState extends State<StoreScreen> {
               width: 58,
               height: 58,
               color: character.color.withValues(alpha: 0.12),
-              child: Image.asset(character.asset,
+              child: adaptiveAssetImage(character.asset,
                   fit: BoxFit.contain,
                   errorBuilder: (_, __, ___) =>
                       const Icon(Icons.person_rounded, color: _purple)))),
@@ -2851,7 +2842,7 @@ class _StoreScreenState extends State<StoreScreen> {
                   color: accent.withValues(alpha: 0.06)),
               child: Padding(
                   padding: const EdgeInsets.all(9),
-                  child: Image.asset(category.assetPath,
+                  child: adaptiveAssetImage(category.assetPath,
                       fit: BoxFit.contain,
                       errorBuilder: (_, __, ___) => Icon(Icons.category_rounded,
                           color: accent, size: 38)))),
@@ -2929,7 +2920,7 @@ class _StoreScreenState extends State<StoreScreen> {
           child: Stack(
             alignment: Alignment.center,
             children: [
-              Image.asset(
+              adaptiveAssetImage(
                 'assets/store/btn_rent_green.png',
                 height: 44,
                 fit: BoxFit.contain,
@@ -3561,7 +3552,7 @@ class _StoreScreenState extends State<StoreScreen> {
               clipBehavior: Clip.none,
               children: [
                 Positioned.fill(
-                  child: Image.asset(
+                  child: adaptiveAssetImage(
                     asset,
                     fit: BoxFit.contain,
                     excludeFromSemantics: true,
@@ -3839,7 +3830,7 @@ class _StoreScreenState extends State<StoreScreen> {
               clipBehavior: Clip.none,
               children: [
                 Positioned.fill(
-                  child: Image.asset(
+                  child: adaptiveAssetImage(
                     asset,
                     fit: BoxFit.contain,
                     excludeFromSemantics: true,
@@ -4196,7 +4187,7 @@ class _StoreScreenState extends State<StoreScreen> {
               clipBehavior: Clip.none,
               children: [
                 Positioned.fill(
-                  child: Image.asset(
+                  child: adaptiveAssetImage(
                     asset,
                     fit: BoxFit.contain,
                     excludeFromSemantics: true,

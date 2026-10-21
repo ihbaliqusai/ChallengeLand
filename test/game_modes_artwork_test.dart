@@ -1,3 +1,4 @@
+import 'package:challenge_land/core/shared_assets.dart';
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
@@ -12,7 +13,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() async {
     await (FontLoader('MaterialIcons')
-          ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf')))
+          ..addFont(SharedAssets.bundle.load('fonts/MaterialIcons-Regular.otf')))
         .load();
   });
   final calls = <String>[];

@@ -1,3 +1,4 @@
+import 'package:challenge_land/core/shared_assets.dart';
 import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -954,13 +955,13 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     await (FontLoader('Baloo')
-          ..addFont(rootBundle.load('assets/fonts/baloo.ttf')))
+          ..addFont(SharedAssets.bundle.load('assets/fonts/baloo.ttf')))
         .load();
     await (FontLoader('NotoSansArabic')
-          ..addFont(rootBundle.load('assets/fonts/NotoSansArabic.ttf')))
+          ..addFont(SharedAssets.bundle.load('assets/fonts/NotoSansArabic.ttf')))
         .load();
     await (FontLoader('MaterialIcons')
-          ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf')))
+          ..addFont(SharedAssets.bundle.load('fonts/MaterialIcons-Regular.otf')))
         .load();
     final theme = ThemeData.dark(useMaterial3: true).copyWith(
         textTheme: ThemeData.dark().textTheme.apply(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'adaptive_asset_image.dart';
 
 const gameStoreNavigationAsset = 'assets/store/navigation.webp';
 
@@ -15,7 +16,7 @@ class _NavigationSlice extends StatelessWidget {
                       top: -source.top / source.height * area.maxHeight,
                       width: area.maxWidth / source.width,
                       height: area.maxHeight / source.height,
-                      child: Image.asset(gameStoreNavigationAsset,
+                      child: adaptiveAssetImage(gameStoreNavigationAsset,
                           fit: BoxFit.fill, excludeFromSemantics: true)),
                 ])),
       );

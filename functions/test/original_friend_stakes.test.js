@@ -6,8 +6,8 @@ const { MemoryFirestore } = require("./memory-firestore");
 const { createFriendStakesService } = require("../src/friend_stakes");
 const { fresh, normalize } = require("../src/economy");
 
-const bank = ["جغرافيا", "حيوانات", "أفلام عربية"].flatMap(category => Array.from({ length: 12 }, (_, i) => ({
-  category, text: `${category}: سؤال أصلي ${i}`, level: [0, 2, 3, 1, 4, 6][i % 6],
+const bank = ["جغرافيا", "حيوانات", "أفلام عربية"].flatMap(category => Array.from({ length: 18 }, (_, i) => ({
+  category, text: `${category}: سؤال أصلي ${i}`, level: [0, 4, 3, 1, 5, 7, 2, 6, 8][i % 9],
   answers: ["لندن", "باريس", "دمشق", "بيروت"], img: i === 0 ? "https://example.test/original.jpg" : "",
 })));
 
@@ -72,7 +72,7 @@ test("each friend picks their original category, twelve distinct cells preserve 
   for (const [key, cell] of Object.entries(state.cells)) {
     const row = Number(key.split("_")[1]);
     assert.equal(cell.points, [200, 400, 600][row % 3]);
-    assert.ok([[0, 1], [2, 4, 5], [3, 6, 7, 8]][row % 3].includes(Number(cell.question.level)));
+    assert.ok([[0, 1, 2], [4, 5, 6], [3, 7, 8]][row % 3].includes(Number(cell.question.level)));
   }
   assert.equal(x.db.read("economy_accounts/a").dailyKeys, 3);
   assert.equal(x.db.read("economy_accounts/b").dailyKeys, 3);

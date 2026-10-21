@@ -7,6 +7,7 @@ import '../../../models/campaign_stage.dart';
 import '../../../services/campaign_result_handler.dart';
 import '../../../services/campaign_service.dart';
 import '../../../widgets/currency_reward_overlay.dart';
+import '../../../widgets/adaptive_asset_image.dart';
 
 /// Modal dialog that converts guest players into registered users
 /// without losing their earned stage progress, stars, coins, or gems.
@@ -30,7 +31,8 @@ class SaveGuestProgressDialog extends StatefulWidget {
     required CampaignStage stage,
     required StageSubmissionResult submissionResult,
     required Map<String, dynamic> rawNativeResult,
-    required void Function(StageSubmissionResult savedResult, bool rewardApplied)
+    required void Function(
+            StageSubmissionResult savedResult, bool rewardApplied)
         onSaved,
   }) {
     return showDialog<void>(
@@ -132,7 +134,8 @@ class _SaveGuestProgressDialogState extends State<SaveGuestProgressDialog>
       return;
     }
     if (password.length < 6) {
-      setState(() => _errorMessage = 'كلمة المرور يجب أن تكون 6 أحرف على الأقل');
+      setState(
+          () => _errorMessage = 'كلمة المرور يجب أن تكون 6 أحرف على الأقل');
       return;
     }
     if (_isRegister && username.isEmpty) {
@@ -400,8 +403,7 @@ class _SaveGuestProgressDialogState extends State<SaveGuestProgressDialog>
                       style: OutlinedButton.styleFrom(
                         backgroundColor: Colors.white.withValues(alpha: 0.06),
                         side: BorderSide(
-                          color:
-                              const Color(0xFF38BDF8).withValues(alpha: 0.6),
+                          color: const Color(0xFF38BDF8).withValues(alpha: 0.6),
                           width: 1.4,
                         ),
                         shape: RoundedRectangleBorder(
@@ -411,7 +413,7 @@ class _SaveGuestProgressDialogState extends State<SaveGuestProgressDialog>
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Image.asset('assets/ui/google.png',
+                          adaptiveAssetImage('assets/ui/google.png',
                               width: 22, height: 22),
                           const SizedBox(width: 10),
                           const Text(

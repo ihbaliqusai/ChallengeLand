@@ -19,7 +19,11 @@ function normalize(value) {
     .replace(/[\u0660-\u0669]/g, c => String(c.charCodeAt(0) - 0x660))
     .replace(/[\u06f0-\u06f9]/g, c => String(c.charCodeAt(0) - 0x6f0))
     .replace(/[أإآٱ]/g, "ا").replace(/ة/g, "ه").replace(/ى/g, "ي").replace(/ؤ/g, "و").replace(/ئ/g, "ي")
-    .replace(/[^0-9a-zء-ي]/g, " ").trim().split(/ +/).filter(Boolean)
+    .replace(/٬/g, "").replace(/(?<=\d),(?=\d{3}(?:\D|$))/g, "")
+    .replace(/[−–]/g, "-").replace(/(?<=\d)[٫,](?=\d)/g, ".")
+    .replace(/(?<=[a-zء-ي])-(?=[a-zء-ي])/g, " ")
+    .replace(/\.(?!\d)|(?<!\d)\./g, " ")
+    .replace(/[^0-9a-zء-ي\u0370-\u03ff²³⁴⁰¹@#&%*/+=^.\-]/g, " ").trim().split(/ +/).filter(Boolean)
     .map(word => NUMBER_WORDS.get(word) ?? word).join(" ");
 }
 
@@ -44,7 +48,17 @@ function isCorrect(typed, question) {
   const nt = normalize(typed), right = normalize(question.answers?.[0] ?? question.R);
   if (!nt || !right) return false;
   const wrongs = (question.answers?.slice(1) ?? [question.W1, question.W2, question.W3]).map(normalize).filter(Boolean);
+  // A listed wrong option must never pass a later fuzzy/partial path.
+  if (wrongs.includes(nt)) return false;
   if (nt === right) return true;
+  // Mathematical signs and numeric values carry meaning, not spelling errors.
+  const numbers = text => text.match(/-?\d+(?:\.\d+)?/g) || [];
+  const rightNumbers = numbers(right), typedNumbers = numbers(nt);
+  if (rightNumbers.length && typedNumbers.length && JSON.stringify(rightNumbers) !== JSON.stringify(typedNumbers)) return false;
+  const symbolic = text => /[@#&%*/+=^πφχ²³⁴⁰¹]|^-/.test(text);
+  if ([right, ...wrongs].some(symbolic) || /^-?\d+(?:\.\d+)?$/.test(right)) {
+    return nt.replace(/\s/g, "") === right.replace(/\s/g, "");
+  }
   const budget = right.length <= 4 ? 1 : right.length <= 8 ? 2 : Math.max(2, Math.round(right.length * 0.22));
   if (levenshtein(nt, right) <= budget && similarity(nt, right) > Math.max(0, ...wrongs.map(w => similarity(nt, w)))) return true;
   const rTokens = distinctive(right), ntTokens = tokens(nt);

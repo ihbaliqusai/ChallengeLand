@@ -3,12 +3,12 @@
 const { CommerceError, sha256 } = require("./domain");
 const { normalize: categoryKey } = require("./economy");
 const { isCorrect } = require("./board_answer_matcher");
+const { tierForLevel: tier } = require("./question_tiers");
 
 const ROWS = 6, TURNS = 12, SELECT_MS = 30000, ANSWER_MS = 45000, PREPARE_MS = 60000, REVEAL_MS = 5000;
 const VALUES = [200, 400, 600];
 const fail = (code, message) => { throw new CommerceError(code, message); };
 const object = value => value !== null && typeof value === "object" && !Array.isArray(value);
-const tier = value => [0, 1].includes(Number(value)) ? 0 : [2, 4, 5].includes(Number(value)) ? 1 : 2;
 const picker = m => m.currentTurn % 2 === 0 ? m.ownerId : m.joinerId;
 
 function prepareQuestion(q) {

@@ -167,7 +167,8 @@ abstract final class StoreCatalog {
     StoreProduct(
         id: 'vip_monthly',
         title: 'عضوية نادي الأبطال',
-        subtitle: '100 جوهرة + 1000 قطعة + 3 مفاتيح وتذاكر وقلوب مع كل مزايا VIP',
+        subtitle:
+            '100 جوهرة + 1000 قطعة + 3 مفاتيح وتذاكر وقلوب مع كل مزايا VIP',
         kind: StoreProductKind.subscription,
         coins: 1000,
         gems: 100,

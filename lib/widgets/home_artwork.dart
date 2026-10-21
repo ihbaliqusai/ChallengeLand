@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'adaptive_asset_image.dart';
 
 abstract final class HomeArtwork {
   static const menu = 'assets/home/menu.webp';
@@ -42,7 +43,7 @@ class HomeLevelBadge extends StatelessWidget {
             height: 197,
             child: Stack(children: [
               Positioned.fill(
-                  child: Image.asset(HomeArtwork.level,
+                  child: adaptiveAssetImage(HomeArtwork.level,
                       fit: BoxFit.fill, excludeFromSemantics: true)),
               Positioned.fromRect(
                   rect: const Rect.fromLTRB(44, 77, 147, 151),
@@ -165,7 +166,7 @@ class HomeCurrencyArtwork extends StatelessWidget {
                             height: 224,
                             child: Stack(children: [
                               Positioned.fill(
-                                  child: Image.asset(asset,
+                                  child: adaptiveAssetImage(asset,
                                       fit: BoxFit.fill,
                                       excludeFromSemantics: true)),
                               Positioned.fromRect(
@@ -250,7 +251,7 @@ class HomeResourceArtwork extends StatelessWidget {
                 height: height,
                 child: Stack(children: [
                   Positioned.fill(
-                      child: Image.asset(
+                      child: adaptiveAssetImage(
                     tickets ? HomeArtwork.tickets : HomeArtwork.keys,
                     fit: BoxFit.fill,
                     excludeFromSemantics: true,
@@ -331,7 +332,7 @@ class _BalanceBackground extends StatelessWidget {
                             top: -strip.top / strip.height * area.maxHeight,
                             width: area.maxWidth / strip.width,
                             height: area.maxHeight / strip.height,
-                            child: Image.asset(asset,
+                            child: adaptiveAssetImage(asset,
                                 fit: BoxFit.fill, excludeFromSemantics: true)),
                       ])))));
 }
@@ -426,7 +427,7 @@ class _HomeBannerButtonState extends State<HomeBannerButton>
                                       glow: _glow,
                                       campaign:
                                           widget.asset == HomeArtwork.campaign),
-                                  child: Image.asset(widget.asset,
+                                  child: adaptiveAssetImage(widget.asset,
                                       fit: BoxFit.contain,
                                       excludeFromSemantics: true)))))))));
 }

@@ -9,6 +9,7 @@ import '../models/store_catalog.dart';
 import '../screens/home/store_screen.dart';
 import '../services/in_app_purchase_service.dart';
 import 'game_store_widgets.dart';
+import 'adaptive_asset_image.dart';
 
 /// A factual membership preview; checkout and disclosures live in the store.
 class SpecialOfferDialog extends StatelessWidget {
@@ -169,8 +170,7 @@ class _PreviewArtwork extends StatelessWidget {
                         child: FittedBox(
                             fit: BoxFit.contain,
                             child: GameStoreText(price,
-                                size: 36,
-                                color: const Color(0xFFFFDA7A))),
+                                size: 36, color: const Color(0xFFFFDA7A))),
                       ))),
               cleanLabel(
                   const Rect.fromLTRB(.344, .857, .682, .926),
@@ -194,7 +194,8 @@ class _PreviewArtwork extends StatelessWidget {
                               child: FittedBox(
                                   fit: BoxFit.contain,
                                   child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         GameStoreText(actionLabel, size: 36),
@@ -279,7 +280,7 @@ class _PreviewSlice extends StatelessWidget {
                       top: -source.top / source.height * area.maxHeight,
                       width: area.maxWidth / source.width,
                       height: area.maxHeight / source.height,
-                      child: Image.asset(_PreviewArtwork.asset,
+                      child: adaptiveAssetImage(_PreviewArtwork.asset,
                           fit: BoxFit.fill, excludeFromSemantics: true)),
                 ])),
       );

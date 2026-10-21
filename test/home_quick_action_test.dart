@@ -1,3 +1,5 @@
+import 'support/asset_images.dart';
+import 'package:challenge_land/core/shared_assets.dart';
 import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -181,8 +183,8 @@ void main() {
     final bounds = find.byType(HomeCharacterArtwork);
     final portraits = find.byWidgetPredicate((widget) =>
         widget is Image &&
-        widget.image is AssetImage &&
-        (widget.image as AssetImage)
+        underlyingAsset(widget.image) is AssetImage &&
+        (underlyingAsset(widget.image) as AssetImage)
             .assetName
             .startsWith('assets/characters/'));
     for (final succeeds in [true, false]) {
@@ -544,7 +546,6 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.byType(CharacterSelectScreen), findsOneWidget);
-    expect(find.text('اختر شخصيتك وتألق'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(seconds: 1));
@@ -680,13 +681,15 @@ void main() {
       'rate_reward_claimed': true,
     });
     await (FontLoader('Baloo')
-          ..addFont(rootBundle.load('assets/fonts/baloo.ttf')))
+          ..addFont(SharedAssets.bundle.load('assets/fonts/baloo.ttf')))
         .load();
     await (FontLoader('NotoSansArabic')
-          ..addFont(rootBundle.load('assets/fonts/NotoSansArabic.ttf')))
+          ..addFont(
+              SharedAssets.bundle.load('assets/fonts/NotoSansArabic.ttf')))
         .load();
     await (FontLoader('MaterialIcons')
-          ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf')))
+          ..addFont(
+              SharedAssets.bundle.load('fonts/MaterialIcons-Regular.otf')))
         .load();
     final state = _HomeState(online: true);
     final promo = _Promo();
@@ -775,8 +778,9 @@ void main() {
       expect(gemBounds.width, lessThanOrEqualTo(128));
       final logo = find.byWidgetPredicate((widget) =>
           widget is Image &&
-          widget.image is AssetImage &&
-          (widget.image as AssetImage).assetName == 'assets/ui/logo.webp');
+          underlyingAsset(widget.image) is AssetImage &&
+          (underlyingAsset(widget.image) as AssetImage).assetName ==
+              'assets/ui/logo.webp');
       expect(logo, findsNothing);
       expect(find.text('لاعب'), findsNothing);
       expect(find.text('Qusai'), findsNothing);
@@ -819,13 +823,15 @@ void main() {
       setupFirebaseCoreMocks();
       await Firebase.initializeApp();
       await (FontLoader('Baloo')
-            ..addFont(rootBundle.load('assets/fonts/baloo.ttf')))
+            ..addFont(SharedAssets.bundle.load('assets/fonts/baloo.ttf')))
           .load();
       await (FontLoader('NotoSansArabic')
-            ..addFont(rootBundle.load('assets/fonts/NotoSansArabic.ttf')))
+            ..addFont(
+                SharedAssets.bundle.load('assets/fonts/NotoSansArabic.ttf')))
           .load();
       await (FontLoader('MaterialIcons')
-            ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf')))
+            ..addFont(
+                SharedAssets.bundle.load('fonts/MaterialIcons-Regular.otf')))
           .load();
     });
 

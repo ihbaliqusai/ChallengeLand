@@ -1,3 +1,4 @@
+import 'package:challenge_land/core/shared_assets.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -33,13 +34,13 @@ void main() {
     setupFirebaseCoreMocks();
     await Firebase.initializeApp();
     await (FontLoader('Baloo')
-          ..addFont(rootBundle.load('assets/fonts/baloo.ttf')))
+          ..addFont(SharedAssets.bundle.load('assets/fonts/baloo.ttf')))
         .load();
     await (FontLoader('NotoSansArabic')
-          ..addFont(rootBundle.load('assets/fonts/NotoSansArabic.ttf')))
+          ..addFont(SharedAssets.bundle.load('assets/fonts/NotoSansArabic.ttf')))
         .load();
     await (FontLoader('MaterialIcons')
-          ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf')))
+          ..addFont(SharedAssets.bundle.load('fonts/MaterialIcons-Regular.otf')))
         .load();
   });
   const channel = MethodChannel('millionaire/native');

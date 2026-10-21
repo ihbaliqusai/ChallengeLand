@@ -287,8 +287,9 @@ class _StageIntroScreenState extends State<StageIntroScreen>
                               onTap: () => Navigator.push(
                                   context,
                                   MaterialPageRoute<void>(
-                                      builder: (_) =>
-                                          const StoreScreen(initialKind: StoreProductKind.resource)))))),
+                                      builder: (_) => const StoreScreen(
+                                          initialKind:
+                                              StoreProductKind.resource)))))),
                   _TopBar(
                     onBack: () => Navigator.of(context).maybePop(),
                     onLeaderboard: () => Navigator.of(context).push(

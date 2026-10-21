@@ -5,6 +5,7 @@ const { Timestamp } = require("firebase-admin/firestore");
 const { CommerceError, sha256 } = require("./domain");
 const { refresh: refreshEconomy, normalize: categoryKey, canonical, free } = require("./economy");
 const originalBoard = require("./original_stake_board");
+const { tierForLevel } = require("./question_tiers");
 
 const AMOUNTS = Object.freeze([50, 100, 250, 500, 1000, 2500, 5000]);
 const INVITE_MS = 30000;
@@ -48,7 +49,7 @@ function makeBoard(bank, draw) {
     const used = new Set();
     for (let row = 0; row < 3; row++) {
       // Prefer the existing bank's difficulty bands, then safely fill a sparse band.
-      const q = pool.find(q => !used.has(q.text) && Math.min(2, Math.floor(q.level / 2)) === row)
+      const q = pool.find(q => !used.has(q.text) && tierForLevel(q.level) === row)
         || pool.find(q => !used.has(q.text));
       if (!q) fail("unavailable", "بنك أسئلة التحدي غير مكتمل.");
       used.add(q.text);

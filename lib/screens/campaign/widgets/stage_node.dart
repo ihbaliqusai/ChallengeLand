@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../models/campaign_stage.dart';
 import '../../../models/stage_progress.dart';
+import '../../../widgets/adaptive_asset_image.dart';
 
 class StageNode extends StatelessWidget {
   const StageNode({
@@ -147,7 +148,7 @@ class _StageButtonImage extends StatelessWidget {
     final asset = boss
         ? 'assets/images/campaign/ui/stage_button_green.png'
         : 'assets/images/campaign/ui/stage_button_blue.png';
-    final button = Image.asset(
+    final button = adaptiveAssetImage(
       asset,
       width: size,
       height: size,
@@ -247,7 +248,7 @@ class _StageStarImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final safeStars = stars.clamp(1, 3);
-    return Image.asset(
+    return adaptiveAssetImage(
       'assets/images/campaign/ui/star_$safeStars.png',
       width: boss ? 66 : 60,
       height: boss ? 31 : 28,

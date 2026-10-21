@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,11 +8,11 @@ import '../../core/app_state.dart';
 import '../../models/game_character.dart';
 import '../../models/store_catalog.dart';
 import '../home/store_screen.dart';
+import '../../widgets/adaptive_asset_image.dart';
+import '../../widgets/synchronized_character_animation.dart';
 
-/// Character picker and showcase screen.
-///
-/// Shows a violet podium, full-body previews, descriptive character attributes,
-/// an inspection sheet, and a roster that adapts to the screen orientation.
+/// Character picker and showcase screen matching the dressing room studio
+/// reference with standing mirror reflection, 3D golden title, and neon character grid.
 class CharacterSelectScreen extends StatefulWidget {
   const CharacterSelectScreen(
       {super.key, this.forced = false, this.initialIndex});
@@ -182,11 +181,11 @@ class _CharacterSelectScreenState extends State<CharacterSelectScreen>
       builder: (ctx) => Directionality(
         textDirection: TextDirection.rtl,
         child: AlertDialog(
-          backgroundColor: const Color(0xFF0A152C),
+          backgroundColor: const Color(0xFF140D2B),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(22),
-            side: BorderSide(
-              color: character.color.withValues(alpha: 0.45),
+            side: const BorderSide(
+              color: Color(0xFFFFD54F),
               width: 1.5,
             ),
           ),
@@ -200,19 +199,20 @@ class _CharacterSelectScreenState extends State<CharacterSelectScreen>
                   shape: BoxShape.circle,
                   color: character.color.withValues(alpha: 0.16),
                   border: Border.all(
-                    color: character.color.withValues(alpha: 0.6),
+                    color: const Color(0xFFFFD54F),
                     width: 2,
                   ),
-                  boxShadow: [
+                  boxShadow: const [
                     BoxShadow(
-                      color: character.color.withValues(alpha: 0.35),
+                      color: Color(0x66FFD54F),
                       blurRadius: 16,
                     ),
                   ],
                 ),
                 padding: const EdgeInsets.all(6),
                 child: ClipOval(
-                  child: Image.asset(character.asset, fit: BoxFit.contain),
+                  child:
+                      adaptiveAssetImage(character.asset, fit: BoxFit.contain),
                 ),
               ),
               const SizedBox(height: 12),
@@ -313,118 +313,221 @@ class _CharacterSelectScreenState extends State<CharacterSelectScreen>
     final character = _character;
     final unlocked = appState.isCharacterUnlocked(character);
     final isSelected = appState.selectedCharacterIndex == _focused;
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: RepaintBoundary(
         key: const ValueKey('character-select-screen'),
         child: Scaffold(
-          backgroundColor: const Color(0xFF11132E),
+          backgroundColor: const Color(0xFF0F0B24),
           resizeToAvoidBottomInset: false,
-          body: Stack(fit: StackFit.expand, children: [
-            ImageFiltered(
-              imageFilter: ui.ImageFilter.blur(sigmaX: 2, sigmaY: 2),
-              child: Image.asset('assets/ui/bg_main.webp', fit: BoxFit.cover),
-            ),
-            const DecoratedBox(
-                decoration: BoxDecoration(
-              gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Color(0x6633295D),
-                    Color(0x8A35315F),
-                    Color(0xE60D1029)
-                  ],
-                  stops: [
-                    0,
-                    .55,
-                    1
-                  ]),
-            )),
-            SafeArea(child: LayoutBuilder(builder: (context, area) {
-              final compact = area.maxWidth > area.maxHeight;
-              final stage = _HeroStage(
-                character: character,
-                unlocked: unlocked,
-                isSelected: isSelected,
-                playerLevel: appState.level,
-                idleAnimation: _idleAnimation,
-                onInspect: _openCharacterInspection,
-                compact: compact,
-                stageHeight:
-                    compact ? 160 : (area.maxHeight * .24).clamp(156, 300),
-              );
-              final rail = _CharacterRail(
-                appState: appState,
-                focused: _focused,
-                compact: compact,
-                onTap: (index) {
-                  HapticFeedback.selectionClick();
-                  setState(() => _focused = index);
+          body: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Studio dressing room background with mirror
+              Positioned.fill(
+                child: LayoutBuilder(builder: (context, constraints) {
+                  if (constraints.maxWidth < constraints.maxHeight) {
+                    return const DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [Color(0xFF241344), Color(0xFF11132E)],
+                        ),
+                      ),
+                    );
+                  }
+                  return adaptiveAssetImage(
+                    'assets/ui/character_select_room.webp',
+                    fit: BoxFit.fill,
+                    alignment: Alignment.center,
+                    errorBuilder: (_, __, ___) => Container(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [Color(0xFF261447), Color(0xFF0F0824)],
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+              ),
+
+              // Main content
+              LayoutBuilder(
+                builder: (context, area) {
+                  final isLandscape = area.maxWidth > area.maxHeight;
+
+                  if (isLandscape) {
+                    return _buildLandscapeLayout(
+                      appState: appState,
+                      character: character,
+                      unlocked: unlocked,
+                      isSelected: isSelected,
+                      area: area,
+                    );
+                  } else {
+                    return _buildPortraitLayout(
+                      appState: appState,
+                      character: character,
+                      unlocked: unlocked,
+                      isSelected: isSelected,
+                      area: area,
+                    );
+                  }
                 },
-              );
-              return Column(children: [
-                _TopBar(
-                    forced: widget.forced,
-                    appState: appState,
-                    compact: compact),
-                if (!compact) const _ScreenHeader(),
-                Expanded(
-                  child: compact
-                      ? Row(children: [
-                          rail,
-                          Expanded(
-                              child: Padding(
-                            padding: const EdgeInsets.fromLTRB(18, 6, 8, 8),
-                            child: LayoutBuilder(
-                                builder: (context, body) => Center(
-                                      child: FittedBox(
-                                          fit: BoxFit.scaleDown,
-                                          child: SizedBox(
-                                              width: body.maxWidth,
-                                              child: stage)),
-                                    )),
-                          )),
-                        ])
-                      : LayoutBuilder(
-                          builder: (context, body) => SingleChildScrollView(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 18, vertical: 10),
-                                child: ConstrainedBox(
-                                  constraints: BoxConstraints(
-                                      minHeight: (body.maxHeight - 20)
-                                          .clamp(0, double.infinity)),
-                                  child: Center(
-                                      child: ConstrainedBox(
-                                    constraints:
-                                        const BoxConstraints(maxWidth: 760),
-                                    child: stage,
-                                  )),
-                                ),
-                              )),
-                ),
-                if (!compact) rail,
-                _ActionBar(
-                  forced: widget.forced,
-                  busy: _busy,
-                  character: character,
-                  unlocked: unlocked,
-                  isSelected: isSelected,
-                  onPressed: _onPrimary,
-                  onInspect: _openCharacterInspection,
-                ),
-              ]);
-            })),
-          ]),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
+
+  Widget _buildLandscapeLayout({
+    required AppState appState,
+    required GameCharacter character,
+    required bool unlocked,
+    required bool isSelected,
+    required BoxConstraints area,
+  }) {
+    final compact = area.maxHeight < 400;
+    final width = area.maxWidth;
+    final height = area.maxHeight;
+
+    return Stack(
+      children: [
+        Positioned(
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: width * 0.44,
+          child: _MirrorCharacterStage(
+            character: character,
+            idleAnimation: _idleAnimation,
+            onInspect: _openCharacterInspection,
+          ),
+        ),
+        Positioned(
+          left: width * 0.475,
+          right: width * 0.065,
+          top: height * 0.09,
+          height: height * 0.235,
+          child: _TitleHeader(height: height * 0.235),
+        ),
+        Positioned(
+          left: width * 0.472,
+          right: width * 0.062,
+          top: height * 0.335,
+          bottom: height * 0.15,
+          child: _CharacterGrid(
+            appState: appState,
+            focused: _focused,
+            compact: compact,
+            onTap: (index) {
+              HapticFeedback.selectionClick();
+              setState(() => _focused = index);
+            },
+          ),
+        ),
+        Positioned(
+          left: width * 0.475,
+          right: width * 0.065,
+          bottom: height * 0.035,
+          height: height * 0.105,
+          child: _ActionBar(
+            forced: widget.forced,
+            busy: _busy,
+            character: character,
+            unlocked: unlocked,
+            isSelected: isSelected,
+            compact: true,
+            onPressed: _onPrimary,
+            onInspect: _openCharacterInspection,
+          ),
+        ),
+        Positioned(
+          left: width * 0.04,
+          right: width * 0.04,
+          top: height * 0.035,
+          child: _TopBar(
+            forced: widget.forced,
+            appState: appState,
+            compact: true,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPortraitLayout({
+    required AppState appState,
+    required GameCharacter character,
+    required bool unlocked,
+    required bool isSelected,
+    required BoxConstraints area,
+  }) {
+    return Column(
+      children: [
+        _TopBar(
+          forced: widget.forced,
+          appState: appState,
+          compact: false,
+        ),
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 4),
+          child: _TitleHeader(height: 38),
+        ),
+        Expanded(
+          flex: 4,
+          child: _MirrorCharacterStage(
+            character: character,
+            showRoom: true,
+            idleAnimation: _idleAnimation,
+            onInspect: _openCharacterInspection,
+          ),
+        ),
+        Expanded(
+          flex: 5,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: _CharacterGrid(
+              appState: appState,
+              focused: _focused,
+              compact: false,
+              onTap: (index) {
+                HapticFeedback.selectionClick();
+                setState(() => _focused = index);
+              },
+            ),
+          ),
+        ),
+        _ActionBar(
+          forced: widget.forced,
+          busy: _busy,
+          character: character,
+          unlocked: unlocked,
+          isSelected: isSelected,
+          onPressed: _onPrimary,
+          onInspect: _openCharacterInspection,
+        ),
+      ],
+    );
+  }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Top Bar
+// ─────────────────────────────────────────────────────────────────────────────
+
 class _TopBar extends StatelessWidget {
-  const _TopBar(
-      {required this.forced, required this.appState, this.compact = false});
+  const _TopBar({
+    required this.forced,
+    required this.appState,
+    this.compact = false,
+  });
 
   final bool forced;
   final AppState appState;
@@ -433,26 +536,25 @@ class _TopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      padding: EdgeInsets.fromLTRB(16, compact ? 2 : 6, 16, compact ? 2 : 4),
       child: Row(
         children: [
           if (!forced)
             _CircleIconButton(
               icon: Icons.arrow_back_rounded,
               tooltip: 'رجوع',
+              size: compact ? 34 : 40,
               onTap: () => Navigator.of(context).maybePop(),
             )
           else
-            const SizedBox(width: 42),
-          if (compact)
-            const Expanded(child: _ScreenHeader(compact: true))
-          else
-            const Spacer(),
+            SizedBox(width: compact ? 34 : 42),
+          const Spacer(),
           _CurrencyPill(
             icon: Icons.monetization_on_rounded,
             value: _compactNumber(appState.coins),
             color: const Color(0xFFFACC15),
             label: 'كوين',
+            compact: compact,
           ),
           const SizedBox(width: 8),
           _CurrencyPill(
@@ -460,6 +562,7 @@ class _TopBar extends StatelessWidget {
             value: _compactNumber(appState.gems),
             color: const Color(0xFF38BDF8),
             label: 'جوهرة',
+            compact: compact,
           ),
         ],
       ),
@@ -472,31 +575,42 @@ class _CircleIconButton extends StatelessWidget {
     required this.icon,
     required this.onTap,
     this.tooltip,
+    this.size = 40,
   });
 
   final IconData icon;
   final VoidCallback onTap;
   final String? tooltip;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
     return Tooltip(
       message: tooltip ?? '',
       child: Material(
-        color: Colors.white.withValues(alpha: 0.08),
+        color: const Color(0xFF261447).withValues(alpha: 0.7),
         shape: const CircleBorder(),
         child: InkWell(
           customBorder: const CircleBorder(),
           onTap: onTap,
           child: Container(
-            width: 42,
-            height: 42,
+            width: size,
+            height: size,
             alignment: Alignment.center,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+              border: Border.all(
+                color: const Color(0xFF00E5FF).withValues(alpha: 0.6),
+                width: 1.4,
+              ),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x4400E5FF),
+                  blurRadius: 8,
+                ),
+              ],
             ),
-            child: Icon(icon, color: Colors.white, size: 22),
+            child: Icon(icon, color: Colors.white, size: size * 0.55),
           ),
         ),
       ),
@@ -510,39 +624,43 @@ class _CurrencyPill extends StatelessWidget {
     required this.value,
     required this.color,
     required this.label,
+    this.compact = false,
   });
 
   final IconData icon;
   final String value;
   final Color color;
   final String label;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 8 : 10,
+        vertical: compact ? 3 : 5,
+      ),
       decoration: BoxDecoration(
-        color: const Color(0xFF091328).withValues(alpha: 0.85),
+        color: const Color(0xFF140D2B).withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.4), width: 1.2),
+        border: Border.all(color: color.withValues(alpha: 0.5), width: 1.2),
         boxShadow: [
           BoxShadow(
-            color: color.withValues(alpha: 0.15),
-            blurRadius: 10,
-            spreadRadius: -2,
+            color: color.withValues(alpha: 0.2),
+            blurRadius: 8,
           ),
         ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: color, size: 17),
-          const SizedBox(width: 6),
+          Icon(icon, color: color, size: compact ? 14 : 16),
+          const SizedBox(width: 4),
           Text(
             value,
-            style: const TextStyle(
+            style: TextStyle(
               color: Colors.white,
-              fontSize: 13.5,
+              fontSize: compact ? 12 : 13,
               fontWeight: FontWeight.w900,
             ),
           ),
@@ -552,260 +670,241 @@ class _CurrencyPill extends StatelessWidget {
   }
 }
 
-class _ScreenHeader extends StatelessWidget {
-  const _ScreenHeader({this.compact = false});
-  final bool compact;
+// ─────────────────────────────────────────────────────────────────────────────
+// 3D Title Header
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _TitleHeader extends StatelessWidget {
+  const _TitleHeader({this.height = 44});
+  final double height;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            'اختر شخصيتك وتألق',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: const Color(0xFFFFD99C),
-              fontSize: compact ? 17 : 23,
-              fontWeight: FontWeight.w900,
-              letterSpacing: -0.3,
-              shadows: const [
-                Shadow(
-                    color: Color(0xFF614022),
-                    offset: Offset(0, 2),
-                    blurRadius: 3)
+    return Center(
+      child: adaptiveAssetImage(
+        'assets/ui/character_select_title.png',
+        height: height,
+        fit: BoxFit.contain,
+        errorBuilder: (_, __, ___) => const Text(
+          'اختر شخصيتك',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontFamily: 'NotoSansArabic',
+            fontSize: 24,
+            fontWeight: FontWeight.w900,
+            color: Color(0xFFFFD54F),
+            shadows: [
+              Shadow(
+                color: Color(0xFFD84315),
+                offset: Offset(0, 3),
+                blurRadius: 4,
+              ),
+              Shadow(
+                color: Color(0x88FFA000),
+                offset: Offset(0, 0),
+                blurRadius: 10,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Mirror Stage (Character Standing & Mirror Reflection)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _MirrorCharacterStage extends StatelessWidget {
+  const _MirrorCharacterStage({
+    required this.character,
+    required this.idleAnimation,
+    required this.onInspect,
+    this.showRoom = false,
+  });
+
+  final GameCharacter character;
+  final Animation<double> idleAnimation;
+  final VoidCallback onInspect;
+  final bool showRoom;
+
+  @override
+  Widget build(BuildContext context) {
+    return SynchronizedCharacterAnimation(
+      character: character,
+      fallback: (key, {bool reflected = false}) => AnimatedBuilder(
+        key: key,
+        animation: idleAnimation,
+        child: _FullBodyImage(character: character, dimmed: false),
+        builder: (context, child) => Transform.scale(
+          alignment: Alignment.bottomCenter,
+          scale: MediaQuery.disableAnimationsOf(context)
+              ? 1
+              : 1 + idleAnimation.value * 0.006,
+          child: child,
+        ),
+      ),
+      builder: (context, frame) =>
+          LayoutBuilder(builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final height = constraints.maxHeight;
+        return Semantics(
+          button: true,
+          label: 'استعراض الشخصية',
+          child: GestureDetector(
+            onTap: onInspect,
+            behavior: HitTestBehavior.opaque,
+            child: Stack(
+              clipBehavior: Clip.hardEdge,
+              children: [
+                if (showRoom)
+                  Positioned(
+                    left: 0,
+                    top: 0,
+                    bottom: 0,
+                    width: width / 0.44,
+                    child: adaptiveAssetImage(
+                      'assets/ui/character_select_room.webp',
+                      fit: BoxFit.fill,
+                    ),
+                  ),
+                // Match the glass quadrilateral, so every reflection stays
+                // inside the wooden frame at every screen size.
+                Positioned.fill(
+                  child: ClipPath(
+                    clipper: const _MirrorGlassClipper(),
+                    child: Stack(
+                      children: [
+                        Positioned(
+                          left: width * 0.53,
+                          top: height * 0.17,
+                          width: width * 0.30,
+                          height: height * 0.68,
+                          child: ExcludeSemantics(
+                            child: Opacity(
+                              opacity: 0.68,
+                              child: ColorFiltered(
+                                colorFilter: const ColorFilter.mode(
+                                    Color(0x668ABEFF), BlendMode.srcATop),
+                                child: Transform.rotate(
+                                  angle: 0.075,
+                                  child: Transform(
+                                    alignment: Alignment.center,
+                                    transform:
+                                        Matrix4.diagonal3Values(-1, 1, 1),
+                                    child: frame(
+                                        const ValueKey(
+                                            'character-mirror-reflection'),
+                                        reflected: true),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          left: width * 0.52,
+                          top: height * 0.13,
+                          width: width * 0.36,
+                          height: height * 0.74,
+                          child: const IgnorePointer(
+                            child: _MirrorSparklesOverlay(),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: width * 0.095,
+                  bottom: height * 0.07,
+                  width: width * 0.40,
+                  height: height * 0.82,
+                  child: frame(const ValueKey('character-standing-preview')),
+                ),
               ],
             ),
           ),
-          if (!compact) ...[
-            const SizedBox(height: 4),
-            const Text(
-              'شخصيتك تمثلك في كل أطوار اللعب والتحديات المباشرة',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white70,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ],
-      ),
+        );
+      }),
     );
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 2. Main Hero Stage Showcase
-// ─────────────────────────────────────────────────────────────────────────────
+class _MirrorGlassClipper extends CustomClipper<Path> {
+  const _MirrorGlassClipper();
 
-class _HeroStage extends StatelessWidget {
-  const _HeroStage({
-    required this.character,
-    required this.unlocked,
-    required this.isSelected,
-    required this.playerLevel,
-    required this.idleAnimation,
-    required this.onInspect,
-    this.compact = false,
-    this.stageHeight = 200,
-  });
-  final GameCharacter character;
-  final bool unlocked;
-  final bool isSelected;
-  final int playerLevel;
-  final Animation<double> idleAnimation;
-  final VoidCallback onInspect;
-  final bool compact;
-  final double stageHeight;
-  static const _violet = Color(0xFFB69AFA);
+  @override
+  Path getClip(Size size) => Path()
+    ..moveTo(size.width * 0.584, size.height * 0.141)
+    ..lineTo(size.width * 0.877, size.height * 0.117)
+    ..lineTo(size.width * 0.812, size.height * 0.865)
+    ..lineTo(size.width * 0.525, size.height * 0.827)
+    ..close();
+
+  @override
+  bool shouldReclip(_MirrorGlassClipper oldClipper) => false;
+}
+
+class _MirrorSparklesOverlay extends StatelessWidget {
+  const _MirrorSparklesOverlay();
 
   @override
   Widget build(BuildContext context) {
-    final badges = Wrap(
-      alignment: WrapAlignment.center,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      spacing: 6,
-      runSpacing: 5,
-      children: [
-        _TagBadge(label: character.tagAr, color: _violet),
-        if (isSelected) const _SelectedBadge(),
-        if (!compact) _InspectBadge(accent: _violet, onTap: onInspect),
-      ],
-    );
-    final stage = Semantics(
-      button: true,
-      label: 'استعراض الشخصية، ${character.tagAr}',
-      child: InkWell(
-        onTap: onInspect,
-        borderRadius: BorderRadius.circular(24),
-        child: SizedBox(
-            height: stageHeight,
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
-              child: _StageBody(
-                key: ValueKey(character.index),
-                character: character,
-                unlocked: unlocked,
-                idleAnimation: idleAnimation,
-              ),
-            )),
-      ),
-    );
-    final details = Column(mainAxisSize: MainAxisSize.min, children: [
-      if (compact) ...[badges, const SizedBox(height: 6)],
-      _MiniStatRow(character: character),
-      const SizedBox(height: 6),
-      const Text('سمات وصفية للشخصية؛ قواعد اللعب متساوية للجميع.',
-          textAlign: TextAlign.center,
-          style: TextStyle(color: Color(0xFFBDB8D6), fontSize: 10)),
-      const SizedBox(height: 10),
-      _HeroStatusBanner(
-          character: character,
-          unlocked: unlocked,
-          isSelected: isSelected,
-          playerLevel: playerLevel),
-    ]);
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(30),
-        gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFFC4B7FA), Color(0xFF7166AC), Color(0xFFA69AE1)]),
-        boxShadow: const [
-          BoxShadow(color: Color(0x5C8C60E4), blurRadius: 30, spreadRadius: 1)
-        ],
-      ),
-      child: Container(
-        padding: EdgeInsets.all(compact ? 12 : 14),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(27),
-          border:
-              Border.all(color: const Color(0xFFDBCBFF).withValues(alpha: .6)),
-          gradient: const RadialGradient(
-              center: Alignment(0, -.3),
-              radius: 1.2,
-              colors: [
-                Color(0xF23A304F),
-                Color(0xF0202446),
-                Color(0xF02B224B)
-              ]),
-        ),
-        child: compact
-            ? Row(children: [
-                Expanded(flex: 3, child: details),
-                const SizedBox(width: 16),
-                Expanded(flex: 2, child: stage)
-              ])
-            : Column(mainAxisSize: MainAxisSize.min, children: [
-                badges,
-                const SizedBox(height: 10),
-                stage,
-                const SizedBox(height: 6),
-                details
-              ]),
-      ),
+    return CustomPaint(
+      painter: _SparklesPainter(),
+      size: Size.infinite,
     );
   }
 }
 
-class _StageBody extends StatelessWidget {
-  const _StageBody(
-      {super.key,
-      required this.character,
-      required this.unlocked,
-      required this.idleAnimation});
-  final GameCharacter character;
-  final bool unlocked;
-  final Animation<double> idleAnimation;
-
-  @override
-  Widget build(BuildContext context) => LayoutBuilder(builder: (context, area) {
-        final width = (area.maxHeight * .95).clamp(110.0, area.maxWidth);
-        return Stack(alignment: Alignment.center, children: [
-          Positioned.fill(
-              child: DecoratedBox(
-                  decoration: BoxDecoration(
-            gradient: RadialGradient(
-                center: const Alignment(0, .65),
-                radius: .65,
-                colors: [
-                  const Color(0xFFAD53F1).withValues(alpha: .5),
-                  Colors.transparent
-                ]),
-          ))),
-          Positioned(
-              bottom: 0,
-              child: SizedBox(
-                  width: width,
-                  height: area.maxHeight * .26,
-                  child: const CustomPaint(painter: _ShowcasePodium()))),
-          Positioned.fill(
-            bottom: area.maxHeight * .16,
-            child: AnimatedBuilder(
-              animation: idleAnimation,
-              child: _FullBodyImage(character: character, dimmed: false),
-              builder: (context, child) => Transform.translate(
-                offset: Offset(
-                    0,
-                    MediaQuery.disableAnimationsOf(context)
-                        ? 0
-                        : -3 * idleAnimation.value),
-                child: child,
-              ),
-            ),
-          ),
-        ]);
-      });
-}
-
-class _ShowcasePodium extends CustomPainter {
-  const _ShowcasePodium();
+class _SparklesPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    for (var tier = 0; tier < 3; tier++) {
-      final inset = tier * size.width * .065;
-      final top = size.height * (.40 - tier * .15);
-      final rect =
-          Rect.fromLTWH(inset, top, size.width - 2 * inset, size.height * .58);
-      canvas.drawOval(rect.shift(const Offset(0, 5)),
-          Paint()..color = const Color(0xFF0C0822));
-      canvas.drawOval(
-          rect,
-          Paint()
-            ..shader = const LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0xFFDED0FF), Color(0xFF8E46D8), Color(0xFF39205F)],
-            ).createShader(rect));
-      final rim = Rect.fromLTWH(inset, top, rect.width, size.height * .37);
-      canvas.drawOval(
-          rim,
-          Paint()
-            ..color = const Color(0xFFBE63FF)
-            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 9));
-      canvas.drawOval(
-          rim,
-          Paint()
-            ..shader = const RadialGradient(
-                    colors: [Color(0xFFB37DF1), Color(0xFF8B3EC6)])
-                .createShader(rim));
-      canvas.drawOval(
-          rim.deflate(3),
-          Paint()
-            ..color = const Color(0xFFF4D8FF)
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 2);
+    final sparkles = [
+      (0.20, 0.22, 4.0, const Color(0xFFFFFFFF)),
+      (0.35, 0.38, 5.5, const Color(0xFF80D8FF)),
+      (0.68, 0.18, 5.0, const Color(0xFFFFD54F)),
+      (0.78, 0.42, 6.0, const Color(0xFFFFFFFF)),
+      (0.48, 0.55, 4.5, const Color(0xFF80D8FF)),
+      (0.22, 0.68, 5.0, const Color(0xFFFFE082)),
+      (0.65, 0.75, 4.0, const Color(0xFFFFFFFF)),
+      (0.42, 0.82, 6.0, const Color(0xFF80D8FF)),
+    ];
+
+    for (final s in sparkles) {
+      final center = Offset(s.$1 * size.width, s.$2 * size.height);
+      final r = s.$3;
+      final color = s.$4;
+
+      // Outer glow
+      final glowPaint = Paint()
+        ..color = color.withValues(alpha: 0.35)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
+      canvas.drawCircle(center, r * 1.5, glowPaint);
+
+      // 4-pointed diamond star
+      final starPaint = Paint()
+        ..color = color
+        ..style = PaintingStyle.fill;
+      final path = Path();
+      path.moveTo(center.dx, center.dy - r);
+      path.quadraticBezierTo(center.dx, center.dy, center.dx + r, center.dy);
+      path.quadraticBezierTo(center.dx, center.dy, center.dx, center.dy + r);
+      path.quadraticBezierTo(center.dx, center.dy, center.dx - r, center.dy);
+      path.quadraticBezierTo(center.dx, center.dy, center.dx, center.dy - r);
+      path.close();
+      canvas.drawPath(path, starPaint);
+
+      // Core bright center
+      final corePaint = Paint()..color = Colors.white;
+      canvas.drawCircle(center, r * 0.25, corePaint);
     }
   }
 
   @override
-  bool shouldRepaint(_ShowcasePodium oldDelegate) => false;
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _FullBodyImage extends StatelessWidget {
@@ -819,10 +918,10 @@ class _FullBodyImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget image = Image.asset(
+    Widget image = adaptiveAssetImage(
       character.fullBodyAsset,
       fit: BoxFit.contain,
-      errorBuilder: (_, __, ___) => Image.asset(
+      errorBuilder: (_, __, ___) => adaptiveAssetImage(
         character.asset,
         fit: BoxFit.contain,
         errorBuilder: (_, __, ___) => Icon(
@@ -865,197 +964,258 @@ class _FullBodyImage extends StatelessWidget {
   }
 }
 
-class _MiniStatRow extends StatelessWidget {
-  const _MiniStatRow({required this.character});
+// ─────────────────────────────────────────────────────────────────────────────
+// 2-Row Character Avatar Cards Grid
+// ─────────────────────────────────────────────────────────────────────────────
 
-  final GameCharacter character;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.25),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: _MiniStatPill(
-                icon: Icons.bolt_rounded,
-                label: 'السرعة',
-                value: '${character.speed}%',
-                color: const Color(0xFFFBBF24),
-              ),
-            ),
-          ),
-          Expanded(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: _MiniStatPill(
-                icon: Icons.auto_stories_rounded,
-                label: 'المعرفة',
-                value: '${character.knowledge}%',
-                color: const Color(0xFF60A5FA),
-              ),
-            ),
-          ),
-          Expanded(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: _MiniStatPill(
-                icon: Icons.crisis_alert_rounded,
-                label: 'التركيز',
-                value: '${character.focus}%',
-                color: const Color(0xFF34D399),
-              ),
-            ),
-          ),
-          Expanded(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: _MiniStatPill(
-                icon: Icons.military_tech_rounded,
-                label: 'الثقة',
-                value: '${character.confidence}%',
-                color: const Color(0xFFF472B6),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MiniStatPill extends StatelessWidget {
-  const _MiniStatPill({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
+class _CharacterGrid extends StatefulWidget {
+  const _CharacterGrid({
+    required this.appState,
+    required this.focused,
+    required this.onTap,
+    this.compact = false,
   });
 
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
+  final AppState appState;
+  final int focused;
+  final ValueChanged<int> onTap;
+  final bool compact;
 
   @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, color: color, size: 14),
-        const SizedBox(width: 4),
-        Text(
-          '$label $value',
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.9),
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ],
-    );
-  }
+  State<_CharacterGrid> createState() => _CharacterGridState();
 }
 
-class _TagBadge extends StatelessWidget {
-  const _TagBadge({required this.label, required this.color});
-
-  final String label;
-  final Color color;
+class _CharacterGridState extends State<_CharacterGrid> {
+  final ScrollController _scrollController = ScrollController();
+  bool _initialScrollPending = true;
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.18),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.5)),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: color,
-          fontSize: 10.5,
-          fontWeight: FontWeight.w900,
-        ),
-      ),
-    );
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
-}
-
-class _SelectedBadge extends StatelessWidget {
-  const _SelectedBadge();
 
   @override
   Widget build(BuildContext context) {
-    const green = Color(0xFF34D399);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-      decoration: BoxDecoration(
-        color: green.withValues(alpha: 0.2),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: green.withValues(alpha: 0.6)),
-      ),
-      child: const Row(
-        mainAxisSize: MainAxisSize.min,
+    // Column order is visual right-to-left, starting with the reference faces.
+    final characters = [
+      for (final index in [
+        4,
+        3,
+        1,
+        5,
+        0,
+        2,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ])
+        CharacterCatalog.byIndex(index),
+    ];
+    return LayoutBuilder(builder: (context, constraints) {
+      final gap = constraints.maxWidth * 0.035;
+      final cardWidth = (constraints.maxWidth - gap * 2) / 3;
+      final hintHeight = widget.compact ? 24.0 : 28.0;
+      final cardHeight = (constraints.maxHeight - hintHeight - 4 - gap) / 2;
+      if (_initialScrollPending) {
+        _initialScrollPending = false;
+        final column =
+            characters.indexWhere((c) => c.index == widget.focused) ~/ 2;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!_scrollController.hasClients) return;
+          _scrollController.jumpTo(((column - 2) * (cardWidth + gap))
+              .clamp(0.0, _scrollController.position.maxScrollExtent));
+        });
+      }
+      return Column(
         children: [
-          Icon(Icons.check_circle_rounded, color: green, size: 14),
-          SizedBox(width: 5),
-          Text(
-            'شخصيتك الحالية',
-            style: TextStyle(
-              color: green,
-              fontSize: 10.5,
-              fontWeight: FontWeight.w900,
+          SizedBox(
+            height: hintHeight,
+            child: AnimatedBuilder(
+              animation: _scrollController,
+              builder: (context, _) {
+                final attached = _scrollController.hasClients &&
+                    _scrollController.position.hasContentDimensions;
+                final extent =
+                    attached ? _scrollController.position.maxScrollExtent : 0.0;
+                final offset = attached ? _scrollController.offset : 0.0;
+                final atEnd = attached && offset >= extent - 1;
+                final pageCount = (characters.length / 6).ceil();
+                final page = extent > 0
+                    ? (offset.clamp(0.0, extent) / extent * (pageCount - 1))
+                        .round()
+                    : 0;
+                return _CharacterScrollHint(
+                  page: page,
+                  pageCount: pageCount,
+                  atEnd: atEnd,
+                  onPage: (page) {
+                    if (!_scrollController.hasClients) return;
+                    HapticFeedback.selectionClick();
+                    _scrollController.animateTo(
+                      (page * 3 * (cardWidth + gap)).clamp(
+                          0.0, _scrollController.position.maxScrollExtent),
+                      duration: MediaQuery.disableAnimationsOf(context)
+                          ? Duration.zero
+                          : const Duration(milliseconds: 350),
+                      curve: Curves.easeOutCubic,
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 4),
+          Expanded(
+            child: SingleChildScrollView(
+              key: const ValueKey('character-scroll-rail'),
+              controller: _scrollController,
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (var column = 0;
+                      column < (characters.length / 2).ceil();
+                      column++)
+                    Padding(
+                      padding: EdgeInsetsDirectional.only(
+                          end: column == (characters.length / 2).ceil() - 1
+                              ? 0
+                              : gap),
+                      child: Column(
+                        children: [
+                          for (var row = 0; row < 2; row++) ...[
+                            if (row == 1) SizedBox(height: gap),
+                            if (column * 2 + row < characters.length)
+                              _CharacterCard(
+                                key: ValueKey(
+                                    'character-rail-${characters[column * 2 + row].id}'),
+                                character: characters[column * 2 + row],
+                                unlocked: widget.appState.isCharacterUnlocked(
+                                    characters[column * 2 + row]),
+                                isSelected:
+                                    widget.appState.selectedCharacterIndex ==
+                                        characters[column * 2 + row].index,
+                                isFocused: widget.focused ==
+                                    characters[column * 2 + row].index,
+                                width: cardWidth,
+                                height: cardHeight,
+                                onTap: () => widget
+                                    .onTap(characters[column * 2 + row].index),
+                              ),
+                          ],
+                        ],
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         ],
-      ),
-    );
+      );
+    });
   }
 }
 
-class _InspectBadge extends StatelessWidget {
-  const _InspectBadge({required this.accent, required this.onTap});
+class _CharacterScrollHint extends StatelessWidget {
+  const _CharacterScrollHint({
+    required this.page,
+    required this.pageCount,
+    required this.atEnd,
+    required this.onPage,
+  });
 
-  final Color accent;
-  final VoidCallback onTap;
+  final int page;
+  final int pageCount;
+  final bool atEnd;
+  final ValueChanged<int> onPage;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(999),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
-          ),
-          child: const Row(
+    return Center(
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: const Color(0xCC211444),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: const Color(0x6658DFFF)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+          child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.zoom_in_rounded, color: Colors.white, size: 15),
-              SizedBox(width: 4),
-              Text(
-                'استعراض',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w800,
+              Flexible(
+                child: Semantics(
+                  button: true,
+                  child: GestureDetector(
+                    key: const ValueKey('character-swipe-hint'),
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => onPage(atEnd ? page - 1 : page + 1),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          atEnd
+                              ? Icons.arrow_back_rounded
+                              : Icons.arrow_forward_rounded,
+                          color: const Color(0xFF7BEAFF),
+                          size: 18,
+                          textDirection: TextDirection.ltr,
+                        ),
+                        const SizedBox(width: 5),
+                        Flexible(
+                          child: Text(
+                            atEnd ? 'اسحب لليسار للعودة' : 'اسحب لليمين للمزيد',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Color(0xFFE5F9FF),
+                              fontSize: 11,
+                              height: 1.1,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
+              const SizedBox(width: 8),
+              for (var index = 0; index < pageCount; index++)
+                Semantics(
+                  button: true,
+                  selected: page == index,
+                  label: 'مجموعة الشخصيات ${index + 1} من $pageCount',
+                  child: GestureDetector(
+                    key: ValueKey('character-page-$index'),
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => onPage(index),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 3, vertical: 6),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        width: page == index ? 16 : 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: page == index
+                              ? const Color(0xFF7BEAFF)
+                              : const Color(0xFF72618E),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
@@ -1064,146 +1224,200 @@ class _InspectBadge extends StatelessWidget {
   }
 }
 
-class _HeroStatusBanner extends StatelessWidget {
-  const _HeroStatusBanner({
+class _CharacterCard extends StatelessWidget {
+  const _CharacterCard({
+    super.key,
     required this.character,
     required this.unlocked,
     required this.isSelected,
-    required this.playerLevel,
+    required this.isFocused,
+    required this.onTap,
+    required this.width,
+    required this.height,
   });
 
   final GameCharacter character;
   final bool unlocked;
   final bool isSelected;
-  final int playerLevel;
+  final bool isFocused;
+  final VoidCallback onTap;
+  final double width;
+  final double height;
 
   @override
   Widget build(BuildContext context) {
-    if (unlocked) {
-      return _StatusContainer(
-        icon: isSelected ? Icons.verified_rounded : Icons.check_circle_rounded,
-        color: const Color(0xFF34D399),
-        title: isSelected ? 'شخصيتك المعتمدة' : 'متاحة للعب فورًا',
-        subtitle: isSelected
-            ? 'تشارك معك في التحديات الفردية والجماعية'
-            : 'اضغط اختيار بالأسفل لتفعيلها لشخصيتك',
-      );
-    }
+    final radius = BorderRadius.circular(height * 0.095);
+    final borderColor = isSelected
+        ? const Color(0xFF76FF03)
+        : isFocused
+            ? const Color(0xFFFFD54F)
+            : const Color(0xFFE16AFF);
+    final badgeSize = (height * 0.27).clamp(18.0, 30.0);
 
-    switch (character.unlock.kind) {
-      case CharacterUnlockKind.level:
-        final progress = (playerLevel / character.unlock.value).clamp(0.0, 1.0);
-        return _StatusContainer(
-          icon: Icons.lock_clock_rounded,
-          color: const Color(0xFF60A5FA),
-          title: 'تُفتح عند المستوى ${character.unlock.value}',
-          subtitle:
-              'مستواك الحالي: $playerLevel (${(progress * 100).toInt()}%)',
-          trailing: SizedBox(
-            width: 70,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(999),
-              child: LinearProgressIndicator(
-                value: progress,
-                backgroundColor: Colors.white12,
-                valueColor: const AlwaysStoppedAnimation(Color(0xFF60A5FA)),
-                minHeight: 6,
-              ),
-            ),
-          ),
-        );
-      case CharacterUnlockKind.coins:
-        return _StatusContainer(
-          icon: Icons.monetization_on_rounded,
-          color: const Color(0xFFFACC15),
-          title: '${_compactNumber(character.unlock.value)} كوين',
-          subtitle: 'فتح دائم لجميع أطوار اللعب',
-        );
-      case CharacterUnlockKind.gems:
-        return _StatusContainer(
-          icon: Icons.diamond_rounded,
-          color: const Color(0xFF38BDF8),
-          title: '${_compactNumber(character.unlock.value)} جوهرة',
-          subtitle: 'فتح دائم لشخصية مميزة ونادرة',
-        );
-      case CharacterUnlockKind.free:
-        return const _StatusContainer(
-          icon: Icons.check_circle_rounded,
-          color: Color(0xFF34D399),
-          title: 'متاحة مجانًا',
-          subtitle: 'جاهزة للاختيار واللعب',
-        );
-    }
-  }
-}
-
-class _StatusContainer extends StatelessWidget {
-  const _StatusContainer({
-    required this.icon,
-    required this.color,
-    required this.title,
-    required this.subtitle,
-    this.trailing,
-  });
-
-  final IconData icon;
-  final Color color;
-  final String title;
-  final String subtitle;
-  final Widget? trailing;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.35)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 34,
-            height: 34,
-            alignment: Alignment.center,
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      label: character.tagAr,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: radius,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 220),
+            width: width,
+            height: height,
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.2),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: color, size: 20),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    color: color,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w900,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+              borderRadius: radius,
+              gradient: const LinearGradient(
+                begin: Alignment.topRight,
+                end: Alignment.bottomLeft,
+                colors: [
+                  Color(0xFF64077E),
+                  Color(0xFF360A69),
+                  Color(0xFF230A50)
+                ],
+              ),
+              border:
+                  Border.all(color: borderColor, width: isSelected ? 3 : 2.5),
+              boxShadow: [
+                const BoxShadow(
+                    color: Color(0xCC1A063F),
+                    offset: Offset(0, 3),
+                    blurRadius: 2),
+                BoxShadow(
+                  color:
+                      borderColor.withValues(alpha: isSelected ? 0.65 : 0.22),
+                  blurRadius: isSelected ? 9 : 3,
+                  spreadRadius: isSelected ? 1 : 0,
                 ),
               ],
             ),
+            child: Stack(
+              clipBehavior: Clip.none,
+              fit: StackFit.expand,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(5),
+                  child: ClipRRect(
+                    borderRadius: radius,
+                    child: OverflowBox(
+                      alignment: Alignment.topCenter,
+                      minHeight: height * 2.85,
+                      maxHeight: height * 2.85,
+                      child: FractionalTranslation(
+                        translation: const Offset(0, -0.02),
+                        child: adaptiveAssetImage(
+                          character.fullBodyAsset,
+                          fit: BoxFit.fitHeight,
+                          alignment: Alignment.topCenter,
+                          errorBuilder: (_, __, ___) => adaptiveAssetImage(
+                              character.asset,
+                              fit: BoxFit.contain),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                if (isSelected)
+                  Positioned(
+                    key: ValueKey('character-selected-${character.id}'),
+                    top: -badgeSize * 0.25,
+                    left: -badgeSize * 0.25,
+                    child: Container(
+                      width: badgeSize,
+                      height: badgeSize,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: const LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [Color(0xFF9EFF28), Color(0xFF08B51A)],
+                        ),
+                        border: Border.all(
+                            color: const Color(0xFF176900), width: 1.5),
+                        boxShadow: const [
+                          BoxShadow(
+                              color: Color(0x99000000),
+                              blurRadius: 3,
+                              offset: Offset(0, 2))
+                        ],
+                      ),
+                      child: Icon(Icons.check_rounded,
+                          color: const Color(0xFF155E08),
+                          size: badgeSize * 0.8),
+                    ),
+                  ),
+                if (!unlocked)
+                  Positioned(
+                    bottom: 3,
+                    left: 3,
+                    child: _RailLockChip(character: character),
+                  ),
+              ],
+            ),
           ),
-          if (trailing != null) trailing!,
+        ),
+      ),
+    );
+  }
+}
+
+class _RailLockChip extends StatelessWidget {
+  const _RailLockChip({required this.character});
+
+  final GameCharacter character;
+
+  @override
+  Widget build(BuildContext context) {
+    late final IconData icon;
+    late final String label;
+    late final Color color;
+    switch (character.unlock.kind) {
+      case CharacterUnlockKind.level:
+        icon = Icons.lock_rounded;
+        label = '${character.unlock.value}';
+        color = const Color(0xFF93C5FD);
+        break;
+      case CharacterUnlockKind.coins:
+        icon = Icons.monetization_on_rounded;
+        label = _compactNumber(character.unlock.value);
+        color = const Color(0xFFFACC15);
+        break;
+      case CharacterUnlockKind.gems:
+        icon = Icons.diamond_rounded;
+        label = _compactNumber(character.unlock.value);
+        color = const Color(0xFF38BDF8);
+        break;
+      case CharacterUnlockKind.free:
+        icon = Icons.check_rounded;
+        label = '';
+        color = const Color(0xFF34D399);
+        break;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.85),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.7)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 8.5),
+          if (label.isNotEmpty) ...[
+            const SizedBox(width: 2),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: 8,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -1211,7 +1425,210 @@ class _StatusContainer extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 3. Interactive Full Character Inspection Modal
+// Primary Action Bar & Controls
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ActionBar extends StatelessWidget {
+  const _ActionBar({
+    required this.forced,
+    required this.busy,
+    required this.character,
+    required this.unlocked,
+    required this.isSelected,
+    required this.onPressed,
+    required this.onInspect,
+    this.compact = false,
+  });
+
+  final bool forced;
+  final bool busy;
+  final GameCharacter character;
+  final bool unlocked;
+  final bool isSelected;
+  final VoidCallback onPressed;
+  final VoidCallback onInspect;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool levelLocked = !unlocked && character.unlock.isLevelGated;
+
+    String label;
+    IconData icon;
+    List<Color> gradient;
+
+    if (!unlocked && character.unlock.isPurchasable) {
+      final isCoins = character.unlock.kind == CharacterUnlockKind.coins;
+      label =
+          'فتح وتفعيل (${_compactNumber(character.unlock.value)} ${isCoins ? 'كوين' : 'جوهرة'})';
+      icon = Icons.lock_open_rounded;
+      gradient = const [Color(0xFFFACC15), Color(0xFFF59E0B)];
+    } else if (levelLocked) {
+      label = 'تُفتح عند المستوى ${character.unlock.value}';
+      icon = Icons.lock_rounded;
+      gradient = const [Color(0xFF374151), Color(0xFF1F2937)];
+    } else if (isSelected) {
+      label = forced ? 'ابدأ اللعب' : 'شخصيتك الحالية';
+      icon = forced ? Icons.play_arrow_rounded : Icons.check_circle_rounded;
+      gradient = const [
+        Color(0xFF22CDA3),
+        Color(0xFF087E69),
+        Color(0xFF075B54)
+      ];
+    } else {
+      label = forced ? 'اختيار وبدء اللعب' : 'اختيار الشخصية';
+      icon = Icons.check_rounded;
+      gradient = const [
+        Color(0xFF22CDA3),
+        Color(0xFF087E69),
+        Color(0xFF075B54)
+      ];
+    }
+
+    final enabled = !busy && !levelLocked;
+    final dark = gradient.first.computeLuminance() > 0.5;
+    final fg = dark ? const Color(0xFF111827) : Colors.white;
+
+    final btnHeight = compact ? 30.0 : 44.0;
+
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 2, vertical: compact ? 2 : 4),
+      child: Row(
+        children: [
+          // Tag badge
+          Flexible(
+            flex: 3,
+            child: Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: compact ? 8 : 10,
+                vertical: compact ? 4 : 6,
+              ),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1F0E38).withValues(alpha: 0.9),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: const Color(0xFFBA68C8).withValues(alpha: 0.6),
+                ),
+              ),
+              child: Text(
+                character.tagAr,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: const Color(0xFFE1BEE7),
+                  fontSize: compact ? 11 : 12,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(width: 6),
+
+          // Dedicated Inspect button
+          Tooltip(
+            message: 'استعراض كامل للتفاصيل',
+            child: Material(
+              color: const Color(0xFF1F0E38).withValues(alpha: 0.9),
+              borderRadius: BorderRadius.circular(12),
+              child: InkWell(
+                onTap: onInspect,
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  width: btnHeight,
+                  height: btnHeight,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: const Color(0xFFBA68C8).withValues(alpha: 0.7),
+                    ),
+                  ),
+                  child: Icon(
+                    Icons.zoom_in_rounded,
+                    color: const Color(0xFFE1BEE7),
+                    size: compact ? 20 : 24,
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(width: 6),
+
+          // Primary Select/Unlock button
+          Expanded(
+            flex: 5,
+            child: Opacity(
+              opacity: enabled ? 1.0 : 0.55,
+              child: GestureDetector(
+                onTap: enabled ? onPressed : null,
+                child: Container(
+                  height: btnHeight,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isSelected
+                          ? const Color(0xFF76FF03)
+                          : const Color(0xFFFFD54F),
+                      width: 1.8,
+                    ),
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: gradient,
+                    ),
+                    boxShadow: enabled
+                        ? [
+                            BoxShadow(
+                              color: gradient.first.withValues(alpha: 0.4),
+                              blurRadius: 10,
+                              offset: const Offset(0, 2),
+                            ),
+                          ]
+                        : null,
+                  ),
+                  child: Center(
+                    child: busy
+                        ? SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.2,
+                              color: fg,
+                            ),
+                          )
+                        : Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(icon, color: fg, size: compact ? 18 : 20),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  label,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: fg,
+                                    fontSize: compact ? 13 : 14,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Interactive Full Character Inspection Modal
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _CharacterInspectionModal extends StatefulWidget {
@@ -1249,7 +1666,7 @@ class _CharacterInspectionModalState extends State<_CharacterInspectionModal> {
       child: Container(
         height: MediaQuery.sizeOf(context).height * 0.88,
         decoration: BoxDecoration(
-          color: const Color(0xFF070E1F),
+          color: const Color(0xFF0F0B24),
           borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
           border: Border.all(
             color: accent.withValues(alpha: 0.5),
@@ -1265,7 +1682,6 @@ class _CharacterInspectionModalState extends State<_CharacterInspectionModal> {
         ),
         child: Column(
           children: [
-            // Modal grab handle
             Center(
               child: Container(
                 margin: const EdgeInsets.only(top: 12, bottom: 8),
@@ -1293,7 +1709,8 @@ class _CharacterInspectionModalState extends State<_CharacterInspectionModal> {
                     ),
                     padding: const EdgeInsets.all(4),
                     child: ClipOval(
-                      child: Image.asset(character.asset, fit: BoxFit.contain),
+                      child: adaptiveAssetImage(character.asset,
+                          fit: BoxFit.contain),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -1349,10 +1766,11 @@ class _CharacterInspectionModalState extends State<_CharacterInspectionModal> {
                       onTap: () => setState(() => _activeTab = 0),
                     ),
                   ),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: _TabButton(
                       label: 'المظهر في اللعبة',
-                      icon: Icons.visibility_rounded,
+                      icon: Icons.palette_rounded,
                       isActive: _activeTab == 1,
                       accent: accent,
                       onTap: () => setState(() => _activeTab = 1),
@@ -1364,64 +1782,10 @@ class _CharacterInspectionModalState extends State<_CharacterInspectionModal> {
 
             const SizedBox(height: 12),
 
-            // Tab Content
             Expanded(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: _activeTab == 0
-                    ? _buildBioTab(character, accent)
-                    : _buildAppearanceTab(character, accent),
-              ),
-            ),
-
-            // Bottom CTA inside Modal
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
-              child: SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: FilledButton(
-                  onPressed: widget.onChoose,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: widget.isSelected
-                        ? const Color(0xFF059669)
-                        : (widget.isUnlocked
-                            ? const Color(0xFFF59E0B)
-                            : const Color(0xFF2563EB)),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    elevation: 4,
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        widget.isSelected
-                            ? Icons.check_circle_rounded
-                            : (widget.isUnlocked
-                                ? Icons.play_arrow_rounded
-                                : Icons.lock_open_rounded),
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        widget.isSelected
-                            ? 'هذه شخصيتك الحالية'
-                            : (widget.isUnlocked
-                                ? 'تأكيد اختيار الشخصية'
-                                : 'فتح الشخصية وتفعيلها'),
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+              child: _activeTab == 0
+                  ? _buildSkillsAndBioTab(character)
+                  : _buildAppearanceTab(character),
             ),
           ],
         ),
@@ -1429,347 +1793,205 @@ class _CharacterInspectionModalState extends State<_CharacterInspectionModal> {
     );
   }
 
-  Widget _buildBioTab(GameCharacter character, Color accent) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Center Stage Preview
-        Center(
-          child: SizedBox(
-            height: 170,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Positioned(
-                  bottom: 0,
-                  child: Container(
-                    width: 140,
-                    height: 28,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(999),
-                      color: accent.withValues(alpha: 0.25),
-                      boxShadow: [
-                        BoxShadow(
-                          color: accent.withValues(alpha: 0.4),
-                          blurRadius: 18,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                _FullBodyImage(
-                  character: character,
-                  dimmed: !widget.isUnlocked,
-                ),
-              ],
-            ),
-          ),
-        ),
-
-        const SizedBox(height: 12),
-
-        // Character Quote Card
-        if (character.quoteAr.isNotEmpty)
+  Widget _buildSkillsAndBioTab(GameCharacter character) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Bio Card
           Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: accent.withValues(alpha: 0.35)),
+              color: Colors.white.withValues(alpha: 0.04),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
             ),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.format_quote_rounded, color: accent, size: 28),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    '"${character.quoteAr}"',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.95),
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w700,
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-        const SizedBox(height: 14),
-
-        // Biography Section
-        const Text(
-          'نبذة عن المتسابق',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 15,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          character.bioAr.isNotEmpty
-              ? character.bioAr
-              : 'متسابق متميز ومشارك في مسابقة أرض التحدي.',
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.78),
-            fontSize: 13,
-            height: 1.55,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-
-        const SizedBox(height: 18),
-
-        // Skill Breakdown Section
-        const Text(
-          'المهارات والقدرات',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 15,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-        const SizedBox(height: 4),
-        const Text('هذه سمات وصفية للاستعراض ولا تمنح أفضلية في المباراة.',
-            style: TextStyle(color: Colors.white70, fontSize: 11)),
-        const SizedBox(height: 10),
-
-        _SkillBar(
-          title: 'سرعة البديهة وردود الفعل',
-          value: character.speed,
-          color: const Color(0xFFFBBF24),
-          icon: Icons.bolt_rounded,
-        ),
-        const SizedBox(height: 10),
-        _SkillBar(
-          title: 'المعرفة العامة والعلوم',
-          value: character.knowledge,
-          color: const Color(0xFF60A5FA),
-          icon: Icons.auto_stories_rounded,
-        ),
-        const SizedBox(height: 10),
-        _SkillBar(
-          title: 'الهدوء والتركيز تحت الضغط',
-          value: character.focus,
-          color: const Color(0xFF34D399),
-          icon: Icons.crisis_alert_rounded,
-        ),
-        const SizedBox(height: 10),
-        _SkillBar(
-          title: 'الثقة وحضور المنصة',
-          value: character.confidence,
-          color: const Color(0xFFF472B6),
-          icon: Icons.military_tech_rounded,
-        ),
-        const SizedBox(height: 16),
-      ],
-    );
-  }
-
-  Widget _buildAppearanceTab(GameCharacter character, Color accent) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 8),
-        const Text(
-          'معاينة ظهور الشخصية أثناء اللعب',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 15,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'هكذا ستبدو شخصيتك في منصة التحدي وقوائم المتصدرين:',
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.7),
-            fontSize: 12.5,
-          ),
-        ),
-
-        const SizedBox(height: 16),
-
-        // In-game Match Podium Mockup
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: const Color(0xFF0F1B35),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: accent.withValues(alpha: 0.4)),
-          ),
-          child: Column(
-            children: [
-              const Text(
-                'منصة مسرح المسابقة',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 78,
-                    height: 78,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: accent.withValues(alpha: 0.2),
-                      border: Border.all(color: accent, width: 2.5),
-                      boxShadow: [
-                        BoxShadow(
-                          color: accent.withValues(alpha: 0.4),
-                          blurRadius: 16,
-                        ),
-                      ],
-                    ),
-                    padding: const EdgeInsets.all(6),
-                    child: ClipOval(
-                      child: Image.asset(character.asset, fit: BoxFit.contain),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'شخصيتك في اللعبة',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: accent.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          character.tagAr,
-                          style: TextStyle(
-                            color: accent,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      const Row(
-                        children: [
-                          Icon(Icons.star_rounded,
-                              color: Colors.amber, size: 16),
-                          SizedBox(width: 4),
-                          Text(
-                            'النتيجة: 1,000,000 نقطة',
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-
-        const SizedBox(height: 14),
-
-        // Leaderboard Row Mockup
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: const Color(0xFF0C172E),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 28,
-                height: 28,
-                alignment: Alignment.center,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.amber,
-                ),
-                child: const Text(
-                  '1',
-                  style: TextStyle(
-                    color: Colors.black,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              CircleAvatar(
-                radius: 18,
-                backgroundColor: accent.withValues(alpha: 0.25),
-                backgroundImage: AssetImage(character.asset),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                const Row(
                   children: [
-                    const Text(
-                      'أنت',
+                    Icon(Icons.format_quote_rounded,
+                        color: Color(0xFFFBBF24), size: 20),
+                    SizedBox(width: 6),
+                    Text(
+                      'نبذة عن المتسابق',
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 13.5,
+                        fontSize: 14,
                         fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    Text(
-                      'متصدر قائمة الأبطال',
-                      style: TextStyle(
-                        color: accent,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ],
                 ),
-              ),
-              const Row(
-                children: [
-                  Icon(Icons.emoji_events_rounded,
-                      color: Colors.amber, size: 18),
-                  SizedBox(width: 4),
-                  Text(
-                    'المركز الأول',
-                    style: TextStyle(
-                      color: Colors.amber,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                    ),
+                const SizedBox(height: 8),
+                Text(
+                  character.bioAr.isNotEmpty
+                      ? character.bioAr
+                      : 'متسابق جاهز لخوض منافسات أرض التحدي وتحقيق أعلى المراتب.',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.8),
+                    fontSize: 13,
+                    height: 1.5,
                   ),
-                ],
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Skill Bars
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.04),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'المهارات والقدرات',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _SkillBar(
+                  title: 'سرعة البديهة وردود الفعل',
+                  value: character.speed,
+                  color: const Color(0xFFFBBF24),
+                  icon: Icons.bolt_rounded,
+                ),
+                const SizedBox(height: 10),
+                _SkillBar(
+                  title: 'المعرفة والثقافة العامة',
+                  value: character.knowledge,
+                  color: const Color(0xFF60A5FA),
+                  icon: Icons.auto_stories_rounded,
+                ),
+                const SizedBox(height: 10),
+                _SkillBar(
+                  title: 'التركيز تحت الضغط',
+                  value: character.focus,
+                  color: const Color(0xFF34D399),
+                  icon: Icons.crisis_alert_rounded,
+                ),
+                const SizedBox(height: 10),
+                _SkillBar(
+                  title: 'الثقة بالنفس والتحدي',
+                  value: character.confidence,
+                  color: const Color(0xFFF472B6),
+                  icon: Icons.military_tech_rounded,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAppearanceTab(GameCharacter character) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.04),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+            ),
+            child: const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'المظهر في اللعبة',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                SizedBox(height: 14),
+                _AppearanceRow(
+                  icon: Icons.stadium_rounded,
+                  title: 'منصة مسرح المسابقة',
+                  subtitle: 'يظهر في منصة التحدي المباشر أمام المنافسين.',
+                ),
+                SizedBox(height: 12),
+                _AppearanceRow(
+                  icon: Icons.emoji_events_rounded,
+                  title: 'متصدر قائمة الأبطال',
+                  subtitle: 'تتألق صورة الشخصية في لوحة الشرف وصدارة الترتيب.',
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AppearanceRow extends StatelessWidget {
+  const _AppearanceRow({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFD54F).withValues(alpha: 0.15),
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: const Color(0xFFFFD54F).withValues(alpha: 0.6),
+            ),
+          ),
+          child: Icon(icon, color: const Color(0xFFFFD54F), size: 18),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.7),
+                  fontSize: 11,
+                ),
               ),
             ],
           ),
         ),
-
-        const SizedBox(height: 20),
       ],
     );
   }
@@ -1794,9 +2016,8 @@ class _TabButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
+        duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(vertical: 9),
         decoration: BoxDecoration(
           color: isActive ? accent.withValues(alpha: 0.28) : Colors.transparent,
@@ -1820,7 +2041,7 @@ class _TabButton extends StatelessWidget {
               style: TextStyle(
                 color: isActive ? Colors.white : Colors.white60,
                 fontSize: 13,
-                fontWeight: isActive ? FontWeight.w900 : FontWeight.w700,
+                fontWeight: FontWeight.w900,
               ),
             ),
           ],
@@ -1882,468 +2103,6 @@ class _SkillBar extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 4. Character Roster Carousel Rail
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _CharacterRail extends StatefulWidget {
-  const _CharacterRail({
-    required this.appState,
-    required this.focused,
-    required this.onTap,
-    this.compact = false,
-  });
-
-  final AppState appState;
-  final int focused;
-  final ValueChanged<int> onTap;
-  final bool compact;
-
-  @override
-  State<_CharacterRail> createState() => _CharacterRailState();
-}
-
-class _CharacterRailState extends State<_CharacterRail> {
-  static const double _itemExtent = 84;
-  final ScrollController _controller = ScrollController();
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _centerFocused(false));
-  }
-
-  @override
-  void didUpdateWidget(covariant _CharacterRail oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.focused != widget.focused) _centerFocused(true);
-  }
-
-  void _centerFocused(bool animate) {
-    if (!_controller.hasClients) return;
-    final position = _railPosition(widget.focused);
-    final viewport = _controller.position.viewportDimension;
-    final target =
-        (position * _itemExtent) - (viewport / 2) + (_itemExtent / 2);
-    final clamped =
-        target.clamp(0.0, _controller.position.maxScrollExtent).toDouble();
-    if (animate) {
-      _controller.animateTo(
-        clamped,
-        duration: const Duration(milliseconds: 280),
-        curve: Curves.easeOutCubic,
-      );
-    } else {
-      _controller.jumpTo(clamped);
-    }
-  }
-
-  int _railPosition(int characterIndex) {
-    for (var i = 0; i < CharacterCatalog.all.length; i += 1) {
-      if (CharacterCatalog.all[i].index == characterIndex) return i;
-    }
-    return 0;
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: widget.compact ? 80 : null,
-      height: widget.compact ? null : 88,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          return SingleChildScrollView(
-            controller: _controller,
-            scrollDirection: widget.compact ? Axis.vertical : Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            child: ConstrainedBox(
-              constraints: widget.compact
-                  ? BoxConstraints(minHeight: constraints.maxHeight)
-                  : BoxConstraints(minWidth: constraints.maxWidth),
-              child: Flex(
-                direction: widget.compact ? Axis.vertical : Axis.horizontal,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  for (final character in CharacterCatalog.all)
-                    SizedBox(
-                      width: widget.compact ? 80 : _itemExtent,
-                      height: widget.compact ? _itemExtent : null,
-                      child: _RailItem(
-                        key: ValueKey('character-rail-${character.id}'),
-                        character: character,
-                        unlocked:
-                            widget.appState.isCharacterUnlocked(character),
-                        isSelected: widget.appState.selectedCharacterIndex ==
-                            character.index,
-                        isFocused: widget.focused == character.index,
-                        compact: widget.compact,
-                        onTap: () => widget.onTap(character.index),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _RailItem extends StatelessWidget {
-  const _RailItem({
-    super.key,
-    required this.character,
-    required this.unlocked,
-    required this.isSelected,
-    required this.isFocused,
-    required this.onTap,
-    this.compact = false,
-  });
-
-  final GameCharacter character;
-  final bool unlocked;
-  final bool isSelected;
-  final bool isFocused;
-  final VoidCallback onTap;
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    final ringColor = isFocused
-        ? const Color(0xFFBE93FF)
-        : isSelected
-            ? const Color(0xFF34D399)
-            : Colors.white.withValues(alpha: 0.16);
-
-    return Semantics(
-      button: true,
-      selected: isFocused,
-      label: 'الشخصية ${character.index + 1}، ${character.tagAr}',
-      child: GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 220),
-              curve: Curves.easeOut,
-              width: compact ? 44 : (isFocused ? 62 : 52),
-              height: compact ? 44 : (isFocused ? 62 : 52),
-              padding: const EdgeInsets.all(3.5),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: const Color(0xFF09142A),
-                border: Border.all(
-                  color: ringColor,
-                  width: isFocused ? 2.5 : 1.4,
-                ),
-                boxShadow: isFocused
-                    ? [
-                        BoxShadow(
-                          color: const Color(0xFFBE93FF).withValues(alpha: 0.6),
-                          blurRadius: 16,
-                          spreadRadius: 1,
-                        ),
-                      ]
-                    : null,
-              ),
-              child: Stack(
-                alignment: Alignment.center,
-                clipBehavior: Clip.none,
-                children: [
-                  ClipOval(
-                    child: Image.asset(
-                      character.asset,
-                      fit: BoxFit.contain,
-                      errorBuilder: (_, __, ___) => const Icon(
-                        Icons.person_rounded,
-                        color: Colors.white38,
-                      ),
-                    ),
-                  ),
-                  if (!unlocked)
-                    Positioned(
-                      bottom: -3,
-                      child: _RailLockChip(character: character),
-                    ),
-                  if (isSelected)
-                    const Positioned(
-                      top: -4,
-                      right: -4,
-                      child: _SelectedTick(),
-                    ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SelectedTick extends StatelessWidget {
-  const _SelectedTick();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF05172C),
-        shape: BoxShape.circle,
-        border: Border.all(color: const Color(0xFF34D399), width: 1.6),
-        boxShadow: const [
-          BoxShadow(color: Color(0xFF34D399), blurRadius: 6),
-        ],
-      ),
-      padding: const EdgeInsets.all(2),
-      child: const Icon(
-        Icons.check_rounded,
-        color: Color(0xFF34D399),
-        size: 11,
-      ),
-    );
-  }
-}
-
-class _RailLockChip extends StatelessWidget {
-  const _RailLockChip({required this.character});
-
-  final GameCharacter character;
-
-  @override
-  Widget build(BuildContext context) {
-    late final IconData icon;
-    late final String label;
-    late final Color color;
-    switch (character.unlock.kind) {
-      case CharacterUnlockKind.level:
-        icon = Icons.lock_rounded;
-        label = '${character.unlock.value}';
-        color = const Color(0xFF93C5FD);
-        break;
-      case CharacterUnlockKind.coins:
-        icon = Icons.monetization_on_rounded;
-        label = _compactNumber(character.unlock.value);
-        color = const Color(0xFFFACC15);
-        break;
-      case CharacterUnlockKind.gems:
-        icon = Icons.diamond_rounded;
-        label = _compactNumber(character.unlock.value);
-        color = const Color(0xFF38BDF8);
-        break;
-      case CharacterUnlockKind.free:
-        icon = Icons.check_rounded;
-        label = '';
-        color = const Color(0xFF34D399);
-        break;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.8),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.7)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: color, size: 9),
-          if (label.isNotEmpty) ...[
-            const SizedBox(width: 2),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontSize: 8.5,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 5. Primary Action Bar
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _ActionBar extends StatelessWidget {
-  const _ActionBar({
-    required this.forced,
-    required this.busy,
-    required this.character,
-    required this.unlocked,
-    required this.isSelected,
-    required this.onPressed,
-    required this.onInspect,
-  });
-
-  final bool forced;
-  final bool busy;
-  final GameCharacter character;
-  final bool unlocked;
-  final bool isSelected;
-  final VoidCallback onPressed;
-  final VoidCallback onInspect;
-
-  @override
-  Widget build(BuildContext context) {
-    final bool levelLocked = !unlocked && character.unlock.isLevelGated;
-
-    String label;
-    IconData icon;
-    List<Color> gradient;
-
-    if (!unlocked && character.unlock.isPurchasable) {
-      final isCoins = character.unlock.kind == CharacterUnlockKind.coins;
-      label =
-          'فتح وتفعيل (${_compactNumber(character.unlock.value)} ${isCoins ? 'كوين' : 'جوهرة'})';
-      icon = Icons.lock_open_rounded;
-      gradient = const [Color(0xFFFACC15), Color(0xFFF59E0B)];
-    } else if (levelLocked) {
-      label = 'تُفتح عند المستوى ${character.unlock.value}';
-      icon = Icons.lock_rounded;
-      gradient = const [Color(0xFF374151), Color(0xFF1F2937)];
-    } else if (isSelected) {
-      label = forced ? 'ابدأ اللعب' : 'شخصيتك الحالية (تم الاختيار)';
-      icon = forced ? Icons.play_arrow_rounded : Icons.check_circle_rounded;
-      gradient = const [
-        Color(0xFF22CDA3),
-        Color(0xFF087E69),
-        Color(0xFF075B54)
-      ];
-    } else {
-      label = forced ? 'اختيار وبدء اللعب' : 'اختيار الشخصية';
-      icon = Icons.check_rounded;
-      gradient = const [
-        Color(0xFF22CDA3),
-        Color(0xFF087E69),
-        Color(0xFF075B54)
-      ];
-    }
-
-    final enabled = !busy && !levelLocked;
-    final dark = gradient.first.computeLuminance() > 0.5;
-    final fg = dark ? const Color(0xFF111827) : Colors.white;
-
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF101328).withValues(alpha: 0.85),
-        border: Border(
-          top: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
-        ),
-      ),
-      child: Row(
-        children: [
-          // Dedicated Inspect button
-          Tooltip(
-            message: 'استعراض كامل للتفاصيل',
-            child: Material(
-              color: Colors.white.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(16),
-              child: InkWell(
-                onTap: onInspect,
-                borderRadius: BorderRadius.circular(16),
-                child: Container(
-                  width: 54,
-                  height: 54,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: const Color(0xFF9A76DA).withValues(alpha: 0.7),
-                    ),
-                  ),
-                  child: const Icon(
-                    Icons.zoom_in_rounded,
-                    color: Color(0xFFB48BF5),
-                    size: 26,
-                  ),
-                ),
-              ),
-            ),
-          ),
-
-          const SizedBox(width: 12),
-
-          // Primary Select/Unlock button
-          Expanded(
-            child: Opacity(
-              opacity: enabled ? 1.0 : 0.55,
-              child: GestureDetector(
-                onTap: enabled ? onPressed : null,
-                child: Container(
-                  height: 54,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    border:
-                        Border.all(color: const Color(0xFFE5BE79), width: 2.5),
-                    gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: gradient),
-                    boxShadow: enabled
-                        ? [
-                            BoxShadow(
-                              color: gradient.first.withValues(alpha: 0.4),
-                              blurRadius: 16,
-                              offset: const Offset(0, 6),
-                            ),
-                          ]
-                        : null,
-                  ),
-                  child: Center(
-                    child: busy
-                        ? SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.5,
-                              color: fg,
-                            ),
-                          )
-                        : Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(icon, color: fg, size: 22),
-                              const SizedBox(width: 8),
-                              Flexible(
-                                child: Text(
-                                  label,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: fg,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

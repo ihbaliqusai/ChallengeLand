@@ -131,7 +131,8 @@ class _CurrencyRewardOverlayState extends State<_CurrencyRewardOverlay>
                 child: Center(
                   child: Container(
                     constraints: const BoxConstraints(maxWidth: 320),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
                         colors: [Color(0xFF10204C), Color(0xFF091332)],

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../services/invite_service.dart';
+import '../core/shared_assets.dart';
 
 /// A premium, AAA game-styled incoming challenge / room invitation dialog.
 class IncomingInviteDialog extends StatefulWidget {
@@ -154,7 +155,8 @@ class _IncomingInviteDialogState extends State<IncomingInviteDialog>
                           isFriend
                               ? Icons.sports_esports_rounded
                               : Icons.emoji_events_rounded,
-                          color: isFriend ? const Color(0xFF070E24) : Colors.white,
+                          color:
+                              isFriend ? const Color(0xFF070E24) : Colors.white,
                           size: 30,
                         ),
                       ),
@@ -273,7 +275,8 @@ class _IncomingInviteDialogState extends State<IncomingInviteDialog>
                             ),
                             decoration: BoxDecoration(
                               color: _copied
-                                  ? const Color(0xFF10B981).withValues(alpha: 0.2)
+                                  ? const Color(0xFF10B981)
+                                      .withValues(alpha: 0.2)
                                   : primaryColor.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
@@ -436,8 +439,8 @@ class _IncomingInviteDialogState extends State<IncomingInviteDialog>
                       image: NetworkImage(candidate.senderPhoto!),
                       fit: BoxFit.cover,
                     )
-                  : const DecorationImage(
-                      image: AssetImage('assets/ui/user.png'),
+                  : DecorationImage(
+                      image: AssetImage('assets/ui/user.png', bundle: SharedAssets.bundle),
                       fit: BoxFit.cover,
                     ),
             ),

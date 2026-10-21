@@ -12,6 +12,7 @@ import '../../core/player_rank.dart';
 import '../../core/trophy_league.dart';
 import '../../services/progression_service.dart';
 import '../../widgets/friend_challenge_modal.dart';
+import '../../widgets/adaptive_asset_image.dart';
 
 /// Representation of a player in the leaderboard.
 class _LeaderboardPlayer {
@@ -458,7 +459,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
           children: <Widget>[
             // ── Background art & ambient lighting ─────────────────────────
             Positioned.fill(
-              child: Image.asset('assets/ui/bg_main.webp', fit: BoxFit.cover),
+              child: adaptiveAssetImage('assets/ui/bg_main.webp',
+                  fit: BoxFit.cover),
             ),
             Positioned.fill(
               child: DecoratedBox(

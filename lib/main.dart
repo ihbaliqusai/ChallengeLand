@@ -11,6 +11,7 @@ import 'package:provider/provider.dart';
 
 import 'core/app_state.dart';
 import 'core/app_settings.dart';
+import 'core/shared_assets.dart';
 import 'core/campaign_navigation.dart';
 import 'screens/auth/auth_gate.dart';
 import 'screens/splash/splash_screen.dart';
@@ -29,21 +30,24 @@ import 'widgets/startup_gate.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final adService = AdService();
-  runApp(StartupGate(
-    initialize: _initializeApp,
-    loading: const MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: Scaffold(
-        backgroundColor: Colors.black,
-        body: SplashPoster(),
-      ),
-    ),
-    ready: ChallengeLandApp(adService: adService),
-  ));
+  runApp(DefaultAssetBundle(
+      bundle: SharedAssets.bundle,
+      child: StartupGate(
+        initialize: _initializeApp,
+        loading: const MaterialApp(
+          debugShowCheckedModeBanner: false,
+          home: Scaffold(
+            backgroundColor: Colors.black,
+            body: SplashPoster(),
+          ),
+        ),
+        ready: ChallengeLandApp(adService: adService),
+      )));
   // Ads and consent must not delay the first frame or app startup.
 }
 
 Future<void> _initializeApp() async {
+  await SharedAssets.initializeFont();
   await SystemChrome.setPreferredOrientations(const <DeviceOrientation>[
     DeviceOrientation.landscapeLeft,
     DeviceOrientation.landscapeRight,

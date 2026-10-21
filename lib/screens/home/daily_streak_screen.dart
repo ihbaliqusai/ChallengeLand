@@ -9,6 +9,7 @@ import '../../services/daily_reward_service.dart';
 import '../../widgets/daily_reward_dialog.dart';
 import '../../models/store_catalog.dart';
 import 'store_screen.dart';
+import '../../widgets/adaptive_asset_image.dart';
 
 const _kDayRewards = AppState.streakRewards;
 
@@ -82,7 +83,8 @@ class _DailyStreakScreenState extends State<DailyStreakScreen>
         body: Stack(
           children: [
             Positioned.fill(
-              child: Image.asset('assets/ui/bg_main.webp', fit: BoxFit.cover),
+              child: adaptiveAssetImage('assets/ui/bg_main.webp',
+                  fit: BoxFit.cover),
             ),
             Positioned.fill(
               child: DecoratedBox(

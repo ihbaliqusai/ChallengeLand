@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../core/app_settings.dart';
 import '../services/rate_game_service.dart';
+import 'adaptive_asset_image.dart';
 
 /// نافذة تقييم اللعبة بتصميم عالمي فاخر وموجه بذكاء (5-Star Smart Routing)
 class RateGameDialog extends StatefulWidget {
@@ -93,7 +94,8 @@ class _RateGameDialogState extends State<RateGameDialog>
           SnackBar(
             content: Row(
               children: [
-                const Icon(Icons.stars_rounded, color: Color(0xFFFACC15), size: 24),
+                const Icon(Icons.stars_rounded,
+                    color: Color(0xFFFACC15), size: 24),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -140,8 +142,8 @@ class _RateGameDialogState extends State<RateGameDialog>
         SnackBar(
           content: Text(
             success
-              ? 'شكراً لملاحظاتك القيمة! سنعمل بجد لتطوير اللعبة وتوفير تجربة تليق بك.'
-              : 'شكراً لمشاركتك رأيك معنا!',
+                ? 'شكراً لملاحظاتك القيمة! سنعمل بجد لتطوير اللعبة وتوفير تجربة تليق بك.'
+                : 'شكراً لمشاركتك رأيك معنا!',
             style: const TextStyle(
               fontFamily: 'Baloo',
               fontWeight: FontWeight.w800,
@@ -167,8 +169,10 @@ class _RateGameDialogState extends State<RateGameDialog>
     final isLandscape = media.orientation == Orientation.landscape;
 
     // قياسات متجاوبة تضمن ملاءمة الشاشة الأفقية تماماً بدون أي overflow
-    final dialogWidth = math.min(media.size.width * (isLandscape ? 0.74 : 0.92), 650.0);
-    final dialogMaxHeight = math.min(media.size.height * 0.90, isLandscape ? 385.0 : 540.0);
+    final dialogWidth =
+        math.min(media.size.width * (isLandscape ? 0.74 : 0.92), 650.0);
+    final dialogMaxHeight =
+        math.min(media.size.height * 0.90, isLandscape ? 385.0 : 540.0);
 
     return Directionality(
       textDirection: TextDirection.rtl,
@@ -233,7 +237,9 @@ class _RateGameDialogState extends State<RateGameDialog>
                     isLandscape ? 20 : 16,
                     isLandscape ? 12 : 14,
                   ),
-                  child: isLandscape ? _buildLandscapeLayout() : _buildPortraitLayout(),
+                  child: isLandscape
+                      ? _buildLandscapeLayout()
+                      : _buildPortraitLayout(),
                 ),
 
                 // زر الإغلاق الأنيق في الزاوية
@@ -419,7 +425,7 @@ class _RateGameDialogState extends State<RateGameDialog>
               ),
             ],
           ),
-          child: Image.asset(
+          child: adaptiveAssetImage(
             'assets/ui/rate.png',
             fit: BoxFit.contain,
             errorBuilder: (_, __, ___) => const Icon(
@@ -487,7 +493,8 @@ class _RateGameDialogState extends State<RateGameDialog>
         child: const Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.check_circle_rounded, color: Color(0xFF2DD4BF), size: 15),
+            Icon(Icons.check_circle_rounded,
+                color: Color(0xFF2DD4BF), size: 15),
             SizedBox(width: 5),
             Text(
               'شكراً لدعمك وتقييمك لأرض التحدي! 🌟',
@@ -533,7 +540,8 @@ class _RateGameDialogState extends State<RateGameDialog>
             ),
           ),
           SizedBox(width: 6),
-          Icon(Icons.monetization_on_rounded, color: Color(0xFFFACC15), size: 15),
+          Icon(Icons.monetization_on_rounded,
+              color: Color(0xFFFACC15), size: 15),
           SizedBox(width: 3),
           Text(
             '+500',
@@ -586,11 +594,14 @@ class _RateGameDialogState extends State<RateGameDialog>
               child: Icon(
                 isFilled ? Icons.star_rounded : Icons.star_border_rounded,
                 size: starSize,
-                color: isFilled ? const Color(0xFFFFC107) : const Color(0xFF64748B),
+                color: isFilled
+                    ? const Color(0xFFFFC107)
+                    : const Color(0xFF64748B),
                 shadows: isFilled
                     ? [
                         BoxShadow(
-                          color: const Color(0xFFFFB300).withValues(alpha: 0.55),
+                          color:
+                              const Color(0xFFFFB300).withValues(alpha: 0.55),
                           blurRadius: 16,
                           spreadRadius: 2,
                         ),
@@ -726,7 +737,9 @@ class _RateGameDialogState extends State<RateGameDialog>
                   const SizedBox(width: 6),
                 ],
                 Text(
-                  _submitting ? 'جارٍ الفتح...' : 'تقييم في المتجر واستلام الهدية 🌟',
+                  _submitting
+                      ? 'جارٍ الفتح...'
+                      : 'تقييم في المتجر واستلام الهدية 🌟',
                   style: const TextStyle(
                     color: Color(0xFF451A03),
                     fontSize: 13.5,
@@ -817,7 +830,8 @@ class _RateGameDialogState extends State<RateGameDialog>
                 child: Text(
                   tag,
                   style: TextStyle(
-                    color: isSelected ? const Color(0xFF7DD3FC) : Colors.white70,
+                    color:
+                        isSelected ? const Color(0xFF7DD3FC) : Colors.white70,
                     fontSize: 10,
                     fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600,
                   ),
@@ -898,7 +912,8 @@ class _RateGameDialogState extends State<RateGameDialog>
                         ),
                         const SizedBox(width: 6),
                       ] else ...[
-                        const Icon(Icons.send_rounded, color: Colors.white, size: 15),
+                        const Icon(Icons.send_rounded,
+                            color: Colors.white, size: 15),
                         const SizedBox(width: 5),
                       ],
                       const Text(
@@ -919,7 +934,8 @@ class _RateGameDialogState extends State<RateGameDialog>
               onPressed: () => Navigator.of(context).pop(),
               style: TextButton.styleFrom(
                 foregroundColor: Colors.white60,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
               child: const Text(
                 'إلغاء',
@@ -955,7 +971,8 @@ class _RateShinePainter extends CustomPainter {
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), paint);
 
     // نقاط لمعان متلألئة في الخلفية
-    final dotPaint = Paint()..color = const Color(0xFFFDE68A).withValues(alpha: 0.25);
+    final dotPaint = Paint()
+      ..color = const Color(0xFFFDE68A).withValues(alpha: 0.25);
     const count = 10;
     for (int i = 0; i < count; i++) {
       final seed = (i * 97 + progress * 40) % 100;

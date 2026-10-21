@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'adaptive_asset_image.dart';
 
 /// The supplied menu frame and five buttons, with live account data and controls.
 class HomeMenuArtwork extends StatelessWidget {
@@ -280,7 +281,7 @@ class _MenuSlice extends StatelessWidget {
                     top: -source.top / source.height * area.maxHeight,
                     width: area.maxWidth / source.width,
                     height: area.maxHeight / source.height,
-                    child: Image.asset(HomeMenuArtwork.asset,
+                    child: adaptiveAssetImage(HomeMenuArtwork.asset,
                         fit: BoxFit.fill, excludeFromSemantics: true)),
               ])));
 }

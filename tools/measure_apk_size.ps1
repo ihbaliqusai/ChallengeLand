@@ -4,8 +4,10 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.IO.Compression.FileSystem
+Add-Type -AssemblyName System.IO.Compression
 $file = Get-Item -LiteralPath $Apk
-$zip = [IO.Compression.ZipFile]::OpenRead($file.FullName)
+$zip = [IO.Compression.ZipFile]::Open($file.FullName,
+    [IO.Compression.ZipArchiveMode]::Read, [Text.Encoding]::UTF8)
 try {
     $entries = @($zip.Entries | ForEach-Object {
         [pscustomobject]@{path=$_.FullName; rawBytes=$_.Length; compressedBytes=$_.CompressedLength}

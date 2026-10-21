@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'adaptive_asset_image.dart';
 
 const weeklyRewardAsset = 'assets/ui/weekly_reward.webp';
 const weeklyRewardGold = Color(0xFFF8CE77);
@@ -18,7 +19,7 @@ class WeeklyArtworkSlice extends StatelessWidget {
                     top: -source.top / source.height * area.maxHeight,
                     width: area.maxWidth / source.width,
                     height: area.maxHeight / source.height,
-                    child: Image.asset(weeklyRewardAsset,
+                    child: adaptiveAssetImage(weeklyRewardAsset,
                         fit: BoxFit.fill, excludeFromSemantics: true)),
               ])));
 }

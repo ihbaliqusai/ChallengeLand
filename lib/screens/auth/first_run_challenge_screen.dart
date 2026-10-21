@@ -11,6 +11,7 @@ import '../../services/campaign_defaults.dart';
 import '../../services/campaign_mode_engine.dart';
 import '../../services/campaign_result_handler.dart';
 import '../../services/native_bridge_service.dart';
+import '../../widgets/adaptive_asset_image.dart';
 
 class FirstRunChallengeScreen extends StatefulWidget {
   const FirstRunChallengeScreen({super.key});
@@ -259,10 +260,10 @@ class _FirstRunChallengeScreenState extends State<FirstRunChallengeScreen>
           children: [
             // ── Thematic World Background ────────────────────────────────
             Positioned.fill(
-              child: Image.asset(
+              child: adaptiveAssetImage(
                 'assets/images/campaign/worlds/world_01_forest.webp',
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Image.asset(
+                errorBuilder: (_, __, ___) => adaptiveAssetImage(
                   'assets/ui/bg_login.webp',
                   fit: BoxFit.cover,
                 ),
@@ -566,7 +567,7 @@ class _FirstRunChallengeScreenState extends State<FirstRunChallengeScreen>
               offset: Offset(0, -3 + _floatCtrl.value * 6),
               child: child,
             ),
-            child: Image.asset(
+            child: adaptiveAssetImage(
               'assets/ui/box1.png',
               width: 54,
               height: 54,
@@ -709,7 +710,7 @@ class _FirstRunChallengeScreenState extends State<FirstRunChallengeScreen>
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         ClipOval(
-                          child: Image.asset(
+                          child: adaptiveAssetImage(
                             hero.asset,
                             width: 44,
                             height: 44,
@@ -729,9 +730,8 @@ class _FirstRunChallengeScreenState extends State<FirstRunChallengeScreen>
                           style: TextStyle(
                             color: isSelected ? Colors.white : Colors.white70,
                             fontSize: 12,
-                            fontWeight: isSelected
-                                ? FontWeight.w900
-                                : FontWeight.w700,
+                            fontWeight:
+                                isSelected ? FontWeight.w900 : FontWeight.w700,
                           ),
                         ),
                       ],

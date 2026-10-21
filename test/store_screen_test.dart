@@ -1,3 +1,5 @@
+import 'support/asset_images.dart';
+import 'package:challenge_land/core/shared_assets.dart';
 import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -257,13 +259,13 @@ void main() {
     // Widget tests normally use Ahem. Load the actual app font for meaningful
     // text measurements and the exported preview.
     final font = FontLoader('Baloo')
-      ..addFont(rootBundle.load('assets/fonts/baloo.ttf'));
+      ..addFont(SharedAssets.bundle.load('assets/fonts/baloo.ttf'));
     await font.load();
     final icons = FontLoader('MaterialIcons')
-      ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
+      ..addFont(SharedAssets.bundle.load('fonts/MaterialIcons-Regular.otf'));
     await icons.load();
     final arabicFont = FontLoader('NotoSansArabic')
-      ..addFont(rootBundle.load('assets/fonts/NotoSansArabic.ttf'));
+      ..addFont(SharedAssets.bundle.load('assets/fonts/NotoSansArabic.ttf'));
     await arabicFont.load();
   });
 
@@ -412,7 +414,9 @@ void main() {
             .widget<Image>(
                 find.byKey(const ValueKey('store-offer-pack_starter')))
             .image,
-        isA<AssetImage>().having((image) => image.assetName, 'asset',
+        isA<ResizeImage>().having(
+            (image) => (image.imageProvider as AssetImage).assetName,
+            'asset',
             'assets/store/offer_starter.webp'));
     await tester.tap(find.byTooltip('Next offer').first);
     await assertClean(tester, 'Next bundle');
@@ -421,7 +425,9 @@ void main() {
         tester
             .widget<Image>(find.byKey(const ValueKey('store-offer-pack_value')))
             .image,
-        isA<AssetImage>().having((image) => image.assetName, 'asset',
+        isA<ResizeImage>().having(
+            (image) => (image.imageProvider as AssetImage).assetName,
+            'asset',
             'assets/store/offer_explorer.webp'));
     expect(find.textContaining('35,000'), findsOneWidget);
     expect(find.text(' 600'), findsOneWidget);
@@ -432,7 +438,9 @@ void main() {
             .widget<Image>(
                 find.byKey(const ValueKey('store-offer-pack_champion')))
             .image,
-        isA<AssetImage>().having((image) => image.assetName, 'asset',
+        isA<ResizeImage>().having(
+            (image) => (image.imageProvider as AssetImage).assetName,
+            'asset',
             'assets/store/offer_champion.webp'));
     expect(find.text('Champion bundle'), findsOneWidget);
     expect(calls.where((call) => call.method == 'launchBilling'), isEmpty);
@@ -500,8 +508,10 @@ void main() {
         final artwork = find.byKey(ValueKey('store-product-$id'));
         expect(
             tester.widget<Image>(artwork).image,
-            isA<AssetImage>().having(
-                (image) => image.assetName, 'asset', 'assets/store/$id.webp'));
+            isA<ResizeImage>().having(
+                (image) => (image.imageProvider as AssetImage).assetName,
+                'asset',
+                'assets/store/$id.webp'));
         final card =
             tester.getRect(find.byKey(ValueKey('store-currency-card-$id')));
         final price = tester.getRect(find.byKey(ValueKey('store-price-$id')));
@@ -570,7 +580,9 @@ void main() {
           tester
               .widget<Image>(find.byKey(ValueKey('store-reward-art-$id')))
               .image,
-          isA<AssetImage>().having((image) => image.assetName, 'asset',
+          isA<ResizeImage>().having(
+              (image) => (image.imageProvider as AssetImage).assetName,
+              'asset',
               'assets/store/reward_$id.webp'));
     }
     final daily =
@@ -638,7 +650,9 @@ void main() {
       final image = find.byKey(ValueKey('store-return-art-$id'));
       expect(
           tester.widget<Image>(image).image,
-          isA<AssetImage>().having((image) => image.assetName, 'asset',
+          isA<ResizeImage>().having(
+              (image) => (image.imageProvider as AssetImage).assetName,
+              'asset',
               'assets/store/return_$id.webp'));
       final bounds = tester.getRect(find.byKey(ValueKey('store-return-$id')));
       first ??= bounds;
@@ -914,7 +928,9 @@ void main() {
         tester
             .widget<Image>(find.byKey(const ValueKey('store-membership-art')))
             .image,
-        isA<AssetImage>().having((image) => image.assetName, 'asset',
+        isA<ResizeImage>().having(
+            (image) => (image.imageProvider as AssetImage).assetName,
+            'asset',
             'assets/store/membership.webp'));
     expect(find.byType(GameStoreMembershipPrice), findsOneWidget);
     final price = find.text('₺149,99 / month');
@@ -1421,11 +1437,12 @@ void main() {
     await mount(tester, const Size(800, 600));
     await select(tester, 'Resources');
     final images = tester.widgetList<Image>(find.byType(Image)).where((img) {
-      final asset = img.image;
+      final asset = underlyingAsset(img.image);
       return asset is AssetImage && asset.assetName.contains('exchange_');
     }).toList();
-    final names =
-        images.map((img) => (img.image as AssetImage).assetName).toSet();
+    final names = images
+        .map((img) => (underlyingAsset(img.image) as AssetImage).assetName)
+        .toSet();
     expect(
         names,
         containsAll([

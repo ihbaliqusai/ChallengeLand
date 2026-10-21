@@ -6,6 +6,7 @@ import '../../core/app_state.dart';
 import '../../core/player_rank.dart';
 import '../../core/trophy_league.dart';
 import '../../widgets/progression_guide.dart';
+import '../../widgets/adaptive_asset_image.dart';
 
 void _showModeStats(BuildContext context) {
   final stats = context.read<AppState>().playerStats;
@@ -127,7 +128,8 @@ class _StatsScreenState extends State<StatsScreen> {
         body: Stack(
           children: [
             Positioned.fill(
-              child: Image.asset('assets/ui/bg_main.webp', fit: BoxFit.cover),
+              child: adaptiveAssetImage('assets/ui/bg_main.webp',
+                  fit: BoxFit.cover),
             ),
             Positioned.fill(
               child: DecoratedBox(

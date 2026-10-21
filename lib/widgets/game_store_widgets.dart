@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'adaptive_asset_image.dart';
 
 export 'game_store_navigation.dart';
 
@@ -100,7 +101,7 @@ class GameStoreMembershipCard extends StatelessWidget {
           const strip = Rect.fromLTRB(.393, .584, .406, .688);
           return Stack(children: [
             Positioned.fill(
-                child: Image.asset(asset,
+                child: adaptiveAssetImage(asset,
                     key: const ValueKey('store-membership-art'),
                     fit: BoxFit.contain,
                     excludeFromSemantics: true)),
@@ -113,7 +114,7 @@ class GameStoreMembershipCard extends StatelessWidget {
                       top: -strip.top / strip.height * label.height,
                       width: label.width / strip.width,
                       height: label.height / strip.height,
-                      child: Image.asset(asset,
+                      child: adaptiveAssetImage(asset,
                           fit: BoxFit.fill, excludeFromSemantics: true)),
                 ]))),
             Positioned.fromRect(
@@ -207,7 +208,7 @@ class GameStoreReturnRewardCard extends StatelessWidget {
                 rect: image,
                 child: InkWell(
                     onTap: onPressed,
-                    child: Image.asset(asset,
+                    child: adaptiveAssetImage(asset,
                         key: imageKey,
                         fit: BoxFit.fill,
                         excludeFromSemantics: true))),
@@ -229,7 +230,7 @@ class GameStoreReturnRewardCard extends StatelessWidget {
                                   width: area.maxWidth / label.cleanStrip.width,
                                   height:
                                       area.maxHeight / label.cleanStrip.height,
-                                  child: Image.asset(asset,
+                                  child: adaptiveAssetImage(asset,
                                       fit: BoxFit.fill,
                                       excludeFromSemantics: true)),
                             ]))),
@@ -252,10 +253,12 @@ class GameStoreCharacterCard extends StatelessWidget {
       required this.gems,
       required this.title,
       required this.label,
-      required this.onPressed});
+      required this.onPressed,
+      this.avatarAsset});
   final bool gems;
   final String title, label;
   final VoidCallback? onPressed;
+  final String? avatarAsset;
 
   String get asset => gems
       ? 'assets/store/character_talia.webp'
@@ -287,8 +290,39 @@ class GameStoreCharacterCard extends StatelessWidget {
                     top: -18 * scale,
                     width: sourceWidth * scale,
                     height: 1112 * scale,
-                    child: Image.asset(asset,
+                    child: adaptiveAssetImage(asset,
                         fit: BoxFit.fill, excludeFromSemantics: true)),
+                if (avatarAsset != null)
+                  Positioned.fromRect(
+                    rect: Rect.fromLTWH(
+                      510 * scale,
+                      156 * scale,
+                      432 * scale,
+                      456 * scale,
+                    ),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: const RadialGradient(
+                          center: Alignment(0, -0.2),
+                          radius: 0.85,
+                          colors: [
+                            Color(0xFF261044),
+                            Color(0xFF130724),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(44 * scale),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(44 * scale),
+                        child: adaptiveAssetImage(
+                          avatarAsset!,
+                          fit: BoxFit.contain,
+                          alignment: Alignment.bottomCenter,
+                          excludeFromSemantics: true,
+                        ),
+                      ),
+                    ),
+                  ),
                 Positioned.fromRect(
                     rect: map(labelArea),
                     child: ShaderMask(
@@ -320,7 +354,7 @@ class GameStoreCharacterCard extends StatelessWidget {
                                           height: 1112 /
                                               strip.height *
                                               patch.maxHeight,
-                                          child: Image.asset(asset,
+                                          child: adaptiveAssetImage(asset,
                                               fit: BoxFit.fill,
                                               excludeFromSemantics: true)),
                                     ]))))),
@@ -424,7 +458,7 @@ class GameStoreRosterCard extends StatelessWidget {
                   ])),
               const SizedBox(width: 6),
               Expanded(
-                  child: Image.asset(asset,
+                  child: adaptiveAssetImage(asset,
                       fit: BoxFit.contain, excludeFromSemantics: true)),
             ])),
             const SizedBox(height: 8),
@@ -531,7 +565,8 @@ class GameStoreCurrencyCard extends StatelessWidget {
                                                       area.maxWidth / art.width,
                                                   height: area.maxHeight /
                                                       art.height,
-                                                  child: Image.asset(asset,
+                                                  child: adaptiveAssetImage(
+                                                      asset,
                                                       key: imageKey,
                                                       fit: BoxFit.fill,
                                                       excludeFromSemantics:
@@ -679,7 +714,7 @@ class GameStoreRewardBanner extends StatelessWidget {
                 rect: image,
                 child: InkWell(
                     onTap: onPressed,
-                    child: Image.asset(asset,
+                    child: adaptiveAssetImage(asset,
                         key: imageKey,
                         fit: BoxFit.fill,
                         excludeFromSemantics: true))),

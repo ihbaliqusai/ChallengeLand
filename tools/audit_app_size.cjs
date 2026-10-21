@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const root = path.resolve(__dirname, '..');
+const shared = JSON.parse(fs.readFileSync(path.join(__dirname, 'shared_assets.json'), 'utf8'));
 const relative = p => path.relative(root, p).split(path.sep).join('/');
 function walk(directory) {
   if (!fs.existsSync(directory)) return [];
@@ -62,13 +63,14 @@ const androidResources = walk(path.join(root, 'android/app/src/main/res'));
 const report = {
   generatedAt: new Date().toISOString(),
   flutter: { count: files.length, bytes: files.reduce((sum, f) => sum + f.bytes, 0),
+    sharedAssets: shared,
     files, noLiteralReferenceCandidates: files.filter(f => !f.references.length),
     missingLiteralFiles: literals.filter(item => !item.pattern.includes('$') &&
       !fs.existsSync(path.join(root, item.pattern))),
     missingRuntimeAssets: literals.filter(item => !item.pattern.includes('$') &&
       fs.existsSync(path.join(root, item.pattern)) &&
       fs.statSync(path.join(root, item.pattern)).isFile() &&
-      !shipped.has(path.join(root, item.pattern))),
+      !shipped.has(path.join(root, item.pattern)) && !shared[item.pattern]),
     unbundledAssets: walk(path.join(root, 'assets')).filter(f => !shipped.has(f)).map(info),
     duplicates: duplicates([...shipped]) },
   native: { assetsBytes: androidAssets.reduce((s, f) => s + fs.statSync(f).size, 0),
@@ -93,12 +95,14 @@ console.log(JSON.stringify({
 if (process.argv.includes('--check')) {
   const invalid = files.filter(file => /\.(md|psd|bak)$/i.test(file.path));
   if (report.flutter.missingLiteralFiles.length || report.flutter.missingRuntimeAssets.length ||
-      report.flutter.noLiteralReferenceCandidates.length || invalid.length) {
+      report.flutter.noLiteralReferenceCandidates.length || invalid.length ||
+      report.native.crossFlutterDuplicates.length) {
     console.error('Asset bundle review failed:', JSON.stringify({
       missing: report.flutter.missingLiteralFiles,
       missingFromBundle: report.flutter.missingRuntimeAssets,
       unreferenced: report.flutter.noLiteralReferenceCandidates,
       nonRuntimeFiles: invalid,
+      duplicateSharedAssets: report.native.crossFlutterDuplicates,
     }, null, 2));
     process.exitCode = 1;
   }

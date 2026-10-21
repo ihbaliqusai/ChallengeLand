@@ -19,6 +19,7 @@ import '../../models/store_catalog.dart';
 import '../home/store_screen.dart';
 import 'widgets/stage_node.dart';
 import 'widgets/campaign_journey_panel.dart';
+import '../../widgets/adaptive_asset_image.dart';
 
 class CampaignMapScreen extends StatefulWidget {
   const CampaignMapScreen({super.key});
@@ -550,7 +551,7 @@ class _WorldMapPageState extends State<_WorldMapPage> {
                     left: 0,
                     right: 0,
                     height: mapHeight,
-                    child: Image.asset(
+                    child: adaptiveAssetImage(
                       widget.bundle.world.backgroundAsset,
                       fit: BoxFit.fill,
                       filterQuality: FilterQuality.high,
@@ -570,7 +571,7 @@ class _WorldMapPageState extends State<_WorldMapPage> {
                           alignment: Alignment.bottomCenter,
                           minHeight: mapHeight,
                           maxHeight: mapHeight,
-                          child: Image.asset(
+                          child: adaptiveAssetImage(
                             widget.bundle.world.backgroundAsset,
                             width: width,
                             height: mapHeight,

@@ -1,0 +1,2928 @@
+[
+  {
+    "idx": 17,
+    "cat": "اختراعات",
+    "q": "آلة لمعرفة الاتجاهات؟",
+    "r": "البوصلة",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 568,
+    "cat": "حيوانات",
+    "q": "ما اسم الفيلم الذي تناول منافسة جيمس هانت ونيكي لاودا في الفورمولا 1؟",
+    "r": "Rush",
+    "reason": "Non-animal content in حيوانات"
+  },
+  {
+    "idx": 655,
+    "cat": "حيوانات",
+    "q": "أكمل عنوان الفيلم العربي 'همام في '؟",
+    "r": "أمستردام",
+    "reason": "Non-animal content in حيوانات"
+  },
+  {
+    "idx": 780,
+    "cat": "اختراعات",
+    "q": "من إكتشف هاواي وأستراليا ونيوزيلنده عام 1770م؟",
+    "r": "جيمس كوك",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 786,
+    "cat": "اختراعات",
+    "q": "العالم 'فريديريك بانتنغ' إكتشف؟",
+    "r": "الأنسولين",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 866,
+    "cat": "اختراعات",
+    "q": "ما اسم الطريقة التي يقرأ بها المكفوفون؟",
+    "r": "برايل",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 974,
+    "cat": "حيوانات",
+    "q": "أي الجمل التالية تحتوي استدلالًا صحيحًا؟",
+    "r": "كل القطط حيوانات، وهذا كائن قط، إذن هو حيوان",
+    "reason": "Non-animal content in حيوانات"
+  },
+  {
+    "idx": 2266,
+    "cat": "عواصم",
+    "q": "ما المنطقة التي تضم مقر الحكومة في ناورو؟",
+    "r": "يارين",
+    "reason": "Question in عواصم does not mention عاصمة"
+  },
+  {
+    "idx": 2400,
+    "cat": "كأس العالم",
+    "q": "ما الدولة التي استضافت أول كأس عالم عام 1930؟",
+    "r": "الأوروغواي",
+    "reason": "Question in كأس العالم does not mention World Cup/Mundial"
+  },
+  {
+    "idx": 3348,
+    "cat": "كأس العالم",
+    "q": "ما اسم الفريق الذي حقق أول لقب لألمانيا الموحدة عام 2014؟",
+    "r": "ألمانيا",
+    "reason": "Question in كأس العالم does not mention World Cup/Mundial"
+  },
+  {
+    "idx": 3532,
+    "cat": "اختراعات",
+    "q": "من العالم المسلم الذي يُعدّ رائد محاولات الطيران المبكرة في الأندلس؟",
+    "r": "عباس بن فرناس",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 4008,
+    "cat": "اختراعات",
+    "q": "من طوّر خط الإنتاج وأنتج سيارة فورد T؟",
+    "r": "هنري فورد",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 4009,
+    "cat": "اختراعات",
+    "q": "من طوّر المحرك البخاري الذي أطلق الثورة الصناعية؟",
+    "r": "جيمس وات",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 4018,
+    "cat": "اختراعات",
+    "q": "من أنتج أول صورة فوتوغرافية دائمة في التاريخ؟",
+    "r": "نيسيفور نييبس",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 4019,
+    "cat": "اختراعات",
+    "q": "من أسس شركة كوداك وطوّر الأفلام والكاميرات الشعبية؟",
+    "r": "جورج إيستمان",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 4021,
+    "cat": "اختراعات",
+    "q": "من أجرى أول مكالمة عبر الهاتف المحمول؟",
+    "r": "مارتن كوبر",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 4028,
+    "cat": "اختراعات",
+    "q": "من العالم الذي طوّر التلسكوب ورصد أقمار المشتري؟",
+    "r": "غاليليو",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 4031,
+    "cat": "اختراعات",
+    "q": "من العالم الذي وضع الجدول الدوري للعناصر؟",
+    "r": "مندليف",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 4033,
+    "cat": "اختراعات",
+    "q": "من العالم الذي وضع نموذج النواة الذرية؟",
+    "r": "رذرفورد",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 4038,
+    "cat": "اختراعات",
+    "q": "من العالم المسلم الذي برع في البصريات وألّف كتاب المناظر؟",
+    "r": "ابن الهيثم",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 4039,
+    "cat": "اختراعات",
+    "q": "من العالم المسلم الذي يُعد رائد علم الكيمياء؟",
+    "r": "جابر بن حيان",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 4040,
+    "cat": "اختراعات",
+    "q": "من طوّر آلة حاسبة ميكانيكية قادرة على الضرب مبكراً؟",
+    "r": "لايبنتز",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 4044,
+    "cat": "اختراعات",
+    "q": "من صمم بندقية الكلاشينكوف الشهيرة؟",
+    "r": "ميخائيل كلاشينكوف",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 4045,
+    "cat": "اختراعات",
+    "q": "من العالم الذي صاغ قوانين الكهرومغناطيسية الشهيرة؟",
+    "r": "ماكسويل",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 4052,
+    "cat": "اختراعات",
+    "q": "ما أول حيوان أُرسل إلى مدار حول الأرض؟",
+    "r": "الكلبة لايكا",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 4054,
+    "cat": "اختراعات",
+    "q": "من العالم الذي وضع معادلة الطاقة الشهيرة E=mc²؟",
+    "r": "أينشتاين",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 4056,
+    "cat": "اختراعات",
+    "q": "ما الجهاز المنزلي الذي يغسل الملابس آلياً؟",
+    "r": "الغسالة",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 4058,
+    "cat": "اختراعات",
+    "q": "من العالم الذي وضع النظرية الذرية الحديثة؟",
+    "r": "دالتون",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 4062,
+    "cat": "اختراعات",
+    "q": "ما الجهاز الذي يسجّل النشاط الزلزالي ويقيس الزلازل؟",
+    "r": "السيزموغراف",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 4063,
+    "cat": "اختراعات",
+    "q": "ما الجهاز الذي يقيس الزمن ويُعلّق على الجدار أو يُلبس باليد؟",
+    "r": "الساعة",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 4067,
+    "cat": "اختراعات",
+    "q": "ما الجهاز الذي يلتقط الصور ويُسجّل الذكريات بصرياً؟",
+    "r": "الكاميرا",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 4072,
+    "cat": "اختراعات",
+    "q": "من العالم العربي الذي وضع أسس علم المثلثات وحساب الجيب؟",
+    "r": "البتاني",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 4361,
+    "cat": "اختراعات",
+    "q": "من اشتهر بتطوير الطباعة بالحروف المعدنية المتحركة في أوروبا؟",
+    "r": "يوهانس غوتنبرغ",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 4362,
+    "cat": "اختراعات",
+    "q": "من ارتبط اسمه بتحسين المحرك البخاري عمليًا؟",
+    "r": "جيمس وات",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 4364,
+    "cat": "اختراعات",
+    "q": "من وضع نظام برايل للقراءة باللمس؟",
+    "r": "لويس برايل",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 4365,
+    "cat": "اختراعات",
+    "q": "من ارتبط اسمه بشفرة مورس؟",
+    "r": "صموئيل مورس",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 4369,
+    "cat": "اختراعات",
+    "q": "من اشتهر بابتكار المصعد الآمن ذي المكبح؟",
+    "r": "إليشا أوتيس",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 4381,
+    "cat": "اختراعات",
+    "q": "من المهندس البريطاني المرتبط بتطوير المحرك النفاث؟",
+    "r": "فرانك ويتل",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 4382,
+    "cat": "اختراعات",
+    "q": "من صنع الكرونومتر البحري الدقيق لحل مشكلة خط الطول؟",
+    "r": "جون هاريسون",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 4389,
+    "cat": "اختراعات",
+    "q": "من صنع أول دائرة متكاملة عاملة في شركة تكساس إنسترومنتس؟",
+    "r": "جاك كيلبي",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 4391,
+    "cat": "اختراعات",
+    "q": "من حصل على براءة الهاتف العملية الأولى في الولايات المتحدة؟",
+    "r": "ألكسندر غراهام بيل",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 4396,
+    "cat": "اختراعات",
+    "q": "من ارتبط اسمه بآلة الحصاد الميكانيكية؟",
+    "r": "سايروس مكورميك",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 4401,
+    "cat": "اختراعات",
+    "q": "من الياباني الذي ارتبط بتطوير أول بطارية ليثيوم أيون تجارية؟",
+    "r": "أكيرا يوشينو",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 4402,
+    "cat": "اختراعات",
+    "q": "من اشتهر بتطوير المصباح الأزرق عالي السطوع؟",
+    "r": "شوجي ناكامورا",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 4411,
+    "cat": "اختراعات",
+    "q": "من بدأ مشروع نواة لينكس؟",
+    "r": "لينوس تورفالدس",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 4412,
+    "cat": "اختراعات",
+    "q": "من أرسل أول بريد إلكتروني شبكي واستخدم علامة @؟",
+    "r": "راي توملينسون",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 4415,
+    "cat": "اختراعات",
+    "q": "من اشتهر بابتكار إشارة مرور آلية محسنة؟",
+    "r": "غاريت مورغان",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 4419,
+    "cat": "اختراعات",
+    "q": "ما الآلة التحليلية التي صممها تشارلز باباج تعد سلفًا للحاسوب؟",
+    "r": "الآلة التحليلية",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 4584,
+    "cat": "كأس العالم",
+    "q": "ما المدينة القطرية التي يقع فيها استاد لوسيل؟",
+    "r": "لوسيل",
+    "reason": "Question in كأس العالم does not mention World Cup/Mundial"
+  },
+  {
+    "idx": 5265,
+    "cat": "اختراعات",
+    "q": "من وضع المقياس المئوي لدرجات الحرارة؟",
+    "r": "أندرس سلزيوس",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 5270,
+    "cat": "اختراعات",
+    "q": "من قدم التخدير بالأثير علنًا عام 1846؟",
+    "r": "ويليام مورتون",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 5271,
+    "cat": "اختراعات",
+    "q": "من ارتبط بإدخال التعقيم الجراحي بمضادات العفن؟",
+    "r": "جوزف ليستر",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 5275,
+    "cat": "اختراعات",
+    "q": "من صنع أول سيارة عملية تعمل بالبنزين عام 1885؟",
+    "r": "كارل بنز",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 5279,
+    "cat": "اختراعات",
+    "q": "من قاد تطوير النايلون في شركة دوبونت؟",
+    "r": "والاس كاروثرز",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 5282,
+    "cat": "اختراعات",
+    "q": "من صمم لعبة تتريس؟",
+    "r": "أليكسي باجيتنوف",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 5283,
+    "cat": "اختراعات",
+    "q": "من يلقب غالبًا بأبي ألعاب الفيديو المنزلية؟",
+    "r": "رالف باير",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 5284,
+    "cat": "اختراعات",
+    "q": "من شارك في تأسيس أتاري وارتبط بلعبة بونغ؟",
+    "r": "نولان بوشنل",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 5288,
+    "cat": "اختراعات",
+    "q": "من ارتبط بأول عرض تلفزيوني ميكانيكي ناجح؟",
+    "r": "جون لوجي بيرد",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 5291,
+    "cat": "اختراعات",
+    "q": "من التقط أول صورة فوتوغرافية باقية معروفة؟",
+    "r": "جوزيف نيسيفور نييبس",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 5292,
+    "cat": "اختراعات",
+    "q": "من جعل التصوير الشعبي أسهل بكاميرات كوداك؟",
+    "r": "جورج إيستمان",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 5300,
+    "cat": "اختراعات",
+    "q": "من صنع آلة الحساب المسماة Stepped Reckoner؟",
+    "r": "غوتفريد لايبنتز",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 5302,
+    "cat": "اختراعات",
+    "q": "من كتبت أول خوارزمية موجهة لآلة باباج التحليلية؟",
+    "r": "آدا لوفلايس",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 5315,
+    "cat": "اختراعات",
+    "q": "من وضع مقياس ريختر للزلازل؟",
+    "r": "تشارلز ريختر",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 5316,
+    "cat": "اختراعات",
+    "q": "من وضع مقياس صلادة المعادن المعروف بموهس؟",
+    "r": "فريدريش موهس",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 5317,
+    "cat": "اختراعات",
+    "q": "من وضع مقياس بوفورت للرياح؟",
+    "r": "فرانسيس بوفورت",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 5321,
+    "cat": "اختراعات",
+    "q": "من صنع القاطرة البخارية روكيت الشهيرة؟",
+    "r": "جورج ستيفنسون",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 5325,
+    "cat": "اختراعات",
+    "q": "من شارك إرنست روسكا في تطوير المجهر الإلكتروني الأول؟",
+    "r": "ماكس كنول",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 5326,
+    "cat": "اختراعات",
+    "q": "من قدم طريقة استخدام تدرجات المجال في التصوير بالرنين المغناطيسي؟",
+    "r": "بول لاوتربر",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 5871,
+    "cat": "جسم الإنسان",
+    "q": "ما الحمض الرئيسي في عصارة المعدة؟",
+    "r": "حمض الهيدروكلوريك",
+    "reason": "Non-anatomy content in جسم الإنسان"
+  },
+  {
+    "idx": 5921,
+    "cat": "جسم الإنسان",
+    "q": "ما الناقل العصبي الرئيسي في الوصلة العصبية العضلية؟",
+    "r": "الأستيل كولين",
+    "reason": "Non-anatomy content in جسم الإنسان"
+  },
+  {
+    "idx": 6243,
+    "cat": "اختراعات",
+    "q": "من شارك في تطوير القرص المدمج CD مع سوني؟",
+    "r": "فيليبس",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 6276,
+    "cat": "اختراعات",
+    "q": "من صمم حاسوب أبل I؟",
+    "r": "ستيف وزنياك",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 6277,
+    "cat": "اختراعات",
+    "q": "من شارك بيل غيتس في تأسيس مايكروسوفت؟",
+    "r": "بول ألين",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 6287,
+    "cat": "اختراعات",
+    "q": "من أنشأ نظام LaTeX المبني على TeX؟",
+    "r": "ليزلي لامبورت",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 6290,
+    "cat": "اختراعات",
+    "q": "من صمم معمارية RISC-V في جامعة كاليفورنيا بيركلي مع فريقه؟",
+    "r": "كريست باترسون",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 6292,
+    "cat": "اختراعات",
+    "q": "من أسس مشروع GNU؟",
+    "r": "ريتشارد ستالمان",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 6293,
+    "cat": "اختراعات",
+    "q": "من شارك دينيس ريتشي في تطوير يونكس؟",
+    "r": "كين تومبسون",
+    "reason": "Question in اختراعات does not mention invention/discovery"
+  },
+  {
+    "idx": 6709,
+    "cat": "عملات",
+    "q": "ما الوحدة الفرعية للزلوتي البولندي؟",
+    "r": "الغروش",
+    "reason": "Question in عملات does not mention currency"
+  },
+  {
+    "idx": 6710,
+    "cat": "عملات",
+    "q": "ما الوحدة الفرعية للفورنت المجري؟",
+    "r": "الفيلر",
+    "reason": "Question in عملات does not mention currency"
+  },
+  {
+    "idx": 6714,
+    "cat": "عملات",
+    "q": "ما الوحدة الفرعية للتاكا البنغلاديشي؟",
+    "r": "البويسا",
+    "reason": "Question in عملات does not mention currency"
+  },
+  {
+    "idx": 6715,
+    "cat": "عملات",
+    "q": "ما الوحدة الفرعية للبات التايلاندي؟",
+    "r": "الساتانغ",
+    "reason": "Question in عملات does not mention currency"
+  },
+  {
+    "idx": 6716,
+    "cat": "عملات",
+    "q": "ما الوحدة الفرعية للدونغ الفيتنامي؟",
+    "r": "الهاو",
+    "reason": "Question in عملات does not mention currency"
+  },
+  {
+    "idx": 6726,
+    "cat": "عملات",
+    "q": "ما الوحدة الفرعية للسول البيروفي؟",
+    "r": "السنتيمو",
+    "reason": "Question in عملات does not mention currency"
+  },
+  {
+    "idx": 6727,
+    "cat": "عملات",
+    "q": "ما الوحدة الفرعية للغواراني الباراغوياني؟",
+    "r": "السنتيمو",
+    "reason": "Question in عملات does not mention currency"
+  },
+  {
+    "idx": 7344,
+    "cat": "جسم الإنسان",
+    "q": "ما الجزء الرئيسي من الأمعاء الغليظة؟",
+    "r": "القولون",
+    "reason": "Non-anatomy content in جسم الإنسان"
+  },
+  {
+    "idx": 8273,
+    "cat": "جسم الإنسان",
+    "q": "ما العصب القحفي المسؤول عن إحساس الوجه في فروع رئيسية؟",
+    "r": "العصب الثلاثي التوائم",
+    "reason": "Non-anatomy content in جسم الإنسان"
+  },
+  {
+    "idx": 8930,
+    "cat": "كلثوميات",
+    "q": "أي أغنية تبدأ بهذا البيت الشعري الخالد: «يا فؤادي لا تسل أين الهوى.. كان صرحاً من خيالٍ فهوى»؟",
+    "r": "الأطلال",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8931,
+    "cat": "كلثوميات",
+    "q": "إلى أي أغنية ينتمي هذا المقطع المبهج: «يا ليلة العيد آنستينا.. وجددتي الأمل فينا»؟",
+    "r": "يا ليلة العيد",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8932,
+    "cat": "كلثوميات",
+    "q": "ما الأغنية التي تبدأ بهذه الكلمات: «طول عمري بأخاف من الحب وسيرة الحب وظلم الحب لكل أصحابه»؟",
+    "r": "سيرة الحب",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8933,
+    "cat": "كلثوميات",
+    "q": "من أي أغنية هذا المطلع: «الحب كله حبيته فيك.. الحب كله.. وزماني كله عشته لعينيك»؟",
+    "r": "الحب كله",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8935,
+    "cat": "كلثوميات",
+    "q": "ما الأغنية التي غنت فيها: «يا حبيبي.. الليل وسماه.. ونجومه وقمره.. قمره وسهره.. وإنت وأنا»؟",
+    "r": "ألف ليلة وليلة",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8936,
+    "cat": "كلثوميات",
+    "q": "إلى أي أغنية تنتمي الكلمات: «ودارت الأيام.. ومرت الأيام.. ما بين صحوة وغفوة وليل ونهار»؟",
+    "r": "دارت الأيام",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8937,
+    "cat": "كلثوميات",
+    "q": "من أي أغنية هذا المقطع: «أنت أملي وحياتي.. وإنت غرامي كله.. إنت عمري اللي ابتدا»؟",
+    "r": "أمل حياتي",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8938,
+    "cat": "كلثوميات",
+    "q": "أي أغنية تبدأ بهذا المطلع: «بعيد عنك حياتي عذاب.. ما تبعدنيش بعيد عنك»؟",
+    "r": "بعيد عنك",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8939,
+    "cat": "كلثوميات",
+    "q": "ما هي الأغنية التي تبدأ بهذا التساؤل: «لسه فاكر قلبي يديك أمان.. ولا فاكر كلمة حتعيد اللي كان»؟",
+    "r": "لسه فاكر",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8941,
+    "cat": "كلثوميات",
+    "q": "إلى أي أغنية ينتمي المقطع: «فات الميعاد وبقينا بعاد.. والنار بقت دخان ورماد»؟",
+    "r": "فات الميعاد",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8942,
+    "cat": "كلثوميات",
+    "q": "أي أغنية غنت فيها: «ما تصبرنيش بوعود.. وكلام معسول وعهود.. أنا ياما صبرت زمان.. على نار وعذاب وهوان»؟",
+    "r": "للصبر حدود",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8943,
+    "cat": "كلثوميات",
+    "q": "ما الأغنية التي مطلعها: «ما خطرتش على بالك يوم تسأل عني؟ وعنيا مجافيها النوم يا مسهرني»؟",
+    "r": "يا مسهرني",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8944,
+    "cat": "كلثوميات",
+    "q": "من أي أغنية هذا المقطع: «حيرت قلبي معاك وأنا بداري وخبي.. قل لي أعمل إيه وياك ولا أعمل إيه ويا قلبي»؟",
+    "r": "حيرت قلبي معاك",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8945,
+    "cat": "كلثوميات",
+    "q": "إلى أي أغنية تنتمي الكلمات: «أروح لمين وأقول يا مين ينصفني منك.. ما هو إنت فرحي وإنت جرحي وكله منك»؟",
+    "r": "أروح لمين",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8947,
+    "cat": "كلثوميات",
+    "q": "ما هي الأغنية التي تبدأ بقولها: «غداً ألقاك يا خوف فؤادي من غدِ.. يا لشوقي واحتراقي في انتظار الموعدِ»؟",
+    "r": "غدا ألقاك",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8948,
+    "cat": "كلثوميات",
+    "q": "من أي أغنية هذه الكلمات: «هو صحيح الهوى غلاب.. ما أعرفش أنا.. والهجر قالوا مرار وعذاب.. واليوم بسنة»؟",
+    "r": "هو صحيح الهوى غلاب",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8949,
+    "cat": "كلثوميات",
+    "q": "إلى أي أغنية ينتمي المقطع: «وعرفت قبلك معنى الفرح.. وشفت بعدك عذاب الجرح.. ولقيت في حبك كل الأماني»؟",
+    "r": "إنت الحب",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8951,
+    "cat": "كلثوميات",
+    "q": "ما الأغنية التي غنت فيها: «وقف الخلق ينظرون جميعاً.. كيف أبني قواعد المجد وحدي»؟",
+    "r": "مصر تتحدث عن نفسها",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8952,
+    "cat": "كلثوميات",
+    "q": "من أي أغنية هذا البيت: «ولد الهدى فالكائنات ضياء.. وفم الزمان تبسمٌ وثناءُ»؟",
+    "r": "ولد الهدى",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8953,
+    "cat": "كلثوميات",
+    "q": "إلى أي أغنية تنتمي الكلمات: «سلوا قلبي غداة سلا وثابا.. لعل على الجمال له عتابا»؟",
+    "r": "سلوا قلبي",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8954,
+    "cat": "كلثوميات",
+    "q": "أي أغنية تبدأ بمقطع: «ريمٌ على القاع بين البان والعلم.. أحل سفك دمي في الأشهر الحرم»؟",
+    "r": "نهج البردة",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8955,
+    "cat": "كلثوميات",
+    "q": "ما هي الأغنية التي تبدأ بـ: «يا ظالمني.. يا هاجرني وقلبي معاك.. بعد ما فؤادي اتمناك»؟",
+    "r": "يا ظالمني",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8956,
+    "cat": "كلثوميات",
+    "q": "من أي أغنية المقطع: «هجرتك يمكن أنسى هواك.. وأودع قلبك القاسي.. وقلت أقدر في يوم أنساك»؟",
+    "r": "هجرتك",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8957,
+    "cat": "كلثوميات",
+    "q": "إلى أي أغنية ينتمي: «حسيبك للزمن.. لا عتاب ولا شجن.. تقاسي من الندم.. وتعرف الألم»؟",
+    "r": "حسيبك للزمن",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8958,
+    "cat": "كلثوميات",
+    "q": "أي أغنية مطلعها: «الحب كده إسعاد وهنا.. ولا تيّه وضنى.. هو الحب كده»؟",
+    "r": "الحب كده",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8959,
+    "cat": "كلثوميات",
+    "q": "ما الأغنية التي غنت فيها: «القلب يعشق كل جميل.. وياما شفت جمال يا عين.. واللي صدق في الحب قليل»؟",
+    "r": "القلب يعشق كل جميل",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8960,
+    "cat": "كلثوميات",
+    "q": "من أي أغنية هذا المطلع: «أكاد أشك في نفسي لأني.. أكاد أشك فيك وأنت مني»؟",
+    "r": "ثورة الشك",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8961,
+    "cat": "كلثوميات",
+    "q": "إلى أي أغنية تنتمي الكلمات: «عودت عيني على رؤياك.. وقلبي سلم لك أمري.. أشوف هنا عيني في عيونك»؟",
+    "r": "عودت عيني",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8963,
+    "cat": "كلثوميات",
+    "q": "ما هي الأغنية التي تبدأ بـ: «رق الحبيب وواعدني يوم.. وكان له مدة مخاصمني.. فرحت وعيني جاها النوم»؟",
+    "r": "رق الحبيب",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8965,
+    "cat": "كلثوميات",
+    "q": "أي أغنية فيها هذه العبارة: «أعطني حريتي أطلق يديَّ.. إنني أعطيت ما استبقيت شيَّا»؟",
+    "r": "الأطلال",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8966,
+    "cat": "كلثوميات",
+    "q": "إلى أي أغنية ينتمي المقطع: «هل رأى الحب سكارى مثلنا.. كم بنينا من خيال حولنا»؟",
+    "r": "الأطلال",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8967,
+    "cat": "كلثوميات",
+    "q": "ما الأغنية التي غنت فيها: «اللي شفته قبل ما تشوفك عنيا.. عمر ضايع يحسبوه إزاي عليا»؟",
+    "r": "أنت عمري",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8968,
+    "cat": "كلثوميات",
+    "q": "من أي أغنية هذه الكلمات: «ياللي مليت بالحب حياتي.. أهديتني أحلى ابتساماتي.. أهديتني الدنيا وسماها»؟",
+    "r": "أمل حياتي",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8969,
+    "cat": "كلثوميات",
+    "q": "إلى أي أغنية تنتمي العبارة: «وقابلتك إنت لقيتك بتغير كل حياتي.. ما أعرفش إزاي حبيتك.. ما أعرفش إزاي يا حياتي»؟",
+    "r": "سيرة الحب",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8971,
+    "cat": "كلثوميات",
+    "q": "ما هي الأغنية التي تتضمن مقطع: «وصفولي الصبر لقيته خيال.. وكلام في الحب يدوب ينقال»؟",
+    "r": "دارت الأيام",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8972,
+    "cat": "كلثوميات",
+    "q": "من أي أغنية هذا المقطع: «افتكر لي لحظة حلوة عشنا فيها للهوى.. افتكر لي مرة غنوة يوم سمعناها سوا»؟",
+    "r": "بعيد عنك",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8973,
+    "cat": "كلثوميات",
+    "q": "إلى أي أغنية تنتمي الكلمات: «كان لك معايا أجمل حكاية في العمر كله.. سنين بحالها ما فات جمالها على حب قبله»؟",
+    "r": "أنساك",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8974,
+    "cat": "كلثوميات",
+    "q": "أي أغنية فيها هذا المقطع: «العواذل قفلوا بابهم.. والدواوين طفوا نورهم.. ما فضلش غيري أنا وإنت»؟",
+    "r": "ألف ليلة وليلة",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8975,
+    "cat": "كلثوميات",
+    "q": "ما الأغنية التي غنت فيها: «حبيبي مهما سافرت ومهما غبت.. ومهما طالت الأيام.. قربك في روحي وفي فؤادي»؟",
+    "r": "ليلة حب",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8976,
+    "cat": "كلثوميات",
+    "q": "من أي أغنية هذا المقطع: «ياللي بتسأل عن الأيام.. الأيام ماليهاش أمان.. ياما فرقت بين قلوب»؟",
+    "r": "فات الميعاد",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8977,
+    "cat": "كلثوميات",
+    "q": "إلى أي أغنية ينتمي المقطع: «أنا وإنت عشنا الهوى بأصوله.. وقدرنا بوفانا نوصل لحلوله»؟",
+    "r": "الحب كله",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8980,
+    "cat": "كلثوميات",
+    "q": "إلى أي أغنية ينتمي البيت: «لا تشغل البال بماضي الزمان.. ولا بآت العيش قبل الأوان»؟",
+    "r": "رباعيات الخيام",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8981,
+    "cat": "كلثوميات",
+    "q": "أي أغنية تبدأ بـ: «حديث الروح للأرواح يسري.. وتدركه القلوب بلا عنوةِ»؟",
+    "r": "حديث الروح",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8982,
+    "cat": "كلثوميات",
+    "q": "ما القصيدة التي غنت فيها: «أبا الزهراء قد جاوزت قدري.. بمدحك غير أن لي انتسابا»؟",
+    "r": "نهج البردة",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8983,
+    "cat": "كلثوميات",
+    "q": "من أي قصيدة هذا البيت: «إذا الإيمان ضاع فلا أمان.. ولا دنيا لمن لم يحيِ دينا»؟",
+    "r": "نهج البردة",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8984,
+    "cat": "كلثوميات",
+    "q": "إلى أي أغنية ينتمي مطلع: «إلى عرفات الله يا خير زائر.. عليك سلام الله في عرفاتِ»؟",
+    "r": "إلى عرفات الله",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8985,
+    "cat": "كلثوميات",
+    "q": "أي أغنية فيها هذا البيت: «أغار عليك من عيني ومني.. ومنك ومن زمانك والمكانِ»؟",
+    "r": "أغار من قلبي",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8986,
+    "cat": "كلثوميات",
+    "q": "ما الأغنية التي تبدأ بـ: «شمس الأصيل دهبت خوص النخيل يا نيل.. والصحبة طابت والسمر على شط النيل»؟",
+    "r": "شمس الأصيل",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8987,
+    "cat": "كلثوميات",
+    "q": "من أي أغنية هذا المقطع: «على بلد المحبوب وديني.. زاد وجدي والبعد كاويني»؟",
+    "r": "على بلد المحبوب",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8988,
+    "cat": "كلثوميات",
+    "q": "إلى أي أغنية تنتمي الكلمات: «غني لي شوي شوي.. غني لي وخد عينيّ.. ده لحن الوفا يا ربي»؟",
+    "r": "غني لي شوي شوي",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8989,
+    "cat": "كلثوميات",
+    "q": "أي أغنية مطلعها: «الورد جميل جميل الورد.. الورد جميل وله أوراق.. تقطفها إيدين المشتاق»؟",
+    "r": "الورد جميل",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8990,
+    "cat": "كلثوميات",
+    "q": "ما الأغنية التي غنت فيها: «يا صباح الخير ياللي معانا.. يا مطلع فجر الأمل والشوق»؟",
+    "r": "يا صباح الخير",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8991,
+    "cat": "كلثوميات",
+    "q": "من أي أغنية هذا المقطع: «حبيبي يسعد أوقاته.. بدر طالع على أصحابه.. ما فيش في الدنيا حلاوته»؟",
+    "r": "حبيبي يسعد أوقاته",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8992,
+    "cat": "كلثوميات",
+    "q": "إلى أي أغنية ينتمي المطلع: «أهل الهوى يا ليل فاتوا مضاجعهم.. واتجمعوا يا ليل صحبة وأنا معهم»؟",
+    "r": "أهل الهوى",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8994,
+    "cat": "كلثوميات",
+    "q": "من أي أغنية هذا المقطع البديع: «أنا لن أعود إليك مهما استرحمت.. عيناي دمك.. ومشى في عروقي لثمك»؟",
+    "r": "الأطلال",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8995,
+    "cat": "كلثوميات",
+    "q": "إلى أي أغنية تنتمي الكلمات: «واثق الخطوة يمشي ملكاً.. ظالم الحسن شهي الكبرياء»؟",
+    "r": "الأطلال",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8996,
+    "cat": "كلثوميات",
+    "q": "أي أغنية غنت فيها: «نحن أدرى وقد سألنا الليالي.. كيف تذوي فجأةً فينا الأماني»؟",
+    "r": "هذه ليلتي",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8997,
+    "cat": "كلثوميات",
+    "q": "ما هي الأغنية التي فيها: «أنت في عيني بهجة الدنيا.. وأنت في قلبي سر الحياة»؟",
+    "r": "هذه ليلتي",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8998,
+    "cat": "كلثوميات",
+    "q": "من أي أغنية هذا المقطع: «يا حبيبي نم على صدري ولذ بالأمان.. لا تسل كيف انقضى هذا الأوان»؟",
+    "r": "هذه ليلتي",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 8999,
+    "cat": "كلثوميات",
+    "q": "إلى أي أغنية ينتمي البيت: «أغداً ألقاك؟ يا فجر الصباح.. ويا وميض النور في عينيَّ لاح»؟",
+    "r": "غدا ألقاك",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 9000,
+    "cat": "كلثوميات",
+    "q": "أي أغنية فيها هذا المقطع: «كم أشتهي لو كان في إمكاني.. أن أوقف الزمان في ثواني»؟",
+    "r": "غدا ألقاك",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 9001,
+    "cat": "كلثوميات",
+    "q": "ما الأغنية التي غنت فيها: «والتقينا بعد ما طال الغياب.. واشتكينا واشتكى منا العذاب»؟",
+    "r": "دارت الأيام",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 9002,
+    "cat": "كلثوميات",
+    "q": "من أي أغنية هذه الكلمات: «أصل القلوب لما تفيض بالحب والشوق والوفا.. تطلب رضا اللي تحبه»؟",
+    "r": "فكروني",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 9003,
+    "cat": "كلثوميات",
+    "q": "إلى أي أغنية ينتمي المقطع: «دا اللي ما داقش العذاب في الحب.. عمره ما حب وعمره ما عاش»؟",
+    "r": "سيرة الحب",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 9005,
+    "cat": "كلثوميات",
+    "q": "ما هي الأغنية التي فيها: «وعلمتني إزاي أحب.. وعلمتني إزاي أسهر.. وعلمتني الشوق يطول»؟",
+    "r": "أمل حياتي",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 9006,
+    "cat": "كلثوميات",
+    "q": "من أي أغنية هذا المقطع: «أنا اللي كنت بأقول ماليش في الحب مطرح.. بقيت أنا والهوى إخوان»؟",
+    "r": "سيرة الحب",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 9007,
+    "cat": "كلثوميات",
+    "q": "إلى أي أغنية ينتمي: «أنا مش حاتعاتب وياك.. ولا حافتكر اللي جرى.. أنا حانسى عذابي معاك»؟",
+    "r": "أنساك",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 9008,
+    "cat": "كلثوميات",
+    "q": "أي أغنية مطلعها يتضمن: «يا ما قلبي اشتاق لكلمة.. ويا ما روحي دابت في همسة.. وإنت ولا سائل»؟",
+    "r": "لسه فاكر",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 9010,
+    "cat": "كلثوميات",
+    "q": "إلى أي أغنية ينتمي البيت: «وفيت وفي بعض الوفاء مذلةٌ.. لإنسانةٍ في الحي شيمتها الغدرُ»؟",
+    "r": "أراك عصي الدمع",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 9011,
+    "cat": "كلثوميات",
+    "q": "أي أغنية فيها هذا المقطع النادر: «يا قاسي بعد ما هان فؤادي.. ورضيت بالهجر والنوى»؟",
+    "r": "أراك عصي الدمع",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 9012,
+    "cat": "كلثوميات",
+    "q": "ما هي الأغنية التي غنت فيها: «أقبل الليل يا حبيبي ونادى.. حائر الصوت بالدموع يفيضُ»؟",
+    "r": "أقبل الليل",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 9013,
+    "cat": "كلثوميات",
+    "q": "من أي أغنية هذا المقطع: «حكم علينا الهوى بنار الجفا.. وأمر قلوبنا بالصبر والوفا»؟",
+    "r": "حكم علينا الهوى",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 9014,
+    "cat": "كلثوميات",
+    "q": "إلى أي أغنية تنتمي الكلمات: «يا صوت بلادي زيدي وقولي.. أهلا بالحرية ونورها»؟",
+    "r": "طوف وشوف",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 9016,
+    "cat": "كلثوميات",
+    "q": "ما الأغنية التي مطلعها: «أصبح عندي الآن بندقية.. إلى فلسطين خذوني معكم»؟",
+    "r": "أصبح الآن عندي بندقية",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 9017,
+    "cat": "كلثوميات",
+    "q": "من أي أغنية هذا المقطع: «طوف وشوف وابني كمان.. ده المجد مكتوب للجدعان»؟",
+    "r": "طوف وشوف",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 9018,
+    "cat": "كلثوميات",
+    "q": "إلى أي أغنية تنتمي الكلمات: «كان حلماً فخاطراً فاحتمالاً.. ثم أضحى حقيقةً لا خيالا»؟",
+    "r": "قصة السد",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 9019,
+    "cat": "كلثوميات",
+    "q": "من أي أغنية هذا المقطع العاطفي الدقيق: «كل ليلة وكل يوم.. أستنى الميعاد.. وأقول حأشوفه بكره والاقيه ميعاد»؟",
+    "r": "ألف ليلة وليلة",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 9020,
+    "cat": "كلثوميات",
+    "q": "أي أغنية فيها: «طول ما إنت جنبي ما ليش مكان.. ولا لي زمان غير الزمان اللي إنت فيه»؟",
+    "r": "أنت عمري",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 9021,
+    "cat": "كلثوميات",
+    "q": "إلى أي أغنية تنتمي الكلمات: «وقابلت ظلم الهوى بابتسامة.. ولقيت في حبك كل السلامة»؟",
+    "r": "سيرة الحب",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 9022,
+    "cat": "كلثوميات",
+    "q": "ما هي الأغنية التي فيها: «أنا مش حأقول لك إنت عملت إيه.. كفاية قلبي حاسس باللي قاسيه»؟",
+    "r": "حسيبك للزمن",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 9023,
+    "cat": "كلثوميات",
+    "q": "من أي أغنية هذا المقطع النادر: «افرح يا قلبي لك نصيب.. تبلغ مناك ويا الحبيب»؟",
+    "r": "افرح يا قلبي",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 9025,
+    "cat": "كلثوميات",
+    "q": "إلى أي أغنية ينتمي البيت: «سلوا كؤوس الطلا هل لامست فاها.. واستخبروا الراح هل مست ثناياها»؟",
+    "r": "سلوا كؤوس الطلا",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 9027,
+    "cat": "كلثوميات",
+    "q": "ما هي الأغنية التي تبدأ ببيت: «يا ناعساً رقدت جفونه.. ولم تنم عيني لظنونه»؟",
+    "r": "يا ناعسا رقدت جفونه",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 9028,
+    "cat": "كلثوميات",
+    "q": "من أي رائعة كلثومية هذا البيت: «أغار من قلبي إذا هام بلقياك.. وأنت المنى والروح فكيف أنساك»؟",
+    "r": "أغار من قلبي",
+    "reason": "Question in كلثوميات not mentioning Umm Kulthum keywords"
+  },
+  {
+    "idx": 9029,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المطلع الشهير: «نسم علينا الهوى من مفرق الوادي.. يا هوا دخل الهوا خدني على بلادي»؟",
+    "r": "نسم علينا الهوى",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9030,
+    "cat": "فيروز",
+    "q": "أي أغنية تبدأ بهذا الحوار الشهير: «كيفك إنت.. ملا إنت.. قال قائل عنك متكبر ومغرور»؟",
+    "r": "كيفك إنت",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9031,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية ينتمي المقطع: «حبيتك بالصيف.. حبيتك بالشتي.. نطرتك بالصيف.. نطرتك بالشتي»؟",
+    "r": "حبيتك بالصيف",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9032,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي تبدأ بـ: «سألوني الناس عنك سألوني.. قلتلن راجع أوعى تلوموني»؟",
+    "r": "سألوني الناس",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9033,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المطلع: «أعطني الناي وغنِّ.. فالغنا سر الخلود.. وأنين الناي يبقى.. بعد أن يفنى الوجود»؟",
+    "r": "أعطني الناي وغن",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9035,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «شايف البحر شو كبير.. كبر البحر بحبك.. شايف السما شو بعيدة.. بعد السما بحبك»؟",
+    "r": "شايف البحر",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9036,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي تبدأ بـ: «قديش كان في ناس عالمفرق تنطر ناس.. وتشتي الدني ويحملوا شمسيات»؟",
+    "r": "قديش كان في ناس",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9037,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المطلع العاطفي: «بعدك على بالي.. يا قمر الحلوين.. يا سهر التشرين.. يا دهب الغالي»؟",
+    "r": "بعدك على بالي",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9043,
+    "cat": "فيروز",
+    "q": "ما هي الأغنية التي مطلعها: «طيري يا طيارة طيري.. فوق قرميد وسطيحات»؟",
+    "r": "طيري يا طيارة",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9044,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المقطع: «رجعت الشتوية.. ضل افتكر فيي.. ضل افتكر فيي.. رجعت الشتوية»؟",
+    "r": "رجعت الشتوية",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9045,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «حنا السكران قعد خلف الدكان.. يغني عالسكرة.. ويطير الحمام»؟",
+    "r": "حنا السكران",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9046,
+    "cat": "فيروز",
+    "q": "أي أغنية تبدأ بـ: «يا طير يا طاير على طراف الدني.. لو فيك تحكي للحبايب شو بني»؟",
+    "r": "يا طير",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9047,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي تبدأ بـ: «البنت الشلبية عيونا لوزية.. بحبك من قلبي يا قلبي إنتي»؟",
+    "r": "البنت الشلبية",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9048,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المطلع: «أنا لحبيبي وحبيبي إلي.. يا عصفورة بيضا لا بقى تسألي»؟",
+    "r": "أنا لحبيبي",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9049,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «سألتك حبيبي لوين رايحين.. خلينا خلينا وتسبقنا سنين»؟",
+    "r": "سألتك حبيبي",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9050,
+    "cat": "فيروز",
+    "q": "أي أغنية تبدأ بـ: «حبيتك تنسيت النوم.. ويا خوفي تنساني.. حابسني برات النوم.. وتاركني سهراني»؟",
+    "r": "حبيتك تنسيت النوم",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9051,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي غنت فيها للوطن: «بحبك يا لبنان يا وطني بحبك.. بشمالك بجنوبك بسهلك بحبك»؟",
+    "r": "بحبك يا لبنان",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9052,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المطلع الحزين: «لبيروت.. من قلبي سلامٌ لبيروت.. وقُبلٌ للبحر والبيوت»؟",
+    "r": "لبيروت",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9053,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية ينتمي المقطع: «سلملي عليه وقلو إني بسلم عليه.. وبوسلي عينيه وقلو إني ببوس عينيه»؟",
+    "r": "سلملي عليه",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9055,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي مطلعها: «كان عنا طاحون بهالضيعة عانبع المي.. ومطرح ما ينصب الطاحون كان في فيّ»؟",
+    "r": "كان عنا طاحون",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9056,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المقطع: «سهار بعد سهار.. تيحمر الشجر.. وتصير قطوفه عسل مسكوب»؟",
+    "r": "سهار بعد سهار",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9057,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «يا عاقد الحاجبين على الجبين اللجين.. إن كنت تقصد قتلي قتلتني مرتين»؟",
+    "r": "يا عاقد الحاجبين",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9058,
+    "cat": "فيروز",
+    "q": "أي أغنية تبدأ بـ: «سكن الليل وفي ثوب السكون.. تختبي الأحلام»؟",
+    "r": "سكن الليل",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9059,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي مطلعها: «أهواك بلا أملِ.. وعيونك تبسم لي.. وورودك تغريني.. بشفاء العِلَلِ»؟",
+    "r": "أهواك بلا أمل",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9060,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المقطع: «ضلي تذكريني.. كل ما هب الهوا.. ضلي تذكريني.. كل ما طار الحمام»؟",
+    "r": "ضلي تذكريني",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9061,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «يا أنا يا أنا أنا وياك.. صرنا قصص بالحي.. طيرني طير الفرح»؟",
+    "r": "يا أنا يا أنا",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9063,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي غنت فيها: «طلعت يا محلا نورها شمس الشموسة.. يلا بنا نملا ونحلب لبن الجاموسة»؟",
+    "r": "طلعت يا محلا نورها",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9064,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المطلع: «أمي نامت ع بكير.. وسكر بيّ البوابة.. وأنا هربت من الشباك»؟",
+    "r": "أمي نامت ع بكير",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9065,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «ورقو الأصفر شهر أيلول تحت الشبابيك.. ذكرني بآخر ليلة تلاقينا»؟",
+    "r": "ورقو الأصفر",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9066,
+    "cat": "فيروز",
+    "q": "أي أغنية تبدأ بـ: «آخر أيام الصيفية والصيفية غريبة.. غابت شمس الحبيبة وفاتت صوب البحر»؟",
+    "r": "آخر أيام الصيفية",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9067,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي مطلعها: «ع هدير البوسطة اللي كانت ناقلتنا.. من ضيعة حملايا لضيعة تنورين»؟",
+    "r": "ع هدير البوسطة",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9068,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المقطع: «جايبلي سلام.. عصفور الجناين.. جايبلي سلام من عند الحبايب»؟",
+    "r": "جايبلي سلام",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9073,
+    "cat": "فيروز",
+    "q": "ما اسم المسرحية الغنائية التي تدور حول ختم الوالي وقمر الغياب وشخصية «قرنفل»؟",
+    "r": "صح النوم",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9079,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المطلع: «فايق يا هوى لما كنا سوا.. والدمع سهران بعيون الورد»؟",
+    "r": "فايق يا هوى",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9080,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «يا دارة دوري فينا.. ضلي دوري فينا.. تا ينسوا أساميهن وننسى أسامينا»؟",
+    "r": "يا دارة دوري فينا",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9081,
+    "cat": "فيروز",
+    "q": "أي أغنية تبدأ بـ: «شادي.. كنا نتلاقى بهيديك العلية.. ونلعب بهالشجر ونتسلى سوا»؟",
+    "r": "شادي",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9083,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المقطع: «شايف أديش بحبك.. بعدد حبات الرمل.. وبعدد موجات البحر»؟",
+    "r": "شايف البحر",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9084,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «مش فارقة معايا.. شو ما صار يصير.. حبيتك وبحبك والغايب عذره معاه»؟",
+    "r": "مش فارقة معايا",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9086,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي مطلعها: «ضاق خلقي يا صبي.. من هالجو العصبي.. خلينا نروق شوي»؟",
+    "r": "ضاق خلقي",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9087,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المقطع: «خليك بالبيت.. واشرب فنجان شاي.. والدنيا برا عم بتشتي»؟",
+    "r": "خليك بالبيت",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9088,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «ولا كيف.. بحبك ولا كيف.. صرلي مية سنة ناطر عالرصيف»؟",
+    "r": "ولا كيف",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9090,
+    "cat": "فيروز",
+    "q": "ما هي الأغنية التي مطلعها: «وحدن بيبقوا متل زهر البيلسان.. وحدهن بيقطفوا وراق الزمان»؟",
+    "r": "وحدن",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9092,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المقطع البديع: «نقلي نقلي.. خبيتك بإيدي.. تظل الفرحة بقلبي عم بتعيدي»؟",
+    "r": "نقلي نقلي",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9093,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «يا ريت إنت وأنا بالبيت.. شي بيت أبعد بيت.. وما يعرفوا مطرحه»؟",
+    "r": "يا ريت",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9094,
+    "cat": "فيروز",
+    "q": "أي أغنية تبدأ بـ: «بنت الشلبية.. عيونا لوزية.. خدودا زهرية.. وشعرا دهبي»؟",
+    "r": "البنت الشلبية",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9095,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي فيها: «نحنا والقمر جيران.. بيتنا خلف التلال.. بتطلع قبالنا الهضاب»؟",
+    "r": "نحنا والقمر جيران",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9096,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المطلع: «قمرة يا قمرة.. طلّي عالعالي.. ضوي على بيوتنا.. ضوي عالعلالي»؟",
+    "r": "قمرة يا قمرة",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9097,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «يا مرسال المراسيل ع الضيعة القريبة.. خدلي بدربك هالمنديل واعطيه لحبيبي»؟",
+    "r": "يا مرسال المراسيل",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9099,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي مطلعها: «كتبنا وما كتبنا.. ويا خسارة ما كتبنا.. كتبنا مية مكتوب.. ولهلأ ما جاوبنا»؟",
+    "r": "كتبنا وما كتبنا",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9100,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المقطع: «دقيت طل الورد عالشباك.. قتلي يا ورد شو معجلك عالقطف»؟",
+    "r": "دقيت طل الورد",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9101,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «يا حجل صنين بالعلالي.. زقف وطير وخبر الغوالي»؟",
+    "r": "يا حجل صنين",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9102,
+    "cat": "فيروز",
+    "q": "أي أغنية تبدأ بـ: «عاليادي اليادي يا دلالي.. وينك يا غالي ع بالي»؟",
+    "r": "عاليادي اليادي",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9103,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي غنت فيها: «بيتي أنا بيتك.. وما إلي حدا.. إذا بتتركني بروح ع الهدا»؟",
+    "r": "بيتي أنا بيتك",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9104,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المقطع: «يا حنينة ردي السلام.. وخلي المحبة بيننا على طول الأيام»؟",
+    "r": "يا حنينة",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9105,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «ميسلون يا ميسلون.. يا مجدنا في العيون.. سيفنا في دمشق»؟",
+    "r": "ميسلون",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9106,
+    "cat": "فيروز",
+    "q": "أي أغنية لدمشق والشام تبدأ بـ: «سائليني حين عطرت السلاما.. كيف غار الورد واعتل الغراما»؟",
+    "r": "سائليني يا شام",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9107,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي مطلعها: «شامُ يا ذا السيفُ لم يغبِ.. يا كَلَامَ المَجدِ في الكُتُبِ»؟",
+    "r": "شام يا ذا السيف",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9110,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي غنت فيها لمصر: «مصر عادت شمسك الذهب.. تحمل العمر وتنتسب»؟",
+    "r": "مصر عادت شمسك الذهب",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9111,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المطلع الساحلي: «شط إسكندرية يا شط الهوى.. رمسيس والمنشية ومينا البصل سوا»؟",
+    "r": "شط إسكندرية",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9112,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «عمان في القلب أنت الجمر والجاه.. ببالي رغبة في العز لا تنتهي»؟",
+    "r": "عمان في القلب",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9113,
+    "cat": "فيروز",
+    "q": "أي أغنية للأردن تبدأ بـ: «أردن أرض العزم أغنية الظبى.. نبت السيوف وحد سيفك لم ينبِ»؟",
+    "r": "أردن أرض العزم",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9114,
+    "cat": "فيروز",
+    "q": "من كتب قصيدة «أردن أرض العزم» و«عمان في القلب»؟",
+    "r": "سعيد عقل",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9115,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي غنت فيها للكويت: «يا جارة الوادي طربت وعادني.. ما يشبه الأحلام من ذكراك»؟",
+    "r": "يا جارة الوادي",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9118,
+    "cat": "فيروز",
+    "q": "أي أغنية تبدأ بـ: «الحلوة دي قامت تعجن بالبدريّة.. والديك بيصيح كوكو كوكو بالفجريّة»؟",
+    "r": "الحلوة دي",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9119,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المقطع: «يا بني.. أمك يا بني سهرانة.. وعيونها بالدمع غرقانة»؟",
+    "r": "يا بني",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9120,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «سيفٌ فليُشْهَرْ في الدنيا.. ولتصدعْ بوقٌ للحقِّ.. زحفاً زحفاً نحو القدس»؟",
+    "r": "سيف فليشهر",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9122,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي فيها: «مريت بالشوارع.. شوارع القدس العتيقة.. قدام الدكاكين البقيت من فلسطين»؟",
+    "r": "القدس العتيقة",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9123,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المقطع: «بيسان.. يا بيسان يا جنة الشجر.. في ليلك السهران ضيعنا القمر»؟",
+    "r": "بيسان",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9124,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «سنرجع يوماً إلى حينا.. ونغرق في دافئات المنى.. سنرجع مهما يمر الزمان»؟",
+    "r": "سنرجع يوما",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9125,
+    "cat": "فيروز",
+    "q": "من كتب كلمات قصيدة «سنرجع يوما إلى حينا»؟",
+    "r": "هارون هاشم رشيد",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9126,
+    "cat": "فيروز",
+    "q": "أي أغنية مطلعها: «يافا.. يا زهرة في بحرنا.. يا حلوة من بلادنا»؟",
+    "r": "يافا",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9127,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي تبدأ بـ: «زهرة الجنوب.. يا زهرة الجنوب.. يا ريح الصبا هبي على الجنوب»؟",
+    "r": "زهرة الجنوب",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9128,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المقطع: «ردني إلى بلادي مع نسائم الغوادي.. مع طيور الشوق ردني»؟",
+    "r": "ردني إلى بلادي",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9129,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «يا حريّة يا زهرة عم بتفتح بالبراري.. يا حريّة يا شمس بتشرق فوق دياري»؟",
+    "r": "يا حرية",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9130,
+    "cat": "فيروز",
+    "q": "أي أغنية تبدأ بـ: «نحنا الثورة والغضب.. نحنا أمل هالشعب.. رح نكسر القيد ونمشي بالدرب»؟",
+    "r": "نحنا الثورة والغضب",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9131,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي غنت فيها: «بقطفلك بس هالمرة.. كرمال عينيك الوردة.. وبعد ما عاد بقطف ورد»؟",
+    "r": "بقطفلك بس هالمرة",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9132,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المقطع: «يا ريتك فاهمني.. يا ريتك حاسس بقلبي وبشوقي»؟",
+    "r": "يا ريتك فاهمني",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9133,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «اشتقتلك اشتقتلك.. كرمال الله ترجع.. بعدك ببالي وما عم بنسى»؟",
+    "r": "اشتقتلك",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9135,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي مطلعها: «عندي ثقة فيك.. عندي أمل فيك.. بيكفي تبقى إنت وتترك الباقي عليي»؟",
+    "r": "عندي ثقة فيك",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9137,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المقطع: «ما شاورت حالي.. حبيتك من أول نظرة.. وما سألت عنك حدا»؟",
+    "r": "ما شاورت حالي",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9138,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «بحبك ما بعرف لهواك مدى.. من دونك أيامي بتمر سدى»؟",
+    "r": "بحبك ما بعرف",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9139,
+    "cat": "فيروز",
+    "q": "أي أغنية تبدأ بـ: «أمي يا ملاكي.. يا حبي الباقي إلى الأبد.. ولا تزل يداكِ أرجوحتي»؟",
+    "r": "أمي يا ملاكي",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9140,
+    "cat": "فيروز",
+    "q": "من كتب كلمات الأغنية الإنسانية الخالدة «أمي يا ملاكي»؟",
+    "r": "سعيد عقل",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9141,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي مطلعها: «يلا تنام ريما.. يلا تنام.. لادبحلا طير الحمام»؟",
+    "r": "يلا تنام ريما",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9143,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المقطع: «طل وسألني إذا نيسان دق الباب.. خبيت وجهي وطار البيت كلو غياب»؟",
+    "r": "طل وسألني",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9144,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «يا كرم العلالي عنقودك لنا.. يا نبعة المية زودي هوانا»؟",
+    "r": "يا كرم العلالي",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9146,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي غنت فيها: «دبكة لبنان يا حكاية المجد.. نغم الأوتار وصوت الصدا بالورد»؟",
+    "r": "دبكة لبنان",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9147,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المطلع: «راجع راجع يتعمر لبنان.. راجع يرجع هيديك الأيام»؟",
+    "r": "راجع يتعمر لبنان",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9148,
+    "cat": "فيروز",
+    "q": "إلى أي مسرحية غنائية ينتمي النشيد الشهير «راجع يتعمر لبنان»؟",
+    "r": "موسم العز",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9155,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المقطع الشعري لجوزيف حرب: «أسوارة العروس مشغولة بالذهب.. والقدس الشريف مفتاحه بالغضب»؟",
+    "r": "أسوارة العروس",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9158,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المقطع: «يا خوفي يا قلبي تنطفي الشمعة.. وينتهي الليل وما يجي الحبيب»؟",
+    "r": "يا خوفي",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9159,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «من عز النوم بتسرقني.. بهرب لبعيد وبتلحقني.. شو بدك مني تتركني»؟",
+    "r": "من عز النوم",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9162,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي فيها: «تلفن عياش.. عم يسأل عنك تلفن عياش.. قتلو مسافر وما سألناش»؟",
+    "r": "تلفن عياش",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9164,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المقطع: «يا لور حبك سرقني من رفئاتي.. وخلاني سهران بليلاتي»؟",
+    "r": "يا لور حبك",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9165,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «ليلية بترجع يا ليل.. وبتجيب الحبايب.. ليلية ع بابي بتدق»؟",
+    "r": "ليلية بترجع يا ليل",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9166,
+    "cat": "فيروز",
+    "q": "أي أغنية تبدأ بـ: «شباك حبيبي يا قمر.. عالي ومحيرني.. بضويلو الشمعة بينطفي»؟",
+    "r": "شباك حبيبي",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9167,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي غنت فيها: «لما ع الباب يا حبيبي منتودع.. بكون قلبي عم يبكي وعم يتوجع»؟",
+    "r": "لما ع الباب",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9168,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المقطع: «بيذكر بالخريف.. وبيذكر بالرصيف.. وورق الشجر الأصفر»؟",
+    "r": "بيذكر بالخريف",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9169,
+    "cat": "فيروز",
+    "q": "إلى أي ألبوم غنائي شهير تنتمي أغنية «كيفك إنت» الصادرة عام 1991؟",
+    "r": "كيفك إنت",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9171,
+    "cat": "فيروز",
+    "q": "أي أغنية من ألبوم «إيه في أمل» تبدأ بـ: «إيه في أمل.. أوقات بيطلع من ملل.. وأوقات بيخلق من حزن»؟",
+    "r": "إيه في أمل",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9172,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي مطلعها: «قصة زغيري كتير.. عم بتصير كتير.. اتنين بيتلاقوا وبيتفقوا»؟",
+    "r": "قصة زغيري",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9173,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المقطع: «كل ما الحكي بيقل.. الشوق بيزيد.. وبيصير القلب عم يدق من بعيد»؟",
+    "r": "كل ما الحكي",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9174,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «الله كبير.. بكره بتفرج.. وبيصير الهوى رفيق الدرب»؟",
+    "r": "الله كبير",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9177,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي تبدأ بـ: «لمين بتهدي هالورد.. لمين بتغني هالغنية.. لمين بتبكي بالسر»؟",
+    "r": "لمين",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9178,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المقطع: «يمكن نرجع نتلاقى بيوم.. ونمشي بهالشارع تحت النجوم»؟",
+    "r": "يمكن",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9179,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «بيتي زغير بكندا.. ما بيعرفه حدا.. فيه شجرة وقرميدة حمرا»؟",
+    "r": "بيتي زغير بكندا",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9181,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي غنت فيها: «ببالي حبيبي تضل حدا.. وتنسى الدني كلها وسواها»؟",
+    "r": "ببالي",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9183,
+    "cat": "فيروز",
+    "q": "ما اسم الفيلم الذي تناول معاناة اللبنانيين تحت الحكم العثماني وغنت فيه «يا طير» و«نسم علينا الهوى»؟",
+    "r": "سفربرلك",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9194,
+    "cat": "فيروز",
+    "q": "ما اسم المسرحية التي قدمت في مهرجانات الأرز عام 1964 وغنت فيها «سكن الليل»؟",
+    "r": "بياع الخواتم",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9196,
+    "cat": "فيروز",
+    "q": "ما المسرحية التي عُرضت في دمشق وبيروت عام 1967 وتناولت تحرير الأرض وشخصية «غربة»؟",
+    "r": "جبال الصوان",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9197,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المطلع النادر: «عمان هذا الضحى الجميل.. وهذا البهاء في سفح الجبل»؟",
+    "r": "عمان هذا الضحى",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9198,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «يا بني أمي إذا ما جئت أرضكم.. فقبلوا وجه أمي في الديار»؟",
+    "r": "يا بني أمي",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9201,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي تبدأ بـ: «تناثري تناثري يا بهجة النظر.. يا مرقص الشمس ويا أرجوحة القمر»؟",
+    "r": "تناثري تناثري",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9203,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المقطع: «أحب من الأسماء ما شابه اسمها.. وعيني إلى من يشبه الورد تنظر»؟",
+    "r": "أحب من الأسماء",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9204,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «يا شقيق الروح من موسى ترى.. هل ترى في الغيب ما لا يرى»؟",
+    "r": "يا شقيق الروح",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9206,
+    "cat": "فيروز",
+    "q": "ما الموشح الأندلسي الذي مطلعها: «جادك الغيث إذا الغيث هما.. يا زمان الوصل بالأندلسِ»؟",
+    "r": "جادك الغيث",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9210,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المقطع: «يا حبيبي كلما هب الهوى.. ونادى المنادي بالسلامِ»؟",
+    "r": "يا حبيبي كلما هب الهوى",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9211,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «عتم يا ليل وضوي يا شمعة.. الحبايب سهرانين بالجمعة»؟",
+    "r": "عتم يا ليل",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9213,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي مطلعها: «خبطة قدمكن عالأرض هدارة.. وإنتو الأحبة وإنتو الثوارة»؟",
+    "r": "خبطة قدمكن",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9215,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المقطع: «طلو الصيادي.. طلو سلاقين.. معهن بنادق نيرات وزين»؟",
+    "r": "طلو الصيادي",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9216,
+    "cat": "فيروز",
+    "q": "إلى أي مسرحية تنتمي أغنية «طلو الصيادي» الشهيرة؟",
+    "r": "ميس الريم",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9217,
+    "cat": "فيروز",
+    "q": "أي أغنية تبدأ بـ: «في قهوة عالمفرق.. في موقدة وفي نار.. نقعد أنا وإياك»؟",
+    "r": "في قهوة عالمفرق",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9218,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي مطلعها: «علية يا علية.. شباكها ع التلة.. من فوق عم بيطل»؟",
+    "r": "علية",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9219,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المقطع: «بيني وبينك كان في عهد ووفا.. شو غيرك يا حلو بعد الصفا»؟",
+    "r": "بيني وبينك",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9220,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «يا راعي القصب مبحوح.. لا تعزف نغم مجروح.. بكفي هالعمر عم يروح»؟",
+    "r": "يا راعي القصب",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9222,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي غنت فيها: «ضيعة الغار.. شو فيها أسرار.. بين الصخور والمزار»؟",
+    "r": "ضيعة الغار",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9223,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المطلع: «أمس انتهينا.. فلا كنا ولا كانا.. يا ضيعة العمر كم أودعت حيرانا»؟",
+    "r": "أمس انتهينا",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9225,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «أحب دمشق هوايا الأرق.. وقلبي على بردى قد خفق»؟",
+    "r": "أحب دمشق",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9236,
+    "cat": "فيروز",
+    "q": "ما اسم الألبوم الصادر عام 1987 الذي تضمن أغنية «معرفتي فيك» و«رح نبقى سوا»؟",
+    "r": "معرفتي فيك",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9237,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المقطع: «معرفتي فيك مش متل ما تمنيت.. شفتك بعد غيبة وسكت وما حكيت»؟",
+    "r": "معرفتي فيك",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9238,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «رح نبقى سوا.. ويضل الهوا يجمعنا سوا.. مهما طال السفر»؟",
+    "r": "رح نبقى سوا",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9240,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي تبدأ بـ: «سوا ربينا.. وع كبر الهوى تلاقينا.. بعدك متل ما إنت»؟",
+    "r": "سوا ربينا",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9241,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المقطع: «يا ريت منن مدري وين ساكنين.. بيلبسوا تياب الخريف والياسمين»؟",
+    "r": "يا ريت منن",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9242,
+    "cat": "فيروز",
+    "q": "إلى أي مسرحية تنتمي أغنية «يا ريت منن» الشهيرة؟",
+    "r": "بياع الخواتم",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9244,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي فيها: «منديل الحرير يا معلق ع الباب.. طيروا الهوا لعند الأحباب»؟",
+    "r": "منديل الحرير",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9245,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المقطع: «يا حلو يا مسليني.. يا بدر بجبينك ضويني.. عيونك بحر وأنا فيه غريق»؟",
+    "r": "يا حلو يا مسليني",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9246,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «على دلعونا وع الدلعونا.. هداك الحبيب كيف بيخونا»؟",
+    "r": "على دلعونا",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9247,
+    "cat": "فيروز",
+    "q": "أي أغنية تبدأ بموال وعتابا مطلعها: «يا دار وين الحبايب عهدنا وين.. تركوا المنازل وبكيوا دموع العين»؟",
+    "r": "يا دار وين الحبايب",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9248,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي غنت فيها: «يا حنينة يا أم الجدايل سود.. طلّي ع الدرب تا يرجع المفقود»؟",
+    "r": "يا حنينة يا أم الجدايل",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9250,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المقطع: «ع الروزانا ع الروزانا كل الهنا فيها.. شو عملت الروزانا حتى نجافيها»؟",
+    "r": "ع الروزانا",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9253,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي مطلعها: «يا حمام القرى ناديتنا.. والصبح بعده ما طل ع قريتنا»؟",
+    "r": "يا حمام القرى",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9254,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المقطع: «أمي الحبيبة يا نبض الفؤاد.. ربي يحفظك في كل البلاد»؟",
+    "r": "أمي الحبيبة",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9255,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «يا عاشقة الورد إن الورد ذبالُ.. لا تسكبي الدمع إن الحزن قتالُ»؟",
+    "r": "يا عاشقة الورد",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9257,
+    "cat": "فيروز",
+    "q": "أي أغنية تبدأ بـ: «أهواك ما هبت الصبا.. وتراقصت في الروض أغصان الشجر»؟",
+    "r": "أهواك ما هبت الصبا",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9258,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي فيها: «في ظل النخيل جلسنا سويا.. نعد النجوم ونبكي شجيا»؟",
+    "r": "في ظل النخيل",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9259,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المقطع: «يا ريم وادي النقا بالله خبرني.. هل نال قلبك من وجدٍ وتسكابِ»؟",
+    "r": "يا ريم وادي النقا",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9264,
+    "cat": "فيروز",
+    "q": "أي ترنيمة تبدأ باللحن العظيم: «اليوم علّق على خشبة.. الذي علّق الأرض على المياه»؟",
+    "r": "اليوم علق على خشبة",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9265,
+    "cat": "فيروز",
+    "q": "ما الترنيمة المؤثرة التي مطلعها: «وا حبيبي.. وا حبيبي.. أي حال أنت فيه.. من رآك فبكاك»؟",
+    "r": "وا حبيبي",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9272,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المقطع: «طاب السمر.. تحت أغصان الشجر.. والقمر ضوى ع شط الغدير»؟",
+    "r": "طاب السمر",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9273,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «يا نسمة الليل البليلة احملي.. سلامي لشوقي الحبيب الأولي»؟",
+    "r": "يا نسمة الليل",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9275,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي فيها: «لما التقينا ع باب المغارة.. كان القمر عم يدور ع الحارة»؟",
+    "r": "لما التقينا",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9276,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المقطع: «شباك الستاتي الحلوات.. عم بيطل ع الحكايات.. شو مرق أحباب وغابوا»؟",
+    "r": "شباك الستاتي",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9277,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «أحب الليل والظلمة السكينة.. إذا نامت عيون الحاسدينا»؟",
+    "r": "أحب الليل",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9278,
+    "cat": "فيروز",
+    "q": "أي أغنية تبدأ بـ: «يا غصن بانٍ مائلٍ بالدلالِ.. رفقاً بقلبي المعنى بحبكِ»؟",
+    "r": "يا غصن بان",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9279,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي غنت فيها: «عطر الياسمين فاح في الدار.. ورجع لي أحلى التذكار»؟",
+    "r": "عطر الياسمين",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9280,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المقطع: «أنا والمساء ودمع العيون.. نسامر طيفك في كل حين»؟",
+    "r": "أنا والمساء",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9281,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «يا مركب الريح خذني شراعاً.. وسافر بقلبي لبر الأمان»؟",
+    "r": "يا مركب الريح",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9283,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي مطلعها: «يا زنبقة البراري يا ندية.. يا طلعة الصبح البهية»؟",
+    "r": "يا زنبقة البراري",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9284,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المقطع: «لو كان لي قلبان لعشت بواحدٍ.. وتركت قلباً في هواكِ يعذبُ»؟",
+    "r": "لو كان لي قلبان",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9286,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «وقف يا زمان تاتشوف الحبايب.. بعد طول غياب عم يتلاقوا»؟",
+    "r": "وقف يا زمان",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9287,
+    "cat": "فيروز",
+    "q": "أي أغنية تبدأ بـ: «يا شمعة الدار ضوي عالحبايب.. ونوري طريق كل اللي غايب»؟",
+    "r": "يا شمعة الدار",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9288,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي غنت فيها: «أحبك حتى ترتوي الأرض من دمي.. ويزهر في صمت الرمال حنيني»؟",
+    "r": "أحبك حتى ترتوي الأرض",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9289,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المقطع: «يا طائر الشوق حلق في المدى.. وهات لي من ديار الأهل الصدى»؟",
+    "r": "يا طائر الشوق",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9290,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «سقانا الهوى كأساً من الراح صافياً.. فبتنا ندامى في رياض الغرامِ»؟",
+    "r": "سقانا الهوى",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9292,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي فيها: «أيامنا الحلوة عم تمضي بسكوت.. والعمر مثل الشمعة عم بدوب»؟",
+    "r": "أيامنا الحلوة",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9293,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المقطع: «يا عين لا تبكي ع اللي راح.. بكره بيجي الصبح وتطيب الجراح»؟",
+    "r": "يا عين لا تبكي",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9294,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «يا راكبين الخيل شدوا ركابكم.. ديار العز عم تنادي أبطالكم»؟",
+    "r": "يا راكبين الخيل",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9296,
+    "cat": "فيروز",
+    "q": "ما المسرحية التي عرضت في الأردن وبيروت وتناولت نضال الأنباط ضد الرومان بقيادة الملكة شكيلا؟",
+    "r": "بترا",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9299,
+    "cat": "فيروز",
+    "q": "من لحن أغنية «يا حجل صنين» وأغنية «جايبلي سلام»؟",
+    "r": "فيلمون وهبي",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9303,
+    "cat": "فيروز",
+    "q": "من لحن أغنية «يا قمر أنا وياك» للشاعر جوزيف حرب؟",
+    "r": "فيلمون وهبي",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9311,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية ينتمي البيت الشعري: «عيناكِ يا ليلى كغابتي نخيلٍ ساعة السحر.. أو شرفتان راح ينأى عنهما القمر»؟",
+    "r": "أنشودة المطر",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9312,
+    "cat": "فيروز",
+    "q": "من كتب قصيدة «أنشودة المطر» الخالدة التي اقتبس منها الرحابنة بعض المقاطع؟",
+    "r": "بدر شاكر السياب",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9315,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المقطع البارع: «بيتي على النبعة والشمس بتطلو.. وإنت الحبيب اللي ع قلبي بدلو»؟",
+    "r": "بيتي على النبعة",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9316,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «يا غايبين في الليل ردوا التحية.. ترانا على الأطلال ننطر ضوية»؟",
+    "r": "يا غايبين في الليل",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9318,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي غنت فيها: «طاحون الشر انكسر دولابه.. وانداس القيد وانهزموا أصحابه»؟",
+    "r": "طاحون الشر",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9319,
+    "cat": "فيروز",
+    "q": "من أي مسرحية غنائية هذا النشيد: «أنا يا شعب لبنان جيت تا شوفك.. تا بوس تراب أقدامك وكفوفك»؟",
+    "r": "ناطورة المفاتيح",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9320,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «يا ريح الشمال ميل ع بلادي.. وقبل تراب أهلي واولادي»؟",
+    "r": "يا ريح الشمال",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9322,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي فيها: «أطلت من شرفتها كالبدر التمام.. فرمت فؤادي بنظرة وسلام»؟",
+    "r": "أطلت كالبدر",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9323,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المقطع: «على ضفاف النهر التقينا والنسيم عليل.. وسكبنا الشوق في أسرار النخيل»؟",
+    "r": "على ضفاف النهر",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9324,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «يا لائمي في الهوى كف الملامة.. فما في العشق غير الندامة والشهامة»؟",
+    "r": "يا لائمي في الهوى",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9327,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي تبدأ ببيت: «أجراس العودة فلتقرع.. مشتاق للأقصى يركع»؟",
+    "r": "أجراس العودة",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9328,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المقطع: «شآم يا مهد الحضارة والهدى.. فيك الصهيل وفيك أسرار الفدا»؟",
+    "r": "شآم يا مهد الحضارة",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9329,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «عتابا يا ليل الحبايب عتابا.. كم بكت في البعد عينٌ وسابا»؟",
+    "r": "عتابا يا ليل",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9331,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي فيها: «أزهرت في الروض أكمام الربيع.. وغرد الشحرور بالصوت البديع»؟",
+    "r": "أزهرت في الروض",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9332,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المقطع: «يا غارقاً في لجة الأوهامِ.. أفق فما الدنيا سوى أحلامِ»؟",
+    "r": "يا غارقا في لجة الأوهام",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9333,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «يا ساهر البرق هل في الغيب من خبرِ.. يروي فؤادي ويسلي وحشة السفرِ»؟",
+    "r": "يا ساهر البرق",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9335,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي غنت فيها: «يا ساقي القوم بالأقداح رفقاً بنا.. فقد ثملنا من الهجران والشجنا»؟",
+    "r": "يا ساقي القوم",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9336,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المقطع: «رد لي قلبي فقد طال انتظاري.. وانقضى صبري وتلاشت أسراري»؟",
+    "r": "رد لي قلبي",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9337,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «يا رفيقة دربي في ليل السكون.. عهدك باقٍ في صميم الجفون»؟",
+    "r": "يا رفيقة دربي",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9339,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي مطلعها: «في عتمة الغابة وصوت الرياح.. ضاع الحبيب وانطوى كل نباح»؟",
+    "r": "في عتمة الغابة",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9340,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المقطع: «أنا الصبية اللي نطرها الهوى ع المفارق.. وزرع الورد بدربها البارق»؟",
+    "r": "صبية المفارق",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9341,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «يا جبال بلادي الشامخة بالضباب.. احفظي مجدنا وصونوا التراب»؟",
+    "r": "يا جبال بلادي",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9343,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي تبدأ بـ: «يا نبعة المي الصافية بالوديان.. اسقي الحبايب وروي الظمآن»؟",
+    "r": "يا نبعة المي",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9344,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المقطع: «يا قمراً أطل على ربا قاسيون.. وسكب الضياء على دمشق العيون»؟",
+    "r": "قمر قاسيون",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9345,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «نحن الذين بنينا في الدجى قبباً.. من الضياء وأعلينا بها الشهبا»؟",
+    "r": "نحن الذين بنينا",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9347,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي فيها: «أطل الصباح على التلال وابتسم.. وغنى الرعاة بأعذب النغم»؟",
+    "r": "أطل الصباح",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9348,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المقطع: «يا نسمة الفجر روحي للحبيب وقولي.. إن فؤادي في هواه ذليلُ»؟",
+    "r": "يا نسمة الفجر",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9366,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي مطلعها: «يا دارة العز في أفيائكِ اجتمعوا.. فرسان قومكِ والتاريخُ والظفرُ»؟",
+    "r": "يا دارة العز",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9367,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا البيت: «أحب بلادي وإن جارت عليّ عزيزةٌ.. وأهلي وإن ضنوا عليّ كرامُ»؟",
+    "r": "أحب بلادي",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9368,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «يا حامل السيف لا تغمد شبا السيفِ.. فالنصرُ آتٍ مع الأبطالِ والضيفِ»؟",
+    "r": "يا حامل السيف",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9370,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي فيها: «أزهر الليمون في بستاننا.. وتلاقى في الدجى خلاننا»؟",
+    "r": "أزهر الليمون",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9371,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المقطع: «يا بحر يافا هل تذكرت شراعاً.. كان يمضي في الصباحاتِ شجاعا»؟",
+    "r": "يا بحر يافا",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9372,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «في سفح جلعاد تلاقينا معاً.. وروينا الورد دمعاً وشجى»؟",
+    "r": "في سفح جلعاد",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9375,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي مطلعها: «جاءت معذبتي في غيهب الغسقِ.. كأنها الكوكب الدري في الأفقِ»؟",
+    "r": "جاءت معذبتي",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9376,
+    "cat": "فيروز",
+    "q": "من هو الشاعر الأندلسي صاحب قصيدة «جاءت معذبتي في غيهب الغسق»؟",
+    "r": "لسان الدين بن الخطيب",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9377,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المقطع: «يا هاجري ظلماً بغير جنايةٍ.. هل لي إلى نيل الرضا من حيلةِ»؟",
+    "r": "يا هاجري ظلما",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9378,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «سل في دجى الليل نجوماً ساهرات.. كم سكبت العين دمعاً وعبرات»؟",
+    "r": "سل في دجى الليل",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9380,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي فيها: «تراءت لي بلادي في المنامِ.. كروضٍ زاهرٍ فوق الغمامِ»؟",
+    "r": "تراءت لي بلادي",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9381,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المقطع: «يا ساقي القوم خمر الحب صافيه.. أدر كؤوس الهوى للشاربين هني»؟",
+    "r": "يا ساقي القوم صافيه",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9382,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «على روابي الشام طاب السكن.. ونبت المجد وغنى الوطن»؟",
+    "r": "على روابي الشام",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9384,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي غنت فيها: «يا مريم العذراء صلي لأجلنا.. وانشري السلام في ربوع ديارنا»؟",
+    "r": "يا مريم العذراء",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9385,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المقطع: «في فجر ميلادك يا سيد الوجود.. أنشدت الأكوان ألحان الخلود»؟",
+    "r": "في فجر ميلادك",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9386,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «يا نجمة الصبح أضيئي الدرب للحائر.. وهدي خطاه إلى النور الغامر»؟",
+    "r": "يا نجمة الصبح",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9387,
+    "cat": "فيروز",
+    "q": "أي أغنية تبدأ بـ: «أنا حرةٌ في موطني وسأبقى.. رمزا لصمود الحق مهما شقى»؟",
+    "r": "أنا حرة في موطني",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9388,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي فيها: «صوت المنادي نادى في الصباحِ.. حي على الكفاحِ والسلاحِ»؟",
+    "r": "صوت المنادي",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9389,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المقطع: «يا واحة الغرباء في صحراء المنى.. سقياً لعهد الوصلِ في أفيائنا»؟",
+    "r": "يا واحة الغرباء",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9390,
+    "cat": "فيروز",
+    "q": "إلى أي أغنية تنتمي الكلمات: «سألت الدار عن عهد الأمانِ.. فقالت قد مضى عهد الزمانِ»؟",
+    "r": "سألت الدار",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9392,
+    "cat": "فيروز",
+    "q": "ما الأغنية التي مطلعها: «أحببت فيك شجاعة الأبطالِ.. وعلو همتك فوق الجبالِ»؟",
+    "r": "أحببت فيك شجاعة الأبطال",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9393,
+    "cat": "فيروز",
+    "q": "من أي أغنية هذا المقطع: «يا راسم الأقدار بيدك الأملُ.. ارحم عباداً في رباك توسلوا»؟",
+    "r": "يا راسم الأقدار",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9394,
+    "cat": "فيروز",
+    "q": "إلى أي مسرحية تنتمي شخصية «القبضاي سبيع» و«الجد حاتم» و«العمة زلفة»؟",
+    "r": "بياع الخواتم",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9396,
+    "cat": "فيروز",
+    "q": "ما اسم الشخصية الفكاهية والوالي البسيط في مسرحية «صح النوم»؟",
+    "r": "الوالي",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9398,
+    "cat": "فيروز",
+    "q": "ما اسم الشخصية التي أداها الممثل القدير أنطوان كرباج في مسرحية «جبال الصوان»؟",
+    "r": "فاتك المتسلط",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9399,
+    "cat": "فيروز",
+    "q": "في مسرحية «بترا»، ما اسم قائد الجيش الروماني الذي فاوض الملكة شكيلا؟",
+    "r": "باتريك الروماني",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 9401,
+    "cat": "فيروز",
+    "q": "ما اسم الشخصية والشاويش الكوميدي الشهير في مسرحيات الرحابنة الذي أداها وليم حسواني؟",
+    "r": "الشاويش",
+    "reason": "Question in فيروز not mentioning Fairouz keywords"
+  },
+  {
+    "idx": 13810,
+    "cat": "مسلسل Friends",
+    "q": "ما هي المدينة الأمريكية التي تدور فيها أحداث المسلسل؟",
+    "r": "نيويورك",
+    "reason": "Question in مسلسل Friends might not be about Friends"
+  },
+  {
+    "idx": 13825,
+    "cat": "مسلسل Friends",
+    "q": "ما هي العبارة الشهيرة التي تصرخ بها جانيس دائماً؟",
+    "r": "Oh My God",
+    "reason": "Question in مسلسل Friends might not be about Friends"
+  },
+  {
+    "idx": 13856,
+    "cat": "مسلسل Friends",
+    "q": "ما هي اللعبة التنافسية التي لعبها الأصدقاء في عيد الشكر للفوز بكأس غيلر؟",
+    "r": "مباراة كرة قدم أمريكية",
+    "reason": "Question in مسلسل Friends might not be about Friends"
+  },
+  {
+    "idx": 13919,
+    "cat": "مسلسل Friends",
+    "q": "ما الرياضة التي تنافس فيها الأصدقاء وظلوا يمررون كرة لساعات طويلة دون إسقاطها على الأرض؟",
+    "r": "رمي والتقاط الكرة باليد",
+    "reason": "Question in مسلسل Friends might not be about Friends"
+  },
+  {
+    "idx": 13935,
+    "cat": "مسلسل Friends",
+    "q": "ما الحيوان الذي كان يطير في شوارع نيويورك أثناء عيد الشكر على شكل بالون عملاق في الموسم الأول؟",
+    "r": "الكلب الكرتوني أندر دوغ",
+    "reason": "Question in مسلسل Friends might not be about Friends"
+  },
+  {
+    "idx": 13951,
+    "cat": "مسلسل Friends",
+    "q": "في أي موسم أقيمت حلقة الاستعداد للحفل بالمتحف وجرت أحداثها بالكامل في الوقت الحقيقي بالصالة؟",
+    "r": "الموسم الثالث",
+    "reason": "Question in مسلسل Friends might not be about Friends"
+  },
+  {
+    "idx": 13975,
+    "cat": "مسلسل Friends",
+    "q": "ما هي الأكاذيب التي أخبرت بها أورسولا خطيبها إريك عن شخصيتها الحقيقية؟",
+    "r": "ادعت أنها معلمة بمدرسة ابتدائية وعضوة بفيلق السلام",
+    "reason": "Question in مسلسل Friends might not be about Friends"
+  },
+  {
+    "idx": 13991,
+    "cat": "مسلسل Friends",
+    "q": "ما الأغنية المفضلة التي كان القرد مارسيل يحب تشغيلها باستمرار؟",
+    "r": "The Lion Sleeps Tonight",
+    "reason": "Question in مسلسل Friends might not be about Friends"
+  },
+  {
+    "idx": 13992,
+    "cat": "مسلسل Friends",
+    "q": "في أي فيلم سينمائي خيالي شارك القرد مارسيل بعد أن أصبح نجماً؟",
+    "r": "Outbreak 2",
+    "reason": "Question in مسلسل Friends might not be about Friends"
+  },
+  {
+    "idx": 14027,
+    "cat": "مسلسل Friends",
+    "q": "في أي حديقة حيوان أمريكية شهيرة تم إرسال القرد مارسيل إليها قبل انتقاله لعالم السينما؟",
+    "r": "حديقة حيوان سان دييغو",
+    "reason": "Question in مسلسل Friends might not be about Friends"
+  },
+  {
+    "idx": 14059,
+    "cat": "مسلسل Friends",
+    "q": "في أي موسم تم تحطيم طاولة الفوسبول الشهيرة بالمطرقة لإنقاذ الطيور العالقة داخلها؟",
+    "r": "الموسم العاشر",
+    "reason": "Question in مسلسل Friends might not be about Friends"
+  },
+  {
+    "idx": 14061,
+    "cat": "مسلسل Friends",
+    "q": "في أي موسم أجريت مسابقة الأسئلة الكبرى التي أسفرت عن تبادل شقق الأصدقاء؟",
+    "r": "الموسم الرابع",
+    "reason": "Question in مسلسل Friends might not be about Friends"
+  },
+  {
+    "idx": 14114,
+    "cat": "مسلسل Friends",
+    "q": "ما هما الرقمان الأصليان لشقتي الأصدقاء في الحلقة الأولى قبل تغييرهما إلى 19 و20؟",
+    "r": "الشقتان رقم 4 ورقم 5",
+    "reason": "Question in مسلسل Friends might not be about Friends"
+  },
+  {
+    "idx": 14118,
+    "cat": "مسلسل Friends",
+    "q": "في أي موسم تنافس الأصدقاء في مسابقة البينغ بونغ الملحمية في فندق باربادوس؟",
+    "r": "الموسم التاسع",
+    "reason": "Question in مسلسل Friends might not be about Friends"
+  },
+  {
+    "idx": 14141,
+    "cat": "مسلسل Friends",
+    "q": "في أي موسم ظهر النجم العالمي براد بيت كضيف شرف في حلقة عيد الشكر الأيقونية؟",
+    "r": "الموسم الثامن",
+    "reason": "Question in مسلسل Friends might not be about Friends"
+  },
+  {
+    "idx": 14149,
+    "cat": "مسلسل Friends",
+    "q": "في أي موسم دارت أحداث مؤتمر الحفريات السنوي في جزيرة باربادوس الاستوائية؟",
+    "r": "الموسم التاسع",
+    "reason": "Question in مسلسل Friends might not be about Friends"
+  },
+  {
+    "idx": 14180,
+    "cat": "مسلسل Friends",
+    "q": "ما هو العنوان الدقيق للمبنى الذي عاش فيه الأصدقاء في غرينتش فيليج بمانهاتن؟",
+    "r": "90 شارع بيدفورد",
+    "reason": "Question in مسلسل Friends might not be about Friends"
+  },
+  {
+    "idx": 14183,
+    "cat": "مسلسل Friends",
+    "q": "لماذا قام المنتجون بتعديل أرقام شقق الأصدقاء من 4 و5 إلى 19 و20؟",
+    "r": "لأن الشقق تقع في طابق علوي ولا يعقل أن تحمل أرقام الطابق الأول",
+    "reason": "Question in مسلسل Friends might not be about Friends"
+  },
+  {
+    "idx": 14192,
+    "cat": "مسلسل Friends",
+    "q": "ما البطولة القتالية العنيفة التي أصر المليونير بيت بيكر على خوض مبارياتها؟",
+    "r": "بطولة القتال النهائي",
+    "reason": "Question in مسلسل Friends might not be about Friends"
+  },
+  {
+    "idx": 14193,
+    "cat": "مسلسل Friends",
+    "q": "ما الآلة الموسيقية التي كان يعزفها مايك هانيغان باحتراف وتخلى عن المحاماة لأجلها؟",
+    "r": "البيانو الكلاسيكي",
+    "reason": "Question in مسلسل Friends might not be about Friends"
+  },
+  {
+    "idx": 14199,
+    "cat": "مسلسل Friends",
+    "q": "كيف تخلص كتاب أيام حياتنا من شخصية دكتور دريك راموراي أول مرة؟",
+    "r": "سقط في عمود مصعد فارغ ومفتوح بالمستشفى",
+    "reason": "Question in مسلسل Friends might not be about Friends"
+  },
+  {
+    "idx": 14200,
+    "cat": "مسلسل Friends",
+    "q": "كيف عادت شخصية دكتور دريك راموراي إلى الحياة مجدداً في المسلسل؟",
+    "r": "بزراعة دماغ شخصية جيسيكا لوكهارت في جسده",
+    "reason": "Question in مسلسل Friends might not be about Friends"
+  },
+  {
+    "idx": 14202,
+    "cat": "مسلسل Friends",
+    "q": "ما السبب الرئيسي لاختيار جيمس مايكل تايلر لدور غانثر في بداية المسلسل؟",
+    "r": "معرفته العملية بكيفية تشغيل آلة قهوة الإسبريسو",
+    "reason": "Question in مسلسل Friends might not be about Friends"
+  },
+  {
+    "idx": 14210,
+    "cat": "مسلسل Friends",
+    "q": "كيف تأكد الأصدقاء من أن الرجل العاري القبيح لا يزال حياً في شقته المقابلة؟",
+    "r": "بصنع أداة طويلة من أعواد الكرات وعلكة لقرعه",
+    "reason": "Question in مسلسل Friends might not be about Friends"
+  }
+]

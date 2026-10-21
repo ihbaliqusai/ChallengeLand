@@ -9,6 +9,7 @@ import '../../widgets/cross_promo_millionaire_dialog.dart';
 import '../../services/cross_promo_service.dart';
 import '../../services/rate_game_service.dart';
 import '../legal/privacy_policy_screen.dart';
+import '../../widgets/adaptive_asset_image.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -353,7 +354,8 @@ class _SettingsScreenState extends State<SettingsScreen>
         body: Stack(
           children: <Widget>[
             Positioned.fill(
-              child: Image.asset('assets/ui/bg_main.webp', fit: BoxFit.cover),
+              child: adaptiveAssetImage('assets/ui/bg_main.webp',
+                  fit: BoxFit.cover),
             ),
             Positioned.fill(
               child: DecoratedBox(

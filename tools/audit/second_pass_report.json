@@ -1,0 +1,1107 @@
+{
+  "summary": {
+    "questions": 15427,
+    "categories": 45,
+    "activeQuestions": 15412,
+    "activeCategories": 44,
+    "errors": 0,
+    "generated": [
+      {
+        "file": "functions/src/stake_questions.json",
+        "questions": 2954,
+        "matchesSource": true
+      },
+      {
+        "file": "functions/src/original_stake_questions.json",
+        "questions": 15412,
+        "matchesSource": true
+      }
+    ],
+    "reviewCounts": {
+      "potential_option_dependence": 1
+    },
+    "media": 15,
+    "comparedWithOriginalAuditBackup": {
+      "countBefore": 15427,
+      "countAfter": 15427,
+      "changed": 2731,
+      "categories": 0,
+      "levels": 22,
+      "wording": 2612,
+      "answers": 891,
+      "options": 818
+    },
+    "secondPassChanges": {
+      "countBefore": 15427,
+      "countAfter": 15427,
+      "changed": 967,
+      "categories": 0,
+      "levels": 22,
+      "wording": 937,
+      "answers": 773,
+      "options": 708
+    }
+  },
+  "categories": {
+    "عواصم": {
+      "total": 301,
+      "levels": {
+        "0": 61,
+        "1": 39,
+        "2": 34,
+        "4": 33,
+        "5": 33,
+        "6": 47,
+        "7": 46,
+        "8": 8
+      },
+      "values": {
+        "200": 134,
+        "400": 113,
+        "600": 54
+      },
+      "hidden": false
+    },
+    "دين وإسلاميات": {
+      "total": 349,
+      "levels": {
+        "0": 18,
+        "1": 98,
+        "2": 39,
+        "3": 18,
+        "4": 39,
+        "5": 38,
+        "6": 41,
+        "7": 41,
+        "8": 17
+      },
+      "values": {
+        "200": 155,
+        "400": 118,
+        "600": 76
+      },
+      "hidden": false
+    },
+    "حيوانات": {
+      "total": 202,
+      "levels": {
+        "0": 28,
+        "1": 41,
+        "2": 22,
+        "3": 1,
+        "4": 25,
+        "5": 21,
+        "6": 33,
+        "7": 30,
+        "8": 1
+      },
+      "values": {
+        "200": 91,
+        "400": 79,
+        "600": 32
+      },
+      "hidden": false
+    },
+    "جغرافيا": {
+      "total": 328,
+      "levels": {
+        "0": 3,
+        "1": 106,
+        "2": 37,
+        "3": 8,
+        "4": 36,
+        "5": 36,
+        "6": 50,
+        "7": 50,
+        "8": 2
+      },
+      "values": {
+        "200": 146,
+        "400": 122,
+        "600": 60
+      },
+      "hidden": false
+    },
+    "لغة وادب": {
+      "total": 889,
+      "levels": {
+        "0": 39,
+        "1": 257,
+        "2": 99,
+        "3": 33,
+        "4": 99,
+        "5": 98,
+        "6": 106,
+        "7": 106,
+        "8": 52
+      },
+      "values": {
+        "200": 395,
+        "400": 303,
+        "600": 191
+      },
+      "hidden": false
+    },
+    "عملات": {
+      "total": 302,
+      "levels": {
+        "0": 4,
+        "1": 97,
+        "2": 34,
+        "3": 1,
+        "4": 33,
+        "5": 33,
+        "6": 50,
+        "7": 50
+      },
+      "values": {
+        "200": 135,
+        "400": 116,
+        "600": 51
+      },
+      "hidden": false
+    },
+    "اختراعات": {
+      "total": 283,
+      "levels": {
+        "0": 3,
+        "1": 91,
+        "2": 32,
+        "3": 5,
+        "4": 31,
+        "5": 31,
+        "6": 45,
+        "7": 44,
+        "8": 1
+      },
+      "values": {
+        "200": 126,
+        "400": 107,
+        "600": 50
+      },
+      "hidden": false
+    },
+    "دول": {
+      "total": 300,
+      "levels": {
+        "0": 4,
+        "1": 96,
+        "2": 34,
+        "3": 8,
+        "4": 33,
+        "5": 33,
+        "6": 46,
+        "7": 46
+      },
+      "values": {
+        "200": 134,
+        "400": 112,
+        "600": 54
+      },
+      "hidden": false
+    },
+    "كأس العالم": {
+      "total": 289,
+      "levels": {
+        "1": 96,
+        "2": 32,
+        "4": 32,
+        "5": 32,
+        "6": 48,
+        "7": 48,
+        "8": 1
+      },
+      "values": {
+        "200": 128,
+        "400": 112,
+        "600": 49
+      },
+      "hidden": false
+    },
+    "رياضة": {
+      "total": 316,
+      "levels": {
+        "0": 12,
+        "1": 93,
+        "2": 35,
+        "3": 10,
+        "4": 35,
+        "5": 35,
+        "6": 47,
+        "7": 47,
+        "8": 2
+      },
+      "values": {
+        "200": 140,
+        "400": 117,
+        "600": 59
+      },
+      "hidden": false
+    },
+    "تاريخ": {
+      "total": 291,
+      "levels": {
+        "0": 2,
+        "1": 95,
+        "2": 33,
+        "3": 24,
+        "4": 32,
+        "5": 32,
+        "6": 32,
+        "7": 31,
+        "8": 10
+      },
+      "values": {
+        "200": 130,
+        "400": 96,
+        "600": 65
+      },
+      "hidden": false
+    },
+    "لغات": {
+      "total": 300,
+      "levels": {
+        "0": 3,
+        "1": 97,
+        "2": 34,
+        "4": 33,
+        "5": 33,
+        "6": 50,
+        "7": 50
+      },
+      "values": {
+        "200": 134,
+        "400": 116,
+        "600": 50
+      },
+      "hidden": false
+    },
+    "أمثال": {
+      "total": 300,
+      "levels": {
+        "0": 21,
+        "1": 79,
+        "2": 34,
+        "3": 3,
+        "4": 33,
+        "5": 33,
+        "6": 49,
+        "7": 48
+      },
+      "values": {
+        "200": 134,
+        "400": 115,
+        "600": 51
+      },
+      "hidden": false
+    },
+    "علوم وفضاء": {
+      "total": 337,
+      "levels": {
+        "0": 18,
+        "1": 94,
+        "2": 38,
+        "3": 4,
+        "4": 37,
+        "5": 37,
+        "6": 40,
+        "7": 39,
+        "8": 30
+      },
+      "values": {
+        "200": 150,
+        "400": 114,
+        "600": 73
+      },
+      "hidden": false
+    },
+    "معلومات عامة": {
+      "total": 299,
+      "levels": {
+        "0": 38,
+        "1": 62,
+        "2": 33,
+        "3": 2,
+        "4": 33,
+        "5": 33,
+        "6": 49,
+        "7": 48,
+        "8": 1
+      },
+      "values": {
+        "200": 133,
+        "400": 115,
+        "600": 51
+      },
+      "hidden": false
+    },
+    "جسم الإنسان": {
+      "total": 283,
+      "levels": {
+        "0": 10,
+        "1": 84,
+        "2": 32,
+        "3": 4,
+        "4": 32,
+        "5": 31,
+        "6": 43,
+        "7": 43,
+        "8": 4
+      },
+      "values": {
+        "200": 126,
+        "400": 106,
+        "600": 51
+      },
+      "hidden": false
+    },
+    "ألغاز": {
+      "total": 550,
+      "levels": {
+        "0": 2,
+        "1": 333,
+        "2": 11,
+        "4": 12,
+        "5": 10,
+        "6": 91,
+        "7": 91
+      },
+      "values": {
+        "200": 346,
+        "400": 113,
+        "600": 91
+      },
+      "hidden": false
+    },
+    "صحة": {
+      "total": 324,
+      "levels": {
+        "0": 10,
+        "1": 115,
+        "2": 31,
+        "3": 2,
+        "4": 30,
+        "5": 30,
+        "6": 53,
+        "7": 52,
+        "8": 1
+      },
+      "values": {
+        "200": 156,
+        "400": 113,
+        "600": 55
+      },
+      "hidden": false
+    },
+    "سياحة وسفر": {
+      "total": 334,
+      "levels": {
+        "0": 3,
+        "1": 108,
+        "2": 37,
+        "3": 2,
+        "4": 37,
+        "5": 37,
+        "6": 55,
+        "7": 55
+      },
+      "values": {
+        "200": 148,
+        "400": 129,
+        "600": 57
+      },
+      "hidden": false
+    },
+    "قصص الأنبياء": {
+      "total": 287,
+      "levels": {
+        "0": 7,
+        "1": 153,
+        "2": 11,
+        "4": 10,
+        "5": 10,
+        "6": 48,
+        "7": 48
+      },
+      "values": {
+        "200": 171,
+        "400": 68,
+        "600": 48
+      },
+      "hidden": false
+    },
+    "نباتات": {
+      "total": 291,
+      "levels": {
+        "0": 9,
+        "1": 109,
+        "2": 26,
+        "4": 25,
+        "5": 25,
+        "6": 48,
+        "7": 48,
+        "8": 1
+      },
+      "values": {
+        "200": 144,
+        "400": 98,
+        "600": 49
+      },
+      "hidden": false
+    },
+    "طعام وشراب": {
+      "total": 320,
+      "levels": {
+        "0": 18,
+        "1": 111,
+        "2": 28,
+        "4": 28,
+        "5": 28,
+        "6": 52,
+        "7": 52,
+        "8": 3
+      },
+      "values": {
+        "200": 157,
+        "400": 108,
+        "600": 55
+      },
+      "hidden": false
+    },
+    "سيرة ذاتية": {
+      "total": 264,
+      "levels": {
+        "0": 1,
+        "1": 87,
+        "2": 30,
+        "3": 5,
+        "4": 29,
+        "5": 29,
+        "6": 42,
+        "7": 41
+      },
+      "values": {
+        "200": 118,
+        "400": 100,
+        "600": 46
+      },
+      "hidden": false
+    },
+    "سيارات": {
+      "total": 299,
+      "levels": {
+        "0": 14,
+        "1": 86,
+        "2": 33,
+        "4": 33,
+        "5": 33,
+        "6": 50,
+        "7": 50
+      },
+      "values": {
+        "200": 133,
+        "400": 116,
+        "600": 50
+      },
+      "hidden": false
+    },
+    "كلثوميات": {
+      "total": 401,
+      "levels": {
+        "0": 10,
+        "1": 124,
+        "2": 45,
+        "3": 5,
+        "4": 44,
+        "5": 44,
+        "6": 62,
+        "7": 62,
+        "8": 5
+      },
+      "values": {
+        "200": 179,
+        "400": 150,
+        "600": 72
+      },
+      "hidden": false
+    },
+    "فنون وسينما": {
+      "total": 233,
+      "levels": {
+        "0": 7,
+        "1": 71,
+        "2": 24,
+        "3": 10,
+        "4": 26,
+        "5": 25,
+        "6": 35,
+        "7": 35
+      },
+      "values": {
+        "200": 102,
+        "400": 86,
+        "600": 45
+      },
+      "hidden": false
+    },
+    "تقنية": {
+      "total": 361,
+      "levels": {
+        "0": 12,
+        "1": 108,
+        "2": 41,
+        "4": 39,
+        "5": 40,
+        "6": 61,
+        "7": 59,
+        "8": 1
+      },
+      "values": {
+        "200": 161,
+        "400": 140,
+        "600": 60
+      },
+      "hidden": false
+    },
+    "منوعات": {
+      "total": 281,
+      "levels": {
+        "0": 15,
+        "1": 79,
+        "2": 31,
+        "4": 31,
+        "5": 31,
+        "6": 47,
+        "7": 47
+      },
+      "values": {
+        "200": 125,
+        "400": 109,
+        "600": 47
+      },
+      "hidden": false
+    },
+    "فيروز": {
+      "total": 400,
+      "levels": {
+        "0": 40,
+        "1": 93,
+        "2": 45,
+        "3": 40,
+        "4": 44,
+        "5": 44,
+        "6": 7,
+        "7": 7,
+        "8": 80
+      },
+      "values": {
+        "200": 178,
+        "400": 95,
+        "600": 127
+      },
+      "hidden": false
+    },
+    "خمن الصورة": {
+      "total": 398,
+      "levels": {
+        "0": 40,
+        "1": 92,
+        "2": 45,
+        "3": 39,
+        "4": 44,
+        "5": 44,
+        "6": 7,
+        "7": 7,
+        "8": 80
+      },
+      "values": {
+        "200": 177,
+        "400": 95,
+        "600": 126
+      },
+      "hidden": false
+    },
+    "خمن الاسم": {
+      "total": 400,
+      "levels": {
+        "0": 40,
+        "1": 93,
+        "2": 45,
+        "3": 40,
+        "4": 44,
+        "5": 44,
+        "6": 7,
+        "7": 7,
+        "8": 80
+      },
+      "values": {
+        "200": 178,
+        "400": 95,
+        "600": 127
+      },
+      "hidden": false
+    },
+    "خمن الأكلة": {
+      "total": 398,
+      "levels": {
+        "0": 40,
+        "1": 93,
+        "2": 45,
+        "3": 38,
+        "4": 44,
+        "5": 44,
+        "6": 7,
+        "7": 7,
+        "8": 80
+      },
+      "values": {
+        "200": 178,
+        "400": 95,
+        "600": 125
+      },
+      "hidden": false
+    },
+    "خمن المدينة او الدولة": {
+      "total": 400,
+      "levels": {
+        "0": 40,
+        "1": 93,
+        "2": 45,
+        "3": 40,
+        "4": 44,
+        "5": 44,
+        "6": 7,
+        "7": 7,
+        "8": 80
+      },
+      "values": {
+        "200": 178,
+        "400": 95,
+        "600": 127
+      },
+      "hidden": false
+    },
+    "زووم": {
+      "total": 400,
+      "levels": {
+        "0": 40,
+        "1": 93,
+        "2": 45,
+        "3": 39,
+        "4": 47,
+        "5": 44,
+        "6": 7,
+        "7": 7,
+        "8": 78
+      },
+      "values": {
+        "200": 178,
+        "400": 98,
+        "600": 124
+      },
+      "hidden": false
+    },
+    "وضح شوي": {
+      "total": 400,
+      "levels": {
+        "0": 40,
+        "1": 94,
+        "2": 42,
+        "3": 40,
+        "4": 46,
+        "5": 44,
+        "6": 7,
+        "7": 8,
+        "8": 79
+      },
+      "values": {
+        "200": 176,
+        "400": 97,
+        "600": 127
+      },
+      "hidden": false
+    },
+    "ركز شوي": {
+      "total": 400,
+      "levels": {
+        "0": 40,
+        "1": 96,
+        "2": 45,
+        "3": 35,
+        "4": 47,
+        "5": 44,
+        "6": 7,
+        "7": 7,
+        "8": 79
+      },
+      "values": {
+        "200": 181,
+        "400": 98,
+        "600": 121
+      },
+      "hidden": false
+    },
+    "سبيس تون": {
+      "total": 500,
+      "levels": {
+        "0": 50,
+        "1": 125,
+        "2": 50,
+        "4": 75,
+        "5": 50,
+        "6": 50,
+        "7": 50,
+        "8": 50
+      },
+      "values": {
+        "200": 225,
+        "400": 175,
+        "600": 100
+      },
+      "hidden": false
+    },
+    "أفلام عربية": {
+      "total": 198,
+      "levels": {
+        "0": 20,
+        "1": 50,
+        "2": 20,
+        "4": 30,
+        "5": 19,
+        "6": 20,
+        "7": 19,
+        "8": 20
+      },
+      "values": {
+        "200": 90,
+        "400": 69,
+        "600": 39
+      },
+      "hidden": false
+    },
+    "أفلام أجنبية": {
+      "total": 200,
+      "levels": {
+        "0": 20,
+        "1": 50,
+        "2": 20,
+        "4": 30,
+        "5": 20,
+        "6": 20,
+        "7": 20,
+        "8": 20
+      },
+      "values": {
+        "200": 90,
+        "400": 70,
+        "600": 40
+      },
+      "hidden": false
+    },
+    "مسلسلات عربية": {
+      "total": 200,
+      "levels": {
+        "0": 20,
+        "1": 50,
+        "2": 20,
+        "4": 30,
+        "5": 20,
+        "6": 20,
+        "7": 20,
+        "8": 20
+      },
+      "values": {
+        "200": 90,
+        "400": 70,
+        "600": 40
+      },
+      "hidden": false
+    },
+    "مسلسلات أجنبية": {
+      "total": 200,
+      "levels": {
+        "0": 20,
+        "1": 50,
+        "2": 20,
+        "4": 30,
+        "5": 20,
+        "6": 20,
+        "7": 20,
+        "8": 20
+      },
+      "values": {
+        "200": 90,
+        "400": 70,
+        "600": 40
+      },
+      "hidden": false
+    },
+    "مسلسل Friends": {
+      "total": 404,
+      "levels": {
+        "0": 38,
+        "1": 113,
+        "2": 20,
+        "3": 19,
+        "4": 91,
+        "5": 21,
+        "6": 1,
+        "7": 67,
+        "8": 34
+      },
+      "values": {
+        "200": 171,
+        "400": 113,
+        "600": 120
+      },
+      "hidden": false
+    },
+    "الأنمي": {
+      "total": 600,
+      "levels": {
+        "0": 63,
+        "1": 77,
+        "2": 83,
+        "3": 60,
+        "4": 72,
+        "5": 68,
+        "6": 60,
+        "7": 54,
+        "8": 63
+      },
+      "values": {
+        "200": 223,
+        "400": 200,
+        "600": 177
+      },
+      "hidden": false
+    },
+    "خمن الأغنية": {
+      "total": 600,
+      "levels": {
+        "0": 50,
+        "1": 75,
+        "2": 75,
+        "3": 50,
+        "4": 75,
+        "5": 75,
+        "6": 75,
+        "7": 50,
+        "8": 75
+      },
+      "values": {
+        "200": 200,
+        "400": 225,
+        "600": 175
+      },
+      "hidden": false
+    },
+    "دقة ملاحظة": {
+      "total": 15,
+      "levels": {
+        "0": 7,
+        "1": 8
+      },
+      "values": {
+        "200": 15,
+        "400": 0,
+        "600": 0
+      },
+      "hidden": true
+    }
+  },
+  "errors": [],
+  "review": [
+    {
+      "index": 4327,
+      "category": "نباتات",
+      "level": "4",
+      "question": "ما النبات الغذائي الذي تعد حبوبه شبه حبوب وليس من النجيليات؟",
+      "answer": "الكينوا",
+      "reason": "potential_option_dependence"
+    }
+  ],
+  "media": [
+    {
+      "index": 15412,
+      "category": "دقة ملاحظة",
+      "level": "1",
+      "question": "ما سعة بطاقة الذاكرة الظاهرة في الصورة؟ (اكتب بالإنجليزية)",
+      "answer": "1 TB",
+      "url": "https://images.unsplash.com/photo-1779896411979-35844de55d13?fm=jpg&q=60&w=1600&auto=format&fit=crop",
+      "hidden": true,
+      "status": "visually_reviewed",
+      "visualReview": "The capacity marking 1 TB is visibly printed on the card.",
+      "evidence": "visual:tools/audit/focused_review/images/15412.jpg"
+    },
+    {
+      "index": 15413,
+      "category": "دقة ملاحظة",
+      "level": "0",
+      "question": "ما لون حقيبة الظهر الموضوعة أمام الحاسوب في الصورة؟",
+      "answer": "أسود",
+      "url": "https://images.unsplash.com/photo-1779896412420-d37179cdffb9?q=80&w=1600&auto=format&fit=crop",
+      "hidden": true,
+      "status": "visually_reviewed",
+      "visualReview": "Use the clearly black bag instead of an ambiguous red/orange seat.",
+      "evidence": "visual:tools/audit/focused_review/images/15413.jpg"
+    },
+    {
+      "index": 15414,
+      "category": "دقة ملاحظة",
+      "level": "1",
+      "question": "ما الوجبة الخفيفة الموجودة في الوعاء الدائري أمام الشخص على السرير؟",
+      "answer": "فشار",
+      "url": "https://images.unsplash.com/photo-1773332598451-8a0a59941912?q=80&w=1200&auto=format&fit=crop",
+      "hidden": true,
+      "status": "visually_reviewed",
+      "visualReview": "Books overlap and are partly obscured; the bowl of popcorn is unambiguous.",
+      "evidence": "visual:tools/audit/focused_review/images/15414.jpg"
+    },
+    {
+      "index": 15415,
+      "category": "دقة ملاحظة",
+      "level": "0",
+      "question": "ما اللون الغالب على الجدار المكسو بالطوب في يسار الصورة؟",
+      "answer": "رمادي",
+      "url": "https://images.unsplash.com/photo-1773332585687-85beb4da71ab?q=80&w=1600&auto=format&fit=crop",
+      "hidden": true,
+      "status": "visually_reviewed",
+      "visualReview": "Avoid left/right footwear orientation and use the visible gray brick wall.",
+      "evidence": "visual:tools/audit/focused_review/images/15415.jpg"
+    },
+    {
+      "index": 15416,
+      "category": "دقة ملاحظة",
+      "level": "1",
+      "question": "ما رقم المنزل على اللوحة أسفل يسار الصورة؟ (اكتب العدد بالأرقام)",
+      "answer": "174",
+      "url": "https://images.unsplash.com/photo-1788927731729-5b50816e91f1?q=80&w=1200&auto=format&fit=crop",
+      "hidden": true,
+      "status": "visually_reviewed",
+      "visualReview": "The lower-left address plaque clearly reads 174.",
+      "evidence": "visual:tools/audit/focused_review/images/15416.jpg"
+    },
+    {
+      "index": 15417,
+      "category": "دقة ملاحظة",
+      "level": "1",
+      "question": "كم بيضة كاملة غير مكسورة داخل علبة البيض المفتوحة؟ (اكتب العدد بالأرقام)",
+      "answer": "7",
+      "url": "https://images.unsplash.com/photo-1773332585771-5c9c5fa642d1?q=80&w=1200&auto=format&fit=crop",
+      "hidden": true,
+      "status": "visually_reviewed",
+      "visualReview": "Counted seven intact eggs; explicitly exclude the cooked egg and broken shell.",
+      "evidence": "visual:tools/audit/focused_review/images/15417.jpg"
+    },
+    {
+      "index": 15418,
+      "category": "دقة ملاحظة",
+      "level": "0",
+      "question": "ما اللون الغالب على زجاجة الماء الموضوعة فوق الدفتر؟",
+      "answer": "بنفسجي",
+      "url": "https://images.unsplash.com/photo-1773332611476-6ec2ba68049f?q=80&w=1200&auto=format&fit=crop",
+      "hidden": true,
+      "status": "visually_reviewed",
+      "visualReview": "Pens are partly hidden and can be confused with zippers; bottle color is visible.",
+      "evidence": "visual:tools/audit/focused_review/images/15418.jpg"
+    },
+    {
+      "index": 15419,
+      "category": "دقة ملاحظة",
+      "level": "0",
+      "question": "في أي يد ترتدي السيدة السوار؟",
+      "answer": "اليد اليسرى",
+      "url": "https://images.unsplash.com/photo-1788938594249-407d8be94d89?q=80&w=1600&auto=format&fit=crop",
+      "hidden": true,
+      "status": "visually_reviewed",
+      "visualReview": "The bracelet is on the camera-holder's anatomical left wrist.",
+      "evidence": "visual:tools/audit/focused_review/images/15419.jpg"
+    },
+    {
+      "index": 15420,
+      "category": "دقة ملاحظة",
+      "level": "1",
+      "question": "ما لون الحلقة المتصلة بأعلى وحدة التخزين الصغيرة التي تمسكها السيدة؟",
+      "answer": "برتقالي",
+      "url": "https://images.unsplash.com/photo-1779896412431-3160ade4ca01?q=80&w=1600&auto=format&fit=crop",
+      "hidden": true,
+      "status": "visually_reviewed",
+      "visualReview": "The bracelet is dark navy/black; the device's orange loop is clearer.",
+      "evidence": "visual:tools/audit/focused_review/images/15420.jpg"
+    },
+    {
+      "index": 15421,
+      "category": "دقة ملاحظة",
+      "level": "0",
+      "question": "كم حبة دراق في المجموعة الواقعة يمين رغيف الخبز في اللوحة؟ (اكتب العدد بالأرقام)",
+      "answer": "4",
+      "url": "https://images.unsplash.com/photo-1786022287950-f89179be90f6?q=80&w=1600&auto=format&fit=crop",
+      "hidden": true,
+      "status": "visually_reviewed",
+      "visualReview": "Four peaches are visible, including the partly occluded peach behind the front group.",
+      "evidence": "visual:tools/audit/focused_review/images/15421.jpg"
+    },
+    {
+      "index": 15422,
+      "category": "دقة ملاحظة",
+      "level": "1",
+      "question": "كم بيضة مفقودة من الصندوق؟ (اكتب الرقم بالأرقام)",
+      "answer": "4",
+      "url": "https://images.unsplash.com/photo-1773332585749-5146862ba746?q=80&w=1600&auto=format&fit=crop",
+      "hidden": true,
+      "status": "visually_reviewed",
+      "visualReview": "The carton has 12 slots, eight occupied and four empty.",
+      "evidence": "visual:tools/audit/focused_review/images/15422.jpg"
+    },
+    {
+      "index": 15423,
+      "category": "دقة ملاحظة",
+      "level": "0",
+      "question": "كم حصانًا مرسومًا في اللوحة المعلقة على الجدار؟ (اكتب العدد بالأرقام)",
+      "answer": "4",
+      "url": "https://images.unsplash.com/photo-1788823474301-05c5063f4d17?q=80&w=1200&auto=format&fit=crop",
+      "hidden": true,
+      "status": "visually_reviewed",
+      "visualReview": "Four horses in the wall painting; clarify that the count is inside the painting.",
+      "evidence": "visual:tools/audit/focused_review/images/15423.jpg"
+    },
+    {
+      "index": 15424,
+      "category": "دقة ملاحظة",
+      "level": "0",
+      "question": "ما لون مقبضي المقص الموضوع على سطح المكتب بجوار زجاجة الماء؟",
+      "answer": "أحمر",
+      "url": "https://images.unsplash.com/photo-1773332585815-f106a5d6ed6c?q=80&w=1600&auto=format&fit=crop",
+      "hidden": true,
+      "status": "visually_reviewed",
+      "visualReview": "Counting scissors inside the pen holder is ambiguous; the desktop pair has clear red handles.",
+      "evidence": "visual:tools/audit/focused_review/images/15424.jpg"
+    },
+    {
+      "index": 15425,
+      "category": "دقة ملاحظة",
+      "level": "1",
+      "question": "ما اللون الغالب على أعمدة الرسم البياني المعروض على شاشة الحاسوب؟",
+      "answer": "أخضر",
+      "url": "https://images.unsplash.com/photo-1773332598289-ed0444ad1d6f?q=80&w=1200&auto=format&fit=crop",
+      "hidden": true,
+      "status": "visually_reviewed",
+      "visualReview": "The spreadsheet is visible but its app title is small; the green chart bars are directly observable without inferring the brand.",
+      "evidence": "visual:tools/audit/focused_review/images/15425.jpg"
+    },
+    {
+      "index": 15426,
+      "category": "دقة ملاحظة",
+      "level": "1",
+      "question": "ما العدد الكبير المكتوب أعلى لافتة المطعم المضيئة؟ (اكتب العدد بالأرقام)",
+      "answer": "888",
+      "url": "https://images.unsplash.com/photo-1788283574693-76c4df2ef0ec?q=80&w=1200&auto=format&fit=crop",
+      "hidden": true,
+      "status": "visually_reviewed",
+      "visualReview": "Chairs overlap in shadow; the sign clearly displays 888.",
+      "evidence": "visual:tools/audit/focused_review/images/15426.jpg"
+    }
+  ],
+  "limits": "All records checked structurally and against answer matching; review flags are heuristics. Not an authoritative fact-check or visual verification of every question."
+}

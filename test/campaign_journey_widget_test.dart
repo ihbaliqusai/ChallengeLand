@@ -1,3 +1,4 @@
+import 'package:challenge_land/core/shared_assets.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -23,10 +24,10 @@ void main() {
 
   setUpAll(() async {
     final font = FontLoader('NotoSansArabic')
-      ..addFont(rootBundle.load('assets/fonts/NotoSansArabic.ttf'));
+      ..addFont(SharedAssets.bundle.load('assets/fonts/NotoSansArabic.ttf'));
     await font.load();
     final icons = FontLoader('MaterialIcons')
-      ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
+      ..addFont(SharedAssets.bundle.load('fonts/MaterialIcons-Regular.otf'));
     await icons.load();
   });
 

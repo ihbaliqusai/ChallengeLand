@@ -42,7 +42,8 @@ class _RoomsScreenState extends State<RoomsScreen>
     if (widget.initialRoomCode != null && widget.initialRoomCode!.isNotEmpty) {
       _roomCodeController.text = widget.initialRoomCode!;
     } else {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _checkClipboardAutoFill());
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => _checkClipboardAutoFill());
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -783,8 +784,10 @@ class _CreateJoinPanel extends StatelessWidget {
                     tooltip: 'لصق الرمز',
                     onPressed: () async {
                       try {
-                        final data = await Clipboard.getData(Clipboard.kTextPlain);
-                        if (data?.text != null && data!.text!.trim().isNotEmpty) {
+                        final data =
+                            await Clipboard.getData(Clipboard.kTextPlain);
+                        if (data?.text != null &&
+                            data!.text!.trim().isNotEmpty) {
                           final text = data.text!.trim();
                           final match = RegExp(
                             r'(?:رمز الغرفة|كود الغرفة|كود|code)[:\s\n]*([A-Za-z0-9_-]{4,25})',

@@ -222,6 +222,7 @@ final class GameOfflineContestantsController {
     private final TextView[] soloStageStars = new TextView[3];
     private FrameLayout soloStageProgressTrack;
     private View soloStageProgressFill;
+    private LinearLayout soloStageCardLayout;
     private int lastEarnedStars = 0;
 
     // Match the complete Flutter roster when assigning other players' figures.
@@ -894,7 +895,7 @@ final class GameOfflineContestantsController {
         return value;
     }
 
-    private boolean isSoloCampaignBoard() {
+    boolean isSoloCampaignBoard() {
         return activity.campaignBoard && !"boss".equals(activity.boardCampaignKind) && count == 1;
     }
 
@@ -1071,6 +1072,7 @@ final class GameOfflineContestantsController {
         scoreBoardContent.setBackground(cardBg);
 
         LinearLayout cardLayout = new LinearLayout(activity);
+        soloStageCardLayout = cardLayout;
         cardLayout.setOrientation(LinearLayout.VERTICAL);
         cardLayout.setGravity(Gravity.CENTER_HORIZONTAL);
         cardLayout.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
@@ -1183,7 +1185,44 @@ final class GameOfflineContestantsController {
         soloStageProgressFill.setBackground(fillBg);
         soloStageProgressTrack.addView(soloStageProgressFill, new FrameLayout.LayoutParams(0, activity.dp(5)));
 
+        // 7. Stage Timer: Place below the stars and progress bar
+        attachCampaignTimerToCard(cardLayout);
+
         refreshSoloStageCard();
+    }
+
+    void attachCampaignTimerToSoloCard() {
+        if (soloStageCardLayout != null) {
+            attachCampaignTimerToCard(soloStageCardLayout);
+        }
+    }
+
+    void attachCampaignTimerToCard(LinearLayout cardLayout) {
+        if (!activity.campaignMode || activity.campaignTimeLimitSeconds <= 0 || cardLayout == null) {
+            return;
+        }
+        if (activity.txtCampaignTimer == null) {
+            activity.createCampaignTimerViewIfNeeded();
+        }
+        if (activity.txtCampaignTimer != null) {
+            if (activity.txtCampaignTimer.getParent() instanceof ViewGroup) {
+                ((ViewGroup) activity.txtCampaignTimer.getParent()).removeView(activity.txtCampaignTimer);
+            }
+            LinearLayout.LayoutParams timerParams = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            timerParams.setMargins(0, activity.dp(8), 0, 0);
+            timerParams.gravity = Gravity.CENTER_HORIZONTAL;
+            activity.txtCampaignTimer.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f);
+            activity.txtCampaignTimer.setPadding(activity.dp(10), activity.dp(4), activity.dp(10), activity.dp(4));
+            activity.txtCampaignTimer.setGravity(Gravity.CENTER);
+            activity.txtCampaignTimer.setIncludeFontPadding(false);
+            if (balooFont != null) {
+                activity.txtCampaignTimer.setTypeface(balooFont, Typeface.BOLD);
+            } else {
+                activity.txtCampaignTimer.setTypeface(Typeface.DEFAULT_BOLD);
+            }
+            cardLayout.addView(activity.txtCampaignTimer, timerParams);
+        }
     }
 
     private void refreshSoloStageCard() {

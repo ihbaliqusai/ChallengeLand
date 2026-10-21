@@ -13,6 +13,7 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import io.flutter.plugin.common.StandardMethodCodec
 
 class MainActivity : FlutterActivity() {
     private val campaignMapMusicVolume = 0.5f
@@ -88,10 +89,29 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        // Asset I/O runs on a serial background queue, never the Android UI thread.
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "challengeland/shared-assets",
+            StandardMethodCodec.INSTANCE,
+            flutterEngine.dartExecutor.binaryMessenger.makeBackgroundTaskQueue()
+        ).setMethodCallHandler { call, result ->
+            try {
+                when (call.method) {
+                    "load" -> result.success(SharedAssetStore.read(applicationContext, call.arguments as String))
+                    "welcomeVideoUri" -> result.success("android.resource://$packageName/${R.raw.welcome}")
+                    else -> result.notImplemented()
+                }
+            } catch (error: Exception) {
+                result.error("SHARED_ASSET", error.message, null)
+            }
+        }
         flutterEngine.platformViewsController.registry.registerViewFactory(
             "challengeland/home-character",
             HomeCharacterViewFactory(this, flutterEngine.dartExecutor.binaryMessenger)
         )
+        CharacterAnimationTextures(this, flutterEngine.renderer,
+            flutterEngine.dartExecutor.binaryMessenger)
         val channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "millionaire/native")
         playBillingManager = PlayBillingManager(this, channel)
         channel.setMethodCallHandler { call, result ->

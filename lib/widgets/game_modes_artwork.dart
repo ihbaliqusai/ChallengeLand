@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'adaptive_asset_image.dart';
 
 /// Original mode artwork with native, accessible controls and glowing
 /// ambient light around each game mode button.
@@ -297,7 +298,7 @@ class _GameModesArtworkState extends State<GameModesArtwork>
                                     GameModesArtwork._frame.width,
                                 height: area.maxHeight /
                                     GameModesArtwork._frame.height,
-                                child: Image.asset(
+                                child: adaptiveAssetImage(
                                   GameModesArtwork.asset,
                                   fit: BoxFit.fill,
                                   excludeFromSemantics: true,

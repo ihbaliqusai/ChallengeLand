@@ -1,7 +1,7 @@
 name: challenge_land
 description: ChallengeLand quiz game with online multiplayer, matchmaking, invitations, friends, leaderboards, and Firebase-backed profiles.
 publish_to: "none"
-version: 3.8.1+40
+version: 3.8.2+41
 
 environment:
   sdk: ">=3.5.0 <4.0.0"
@@ -45,14 +45,13 @@ flutter:
     - assets/ui/bg_main.webp
     - assets/ui/bg_login.webp
     - assets/ui/logo.webp
-    - assets/ui/google.png
-    - assets/ui/user.png
+
     - assets/ui/person_welcome.webp
     - assets/ui/home_menu.webp
     - assets/ui/game_modes.webp
     - assets/ui/play_stake_dialog.png
     - assets/ui/weekly_reward.webp
-    - assets/ui/rate.png
+
     - assets/ui/box1.png
     - assets/store/champions_club_preview.webp
     - assets/store/character_fahad.webp
@@ -89,11 +88,6 @@ flutter:
     - assets/store/return_watch.webp
     - assets/store/reward_daily.webp
     - assets/store/reward_watch.webp
-    - assets/store/rent_cal_badge.png
-    - assets/store/rent_close.png
-    - assets/store/rent_coin.png
-    - assets/store/rent_gem.png
-    - assets/store/rent_title.png
     - assets/store/btn_rent_green.png
     - assets/social/friends_challenges.jfif
     - assets/home/campaign.webp
@@ -108,26 +102,30 @@ flutter:
     - assets/home/modes.webp
     - assets/home/play.png
     - assets/home/store.webp
-    - assets/ui/splash_poster.webp
+    - assets/ui/splash.png
+    - assets/ui/character_select_room.webp
+    - assets/ui/character_select_title.png
     - assets/ui/million_challenge_logo.png
-    - assets/images/campaign/worlds/
-    - assets/images/campaign/ui/
-    - assets/characters/
-    - assets/characters/contestant_khaled.png
-    - assets/characters/contestant_omar.png
-    - assets/characters/contestant_fahad.png
-    - assets/characters/contestant_mazen.png
-    - assets/characters/contestant_mahmoud.png
-    - assets/characters/contestant_ellen.png
-    - assets/characters/contestant_sarah.png
-    - assets/characters/contestant_talia.png
-    - assets/categories/
+
+    - assets/images/campaign/worlds/world_01_forest.webp
+    - assets/images/campaign/worlds/world_02_hills.webp
+    - assets/images/campaign/worlds/world_03_million_path.webp
+    - assets/images/campaign/worlds/world_04_desert.webp
+    - assets/images/campaign/worlds/world_05_genius_city.webp
+    - assets/images/campaign/worlds/world_06_mountain.webp
+    - assets/images/campaign/worlds/world_07_sea.webp
+    - assets/images/campaign/worlds/world_08_lab.webp
+    - assets/images/campaign/worlds/world_09_legends_gate.webp
+    - assets/images/campaign/worlds/world_10_million_palace.webp
+    - assets/images/campaign/ui/stage_button_blue.png
+    - assets/images/campaign/ui/stage_button_green.png
+    - assets/images/campaign/ui/star_1.png
+    - assets/images/campaign/ui/star_2.png
+    - assets/images/campaign/ui/star_3.png
+
     - assets/fonts/NotoSansArabic-OFL.txt
-    - assets/videos/
+
   fonts:
-    - family: Baloo
-      fonts:
-        - asset: assets/fonts/baloo.ttf
     - family: NotoSansArabic
       fonts:
         - asset: assets/fonts/NotoSansArabic.ttf

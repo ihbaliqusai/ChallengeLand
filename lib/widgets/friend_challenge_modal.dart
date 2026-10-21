@@ -10,6 +10,7 @@ import '../models/player_profile.dart';
 import '../services/invite_service.dart';
 import '../services/social_service.dart';
 import 'friend_stake_selector.dart';
+import 'adaptive_asset_image.dart';
 
 class FriendChallengeModal extends StatefulWidget {
   const FriendChallengeModal({
@@ -1003,12 +1004,13 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
                                   ? Image.network(
                                       photoUrl,
                                       fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) => Image.asset(
+                                      errorBuilder: (_, __, ___) =>
+                                          adaptiveAssetImage(
                                         character.asset,
                                         fit: BoxFit.contain,
                                       ),
                                     )
-                                  : Image.asset(
+                                  : adaptiveAssetImage(
                                       character.asset,
                                       fit: BoxFit.contain,
                                     ),

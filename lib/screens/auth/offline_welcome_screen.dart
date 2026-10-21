@@ -47,8 +47,8 @@ class _OfflineWelcomeScreenState extends State<OfflineWelcomeScreen>
     if (_retrying) return;
     setState(() => _retrying = true);
     final results = await Connectivity().checkConnectivity();
-    final online = results.isNotEmpty &&
-        results.any((r) => r != ConnectivityResult.none);
+    final online =
+        results.isNotEmpty && results.any((r) => r != ConnectivityResult.none);
     if (!mounted) return;
     if (online) {
       // AppState listens to the connectivity stream in main.dart and will
@@ -236,12 +236,10 @@ class _PrimaryButtonState extends State<_PrimaryButton> {
                 gradient: const LinearGradient(
                   colors: [Color(0xFFF8D34C), Color(0xFFF59E0B)],
                 ),
-                border: Border.all(
-                    color: const Color(0xFFFFF3A3), width: 2),
+                border: Border.all(color: const Color(0xFFFFF3A3), width: 2),
                 boxShadow: [
                   BoxShadow(
-                    color:
-                        const Color(0xFFF59E0B).withValues(alpha: glow),
+                    color: const Color(0xFFF59E0B).withValues(alpha: glow),
                     blurRadius: 22,
                     offset: const Offset(0, 6),
                   ),
@@ -250,8 +248,7 @@ class _PrimaryButtonState extends State<_PrimaryButton> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(widget.icon,
-                      color: const Color(0xFF1F2937), size: 24),
+                  Icon(widget.icon, color: const Color(0xFF1F2937), size: 24),
                   const SizedBox(width: 10),
                   Text(
                     widget.label,
@@ -294,8 +291,8 @@ class _SecondaryButton extends StatelessWidget {
         style: OutlinedButton.styleFrom(
           side: BorderSide(
               color: Colors.white.withValues(alpha: 0.35), width: 1.4),
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -306,8 +303,7 @@ class _SecondaryButton extends StatelessWidget {
                 height: 18,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  valueColor:
-                      AlwaysStoppedAnimation<Color>(Colors.white70),
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white70),
                 ),
               )
             else

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'adaptive_asset_image.dart';
 
 /// The supplied Play artwork rebuilt with live, accessible match controls.
 class PlayStakeArtwork extends StatelessWidget {
@@ -587,7 +588,7 @@ class _ArtworkSlice extends StatelessWidget {
               top: -source.top / source.height * area.maxHeight,
               width: 1324 / source.width * area.maxWidth,
               height: 1740 / source.height * area.maxHeight,
-              child: Image.asset(PlayStakeArtwork.asset,
+              child: adaptiveAssetImage(PlayStakeArtwork.asset,
                   fit: BoxFit.fill, excludeFromSemantics: true),
             ),
           ]),

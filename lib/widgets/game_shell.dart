@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'adaptive_asset_image.dart';
 
 class GameShell extends StatelessWidget {
   const GameShell({
@@ -58,7 +59,7 @@ class GameShell extends StatelessWidget {
                     child: Opacity(
                       opacity: 0.18,
                       child: Center(
-                        child: Image.asset(
+                        child: adaptiveAssetImage(
                           'assets/ui/logo.webp',
                           width: 180,
                         ),
@@ -73,7 +74,7 @@ class GameShell extends StatelessWidget {
                   child: IgnorePointer(
                     child: Opacity(
                       opacity: 0.14,
-                      child: Image.asset(
+                      child: adaptiveAssetImage(
                         'assets/ui/person_welcome.webp',
                         height: 250,
                         fit: BoxFit.contain,
@@ -123,7 +124,8 @@ class GameShell extends StatelessWidget {
                           ],
                         ],
                       ),
-                    if (title != null || action != null) const SizedBox(height: 16),
+                    if (title != null || action != null)
+                      const SizedBox(height: 16),
                     Expanded(child: child),
                   ],
                 ),
@@ -168,9 +170,12 @@ class GlassPanel extends StatelessWidget {
                 const Color(0xFF5B21B6).withValues(alpha: 0.68),
               ],
             ),
-            border: Border.all(color: const Color(0xFF7DD3FC).withValues(alpha: 0.92), width: 1.8),
+            border: Border.all(
+                color: const Color(0xFF7DD3FC).withValues(alpha: 0.92),
+                width: 1.8),
             boxShadow: const <BoxShadow>[
-              BoxShadow(color: Colors.black45, blurRadius: 20, offset: Offset(0, 10)),
+              BoxShadow(
+                  color: Colors.black45, blurRadius: 20, offset: Offset(0, 10)),
             ],
           ),
           child: child,
@@ -236,7 +241,8 @@ class _AnimatedNeonButtonState extends State<_AnimatedNeonButton> {
     final colors = widget.gold
         ? const <Color>[Color(0xFFF8D34C), Color(0xFFF59E0B)]
         : const <Color>[Color(0xFF2D3FFF), Color(0xFF14B8FF)];
-    final border = widget.gold ? const Color(0xFFFFF2B3) : const Color(0xFFA5F3FC);
+    final border =
+        widget.gold ? const Color(0xFFFFF2B3) : const Color(0xFFA5F3FC);
     final foreground = widget.gold ? const Color(0xFF1F2937) : Colors.white;
     final radius = BorderRadius.circular(widget.compact ? 18 : 24);
 
@@ -255,13 +261,19 @@ class _AnimatedNeonButtonState extends State<_AnimatedNeonButton> {
                 borderRadius: radius,
                 gradient: LinearGradient(
                   colors: _pressed && enabled
-                      ? colors.map((color) => Color.lerp(color, Colors.black, 0.12)!).toList()
+                      ? colors
+                          .map(
+                              (color) => Color.lerp(color, Colors.black, 0.12)!)
+                          .toList()
                       : colors,
                 ),
                 border: Border.all(color: border, width: 2),
                 boxShadow: <BoxShadow>[
                   BoxShadow(
-                    color: (widget.gold ? const Color(0xFFF59E0B) : const Color(0xFF2563EB)).withValues(alpha: 0.28),
+                    color: (widget.gold
+                            ? const Color(0xFFF59E0B)
+                            : const Color(0xFF2563EB))
+                        .withValues(alpha: 0.28),
                     blurRadius: _pressed ? 10 : 20,
                     offset: Offset(0, _pressed ? 4 : 10),
                   ),
@@ -270,9 +282,12 @@ class _AnimatedNeonButtonState extends State<_AnimatedNeonButton> {
               child: InkWell(
                 borderRadius: radius,
                 onTap: widget.onPressed,
-                onHighlightChanged: enabled ? (value) => setState(() => _pressed = value) : null,
+                onHighlightChanged: enabled
+                    ? (value) => setState(() => _pressed = value)
+                    : null,
                 child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: widget.compact ? 18 : 22),
+                  padding: EdgeInsets.symmetric(
+                      horizontal: widget.compact ? 18 : 22),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: <Widget>[
@@ -280,10 +295,12 @@ class _AnimatedNeonButtonState extends State<_AnimatedNeonButton> {
                         width: widget.compact ? 34 : 40,
                         height: widget.compact ? 34 : 40,
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: widget.gold ? 0.34 : 0.18),
+                          color: Colors.white
+                              .withValues(alpha: widget.gold ? 0.34 : 0.18),
                           shape: BoxShape.circle,
                         ),
-                        child: Icon(widget.icon, color: foreground, size: widget.compact ? 18 : 22),
+                        child: Icon(widget.icon,
+                            color: foreground, size: widget.compact ? 18 : 22),
                       ),
                       const SizedBox(width: 12),
                       Flexible(
@@ -329,7 +346,8 @@ class HudChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: compact ? 10 : 12, vertical: compact ? 8 : 10),
+      padding: EdgeInsets.symmetric(
+          horizontal: compact ? 10 : 12, vertical: compact ? 8 : 10),
       decoration: BoxDecoration(
         color: const Color(0xFF08112F).withValues(alpha: 0.88),
         borderRadius: BorderRadius.circular(16),
@@ -380,18 +398,29 @@ class SideMenuButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(22),
-            color: highlight ? const Color(0xFFFACC15).withValues(alpha: 0.24) : const Color(0xFF091332).withValues(alpha: 0.90),
-            border: Border.all(color: highlight ? const Color(0xFFFCD34D) : Colors.white.withValues(alpha: 0.12), width: 1.6),
+            color: highlight
+                ? const Color(0xFFFACC15).withValues(alpha: 0.24)
+                : const Color(0xFF091332).withValues(alpha: 0.90),
+            border: Border.all(
+                color: highlight
+                    ? const Color(0xFFFCD34D)
+                    : Colors.white.withValues(alpha: 0.12),
+                width: 1.6),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              Icon(icon, color: highlight ? const Color(0xFFFCD34D) : const Color(0xFF7DD3FC), size: 28),
+              Icon(icon,
+                  color: highlight
+                      ? const Color(0xFFFCD34D)
+                      : const Color(0xFF7DD3FC),
+                  size: 28),
               const SizedBox(height: 8),
               Text(
                 label,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+                style:
+                    const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
               ),
             ],
           ),
@@ -417,7 +446,11 @@ class ProgressStrip extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Text(label, style: const TextStyle(fontSize: 13, color: Colors.white70, fontWeight: FontWeight.w700)),
+        Text(label,
+            style: const TextStyle(
+                fontSize: 13,
+                color: Colors.white70,
+                fontWeight: FontWeight.w700)),
         const SizedBox(height: 6),
         ClipRRect(
           borderRadius: BorderRadius.circular(999),

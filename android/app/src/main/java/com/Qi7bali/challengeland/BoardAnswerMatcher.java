@@ -93,9 +93,21 @@ final class BoardAnswerMatcher {
         addWrong(wrongs, q.W2);
         addWrong(wrongs, q.W3);
 
+        // Listed wrong options cannot pass any fuzzy or partial matching path.
+        if (wrongs.contains(nt)) return false;
+
         // Exact (after normalization) is always accepted.
         if (nt.equals(right)) {
             return true;
+        }
+
+        List<String> rightNumbers = numbers(right), typedNumbers = numbers(nt);
+        if (!rightNumbers.isEmpty() && !typedNumbers.isEmpty()
+                && !rightNumbers.equals(typedNumbers)) return false;
+        boolean symbolic = hasSymbols(right);
+        for (String wrong : wrongs) symbolic |= hasSymbols(wrong);
+        if (symbolic || right.matches("-?\\d+(?:\\.\\d+)?")) {
+            return nt.replace(" ", "").equals(right.replace(" ", ""));
         }
 
         double simRight = similarity(nt, right);
@@ -121,6 +133,17 @@ final class BoardAnswerMatcher {
         if (!n.isEmpty()) {
             list.add(n);
         }
+    }
+
+    private static boolean hasSymbols(String text) {
+        return text.matches(".*[@#&%*/+=^πφχ²³⁴⁰¹].*") || text.startsWith("-");
+    }
+
+    private static List<String> numbers(String text) {
+        List<String> values = new ArrayList<>();
+        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("-?\\d+(?:\\.\\d+)?").matcher(text);
+        while (matcher.find()) values.add(matcher.group());
+        return values;
     }
 
     /** Balanced edit budget: always allow one slip, more for longer answers. */
@@ -317,6 +340,7 @@ final class BoardAnswerMatcher {
             return "";
         }
         String t = s.trim().toLowerCase(Locale.ROOT);
+        t = t.replace("٬", "").replaceAll("(?<=\\p{Nd}),(?=\\p{Nd}{3}(?:\\D|$))", "");
         StringBuilder b = new StringBuilder(t.length());
         for (int i = 0; i < t.length(); i++) {
             char c = t.charAt(i);
@@ -342,7 +366,15 @@ final class BoardAnswerMatcher {
             } else if (c == 'ئ') {
                 c = 'ي';
             }
-            b.append(isWordChar(c) ? c : ' ');
+            if (c == '−' || c == '–') c = '-';
+            if ((c == '٫' || c == ',') && i > 0 && i + 1 < t.length()
+                    && Character.isDigit(t.charAt(i - 1)) && Character.isDigit(t.charAt(i + 1))) c = '.';
+            boolean decimal = c == '.' && i > 0 && i + 1 < t.length()
+                    && Character.isDigit(t.charAt(i - 1)) && Character.isDigit(t.charAt(i + 1));
+            boolean wordHyphen = c == '-' && i > 0 && i + 1 < t.length()
+                    && Character.isLetter(t.charAt(i - 1)) && Character.isLetter(t.charAt(i + 1));
+            boolean symbol = "@#&%*/+=^-²³⁴⁰¹".indexOf(c) >= 0;
+            b.append((isWordChar(c) || decimal || symbol) && !wordHyphen ? c : ' ');
         }
         // collapse runs of whitespace into single spaces
         StringBuilder out = new StringBuilder(b.length());
@@ -382,7 +414,7 @@ final class BoardAnswerMatcher {
         if (c >= 'a' && c <= 'z') {
             return true;
         }
-        return c >= 'ء' && c <= 'ي'; // Arabic letters (post-normalization)
+        return (c >= 'ء' && c <= 'ي') || (c >= '\u0370' && c <= '\u03ff');
     }
 
     private static int levenshtein(String a, String b) {

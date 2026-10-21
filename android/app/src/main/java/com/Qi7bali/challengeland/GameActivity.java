@@ -1335,7 +1335,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                     : (campaignTimeLimitSeconds * 1000L) - elapsedMs;
             if (remainingMs <= 0L) {
                 if (txtCampaignTimer != null) {
-                    txtCampaignTimer.setText(formatCampaignRemaining(0));
+                    txtCampaignTimer.setText("⏱ " + formatCampaignRemaining(0));
                 }
                 handleCampaignTimeExpired();
             } else {
@@ -3796,6 +3796,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                             boolean ready = selected.size() == boardCols;
                             confirm.setEnabled(ready);
                             confirm.setAlpha(ready ? 1f : 0.5f);
+                            scrollToConfirmIfReady(confirm, ready);
                         }
                     });
                     rowLayout.addView(tile);
@@ -3809,7 +3810,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
             root.addView(rowLayout);
         }
 
-        confirm.setText(boardCampaignMatch ? "ابدأ • القلب يُخصم عند الخسارة" : "ابدأ اللعب • مفتاح واحد");
+        confirm.setText(boardCampaignMatch ? "ابدأ • القلب يُخصم عند الخسارة" : "ابدأ اللعب");
         confirm.setAllCaps(false);
         confirm.setTextColor(0xFFFFFFFF);
         if (getBoardFont() != null) confirm.setTypeface(getBoardFont(), Typeface.BOLD);
@@ -3830,6 +3831,27 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         root.addView(confirm);
 
         overlay.addView(scroll);
+    }
+
+    private void scrollToConfirmIfReady(final View confirm, boolean ready) {
+        if (!ready || confirm == null) return;
+        confirm.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if (isFinishing() || isDestroyed()) return;
+                android.view.ViewParent p = confirm.getParent();
+                while (p != null) {
+                    if (p instanceof ScrollView) {
+                        ScrollView sv = (ScrollView) p;
+                        View child = sv.getChildAt(0);
+                        int targetY = child != null ? child.getBottom() : sv.getBottom();
+                        sv.smoothScrollTo(0, targetY);
+                        return;
+                    }
+                    p = p.getParent();
+                }
+            }
+        }, 120);
     }
 
     private FrameLayout makeCategoryTile(final String category) {
@@ -4269,12 +4291,14 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                     boolean ready = selected.size() == boardCols;
                     confirm.setEnabled(ready);
                     confirm.setAlpha(ready ? 1f : 0.5f);
+                    scrollToConfirmIfReady(confirm, ready);
                 }
             } else {
                 selected.clear();
                 selected.add(category);
                 confirm.setEnabled(true);
                 confirm.setAlpha(1f);
+                scrollToConfirmIfReady(confirm, true);
             }
         }
     }
@@ -10796,25 +10820,32 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         return 0;
     }
 
-    private void createCampaignTimerViewIfNeeded() {
+    void createCampaignTimerViewIfNeeded() {
         if (!campaignMode || campaignTimeLimitSeconds <= 0 || txtCampaignTimer != null) {
             return;
         }
         txtCampaignTimer = new TextView(this);
         txtCampaignTimer.setTextColor(Color.WHITE);
-        txtCampaignTimer.setTextSize(TypedValue.COMPLEX_UNIT_SP, isCampaignBlitzMode() ? 19 : 16);
+        txtCampaignTimer.setTextSize(TypedValue.COMPLEX_UNIT_SP, isCampaignBlitzMode() ? 17 : 12.5f);
         txtCampaignTimer.setTypeface(null, android.graphics.Typeface.BOLD);
-        txtCampaignTimer.setPadding(dp(12), dp(7), dp(12), dp(7));
-        txtCampaignTimer.setText(formatCampaignRemaining(campaignTimeLimitSeconds));
+        txtCampaignTimer.setPadding(dp(10), dp(4), dp(10), dp(4));
+        txtCampaignTimer.setGravity(Gravity.CENTER);
+        txtCampaignTimer.setIncludeFontPadding(false);
+        txtCampaignTimer.setText("⏱ " + formatCampaignRemaining(campaignTimeLimitSeconds));
         updateCampaignTimerVisual(campaignTimeLimitSeconds);
-        android.widget.FrameLayout.LayoutParams params = new android.widget.FrameLayout.LayoutParams(
-                android.widget.FrameLayout.LayoutParams.WRAP_CONTENT,
-                android.widget.FrameLayout.LayoutParams.WRAP_CONTENT);
-        params.gravity = android.view.Gravity.TOP | android.view.Gravity.CENTER_HORIZONTAL;
-        params.setMargins(dp(12), dp(82), dp(12), dp(12));
-        View root = findViewById(android.R.id.content);
-        if (root instanceof android.widget.FrameLayout) {
-            ((android.widget.FrameLayout) root).addView(txtCampaignTimer, params);
+
+        if (offlineContestants != null && offlineContestants.isSoloCampaignBoard()) {
+            offlineContestants.attachCampaignTimerToSoloCard();
+        } else {
+            android.widget.FrameLayout.LayoutParams params = new android.widget.FrameLayout.LayoutParams(
+                    android.widget.FrameLayout.LayoutParams.WRAP_CONTENT,
+                    android.widget.FrameLayout.LayoutParams.WRAP_CONTENT);
+            params.gravity = android.view.Gravity.TOP | android.view.Gravity.CENTER_HORIZONTAL;
+            params.setMargins(dp(12), dp(10), dp(12), dp(12));
+            View root = findViewById(android.R.id.content);
+            if (root instanceof android.widget.FrameLayout) {
+                ((android.widget.FrameLayout) root).addView(txtCampaignTimer, params);
+            }
         }
     }
 
@@ -10836,7 +10867,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                 }
                 if (txtCampaignTimer != null) {
                     int secondsLeft = (int) Math.ceil(millisUntilFinished / 1000.0);
-                    txtCampaignTimer.setText(formatCampaignRemaining(secondsLeft));
+                    txtCampaignTimer.setText("⏱ " + formatCampaignRemaining(secondsLeft));
                     updateCampaignTimerVisual(secondsLeft);
                 }
             }
@@ -10853,7 +10884,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         return String.format(Locale.US, "%02d:%02d", safeSeconds / 60, safeSeconds % 60);
     }
 
-    private void updateCampaignTimerVisual(int secondsLeft) {
+    void updateCampaignTimerVisual(int secondsLeft) {
         if (txtCampaignTimer == null) {
             return;
         }
@@ -10863,7 +10894,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                 urgent ? Color.argb(225, 150, 20, 34) : Color.argb(205, 10, 28, 48),
                 urgent ? Color.argb(240, 255, 112, 112) : Color.argb(220, 255, 216, 74),
                 isCampaignBlitzMode() ? 2 : 1,
-                18
+                14
         ));
     }
 

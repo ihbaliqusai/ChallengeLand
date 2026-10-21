@@ -6,7 +6,7 @@ const { MemoryFirestore } = require("./memory-firestore");
 const { createFriendStakesService, AMOUNTS } = require("../src/friend_stakes");
 const { createEconomyService } = require("../src/economy");
 
-const bank = ["جغرافيا", "حيوانات"].flatMap(category => [0, 2, 4].map(level => ({
+const bank = ["جغرافيا", "حيوانات"].flatMap(category => [0, 4, 3].map(level => ({
   category, text: `${category} ${level}`, level, answers: ["صحيح", "خطأ 1", "خطأ 2", "خطأ 3"],
 })));
 
