@@ -4,6 +4,17 @@ const assert = require("node:assert/strict");
 const { isCorrect } = require("../src/board_answer_matcher");
 const { tierForLevel } = require("../src/question_tiers");
 const { makeBoard } = require("../src/original_stake_board");
+const quantityCases = require("./answer_quantity_cases.json");
+
+test("typed answers accept equivalent Arabic/English quantities and reject conflicting values or units", () => {
+  for (const { answers, accept, reject, text = "" } of quantityCases) {
+    // Both on-disk and server board question shapes use the same policy.
+    for (const q of [{ Q: text, R: answers[0], W1: answers[1], W2: answers[2], W3: answers[3] }, { answers, text }]) {
+      for (const input of accept) assert.equal(isCorrect(input, q), true, `accept ${input} for ${answers[0]}`);
+      for (const input of reject) assert.equal(isCorrect(input, q), false, `reject ${input} for ${answers[0]}`);
+    }
+  }
+});
 
 test("all nine levels use the requested point values, including levels 2 and 6", () => {
   assert.deepEqual(Array.from({ length: 9 }, (_, i) => tierForLevel(String(i))), [0, 0, 0, 2, 1, 1, 1, 2, 2]);

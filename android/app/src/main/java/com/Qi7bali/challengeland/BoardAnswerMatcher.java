@@ -88,6 +88,9 @@ final class BoardAnswerMatcher {
             return false;
         }
 
+        Boolean quantity = AnswerQuantity.matches(typed, q.R, q.Q, q.W1, q.W2, q.W3);
+        if (quantity != null) return quantity;
+
         List<String> wrongs = new ArrayList<>();
         addWrong(wrongs, q.W1);
         addWrong(wrongs, q.W2);

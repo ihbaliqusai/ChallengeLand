@@ -15,6 +15,7 @@ public final class BoardAnswerMatcherCheck {
             for (int i = 0; i < values.length; i++) values[i] = new String(Base64.getDecoder().decode(encoded[i]), StandardCharsets.UTF_8);
             Question q = new Question();
             q.setR(values[1]); q.setW1(values[2]); q.setW2(values[3]); q.setW3(values[4]);
+            if (encoded.length > 7) q.Q = new String(Base64.getDecoder().decode(encoded[7]), StandardCharsets.UTF_8);
             boolean actual = BoardAnswerMatcher.isCorrect(values[0], q);
             if (actual != Boolean.parseBoolean(encoded[6])) throw new AssertionError("Case " + checks + ": " + values[0] + " / " + q.getR());
             if (!BoardAnswerMatcher.normalize(values[0]).equals(values[5])) throw new AssertionError("Normalization differs from server: " + values[0]);

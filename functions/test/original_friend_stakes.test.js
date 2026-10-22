@@ -11,10 +11,10 @@ const bank = ["جغرافيا", "حيوانات", "أفلام عربية"].flatM
   answers: ["لندن", "باريس", "دمشق", "بيروت"], img: i === 0 ? "https://example.test/original.jpg" : "",
 })));
 
-function setup() {
+function setup(questionBank = bank) {
   const db = new MemoryFirestore();
   let at = 1800000000000, serial = 0;
-  const service = createFriendStakesService({ db, now: () => at, draw: () => 0, questionBank: bank });
+  const service = createFriendStakesService({ db, now: () => at, draw: () => 0, questionBank });
   for (const uid of ["a", "b", "c"]) {
     db.seed(`users/${uid}`, { coins: 3000, gems: 20 });
     db.seed(`player_presence/${uid}`, { state: "available", heartbeatAt: at });
@@ -127,6 +127,25 @@ test("typed answers are graded on the server, current answers stay hidden, and t
   assert.equal(result.match.turns.t0.answerText, undefined);
   await x.call("a", { action: "answer", matchId, turn: 0, answerText: "لُندن" });
   await assert.rejects(x.call("a", { action: "answer", matchId, turn: 0, answerText: "باريس" }), { code: "already-exists" });
+});
+
+test("equivalent typed numbers award full board points through the authoritative match service", async () => {
+  const cases = require("./answer_quantity_cases.json");
+  for (const [index, input, correct] of [
+    [0, "11 player", true], [0, "أحد عشر لاعبا", true], [0, "١٢", false],
+    [1, "5", true], [1, "الموسم 5", true], [1, "4", false],
+    [2, "1000$", true], [2, "ألف دولار", true], [2, "one thousand", true], [2, "1000 يورو", false],
+  ]) {
+    const answers = cases[index].answers;
+    const x = setup(bank.map(q => ({ ...q, answers }))), matchId = await x.accept();
+    await x.start(matchId);
+    await x.begin(matchId, 0, 0, 0);
+    const result = await x.call("a", { action: "answer", matchId, turn: 0, answerText: input });
+    assert.equal(result.match.turns.t0.correct, correct, input);
+    assert.equal(result.match.turns.t0.points, correct ? 200 : 0, input);
+    assert.equal(result.match.scores.a, correct ? 200 : 0, input);
+    assert.equal(result.match.currentTurn, 1);
+  }
 });
 
 test("option reveal halves points, removing two choices quarters them, and neither can be bypassed by a typed submission", async () => {

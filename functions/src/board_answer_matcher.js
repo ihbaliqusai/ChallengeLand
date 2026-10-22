@@ -1,4 +1,5 @@
 "use strict";
+const { matchQuantity } = require("./answer_quantity");
 
 // Server port of BoardAnswerMatcher.java. Paid and free boards use the same
 // Arabic normalization, spelling tolerance and wrong-option disambiguation.
@@ -47,6 +48,8 @@ function isCorrect(typed, question) {
   if (!question) return false;
   const nt = normalize(typed), right = normalize(question.answers?.[0] ?? question.R);
   if (!nt || !right) return false;
+  const quantity = matchQuantity(typed, question.answers?.[0] ?? question.R, question.answers?.slice(1) ?? [question.W1, question.W2, question.W3], question.Q ?? question.text ?? "");
+  if (quantity != null) return quantity;
   const wrongs = (question.answers?.slice(1) ?? [question.W1, question.W2, question.W3]).map(normalize).filter(Boolean);
   // A listed wrong option must never pass a later fuzzy/partial path.
   if (wrongs.includes(nt)) return false;
