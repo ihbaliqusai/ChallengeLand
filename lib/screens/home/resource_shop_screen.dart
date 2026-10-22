@@ -113,8 +113,10 @@ class _ResourceShopScreenState extends State<ResourceShopScreen> {
       }
       final granted =
           await context.read<AppState>().claimAdResource(resourceKey);
-      if (mounted && granted) {
-        setState(() => _message = 'تمت إضافة ${product.title} بنجاح.');
+      if (mounted) {
+        setState(() => _message = granted
+            ? 'تمت إضافة ${product.title} بنجاح.'
+            : 'تعذر إضافة المكافأة. حاول مجدداً.');
       }
     } catch (error) {
       if (mounted) setState(() => _message = error.toString());

@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:challenge_land/core/app_state.dart';
 import 'package:challenge_land/models/game_character.dart';
 import 'package:challenge_land/screens/auth/auth_gate.dart';

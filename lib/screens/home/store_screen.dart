@@ -4131,16 +4131,27 @@ class _StoreScreenState extends State<StoreScreen> {
         return;
       }
       final granted = await app.claimAdResource(resourceKey);
-      if (mounted && granted) {
+      if (!mounted) return;
+      if (granted) {
         _snack(_tr('تمت إضافة $resourceName بنجاح!',
             '$resourceName added successfully!'));
-      }
-    } catch (_) {
-      if (mounted) {
+      } else {
         _snack(
-            _tr('تعذر إضافة المكافأة. حاول مجدداً.',
-                'Could not add reward. Try again.'),
-            error: true);
+          _tr('تعذر إضافة المكافأة. حاول مجدداً.',
+              'Could not add reward. Try again.'),
+          error: true,
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        final message = (error is EconomyOperationException &&
+                error.message.isNotEmpty)
+            ? error.message
+            : (error is StateError && error.message.isNotEmpty)
+                ? error.message
+                : _tr('تعذر إضافة المكافأة. حاول مجدداً.',
+                    'Could not add reward. Try again.');
+        _snack(message, error: true);
       }
     } finally {
       if (mounted) setState(() => _busy = false);

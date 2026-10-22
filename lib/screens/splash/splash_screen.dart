@@ -314,8 +314,8 @@ class SplashLoadingBar extends StatelessWidget {
                                   begin: Alignment.topCenter,
                                   end: Alignment.bottomCenter,
                                   colors: [
-                                    Colors.white.withOpacity(0.55),
-                                    Colors.white.withOpacity(0.05),
+                                    Colors.white.withValues(alpha: 0.55),
+                                    Colors.white.withValues(alpha: 0.05),
                                   ],
                                 ),
                               ),
@@ -336,9 +336,9 @@ class SplashLoadingBar extends StatelessWidget {
                                   decoration: BoxDecoration(
                                     gradient: LinearGradient(
                                       colors: [
-                                        Colors.white.withOpacity(0.0),
-                                        Colors.white.withOpacity(0.55),
-                                        Colors.white.withOpacity(0.0),
+                                        Colors.white.withValues(alpha: 0.0),
+                                        Colors.white.withValues(alpha: 0.55),
+                                        Colors.white.withValues(alpha: 0.0),
                                       ],
                                     ),
                                   ),
