@@ -40,6 +40,7 @@ const artworkSizes = <String, Size>{
   "assets/categories/كأس العالم .png": Size(352, 311),
   "assets/categories/كأس العالم.png": Size(352, 311),
   "assets/categories/كلثوميات.png": Size(352, 311),
+  "assets/categories/لاعبين كرة قدم.png": Size(352, 352),
   "assets/categories/لغات.png": Size(352, 311),
   "assets/categories/لغة وادب.png": Size(352, 311),
   "assets/categories/مسلسل Friends.png": Size(352, 355),

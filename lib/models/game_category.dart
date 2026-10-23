@@ -101,6 +101,7 @@ class CategoryCatalog {
     GameCategory(name: 'معلومات عامة', isPremium: true),
     GameCategory(name: 'تاريخ', isPremium: true),
     GameCategory(name: 'رياضة', isPremium: true),
+    GameCategory(name: 'لاعبين كرة قدم', isPremium: true),
     GameCategory(name: 'علوم وفضاء', isPremium: true),
     GameCategory(name: 'ألغاز', isPremium: true),
     GameCategory(name: 'أمثال', isPremium: true),

@@ -56,6 +56,7 @@ final class SharedAssetStore {
             case "assets/categories/فنون وسينما.png": return context.getAssets().open("categories/فنون وسينما.png");
             case "assets/categories/جسم الإنسان.png": return context.getAssets().open("categories/جسم الإنسان.png");
             case "assets/categories/رياضة.png": return context.getAssets().open("categories/رياضة.png");
+            case "assets/categories/لاعبين كرة قدم.png": return context.getAssets().open("categories/لاعبين كرة قدم.png");
             case "assets/categories/دول.png": return context.getAssets().open("categories/دول.png");
             case "assets/categories/تقنية.png": return context.getAssets().open("categories/تقنية.png");
             case "assets/categories/صحة.png": return context.getAssets().open("categories/صحة.png");
