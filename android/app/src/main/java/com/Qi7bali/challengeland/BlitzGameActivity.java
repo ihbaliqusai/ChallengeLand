@@ -164,6 +164,11 @@ public class BlitzGameActivity extends BaseGameActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        if (backgroundDisqualified) {
+            blitzFinished = true;
+            cancelGlobalTimer();
+            return;
+        }
         if (timerEverStarted && !blitzFinished) {
             if (blitzPauseTimestamp > 0L) {
                 long elapsedMs = SystemClock.elapsedRealtime() - blitzPauseTimestamp;

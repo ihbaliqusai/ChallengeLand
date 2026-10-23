@@ -227,8 +227,8 @@ class CampaignService {
           (stage.boardKind == 'solo' || stage.boardKind == 'boss') &&
           stage.campaignMode == CampaignMode.classic &&
           stage.boardDesignVersion < CampaignDefaults.boardDesignVersion) {
-        // Upgrade old stock mechanics and their objective text while retaining
-        // cloud titles and rewards. Versioned designs remain configurable.
+        // Gameplay and economy have separate versions, so one can be tuned
+        // without replacing the other or the cloud title.
         merged[stage.id] = stage.copyWith(
           subtitle: builtIn.subtitle,
           boardSoloCols: builtIn.boardSoloCols,
@@ -250,7 +250,9 @@ class CampaignService {
         merged[stage.id] = stage;
       }
     }
-    return merged.values.toList(growable: false)
+    return merged.values
+        .map(CampaignDefaults.withCurrentEconomy)
+        .toList(growable: false)
       ..sort((left, right) {
         final byOrder = left.order.compareTo(right.order);
         if (byOrder != 0) return byOrder;
@@ -553,7 +555,10 @@ class CampaignService {
     required int wrongAnswers,
   }) {
     final nativeCompleted = _readBool(nativeResult['completed']);
-    if (!nativeCompleted) return false;
+    if (!nativeCompleted ||
+        _readString(nativeResult['failureReason']) == 'background_limit') {
+      return false;
+    }
 
     final mode =
         campaignModeForResult(stage: stage, nativeResult: nativeResult);
@@ -1340,6 +1345,10 @@ class CampaignService {
   }) {
     final paidStars = isFirstCompletion ? 0 : previousStars;
     if (newStars <= paidStars) return const _RewardGrant.none();
+
+    // Old resumable boards must not reintroduce the previous, larger economy.
+    // Existing claim receipts are read before this path and remain payable.
+    stage = CampaignDefaults.withCurrentEconomy(stage);
 
     return _RewardGrant(
       coins: _starScaledReward(stage.rewardCoins, newStars) -

@@ -125,6 +125,8 @@ class _Native implements NativeBridgeService {
   int walletGems = 10;
   List<Map<String, dynamic>> pendingSnapshotGrants = [];
   _CloudResponseGate? nextWalletResponse;
+  Completer<Map<String, dynamic>>? nextEconomyResponse;
+  Completer<void>? adRewardEntered;
   bool failWalletSync = false;
   bool failAchievementSync = false;
   List<String> unlockedCategories = [];
@@ -247,6 +249,16 @@ class _Native implements NativeBridgeService {
         'unlocked': List<String>.of(unlockedCategories),
         'rentals': <String, int>{},
       };
+
+  @override
+  Future<Map<String, dynamic>> economy(Map<String, dynamic> data) async {
+    if (data['action'] == 'adReward') {
+      adRewardEntered?.complete();
+      final response = nextEconomyResponse;
+      if (response != null) return response.future;
+    }
+    return <String, dynamic>{'state': <String, dynamic>{'revision': 1}};
+  }
   @override
   Future<bool> hydrateCommerceWallet(
       {required String accountUid,
@@ -365,6 +377,26 @@ class _Harness {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  test('a committed ad reward is not reported as failed after account switch',
+      () async {
+    final h = _Harness();
+    addTearDown(h.close);
+    final response = Completer<Map<String, dynamic>>();
+    final entered = Completer<void>();
+    h.native.nextEconomyResponse = response;
+    h.native.adRewardEntered = entered;
+    h.state.user = _AccountUser('alice');
+
+    final claim = h.state.claimAdResource('keys');
+    await entered.future;
+    h.state.user = _AccountUser('bob');
+    response.complete(<String, dynamic>{
+      'state': <String, dynamic>{'revision': 2, 'keys': 1},
+    });
+
+    expect(await claim, isTrue);
+  });
 
   test(
       'local reward claim suppresses a stale read and belongs only to its account',

@@ -98,6 +98,7 @@ final class SharedAssetStore {
             case "assets/ui/rate.png": return context.getResources().openRawResource(R.drawable.rate);
             case "assets/ui/user.png": return context.getResources().openRawResource(R.drawable.user);
             case "assets/ui/google.png": return context.getResources().openRawResource(R.drawable.google);
+            case "assets/categories/مسيرة لاعب.png": return context.getAssets().open("categories/مسيرة لاعب.png");
             default: throw new IOException("Unknown shared asset: " + key);
         }
     }

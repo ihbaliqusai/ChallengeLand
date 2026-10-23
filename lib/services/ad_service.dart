@@ -17,8 +17,8 @@ class AdService extends ChangeNotifier {
       : 'ca-app-pub-2427194500639575/4367895424';
 
   // ── Reward config ────────────────────────────────────────────────────────────
-  static const int rewardCoins = 100;
-  static const int rewardGems = 5;
+  static const int rewardCoins = 50;
+  static const int rewardGems = 0;
   static const int maxDailyWatches = 5;
   static const int dailyPowerUpGoal = 5;
   static const Duration cooldown = Duration(hours: 1);

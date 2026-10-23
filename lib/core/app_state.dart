@@ -367,9 +367,12 @@ class AppState extends ChangeNotifier {
 
   Future<bool> claimAdResource(String resource) async {
     if (!['keys', 'hearts', 'tickets'].contains(resource)) return false;
-    final uid = currentUser?.uid;
+    if (currentUser?.uid == null) return false;
     await economyAction({'action': 'adReward', 'resource': resource});
-    return !_disposed && uid != null && currentUser?.uid == uid;
+    // economyAction only completes after the server has accepted the reward.
+    // The account or provider can change while its response is in flight; that
+    // must not turn a committed reward into a failure message in the store.
+    return true;
   }
 
   bool get canClaimVipBonus =>

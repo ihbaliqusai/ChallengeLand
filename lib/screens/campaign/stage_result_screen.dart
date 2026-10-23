@@ -20,7 +20,7 @@ import '../../services/native_bridge_service.dart';
 import '../../services/rate_game_service.dart';
 import '../../widgets/currency_reward_overlay.dart';
 import 'campaign_map_screen.dart';
-import 'stage_intro_screen.dart';
+import 'stage_play_screen.dart';
 import 'stage_leaderboard_screen.dart';
 import 'widgets/animated_result_stars.dart';
 import 'widgets/level_complete_background.dart';
@@ -38,12 +38,18 @@ class StageResultScreen extends StatefulWidget {
     required this.submissionResult,
     this.rawNativeResult,
     this.currencyRewardApplied = false,
+    this.pendingSubmission,
+    this.submissionUid,
+    this.campaignService,
   });
 
   final CampaignStage stage;
   final StageSubmissionResult submissionResult;
   final Map<String, dynamic>? rawNativeResult;
   final bool currencyRewardApplied;
+  final Future<StageSubmissionResult>? pendingSubmission;
+  final String? submissionUid;
+  final CampaignService? campaignService;
 
   @override
   State<StageResultScreen> createState() => _StageResultScreenState();
@@ -62,14 +68,18 @@ class _StageResultScreenState extends State<StageResultScreen>
   bool _rewardDoubled = false;
   bool _doublingReward = false;
   bool _savingResult = false;
+  StageSubmissionResult? _savedSubmission;
+  bool _rewardApplied = false;
   CampaignStage? _nextStage;
   StageProgress? _nextProgress;
   int _nextStarsNeeded = 0;
 
   CampaignStage get stage => widget.stage;
-  StageSubmissionResult get submissionResult => widget.submissionResult;
+  StageSubmissionResult get submissionResult =>
+      _savedSubmission ?? widget.submissionResult;
   Map<String, dynamic>? get rawNativeResult => widget.rawNativeResult;
-  bool get currencyRewardApplied => widget.currencyRewardApplied;
+  bool get currencyRewardApplied =>
+      _rewardApplied || widget.currencyRewardApplied;
   bool get _isUnsavedPreview {
     return submissionResult.attempt.uid.isEmpty && rawNativeResult != null;
   }
@@ -86,10 +96,15 @@ class _StageResultScreenState extends State<StageResultScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    final pending = widget.pendingSubmission;
+    if (pending != null) {
+      _savingResult = true;
+      unawaited(_completeSubmission(pending, widget.submissionUid ?? ''));
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final completed = submissionResult.attempt.completed;
-      unawaited(_recordDailyAttempt());
+      if (pending == null) unawaited(_recordDailyAttempt());
       unawaited(_restoreDoubleReward());
       if (!_isUnsavedPreview && submissionResult.updatedProgress.stars > 0) {
         unawaited(_loadNextStage());
@@ -102,6 +117,47 @@ class _StageResultScreenState extends State<StageResultScreen>
         );
       }
     });
+  }
+
+  Future<void> _completeSubmission(
+      Future<StageSubmissionResult> pending, String uid) async {
+    final appState = context.read<AppState>();
+    final campaignService = widget.campaignService ?? CampaignService();
+    final payload = rawNativeResult ?? const <String, dynamic>{};
+    try {
+      final result = await pending;
+      if (appState.currentUser?.uid != uid) return;
+      if (mounted) {
+        setState(() {
+          _savedSubmission = result;
+          _savingResult = false;
+        });
+        unawaited(_loadNextStage());
+        unawaited(_restoreDoubleReward());
+        unawaited(_recordDailyAttempt());
+      }
+      // Reward delivery also continues if the player has already left the screen.
+      final applied = await CampaignResultHandler.applySubmissionReward(
+        appState: appState,
+        campaignService: campaignService,
+        result: result,
+      );
+      if (mounted && appState.currentUser?.uid == uid) {
+        setState(() => _rewardApplied = applied);
+      }
+    } catch (error, stackTrace) {
+      if (mounted) {
+        _debugRetrySaveFailure(
+            error: error, stackTrace: stackTrace, uid: uid, payload: payload);
+      }
+      if (mounted && appState.currentUser?.uid == uid) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_saveFailureMessage(error))),
+        );
+      }
+    } finally {
+      if (mounted && _savingResult) setState(() => _savingResult = false);
+    }
   }
 
   String get _doubleClaimId =>
@@ -141,7 +197,7 @@ class _StageResultScreenState extends State<StageResultScreen>
       return;
     }
     try {
-      final service = CampaignService();
+      final service = widget.campaignService ?? CampaignService();
       final stagesFuture = service.loadStages(campaignId: stage.campaignId);
       final progressFuture = service.loadUserProgress(
         uid: uid,
@@ -203,13 +259,14 @@ class _StageResultScreenState extends State<StageResultScreen>
     }
     Navigator.of(context).pushReplacement(
       MaterialPageRoute<void>(
-        builder: (_) => StageIntroScreen(stage: next, progress: progress),
+        builder: (_) => StagePlayScreen(
+            stage: next, progress: progress, continuingJourney: true),
       ),
     );
   }
 
   void _returnToMap() {
-    if (_isUnsavedPreview) {
+    if (_isUnsavedPreview && !_savingResult) {
       _promptSaveBeforeExit(
         context,
         onProceedWithoutSave: () {
@@ -270,6 +327,7 @@ class _StageResultScreenState extends State<StageResultScreen>
     final handled =
         await CampaignResultHandler.consumeAndHandlePendingCampaignResult(
       context: context,
+      knownStage: stage,
     );
     if (!mounted) return;
     if (handled && _launchingStage) {
@@ -412,7 +470,9 @@ class _StageResultScreenState extends State<StageResultScreen>
                                         ),
                                       ),
                                     ],
-                                    if (_isUnsavedPreview) ...[
+                                    if (_isUnsavedPreview &&
+                                        widget.submissionUid == null &&
+                                        appState.currentUser == null) ...[
                                       const SizedBox(height: 10),
                                       _GuestVictoryBanner(
                                         stars: attempt.stars,
@@ -476,6 +536,7 @@ class _StageResultScreenState extends State<StageResultScreen>
                                               ?.toInt(),
                                       currencyRewardApplied:
                                           currencyRewardApplied,
+                                      saving: _savingResult,
                                       onDoubleReward:
                                           (submissionResult.rewardCoinsGranted >
                                                       0 ||
@@ -511,14 +572,27 @@ class _StageResultScreenState extends State<StageResultScreen>
                                         ),
                                       ),
                                     ),
-                                    if (_isUnsavedPreview) ...[
+                                    if (_isUnsavedPreview &&
+                                        !_savingResult &&
+                                        (widget.submissionUid == null ||
+                                            appState.currentUser?.uid ==
+                                                widget.submissionUid)) ...[
                                       const SizedBox(height: 6),
-                                      _ClaimGuestRewardsButton(
-                                        busy: _savingResult,
-                                        onPressed: () =>
-                                            _openSaveGuestProgressModal(
-                                                context),
-                                      ),
+                                      if (appState.currentUser != null)
+                                        TextButton.icon(
+                                          onPressed: () => _retrySave(context),
+                                          icon: const Icon(
+                                              Icons.cloud_upload_rounded),
+                                          label:
+                                              const Text('إعادة حفظ النتيجة'),
+                                        )
+                                      else
+                                        _ClaimGuestRewardsButton(
+                                          busy: _savingResult,
+                                          onPressed: () =>
+                                              _openSaveGuestProgressModal(
+                                                  context),
+                                        ),
                                     ],
                                     const SizedBox(height: 8),
                                   ],
@@ -739,54 +813,17 @@ class _StageResultScreenState extends State<StageResultScreen>
       return;
     }
     setState(() => _savingResult = true);
-    try {
-      final appState = context.read<AppState>();
-      final campaignService = CampaignService();
-      final result = await campaignService.submitStageResult(
+    await _completeSubmission(
+      (widget.campaignService ?? CampaignService()).submitStageResult(
         uid: uid,
         stage: stage,
         nativeResult: payload,
         displayName:
             (user.displayName ?? user.email?.split('@').first ?? '').trim(),
         photoUrl: user.photoURL,
-      );
-      final rewardApplied = await CampaignResultHandler.applySubmissionReward(
-        appState: appState,
-        campaignService: campaignService,
-        result: result,
-      );
-      if (!context.mounted) return;
-      await Navigator.of(context).pushReplacement(
-        MaterialPageRoute<void>(
-          builder: (_) => StageResultScreen(
-            stage: stage,
-            submissionResult: result,
-            rawNativeResult: payload,
-            currencyRewardApplied: rewardApplied,
-          ),
-        ),
-      );
-    } catch (error, stackTrace) {
-      _debugRetrySaveFailure(
-        error: error,
-        stackTrace: stackTrace,
-        uid: uid,
-        payload: payload,
-      );
-      if (!context.mounted) return;
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            content: Text(
-              _saveFailureMessage(error),
-              textAlign: TextAlign.right,
-            ),
-          ),
-        );
-    } finally {
-      if (mounted) setState(() => _savingResult = false);
-    }
+      ),
+      uid,
+    );
   }
 
   Future<void> _launchStageAgain(BuildContext context) async {
@@ -812,6 +849,7 @@ class _StageResultScreenState extends State<StageResultScreen>
           .toList(growable: false);
       final launchConfig = const CampaignModeEngine().buildLaunchConfig(stage);
       await nativeBridge.launchCampaignStage(
+        campaignEntry: 'retry',
         campaignId: launchConfig['campaignId'] as String? ?? stage.campaignId,
         stageId: launchConfig['stageId'] as String? ?? stage.id,
         stageType: launchConfig['stageType'] as String? ?? stage.type.value,
@@ -1817,6 +1855,9 @@ String _resultTitle({
   required bool bossDefeated,
 }) {
   if (!completed) {
+    if (failureReason == 'background_limit') {
+      return 'انتهت مشاركتك بسبب مغادرة اللعبة';
+    }
     if (failureReason == 'timeExpired') return 'انتهى وقت المرحلة';
     if (failureReason == 'eliminated') return 'تجاوزت عدد الأخطاء المسموح';
     if (failureReason == 'required_categories_not_completed') {

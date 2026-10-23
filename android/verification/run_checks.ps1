@@ -10,6 +10,10 @@ javac -encoding UTF-8 -d $checkOutput (Join-Path $nativeSources 'Question.java')
 if ($LASTEXITCODE -ne 0) { throw 'Campaign board checks did not compile' }
 java -cp $checkOutput com.qi7bali.landchallengeonline.CampaignBoardRulesCheck
 if ($LASTEXITCODE -ne 0) { throw 'Campaign board checks failed' }
+javac -encoding UTF-8 -cp $checkOutput -d $checkOutput (Join-Path $nativeSources 'PresenterDialogue.java') (Join-Path $PSScriptRoot 'PresenterDialogueCheck.java')
+if ($LASTEXITCODE -ne 0) { throw 'Presenter dialogue checks did not compile' }
+java -cp $checkOutput com.qi7bali.landchallengeonline.PresenterDialogueCheck
+if ($LASTEXITCODE -ne 0) { throw 'Presenter dialogue checks failed' }
 javac -encoding UTF-8 -d $checkOutput (Join-Path $nativeSources 'PlayProductRules.java') (Join-Path $PSScriptRoot 'PlayProductRulesCheck.java')
 if ($LASTEXITCODE -ne 0) { throw 'Play product checks did not compile' }
 java -cp $checkOutput com.qi7bali.landchallengeonline.PlayProductRulesCheck
@@ -35,3 +39,7 @@ java -cp $verificationClasspath com.qi7bali.landchallengeonline.EconomyRoundLedg
 if ($LASTEXITCODE -ne 0) { throw 'Economy round journal checks failed' }
 java -cp $verificationClasspath com.qi7bali.landchallengeonline.CharacterUnlocksCheck (Join-Path $repoRoot 'tools/characters/pack.json')
 if ($LASTEXITCODE -ne 0) { throw 'Character roster checks failed' }
+javac -encoding UTF-8 -cp $verificationClasspath -d $checkOutput (Join-Path $nativeSources 'OnlineMatchRecovery.java') (Join-Path $PSScriptRoot 'OnlineMatchRecoveryCheck.java')
+if ($LASTEXITCODE -ne 0) { throw 'Online recovery checks did not compile' }
+java -cp $verificationClasspath com.qi7bali.landchallengeonline.OnlineMatchRecoveryCheck
+if ($LASTEXITCODE -ne 0) { throw 'Online recovery checks failed' }

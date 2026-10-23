@@ -125,11 +125,11 @@ test("weekly progress counts every distinct series round without charging anothe
   assert.equal(result.state.weekCorrect, 21);
   assert.equal(result.state.weekDays.length, 3);
   assert.equal(result.state.weekRewardClaimed, true);
-  assert.equal(result.state.keys, 6); // Five banked keys - one admission + two weekly rewards.
+  assert.equal(result.state.keys, 5); // Five banked keys - one admission + one weekly reward.
   assert.equal(result.state.tickets, 4);
   const repeated = await x.call({ ...report, roundId: "round_three", operationId: "third_report_retry" });
   assert.equal(repeated.state.weekCorrect, 21);
-  assert.equal(repeated.state.keys, 6);
+  assert.equal(repeated.state.keys, 5);
   assert.equal(Object.keys(x.db.read(`economy_accounts/p1/operations/${sha256("weekly_series")}`).result.session.rounds).length, 3);
 });
 
@@ -214,9 +214,10 @@ test("legacy stage identifiers earn milestones once while foreign campaign progr
   await x.call({ action: "state" });
   x.db.seed("users/p1/campaignProgress/stage_050", { campaignId: "main_campaign", stars: 3 });
   const { state } = await x.call({ action: "state" });
-  assert.equal(state.categoryVouchers, 1);
-  assert.equal(state.tickets, 4);
-  assert.equal(state.keys, 0);
+  assert.equal(state.categoryVouchers, 0);
+  assert.equal(state.tickets, 3);
+  assert.equal(state.keys, 1);
+  assert.equal(state.hearts, 1);
   assert.deepEqual(state.milestones, ["50"]);
 });
 
@@ -288,16 +289,16 @@ test("thirty-day loyalty and stage rewards remain banked and cannot be farmed by
     if (d < 30) x.advance(1);
   }
   let { state } = await x.call({ action: "state" });
-  assert.equal(state.keys, 15); assert.equal(state.hearts, 3);
-  assert.equal(state.tickets, 8); assert.equal(state.rentalVouchers, 1);
+  assert.equal(state.keys, 4); assert.equal(state.hearts, 2);
+  assert.equal(state.tickets, 5); assert.equal(state.rentalVouchers, 0);
   assert.equal(state.rewardLog.filter(r => r.kind === "login").length, 4);
   for (const stage of [10, 25, 50, 75, 100])
     x.db.seed(`users/p1/campaignProgress/stage_${String(stage).padStart(3, "0")}`, { status: "completed", stars: 3 });
   await x.call({ action: "state" });
   state = (await x.call({ action: "state" })).state;
-  assert.equal(state.categoryVouchers, 2);
-  assert.equal(state.keys, 25); assert.equal(state.hearts, 5);
-  assert.equal(state.tickets, 11); assert.equal(state.rentalVouchers, 2);
+  assert.equal(state.categoryVouchers, 0);
+  assert.equal(state.keys, 10); assert.equal(state.hearts, 4);
+  assert.equal(state.tickets, 6); assert.equal(state.rentalVouchers, 1);
   assert.equal(state.rewardLog.filter(r => r.kind === "campaign").length, 5);
 });
 test("category policies normalize aliases and restrict ads", () => {
@@ -357,7 +358,7 @@ test("rentals extend, insufficient purchases are atomic, cancelled launch refund
   result = await x.call({ action: "cancel", operationId: "cancel_it", sessionId: "cancel_game" });
   assert.equal(result.state.keysTotal, 3);
 });
-test("committed matches cannot refund keys and stage milestone vouchers pay once", async () => {
+test("committed matches cannot be cancelled and stage milestone resources pay once", async () => {
   const x = setup();
   await x.call({ action: "begin", operationId: "stage_50", mode: "campaign", stageOrder: 50 });
   await x.call({ action: "commit", operationId: "commit_50", sessionId: "stage_50" });
@@ -366,12 +367,14 @@ test("committed matches cannot refund keys and stage milestone vouchers pay once
   assert.equal(result.state.categoryVouchers, 0);
   x.db.seed("users/p1/campaignProgress/stage_050", { status: "completed", stars: 1 });
   result = await x.call({ action: "state" });
-  assert.equal(result.state.categoryVouchers, 1);
+  assert.equal(result.state.categoryVouchers, 0);
+  assert.equal(result.state.keys, 1);
+  assert.equal(result.state.hearts, 1);
   await x.call({ action: "begin", operationId: "stage_50_again", mode: "campaign", stageOrder: 50 });
   result = await x.call({ action: "finish", operationId: "finish_50_again", sessionId: "stage_50_again", won: true });
-  assert.equal(result.state.categoryVouchers, 1);
-  result = await x.call({ action: "ownVoucher", operationId: "voucher", category: "أنمي" });
-  assert.equal(result.state.categoryVouchers, 0); assert.deepEqual(result.state.owned, ["أنمي"]);
+  assert.equal(result.state.keys, 1);
+  assert.equal(result.state.hearts, 1);
+  await assert.rejects(x.call({ action: "ownVoucher", operationId: "voucher", category: "أنمي" }), { code: "failed-precondition" });
 });
 test("loyalty uses server days and grants weekly keys once", async () => {
   const x = setup();
@@ -380,10 +383,10 @@ test("loyalty uses server days and grants weekly keys once", async () => {
     if (i < 6) x.advance(1);
   }
   let result = await x.call({ action: "login", operationId: "login_repeat" });
-  assert.equal(result.state.keys, 3); assert.equal(result.state.tickets, 5);
+  assert.equal(result.state.keys, 1); assert.equal(result.state.tickets, 3);
   x.advance(2);
   result = await x.call({ action: "login", operationId: "after_gap" });
-  assert.equal(result.state.streak, 1); assert.equal(result.state.keys, 3);
+  assert.equal(result.state.streak, 1); assert.equal(result.state.keys, 1);
 });
 
 test("weekly play rewards are earned once and account switching cannot redirect an operation", async () => {
@@ -395,10 +398,10 @@ test("weekly play rewards are earned once and account switching cannot redirect 
     if (i < 2) x.advance(1);
   }
   let result = await x.call({ action: "state" });
-  assert.equal(result.state.keys, 2); assert.equal(result.state.tickets, 4);
+  assert.equal(result.state.keys, 1); assert.equal(result.state.tickets, 4);
   await x.call({ action: "finish", operationId: "another_finish", sessionId: "weekly_game_2", correct: 100 });
   result = await x.call({ action: "state" });
-  assert.equal(result.state.keys, 2);
+  assert.equal(result.state.keys, 1);
   await assert.rejects(x.call({ action: "state", expectedUid: "another-account" }), { code: "permission-denied" });
 });
 
@@ -513,4 +516,79 @@ test("ad resource rewards grant exactly one unit, bind retries, and reject unsup
   const full = fresh(Date.UTC(2026, 9, 18, 12)); full.keys = 2147483647;
   x.db.seed("economy_accounts/p1", full);
   await assert.rejects(x.call({ action: "adReward", resource: "keys", operationId: "full_wallet" }), { code: "failed-precondition" });
+});
+
+test("ad limits are atomic across devices, replay safely and reset without erasing banked resources", async () => {
+  for (const resource of ["keys", "hearts", "tickets"]) {
+    const x = setup();
+    const before = (await x.call({ action: "state" })).state;
+    const request = i => ({ action: "adReward", resource, operationId: `limited_ad_${i}` });
+    const responses = await Promise.allSettled([0, 1, 2, 3].map(i => x.call(request(i))));
+    assert.equal(responses.filter(r => r.status === "fulfilled").length, 2);
+    for (const r of responses.filter(r => r.status === "rejected")) assert.equal(r.reason.code, "resource-exhausted");
+    let { state } = await x.call(request(0));
+    assert.equal(state[resource], before[resource] + 2);
+    assert.equal(state.adRewardCounts[resource], 2);
+    assert.equal(state.adRewardLimits[resource], 2);
+    x.advance(1);
+    // A stale receipt must never award a second unit or consume tomorrow's cap.
+    ({ state } = await x.call(request(0)));
+    assert.equal(state[resource], before[resource] + 2);
+    assert.equal(state.adRewardCounts[resource] || 0, 0);
+    ({ state } = await x.call(request(4)));
+    assert.equal(state[resource], before[resource] + 3);
+    assert.equal(state.adRewardCounts[resource], 1);
+  }
+});
+
+test("category ads share the ticket limit and existing or refunded permits cannot farm extra trials", async () => {
+  const x = setup();
+  await x.call({ action: "adReward", resource: "tickets", operationId: "ticket_ad" });
+  await x.call({ action: "ad", category: "رياضة", operationId: "category_ad" });
+  let result = await x.call({ action: "ad", category: "رياضة", operationId: "same_permit" });
+  assert.equal(result.state.adRewardCounts.tickets, 2);
+  await assert.rejects(x.call({ action: "ad", category: "تاريخ", operationId: "extra_trial" }), { code: "resource-exhausted" });
+  await assert.rejects(x.call({ action: "adReward", resource: "tickets", operationId: "extra_ticket" }), { code: "resource-exhausted" });
+  await x.call({ action: "begin", mode: "campaign", stageOrder: 1, categories: ["رياضة"], operationId: "cancel_trial" });
+  result = await x.call({ action: "cancel", sessionId: "cancel_trial", operationId: "cancel_trial_now" });
+  assert.equal(result.state.adPermits["رياضه"], 1);
+  assert.equal(result.state.adRewardCounts.tickets, 2);
+  assert.equal(result.state.tickets, 4);
+  x.advance(1);
+  result = await x.call({ action: "ad", category: "تاريخ", operationId: "tomorrow_trial" });
+  assert.equal(result.state.adRewardCounts.tickets, 1);
+});
+
+test("campaign resource budget is finite and previous rewards and purchases are grandfathered", async () => {
+  const x = setup();
+  const old = fresh(Date.UTC(2026, 9, 18, 12));
+  Object.assign(old, { keys: 19, hearts: 17, tickets: 13, categoryVouchers: 2, rentalVouchers: 3, milestones: ["10", "50"] });
+  x.db.seed("economy_accounts/p1", old);
+  for (let order = 1; order <= 100; order++)
+    x.db.seed(`users/p1/campaignProgress/stage_${String(order).padStart(3, "0")}`, { status: "completed", stars: 3 });
+  await x.call({ action: "state" });
+  const { state } = await x.call({ action: "state" });
+  // New full-campaign budget: six keys, two hearts, five tickets, one rental.
+  // Stages 10 and 50 were already paid; never grant them again under a new policy.
+  assert.equal(state.keys, 19 + 4);
+  assert.equal(state.hearts, 17 + 1);
+  assert.equal(state.tickets, 13 + 5);
+  assert.equal(state.categoryVouchers, 2);
+  assert.equal(state.rentalVouchers, 4);
+  assert.equal(new Set(state.milestones).size, state.milestones.length);
+});
+
+test("football player and player career categories accept a single-match ticket", async () => {
+  for (const category of ["لاعبين كرة قدم", "مسيرة لاعب"]) {
+    const x = setup();
+    const result = await x.call({
+      action: "begin",
+      operationId: `ticket_${category === "مسيرة لاعب" ? "career" : "football"}`,
+      mode: "challenge",
+      categories: [category],
+    });
+    assert.deepEqual(result.session.categories, [category]);
+    assert.equal(result.session.ticketCost, 1);
+    assert.equal(result.state.tickets, 2);
+  }
 });

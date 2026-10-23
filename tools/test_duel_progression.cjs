@@ -132,6 +132,8 @@ const sources = {
   'com/qi7bali/landchallengeonline/PlayerProgress.java': `package com.qi7bali.landchallengeonline;
     public final class PlayerProgress {
       public static int getLevel(android.content.Context context) { return 1; }
+      // These fixtures exercise free duels; stake settlement has its own suite.
+      public static boolean isCoinStake(android.content.Context context) { return false; }
       public static void checkProgressionAchievements(android.content.Context context) {}
       public static void writeHydration(android.content.SharedPreferences.Editor editor,
           java.util.Map<String,Integer> values) {}

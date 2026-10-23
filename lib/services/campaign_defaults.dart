@@ -15,6 +15,40 @@ import '../models/campaign_stage.dart';
 class CampaignDefaults {
   static const String mainCampaignId = 'main_campaign';
   static const int boardDesignVersion = 2;
+  static const int rewardEconomyVersion = 1;
+
+  /// Maximum lifetime currency per stage, shared across all star upgrades.
+  /// Ordinary wins require saving for resources (500/600/800 coins per unit
+  /// in triple packs); only bosses award premium currency.
+  static int coinsForOrder(int order) {
+    final world = (order.clamp(1, 100) - 1) ~/ 10;
+    return order % 10 == 0
+        ? 180 + world * 20
+        : 50 + world * 10 + (order - 1) % 10 * 5;
+  }
+
+  static int gemsForOrder(int order) {
+    if (order % 10 != 0) return 0;
+    final world = (order.clamp(1, 100) - 1) ~/ 10 + 1;
+    return world <= 3 ? 1 : (world <= 7 ? 2 : 3);
+  }
+
+  /// Upgrade only stock campaign rewards; gameplay and already reserved claims
+  /// keep their saved values. Explicitly versioned custom economies are kept.
+  static CampaignStage withCurrentEconomy(CampaignStage stage) {
+    if (stage.campaignId != mainCampaignId ||
+        stage.order < 1 ||
+        stage.order > 100 ||
+        stage.id != 'stage_${stage.order.toString().padLeft(3, '0')}' ||
+        stage.rewardEconomyVersion >= rewardEconomyVersion) {
+      return stage;
+    }
+    return stage.copyWith(
+      rewardCoins: coinsForOrder(stage.order),
+      rewardGems: gemsForOrder(stage.order),
+      rewardEconomyVersion: rewardEconomyVersion,
+    );
+  }
 
   static const List<String> worldNames = <String>[
     'غابة البداية',
@@ -230,8 +264,9 @@ class CampaignDefaults {
       allow5050: false,
       allowAudience: false,
       allowCall: false,
-      rewardCoins: 100 + order * 22 + (isBoss ? 400 : 0),
-      rewardGems: isBoss ? (4 + worldNum) : (order % 3 == 0 ? 1 : 0),
+      rewardCoins: coinsForOrder(order),
+      rewardGems: gemsForOrder(order),
+      rewardEconomyVersion: rewardEconomyVersion,
       rewardXp: 70 + order * 18 + (isBoss ? 300 : 0),
       boardKind: isBoss ? 'boss' : 'solo',
       boardTargetScore: target,

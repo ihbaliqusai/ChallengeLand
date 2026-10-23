@@ -64,14 +64,14 @@ void main() {
         await DailyRewardService(firestore: db).claim(uid: 'player', now: now);
     expect(first.day, 7);
     expect(first.newlyGranted, isTrue);
-    expect(first.balances, {'coins': 1000, 'gems': 13});
+    expect(first.balances, {'coins': 620, 'gems': 11});
     final replay = await DailyRewardService(firestore: db)
         .claim(uid: 'player', now: now, fallbackCoins: 9999);
     expect(replay.newlyGranted, isFalse);
     expect(replay.balances, first.balances);
     final data = (await db.doc('users/player').get()).data()!;
     expect(data['username'], 'Player');
-    expect(data['coins'], 1000);
+    expect(data['coins'], 620);
     expect(data['streakDay'], 7);
   });
 
@@ -99,18 +99,18 @@ void main() {
 
       // Verify Day 1
       final day1 = AppState.getRewardForDay(1);
-      expect(day1['coins'], greaterThanOrEqualTo(100));
+      expect(day1['coins'], 30);
       expect(day1['gems'], greaterThanOrEqualTo(0));
 
       // Verify Day 7 milestone
       final day7 = AppState.getRewardForDay(7);
-      expect(day7['coins'], greaterThanOrEqualTo(500));
-      expect(day7['gems'], greaterThanOrEqualTo(3));
+      expect(day7['coins'], 120);
+      expect(day7['gems'], 1);
 
       // Verify Day 30 grand milestone
       final day30 = AppState.getRewardForDay(30);
-      expect(day30['coins'], 2000);
-      expect(day30['gems'], 15);
+      expect(day30['coins'], 300);
+      expect(day30['gems'], 3);
     });
 
     test('AppState.getRewardForDay clamps correctly out of range', () {

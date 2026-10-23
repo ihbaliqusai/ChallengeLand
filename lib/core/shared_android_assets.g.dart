@@ -89,4 +89,5 @@ const sharedAndroidAssets = <String, String>{
   "assets/ui/rate.png": "android/app/src/main/res/drawable/rate.png",
   "assets/ui/user.png": "android/app/src/main/res/drawable/user.png",
   "assets/ui/google.png": "android/app/src/main/res/drawable/google.png",
+  "assets/categories/مسيرة لاعب.png": "android/app/src/main/assets/categories/مسيرة لاعب.png",
 };

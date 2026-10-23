@@ -91,7 +91,216 @@ import static com.qi7bali.landchallengeonline.GameRules.NEXT_QUESTION_SYNC_BUFFE
 import static com.qi7bali.landchallengeonline.GameRules.ONLINE_SPEED_POINTS;
 import static com.qi7bali.landchallengeonline.GameRules.QUESTION_TIMEOUT_MS;
 
-public class GameActivity extends AppCompatActivity implements ProgressionMatchHost {
+public class GameActivity extends AppCompatActivity implements ProgressionMatchHost, GameBackgroundGuard.Host {
+    private final GameBackgroundGuard backgroundGuard = new GameBackgroundGuard(this, this);
+    private boolean backgroundPenaltyRequestPending;
+    private long backgroundPenaltyRetryAt;
+    private boolean backgroundParticipationEnded;
+
+    private String currentBackgroundQuestionKey() {
+        if (paidDuel != null) return "paid:" + PaidDuelController.number(paidDuelState.get("currentTurn"), -1);
+        if (boardOnline && !boardRoomMatch) return "duel:" + boardOnlineTurn;
+        return progressionAnswerId();
+    }
+
+    @Override public String backgroundQuestionKey() {
+        if (EXITING || isFinishing() || campaignResultPersisted || boardDuelFinished
+                || backgroundParticipationEnded || (!isQuestionTimerRunning && !wasTimerRunningBeforePause)) return "";
+        if (boardMode) {
+            if (!boardPickerIsHuman || boardCurrentQuestion == null) return "";
+            if (paidDuel != null) {
+                long turn = PaidDuelController.number(paidDuelState.get("currentTurn"), -1);
+                Map<String, Object> state = PaidDuelController.map(PaidDuelController.map(paidDuelState.get("turns")).get("t" + turn));
+                if (!"answering".equals(paidDuelState.get("phase")) || !myID.equals(state.get("playerId"))
+                        || Boolean.TRUE.equals(state.get("done"))) return "";
+            }
+        } else if (currentQuestion < 0 || myAnswerSubmitted || localPlayerEliminated || spectatorEliminationRound) return "";
+        return currentBackgroundQuestionKey();
+    }
+
+    @Override public boolean applyBackgroundPenalty(String question, int violations) {
+        if (duelActivityDestroyed) return false;
+        if (EXITING || isFinishing() || campaignResultPersisted || boardDuelFinished) {
+            backgroundGuard.acknowledge();
+            return false;
+        }
+        if (ACTIVITY_PAUSED && !boardOnline) return false;
+        if (ACTIVITY_PAUSED && boardRoomMatch) return false;
+        boolean disqualified = violations >= BackgroundAnswerPolicy.MAX_VIOLATIONS;
+        if (!safeIntentString("stakeMatchId", "").isEmpty()) {
+            if (paidDuel == null || paidDuelState.isEmpty()) return false;
+            if ("settled".equals(paidDuelState.get("status"))) {
+                backgroundGuard.acknowledge();
+                return false;
+            }
+            int turn = (int) PaidDuelController.number(paidDuelState.get("currentTurn"), -1);
+            if (!disqualified && !question.equals("paid:" + turn)) {
+                backgroundGuard.acknowledge(); // The server already closed this question.
+                return false;
+            }
+            CAN_PLAY = false;
+            boardAwaitingTypedInput = false;
+            stopTimer(false);
+            if (!ACTIVITY_PAUSED) {
+                hideKeyboard();
+                showBoardWaitingOverlay(disqualified ? "انتهت مشاركتك بعد 3 مخالفات. جارٍ تثبيت النتيجة…"
+                        : "جارٍ مزامنة المباراة…");
+                paidDuel.resume();
+            }
+            if (!paidDuel.isPending()) {
+                long delay = backgroundPenaltyRetryAt - SystemClock.elapsedRealtime();
+                if (delay > 0L) {
+                    duelConnectionHandler.postDelayed(() -> backgroundGuard.enforce(), delay);
+                } else {
+                    backgroundPenaltyRetryAt = SystemClock.elapsedRealtime() + 1500L;
+                    paidDuel.call(disqualified ? "forfeit" : "skipAnswer",
+                            disqualified ? Collections.emptyMap() : paidDuelTurnArgs());
+                }
+            }
+            return true;
+        }
+        if (boardOnline && !boardRoomMatch) {
+            if (gameID == null || gameID.isEmpty()) return false;
+            if (backgroundPenaltyRequestPending) return true;
+            if (!disqualified && !question.startsWith("duel:")) return false;
+            final int turn = disqualified ? -1 : Integer.parseInt(question.substring(5));
+            CAN_PLAY = false;
+            boardAwaitingTypedInput = false;
+            stopTimer(false);
+            cancelPendingBoardReveal();
+            if (!ACTIVITY_PAUSED) {
+                hideKeyboard();
+                showBoardWaitingOverlay(disqualified ? "انتهت مشاركتك بعد 3 مخالفات. جارٍ تثبيت النتيجة…"
+                        : "جارٍ مزامنة المباراة…");
+            }
+            backgroundPenaltyRequestPending = true;
+            boardRef().runTransaction(new Transaction.Handler() {
+                @Override public Transaction.Result doTransaction(MutableData data) {
+                    if (!NativeProgression.activeAccount(GameActivity.this)) return Transaction.abort();
+                    Map<String, Object> state = OnlineDuelState.map(data.getValue());
+                    if (state.isEmpty() || "finished".equals(state.get("phase"))) return Transaction.abort();
+                    if (disqualified) {
+                        String owner = String.valueOf(state.get("ownerId"));
+                        String joiner = String.valueOf(state.get("joinerId"));
+                        if (!myID.equals(owner) && !myID.equals(joiner)) return Transaction.abort();
+                        OnlineDuelState.forfeit(state, myID.equals(owner) ? joiner : owner);
+                    } else if (!OnlineDuelState.complete(state, myID, turn, false, 0)) return Transaction.abort();
+                    data.setValue(state);
+                    return Transaction.success(data);
+                }
+                @Override public void onComplete(DatabaseError error, boolean committed, DataSnapshot snapshot) {
+                    backgroundPenaltyRequestPending = false;
+                    if (duelActivityDestroyed || EXITING) return;
+                    if (error != null || snapshot == null || !snapshot.exists()) {
+                        duelConnectionHandler.postDelayed(() -> backgroundGuard.enforce(), 1500L);
+                        return;
+                    }
+                    boolean terminal = "finished".equals(snapshot.child("phase").getValue(String.class));
+                    boolean closed = committed || terminal || (!disqualified
+                            && (OnlineDuelState.number(snapshot.child("currentTurn").getValue(), -1) > turn
+                            || Boolean.TRUE.equals(snapshot.child("turns").child("t" + turn).child("done").getValue(Boolean.class))));
+                    if (!closed) {
+                        duelConnectionHandler.postDelayed(() -> backgroundGuard.enforce(), 1500L);
+                        return;
+                    }
+                    backgroundGuard.acknowledge();
+                    duelNeedsBoardResync = true;
+                    if (ACTIVITY_PAUSED) return;
+                    markMyGameState("active");
+                    if ("forfeit".equals(snapshot.child("finishReason").getValue(String.class)))
+                        showDuelForfeitResult(snapshot);
+                    else {
+                        applyDuelScores(snapshot);
+                        beginOnlineBoardTurn(OnlineDuelState.number(snapshot.child("currentTurn").getValue(), turn + 1));
+                    }
+                }
+            }, false);
+            return true;
+        }
+        if (disqualified) {
+            if (!settleRandomStake(false, false, () -> backgroundGuard.enforce())) return true;
+            CAN_PLAY = false;
+            boardAwaitingTypedInput = false;
+            stopTimer(false);
+            cancelBoardSelectTimer();
+            cancelPendingBoardReveal();
+            hideKeyboard();
+            leaveOnlineMatchIfNeeded();
+            OnlineMatchRecovery.complete(this, "انتهت مشاركتك بسبب مغادرة اللعبة ثلاث مرات أثناء الإجابة.", false);
+            if (campaignMode) {
+                campaignFailureReason = "background_limit";
+                persistPendingCampaignStageResult(false, 0, campaignWrongAnswers);
+            } else PlayerStats.recordGameEnd(this, ProgressionRules.ABANDON, 0);
+            if (boardLocalTeams) LocalTeamsGameStore.delete(this, localTeamsSaveId);
+            if (shouldSaveOfflineBoard() && !isRecoverableBotBoard()) OfflineBoardGameStore.delete(this, offlineBoardSaveId);
+            EXITING = true;
+            backgroundParticipationEnded = true;
+            backgroundGuard.acknowledge();
+            new AlertDialog.Builder(this).setTitle("انتهت مشاركتك")
+                    .setMessage("انتهت مشاركتك لتكرار مغادرة اللعبة أكثر من 10 ثوانٍ أثناء الإجابة ثلاث مرات.")
+                    .setCancelable(false).setPositiveButton("العودة", (dialog, which) -> {
+                        if (campaignMode) finishCampaignAndReturnToFlutter();
+                        else finish();
+                    }).show();
+            return true;
+        }
+        if ((boardMode && boardCurrentQuestion == null) || (!boardMode && currentQuestion < 0)) return false;
+        backgroundGuard.acknowledge();
+        if (!question.equals(currentBackgroundQuestionKey()) || (!boardMode && myAnswerSubmitted)) return false;
+        CAN_PLAY = false;
+        boardAwaitingTypedInput = false;
+        myAnswer = 0;
+        hideKeyboard();
+        handleQuestionTimeout();
+        return true;
+    }
+    private Set<String> questionExclusions = new HashSet<>();
+    private boolean questionSelectionPending;
+    private Runnable retryQuestionSelection;
+    private boolean roomQuestionHistoryAdmitted;
+    private boolean roomQuestionHistoryAdmissionPending;
+
+    private void questionSelectionFailed(Exception error) {
+        questionSelectionPending = false;
+        if (EXITING || isFinishing()) return;
+        String message = error.getMessage() == null ? "تعذر اختيار أسئلة جديدة. حاول مجددًا." : error.getMessage();
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+        if (retryQuestionSelection != null) new AlertDialog.Builder(this).setMessage(message)
+                .setPositiveButton("إعادة المحاولة", (dialog, which) -> retryQuestionSelection.run())
+                .setNegativeButton("رجوع", (dialog, which) -> finish()).show();
+    }
+
+    private void prepareQuestionSelection(Runnable ready) {
+        if (questionSelectionPending || EXITING || isFinishing()) return;
+        questionSelectionPending = true;
+        QuestionHistory.prepare(this, boardOnline && !boardRoomMatch ? gameID : "",
+                boardRoomMatch ? roomId : "", excluded -> {
+                    questionSelectionPending = false;
+                    if (EXITING || isFinishing()) return;
+                    questionExclusions = excluded;
+                    ready.run();
+                }, this::questionSelectionFailed);
+    }
+
+    private void reserveBoardQuestions(Runnable ready) {
+        ArrayList<Question> selected = new ArrayList<>();
+        if (boardCellQuestion != null) for (Question[] column : boardCellQuestion) {
+            for (Question q : column) {
+                if (q == null) { boardCellQuestion = null; questionSelectionFailed(new IllegalStateException(QuestionHistory.EXHAUSTED)); return; }
+                selected.add(q);
+            }
+        }
+        questionSelectionPending = true;
+        QuestionHistory.reserve(this, boardOnline && !boardRoomMatch ? gameID : "", boardRoomMatch ? roomId : "",
+                selected, () -> {
+                    questionSelectionPending = false;
+                    if (!EXITING && !isFinishing()) ready.run();
+                }, error -> {
+                    boardCellQuestion = null;
+                    questionSelectionFailed(error);
+                    if (!boardOnline && !EXITING && !isFinishing()) showCategorySelect();
+                });
+    }
     @Override public String progressionMatchId() {
         if (boardOnline && !boardRoomMatch && gameID != null && !gameID.isEmpty()) return "duel:" + gameID;
         if (campaignMode) return "campaign:" + campaignId + ":" + campaignAttemptId;
@@ -124,8 +333,11 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         for (MatchOpponent opponent : opponents) if (!opponent.bot) return true;
         return false;
     }
-    private static final int DIALOG_CHARACTER_DELAY_MS = 18;
     private static final int DIALOG_EXTRA_VISIBLE_MS = 1000;
+    private final Handler presenterHandler = new Handler();
+    private final PresenterDialogue presenterDialogue = new PresenterDialogue(
+            android.os.SystemClock::uptimeMillis, presenterHandler::postDelayed);
+
     private static final int CAMPAIGN_FEEDBACK_TALK_MS = 900;
     private static final int CAMPAIGN_FEEDBACK_MIN_READ_MS = 2200;
     private static final int CAMPAIGN_FEEDBACK_TRANSITION_GAP_MS = 450;
@@ -322,6 +534,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     private boolean localTeamsFinished = false;
     private String offlineBoardSaveId = "";
     private JSONObject pendingOfflineBoardRestore;
+    private boolean recreatedGameSession;
     private boolean offlineBoardRestoreConsumed = false;
     private final ImageObservationController imageObservationController = new ImageObservationController();
     private boolean offlineBoardFinished = false;
@@ -333,6 +546,10 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     // result is exchanged under Games/{gameID}/board. A bot fallback (no human found)
     // plays the plain offline board instead — boardOnline stays false there.
     boolean boardOnline = false;
+    private int roomResumeTurn = -1;
+    private int roomResumeCol = -1;
+    private int roomResumeRow = -1;
+    private long restoredBotQuestionDeadline;
     // Paid friend duels share this exact board, host and typed-answer UI. Only the
     // transport and scoring authority differ from the legacy free duel.
     private PaidDuelController paidDuel;
@@ -424,6 +641,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     // These are package-private so GameCampaignLaunchConfig can populate them.
     boolean campaignBoard = false;
     String campaignAttemptId = "";
+    String campaignEntry = "stage";
     boolean boardCampaignMatch = false;
     String boardCampaignKind = "solo";          // "solo" | "boss"
     int boardTargetScore = 0;
@@ -517,7 +735,14 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     protected void onCreate(Bundle savedInstanceState) {
         supportRequestWindowFeature(Window.FEATURE_NO_TITLE);
         super.onCreate(savedInstanceState);
+        recreatedGameSession = savedInstanceState != null;
         NativeProgression.restore(this, savedInstanceState);
+        if (OnlineMatchRecovery.isFinished(this)) {
+            startActivity(new Intent(this, MainActivity.class)
+                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
+            finish();
+            return;
+        }
         if (getIntent().getIntExtra("stakeCoins", 0) > 0
                 && safeIntentString("stakeMatchId", "").isEmpty()) {
             try {
@@ -561,6 +786,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         String modeExtra = getIntent().getStringExtra("mode");
         String matchModeExtra = getIntent().getStringExtra("matchMode");
         GameCampaignLaunchConfig.load(this, modeExtra, matchModeExtra);
+        OnlineMatchRecovery.track(this);
         final boolean onlineBoardMatch = modeOnline && "board".equals(matchModeExtra);
         roomId = safeString(getIntent().getStringExtra("roomId"));
         myTeam = safeString(getIntent().getStringExtra("myTeam")).trim().toUpperCase();
@@ -587,8 +813,9 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         }
 
         if (modeOnline) {
-            if (Data.isNetworkAvailable(GameActivity.this)) {
-                parseOpponentsFromIntent();
+            parseOpponentsFromIntent();
+            if (Data.isNetworkAvailable(GameActivity.this)
+                    || (onlineBoardMatch && getPrimaryOpponent() != null && getPrimaryOpponent().bot)) {
 
                 if (onlineBoardMatch) {
                     setupBoardMatch();
@@ -817,20 +1044,13 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
 
             @Override
             public void run() {
+                if (EXITING || isFinishing() || isDestroyed() || presenterDialogue.defer(this)) return;
                 t++;
                 switch (t) {
                     case 1:
                         person.moveShow2Hands(isCampaignResume() ? 1000 : 2000);
                         if (boardMode) {
-                            String boardGreeting = boardCampaignMatch
-                                    ? (isCampaignResume()
-                                        ? "مرحباً بعودتك.. نتابع تحدي المراحل"
-                                        : ("boss".equals(boardCampaignKind)
-                                            ? "مواجهة الزعماء.. استعد!"
-                                            : "مرحباً بكم في تحدي المراحل.. اجمع نقاط الهدف!"))
-                                    : boardLocalTeams
-                                        ? localTeamsOpeningGreeting()
-                                        : "مرحبا بكم في تحدي الفئات.. اختاروا فئاتكم";
+                            String boardGreeting = boardOpeningGreeting();
                             showDialog(boardGreeting, "", 800, isCampaignResume() ? 1200 : 2200, R.drawable.mouth_01, false);
                         } else if (modeOnline) {
                             rlyScore.setVisibility(View.VISIBLE);
@@ -839,9 +1059,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                         } else if (campaignMode) {
                             campaignHudController.hideMoneyBox();
                             campaignHudController.showGameplayHud();
-                            String msg = isCampaignResume()
-                                    ? "مرحباً بعودتك.. نتابع تحدي المراحل"
-                                    : getCampaignOpeningMessage();
+                            String msg = getCampaignOpeningMessage();
                             showDialog(msg, "", 800, isCampaignResume() ? 1200 : 2200, R.drawable.mouth_01, false);
                         } else {
                             showDialog("مرحبا بكم في أرض التحدي", "", 800, 2200, R.drawable.mouth_01, false);
@@ -856,6 +1074,8 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                                 // shared board built by the owner); just hide the
                                 // millionaire chrome here.
                                 applyBoardModeChrome();
+                            } else if (boardCampaignMatch && !isCampaignResume()) {
+                                showCampaignBoardBriefing();
                             } else {
                                 startBoardMode();
                             }
@@ -899,6 +1119,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                 gameHaptic(view);
 
                 if (CAN_CLICK) {
+                    presenterDialogue.dismissPrompt();
                     CAN_CLICK = false;
                     CAN_HOME = true;
                     rlyDialog.setVisibility(View.INVISIBLE);
@@ -1036,6 +1257,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                 gameHaptic(view);
 
                 if (CAN_CLICK) {
+                    presenterDialogue.dismissPrompt();
                     CAN_CLICK = false;
                     CAN_HOME = true;
                     switch (currentDialog) {
@@ -1233,6 +1455,8 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     protected void onResume() {
         super.onResume();
         ACTIVITY_PAUSED = false;
+        if (backgroundGuard.onResume()) return;
+        presenterDialogue.resume();
         if (paidDuel != null) {
             paidDuelRenderKey = "";
             paidDuelQuestionTurn = -1;
@@ -1467,10 +1691,44 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         return drawable;
     }
     private String getCampaignOpeningMessage() {
-        if (campaignBossBattle) {
-            return "مرحباً بكم في تحدي المراحل.. اهزم الزعيم لفتح الطريق التالي!";
-        }
-        return "مرحباً بكم في تحدي المراحل.. اجمع أكبر عدد من النجوم!";
+        return CampaignBoardRules.openingMessage(getCampaignStageOrder(),
+                campaignBossBattle || (boardCampaignMatch && "boss".equals(boardCampaignKind)),
+                boardCampaignMatch ? boardTargetScore : campaignTargetScore,
+                campaignEntry, isCampaignResume());
+    }
+
+    private void showCampaignBoardBriefing() {
+        boolean boss = "boss".equals(boardCampaignKind);
+        int columns = boss ? offlineContestants.contestantCount() : boardSoloCols;
+        final ArrayList<String> messages = CampaignBoardRules.briefingMessages(
+                boss, boss ? BOARD_ROWS : boardSoloPicks, columns, boardCategoryPolicy,
+                campaignTimeLimitSeconds, campaignMaxWrongAnswers, boardRequiredCategoryCount,
+                boardWorldCategories, boardBossStyle, boardAllowRevealOptions,
+                boardTwoStarScore, boardThreeStarScore);
+        final Handler handler = new Handler();
+        handler.post(new Runnable() {
+            int index = 0;
+
+            @Override
+            public void run() {
+                if (EXITING || isFinishing() || isDestroyed() || presenterDialogue.defer(this)) return;
+                if (EXITING || isFinishing() || isDestroyed() || campaignResultPersisted) return;
+                if (ACTIVITY_PAUSED) {
+                    handler.postDelayed(this, 250);
+                    return;
+                }
+                if (index >= messages.size()) {
+                    startBoardMode();
+                    return;
+                }
+                String message = messages.get(index++);
+                person.moveShowHand(800);
+                showDialog(message, "", 800, 2200, R.drawable.mouth_01, false);
+                // The next iteration waits for the actual typing + reading time.
+                // The stage timer starts only after briefing and category selection.
+                handler.post(this);
+            }
+        });
     }
 
     private String getCampaignAnswerMessage(boolean correct, int starsBefore) {
@@ -1500,12 +1758,6 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
             }
         }
         return "إجابة رائعة! اقتربت من النجمة التالية.";
-    }
-
-    private static int getReadableDialogDurationMs(String message, int minimumReadMs) {
-        int msgLen = message == null ? 0 : message.replace("\n", "").length();
-        int typewriterMs = (msgLen + 2) * DIALOG_CHARACTER_DELAY_MS;
-        return typewriterMs + minimumReadMs;
     }
 
     private boolean isShortGameScreen() {
@@ -1539,7 +1791,14 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         } else {
             sizeSp = shortScreen ? 10.5f : 11f;
         }
+        if (android.os.Build.VERSION.SDK_INT >= 26) {
+            txtQ.setAutoSizeTextTypeWithDefaults(TextView.AUTO_SIZE_TEXT_TYPE_NONE);
+        }
         txtQ.setTextSize(TypedValue.COMPLEX_UNIT_SP, sizeSp);
+        if (txtQ.getMaxLines() == Integer.MAX_VALUE && android.os.Build.VERSION.SDK_INT >= 26) {
+            txtQ.setAutoSizeTextTypeUniformWithConfiguration(
+                    8, Math.max(9, Math.round(sizeSp)), 1, TypedValue.COMPLEX_UNIT_SP);
+        }
     }
 
     private void applyAnswerTextSizes(ArrayList<String> answerTexts) {
@@ -1766,6 +2025,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
 
             @Override
             public void run() {
+                if (EXITING || isFinishing() || isDestroyed() || presenterDialogue.defer(this)) return;
                 t++;
                 switch (t) {
                     case 1:
@@ -1932,7 +2192,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     private int duelQuestionCallbackGeneration;
 
     private boolean isCurrentBoardQuestionCallback(int turn, Question question, int generation) {
-        if (EXITING) return false;
+        if (EXITING || duelActivityDestroyed) return false;
         if (!boardOnline || boardRoomMatch) return true;
         return !duelActivityDestroyed && !boardDuelFinished && duelLocallyConnected
                 && !ACTIVITY_PAUSED && !duelNeedsBoardResync && turn == boardOnlineTurn
@@ -1954,6 +2214,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
 
             @Override
             public void run() {
+                if (EXITING || isFinishing() || isDestroyed() || presenterDialogue.defer(this)) return;
                 if (!isCurrentBoardQuestionCallback(answeredDuelTurn,
                         answeredQuestion, callbackGeneration)) return;
                 if (boardCampaignMatch && campaignResultPersisted) return;
@@ -2063,6 +2324,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     }
 
     private void finishOfflineCompetition() {
+        if (presenterDialogue.defer("offlineResult", this::finishOfflineCompetition)) return;
         stopTimer(false);
         CAN_PLAY = false;
         CAN_HOME = false;
@@ -2125,6 +2387,8 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         final boolean tied = win && topCount > 1;
         String headline = tied ? "🤝 تعادل!" : win ? "🏆 فزت بالمباراة!"
                 : ("انتهت المباراة — ترتيبك " + rank + " من " + count);
+        if (!win && boardOnline && getIntent().getBooleanExtra("resumeOnlineMatch", false))
+            headline = "خسرت المباراة التي انتهت أثناء غيابك";
         final int previousCoins = PlayerProgress.getCoins(this);
         if (!settleRandomStake(win, tied, this::finishBoardCelebration)) return;
         try {
@@ -2401,6 +2665,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     // =====================================================================
 
     private void startBoardMode() {
+        if (presenterDialogue.defer("boardStart", this::startBoardMode)) return;
         applyBoardModeChrome();
         if (boardCampaignMatch) {
             if (restoreCampaignBoardState(pendingCampaignBoardRestore)) {
@@ -2453,9 +2718,31 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         return slot == 1 ? boardTeamBName : boardTeamAName;
     }
 
+    private String boardOpeningGreeting() {
+        if (boardCampaignMatch) return getCampaignOpeningMessage();
+        if (boardLocalTeams) return localTeamsOpeningGreeting();
+        if (pendingOfflineBoardRestore != null) {
+            return OfflineBoardGameStore.PHASE_CATEGORY_SELECT.equals(
+                    pendingOfflineBoardRestore.optString("phase"))
+                    ? "أهلاً بعودتك! نتابع اختيار فئات المباراة."
+                    : "أهلاً بعودتك! نكمل المباراة من حيث توقفت.";
+        }
+        if (recreatedGameSession || getIntent().getBooleanExtra("resumeOnlineMatch", false)) {
+            return "أهلاً بعودتك! نكمل المباراة من حيث توقفت.";
+        }
+        return "مرحبا بكم في تحدي الفئات.. اختاروا فئاتكم";
+    }
+
     private String localTeamsOpeningGreeting() {
         if (pendingLocalTeamsRestore == null) {
             return "تحدي الفرق! أدخلوا أسماء الفريقين";
+        }
+        String phase = pendingLocalTeamsRestore.optString("phase");
+        if (LocalTeamsGameStore.PHASE_SETUP.equals(phase)) {
+            return "أهلاً بعودتكم! نتابع إعداد الفريقين.";
+        }
+        if (LocalTeamsGameStore.PHASE_CATEGORY_SELECT.equals(phase)) {
+            return "أهلاً بعودتكم! نتابع اختيار فئات المباراة.";
         }
         JSONObject state = pendingLocalTeamsRestore.optJSONObject("state");
         int slot = 0;
@@ -2588,6 +2875,38 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         return LocalTeamsGameStore.PHASE_BOARD;
     }
 
+    private Set<Question> savedBoardQuestions(JSONArray cells) {
+        Set<Question> saved = new HashSet<>();
+        if (cells != null) for (int col = 0; col < cells.length(); col++) {
+            JSONArray column = cells.optJSONArray(col);
+            if (column == null) continue;
+            for (int row = 0; row < column.length(); row++) {
+                JSONObject cell = column.optJSONObject(row);
+                Question q = cell == null ? null : questionFromJson(cell.optJSONObject("question"));
+                if (q != null) saved.add(q);
+            }
+        }
+        // Restored allocations stay playable, while repairs must avoid every
+        // saved cell, including cells later in the serialized board.
+        QuestionHistory.recordAll(this, saved);
+        return saved;
+    }
+
+    private Set<String> savedConsumedQuestionKeys(JSONArray cells) {
+        Set<String> consumed = new HashSet<>();
+        if (cells != null) for (int col = 0; col < cells.length(); col++) {
+            JSONArray column = cells.optJSONArray(col);
+            if (column == null) continue;
+            for (int row = 0; row < column.length(); row++) {
+                JSONObject cell = column.optJSONObject(row);
+                if (cell == null || !cell.optBoolean("consumed", false)) continue;
+                Question q = questionFromJson(cell.optJSONObject("question"));
+                if (q != null) consumed.add(QuestionIdentity.key(q));
+            }
+        }
+        return consumed;
+    }
+
     private boolean restoreLocalTeamsBoardState(JSONObject record) {
         if (record == null || localTeamsRestoreConsumed) return false;
         JSONObject state = record.optJSONObject("state");
@@ -2614,7 +2933,8 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         boardCellConsumed = new boolean[boardCols][BOARD_ROWS];
 
         JSONArray cells = state.optJSONArray("cells");
-        Set<Question> used = new HashSet<>();
+        Set<Question> used = savedBoardQuestions(cells);
+        Set<String> restoredKeys = savedConsumedQuestionKeys(cells);
         for (int col = 0; col < boardCols; col++) {
             for (int row = 0; row < BOARD_ROWS; row++) {
                 JSONObject cell = null;
@@ -2625,13 +2945,20 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                 if (cell != null) {
                     boardCellConsumed[col][row] = cell.optBoolean("consumed", false);
                     boardCellQuestion[col][row] = questionFromJson(cell.optJSONObject("question"));
+                    Question restored = boardCellQuestion[col][row];
+                    if (restored != null && !restoredKeys.add(QuestionIdentity.key(restored)) && !boardCellConsumed[col][row])
+                        boardCellQuestion[col][row] = null;
                 }
                 if (boardCellQuestion[col][row] == null) {
                     String category = boardSelectedCategories.get(Math.min(col, boardSelectedCategories.size() - 1));
                     boardCellQuestion[col][row] = drawBoardQuestion(category, boardTierForRow(row), used);
                 }
+                if (boardCellQuestion[col][row] == null) {
+                    questionSelectionFailed(new IllegalStateException(QuestionHistory.EXHAUSTED)); finish(); return true;
+                }
             }
         }
+        QuestionHistory.recordAll(this, used);
 
         boardCellsRemaining = state.optInt("cellsRemaining", countRemainingBoardCells());
         boardTurnIndex = state.optInt("turnIndex", 0);
@@ -2683,6 +3010,9 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
             json.put("W2", safeString(q.getW2()));
             json.put("W3", safeString(q.getW3()));
             json.put("Category", safeString(q.getCategory()));
+            json.put("Img", safeString(q.getImg()));
+            json.put("ClubPath", new JSONArray(q.getClubPath() == null
+                    ? new ArrayList<String>() : q.getClubPath()));
         } catch (Exception ignored) {
         }
         return json;
@@ -2698,7 +3028,22 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         q.setW2(json.optString("W2", ""));
         q.setW3(json.optString("W3", ""));
         q.setCategory(json.optString("Category", ""));
+        q.setImg(json.optString("Img", ""));
+        JSONArray clubs = json.optJSONArray("ClubPath");
+        if (clubs != null) {
+            ArrayList<String> clubPath = new ArrayList<>();
+            for (int i = 0; i < clubs.length(); i++) {
+                String club = clubs.optString(i, "").trim();
+                if (!club.isEmpty()) clubPath.add(club);
+            }
+            q.setClubPath(clubPath);
+        }
         return q.getQ() == null || q.getQ().trim().isEmpty() ? null : q;
+    }
+
+    private boolean isRecoverableBotBoard() {
+        return modeOnline && boardMode && !boardOnline && !boardRoomMatch
+                && "board".equals(getIntent().getStringExtra("matchMode"));
     }
 
     private boolean shouldSaveOfflineBoard() {
@@ -2716,7 +3061,8 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     private void saveOfflineBoardProgress(String phase) {
         if (!shouldSaveOfflineBoard() || offlineBoardFinished) return;
         try {
-            JSONObject record = OfflineBoardGameStore.get(this, offlineBoardSaveId);
+            JSONObject record = isRecoverableBotBoard() ? OnlineMatchRecovery.botCheckpoint(this)
+                    : OfflineBoardGameStore.get(this, offlineBoardSaveId);
             if (record == null) {
                 record = OfflineBoardGameStore.baseRecord(offlineBoardSaveId);
             }
@@ -2793,7 +3139,12 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
             }
             state.put("cells", cells);
             record.put("state", state);
-            OfflineBoardGameStore.upsert(this, record);
+            if (isRecoverableBotBoard()) {
+                if (OfflineBoardGameStore.PHASE_QUESTION.equals(safePhase) && boardPickerIsHuman
+                        && (isQuestionTimerRunning || wasTimerRunningBeforePause))
+                    state.put("questionDeadlineAt", System.currentTimeMillis() + Math.max(0, PROGRESS_VALUE) * 100L);
+                OnlineMatchRecovery.saveBotCheckpoint(this, record);
+            } else OfflineBoardGameStore.upsert(this, record);
         } catch (Exception ignored) {
         }
     }
@@ -2801,6 +3152,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     private void saveOfflineBoardFinished() {
         if (!shouldSaveOfflineBoard()) return;
         offlineBoardFinished = true;
+        if (isRecoverableBotBoard()) return;
         try {
             JSONObject record = OfflineBoardGameStore.get(this, offlineBoardSaveId);
             if (record == null) {
@@ -2873,6 +3225,9 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         if (record == null || offlineBoardRestoreConsumed) return false;
         JSONObject state = record.optJSONObject("state");
         if (state == null) return false;
+        if (isRecoverableBotBoard()) restoredBotQuestionDeadline =
+                OfflineBoardGameStore.PHASE_QUESTION.equals(state.optString("phase"))
+                        && state.optBoolean("pickerIsHuman") ? state.optLong("questionDeadlineAt", 0L) : 0L;
         JSONArray categories = state.optJSONArray("selectedCategories");
         if (categories == null || categories.length() == 0) return false;
 
@@ -2899,7 +3254,8 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         boardCellConsumed = new boolean[boardCols][BOARD_ROWS];
 
         JSONArray cells = state.optJSONArray("cells");
-        Set<Question> used = new HashSet<>();
+        Set<Question> used = savedBoardQuestions(cells);
+        Set<String> restoredKeys = savedConsumedQuestionKeys(cells);
         for (int col = 0; col < boardCols; col++) {
             for (int row = 0; row < BOARD_ROWS; row++) {
                 JSONObject cell = null;
@@ -2910,13 +3266,20 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                 if (cell != null) {
                     boardCellConsumed[col][row] = cell.optBoolean("consumed", false);
                     boardCellQuestion[col][row] = questionFromJson(cell.optJSONObject("question"));
+                    Question restored = boardCellQuestion[col][row];
+                    if (restored != null && !restoredKeys.add(QuestionIdentity.key(restored)) && !boardCellConsumed[col][row])
+                        boardCellQuestion[col][row] = null;
                 }
                 if (boardCellQuestion[col][row] == null) {
                     String category = boardSelectedCategories.get(Math.min(col, boardSelectedCategories.size() - 1));
                     boardCellQuestion[col][row] = drawBoardQuestion(category, boardTierForRow(row), used);
                 }
+                if (boardCellQuestion[col][row] == null) {
+                    questionSelectionFailed(new IllegalStateException(QuestionHistory.EXHAUSTED)); finish(); return true;
+                }
             }
         }
+        QuestionHistory.recordAll(this, used);
 
         boardCellsRemaining = state.optInt("cellsRemaining", countRemainingBoardCells());
         boardTurnIndex = state.optInt("turnIndex", 0);
@@ -3032,6 +3395,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                             if (q != null) loadedQuestions.add(q);
                         }
                         if (!loadedQuestions.isEmpty()) {
+                            QuestionHistory.recordAll(this, loadedQuestions);
                             questions = loadedQuestions;
                             questionsReady = true;
                         }
@@ -3238,7 +3602,8 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         boardCellConsumed = new boolean[boardCols][BOARD_ROWS];
 
         JSONArray cells = state.optJSONArray("cells");
-        Set<Question> used = new HashSet<>();
+        Set<Question> used = savedBoardQuestions(cells);
+        Set<String> restoredKeys = savedConsumedQuestionKeys(cells);
         for (int col = 0; col < boardCols; col++) {
             for (int row = 0; row < BOARD_ROWS; row++) {
                 JSONObject cell = null;
@@ -3249,19 +3614,25 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                 if (cell != null) {
                     boardCellConsumed[col][row] = cell.optBoolean("consumed", false);
                     boardCellQuestion[col][row] = questionFromJson(cell.optJSONObject("question"));
+                    Question restored = boardCellQuestion[col][row];
+                    if (restored != null && !restoredKeys.add(QuestionIdentity.key(restored)) && !boardCellConsumed[col][row])
+                        boardCellQuestion[col][row] = null;
                 }
                 if (boardCellQuestion[col][row] == null) {
                     String category = boardSelectedCategories.get(Math.min(col, boardSelectedCategories.size() - 1));
                     boardCellQuestion[col][row] = drawBoardQuestion(category, boardTierForRow(row), used);
                 }
                 Question savedQuestion = boardCellQuestion[col][row];
+                if (savedQuestion == null) {
+                    questionSelectionFailed(new IllegalStateException(QuestionHistory.EXHAUSTED)); finish(); return true;
+                }
                 if (savedQuestion != null && !AppPrefs.isCategoryUnlocked(this, savedQuestion.getCategory())) {
                     pauseCampaignForLockedCategories();
                     return true;
                 }
             }
         }
-
+        QuestionHistory.recordAll(this, used);
         boardCellsRemaining = state.optInt("cellsRemaining", countRemainingBoardCells());
         boardTurnIndex = state.optInt("turnIndex", 0);
         boardTotalTurns = state.optInt("totalTurns", Math.max(0, boardCols * BOARD_ROWS));
@@ -4035,6 +4406,10 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                     if (font != null) btnAd.setTypeface(font, Typeface.BOLD);
                     btnAd.setOnClickListener(v -> {
                         if (rewardedAdController == null) return;
+                        if (GameEconomy.remainingAdRewards(GameActivity.this, "tickets") == 0) {
+                            Toast.makeText(GameActivity.this, "اكتملت إعلانات التذاكر وتجربة التصنيفات لليوم. تتجدد عند منتصف الليل UTC.", Toast.LENGTH_LONG).show();
+                            return;
+                        }
                         rewardedAdController.show(new GameRewardedAdController.RewardCallback() {
                             public void onRewardEarned(com.google.android.gms.ads.rewarded.RewardItem reward) {
                                 dialog.dismiss();
@@ -4304,6 +4679,10 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     }
 
     private void onCategoriesChosen(ArrayList<String> chosen) {
+        prepareQuestionSelection(() -> buildSelectedBoard(chosen));
+    }
+
+    private void buildSelectedBoard(ArrayList<String> chosen) {
         if (boardCampaignMatch) {
             refreshCampaignCategoryAccess();
             if (!CampaignBoardRules.canUseCategories(chosen, boardCols, boardPool)) {
@@ -4351,13 +4730,21 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         }
         for (int col = 0; col < boardCols; col++) for (int row = 0; row < BOARD_ROWS; row++) {
             if (boardCellQuestion[col][row] == null) {
-                Toast.makeText(this, "الأسئلة غير كافية. اختر تصنيفات أخرى.", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, QuestionHistory.EXHAUSTED, Toast.LENGTH_LONG).show();
                 showCategorySelect(); return;
             }
         }
         int economyOrder = 0;
         try { economyOrder = Integer.parseInt(campaignStageId.replace("stage_", "")); } catch (Exception ignored) {}
-        if (!GameEconomy.ensure(this, campaignMode, economyOrder, chosen, () -> onCategoriesChosen(chosen))) return;
+        if (!GameEconomy.ensure(this, campaignMode, economyOrder, chosen, this::reserveAndStartSelectedBoard)) return;
+        reserveAndStartSelectedBoard();
+    }
+
+    private void reserveAndStartSelectedBoard() {
+        reserveBoardQuestions(this::startSelectedBoard);
+    }
+
+    private void startSelectedBoard() {
         if (boardCampaignMatch && !startCampaignBoardTimer()) return;
         if (boardLocalTeams) {
             saveLocalTeamsProgress(LocalTeamsGameStore.PHASE_BOARD);
@@ -4437,21 +4824,16 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     }
 
     private Question pickUnused(ArrayList<Question> list, Set<Question> used) {
-        if (list == null || list.isEmpty()) return null;
-        int start = boardRandom.nextInt(list.size());
-        for (int k = 0; k < list.size(); k++) {
-            Question q = list.get((start + k) % list.size());
-            if (!used.contains(q)) {
-                used.add(q);
-                return q;
-            }
-        }
-        return null;
+        Set<String> excluded = new HashSet<>(questionExclusions);
+        excluded.addAll(QuestionHistory.snapshot(this));
+        return QuestionSelection.pick(list, excluded, used, boardRandom);
     }
 
     // ---- Turn loop -------------------------------------------------------
 
     private void beginBoardTurn() {
+        if (presenterDialogue.defer("boardTurnStart", this::beginBoardTurn)) return;
+        if (EXITING || duelActivityDestroyed) return;
         int economyOrder = 0;
         try { economyOrder = Integer.parseInt(campaignStageId.replace("stage_", "")); } catch (Exception ignored) {}
         if (!GameEconomy.ensure(this, campaignMode, economyOrder, new ArrayList<>(boardSelectedCategories), this::beginBoardTurn)) return;
@@ -4485,11 +4867,12 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                 public void run() {
                     if (!EXITING && boardMode) runBotTurn();
                 }
-            }, boardCampaignMatch ? ("speed".equals(campaignBossStyleForSlot(boardPickerSlot)) ? 200 : 500) : 1500);
+            }, boardCampaignMatch ? 650 + boardRandom.nextInt(651) : 1500);
         }
     }
 
     private void runBotTurn() {
+        if (EXITING || duelActivityDestroyed) return;
         if (boardCampaignMatch && campaignResultPersisted) return;
         int[] cell = pickRandomRemainingCell();
         if (cell == null) {
@@ -4589,6 +4972,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     }
 
     private void endBoardTurn() {
+        if (presenterDialogue.defer("boardTurnEnd", this::endBoardTurn)) return;
         if (boardCampaignMatch && campaignResultPersisted) return;
         if (boardOnline && boardDuelFinished) return;
         showBoardRefereePanel(false);
@@ -5166,6 +5550,9 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
 
     private void showBoardResultScreen(String headline, int teamAScore, int teamBScore,
                                        int meSeatIndex, boolean[] seatWon) {
+        if (!EXITING && presenterDialogue.deferAll("boardResult",
+                () -> showBoardResultScreen(headline, teamAScore, teamBScore, meSeatIndex, seatWon))) return;
+        if (modeOnline) OnlineMatchRecovery.complete(this, headline, !ACTIVITY_PAUSED);
         final FrameLayout overlay = (FrameLayout) findViewById(R.id.boardOverlay);
         if (overlay == null) {
             proceedAfterBoardResult();
@@ -5521,6 +5908,13 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         // No human found → fall back to the plain offline board (the intro flow starts
         // it, like offline). With a real opponent, drive the synced online board.
         boardOnline = !(primary == null || primary.bot);
+        if (!boardOnline) {
+            boardCharacterIndex = characterIndex;
+            offlineBoardSaveId = NativeProgression.fallbackId(this);
+            // Reuse the board serializer, but keep online bot games in the account's
+            // recovery store instead of the device-wide offline match library.
+            pendingOfflineBoardRestore = OnlineMatchRecovery.botCheckpoint(this);
+        }
         if (boardOnline) {
             if (!safeIntentString("stakeMatchId", "").isEmpty()) {
                 gameID = safeIntentString("stakeMatchId", "");
@@ -5583,7 +5977,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         findViewById(android.R.id.content).post(new Runnable() {
             @Override
             public void run() {
-                if (!EXITING) showOnlineBoardCategorySelect();
+                if (!EXITING) resumeOrSelectDuelCategory();
             }
         });
     }
@@ -5784,7 +6178,10 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         } else {
             stopCategorySelectMusicIfPlaying();
             showBoardWaitingOverlay("اخترت: " + category + "\nبانتظار اختيار الخصم…");
-            if (meOwner) attachBoardPicksListener();
+            if (meOwner) {
+                if (boardRoomMatch) attachRoomBoardPicksListener();
+                else attachBoardPicksListener();
+            }
         }
         attachBoardReadyListener();
     }
@@ -5885,6 +6282,15 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     }
 
     private void onOnlineCategoryChosen(String category) {
+        if (questionSelectionPending || boardDuelFinished) return;
+        questionSelectionPending = true;
+        QuestionHistory.prepare(this, "", "", excluded -> {
+            questionSelectionPending = false;
+            if (!EXITING && !isFinishing()) submitOnlineCategory(category);
+        }, this::questionSelectionFailed);
+    }
+
+    private void submitOnlineCategory(String category) {
         if (boardDuelFinished) return;
         if (gameID == null || gameID.trim().isEmpty()) return;
         getIntent().putExtra("economyChosenCategory", category);
@@ -6005,6 +6411,12 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     }
 
     private void buildAndPushOnlineBoard(String ownerCat, String joinerCat) {
+        if (boardDuelFinished || boardCellQuestion != null || questionSelectionPending) return;
+        retryQuestionSelection = () -> buildAndPushOnlineBoard(ownerCat, joinerCat);
+        prepareQuestionSelection(() -> assembleAndPushOnlineBoard(ownerCat, joinerCat));
+    }
+
+    private void assembleAndPushOnlineBoard(String ownerCat, String joinerCat) {
         if (boardDuelFinished || boardCellQuestion != null) return;
         boardSelectedCategories.clear();
         boardSelectedCategories.add(ownerCat);
@@ -6038,16 +6450,24 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                 payload.put(key + "/W1", q != null && q.getW1() != null ? q.getW1() : "");
                 payload.put(key + "/W2", q != null && q.getW2() != null ? q.getW2() : "");
                 payload.put(key + "/W3", q != null && q.getW3() != null ? q.getW3() : "");
+                payload.put(key + "/Img", q != null && q.getImg() != null ? q.getImg() : "");
+                payload.put(key + "/ClubPath", q == null ? new ArrayList<String>() : q.getClubPath());
                 payload.put(key + "/Category", q != null && q.getCategory() != null
                         ? q.getCategory() : boardSelectedCategories.get(col));
             }
         }
         payload.put("ready", true);
-        boardRef().updateChildren(payload);
+        reserveBoardQuestions(() -> boardRef().updateChildren(payload));
     }
 
     /** Host only: build the room board (one category per seat) and push it. */
     private void buildAndPushRoomBoard(HashMap<String, String> picks) {
+        if (boardCellQuestion != null || questionSelectionPending) return;
+        retryQuestionSelection = () -> buildAndPushRoomBoard(picks);
+        prepareQuestionSelection(() -> assembleAndPushRoomBoard(picks));
+    }
+
+    private void assembleAndPushRoomBoard(HashMap<String, String> picks) {
         if (boardCellQuestion != null) return;
         final int cols = boardSeatCount;
         boardSelectedCategories.clear();
@@ -6075,12 +6495,14 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                 payload.put(key + "/W1", q != null && q.getW1() != null ? q.getW1() : "");
                 payload.put(key + "/W2", q != null && q.getW2() != null ? q.getW2() : "");
                 payload.put(key + "/W3", q != null && q.getW3() != null ? q.getW3() : "");
+                payload.put(key + "/Img", q != null && q.getImg() != null ? q.getImg() : "");
+                payload.put(key + "/ClubPath", q == null ? new ArrayList<String>() : q.getClubPath());
                 payload.put(key + "/Category", q != null && q.getCategory() != null
                         ? q.getCategory() : cat);
             }
         }
         payload.put("ready", true);
-        boardRef().updateChildren(payload);
+        reserveBoardQuestions(() -> boardRef().updateChildren(payload));
     }
 
     /** A board category not already used by another seat, if possible. */
@@ -6097,6 +6519,20 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     }
 
     private void loadOnlineBoardFromFirebase(DataSnapshot snapshot) {
+        if (boardRoomMatch && !roomQuestionHistoryAdmitted) {
+            if (roomQuestionHistoryAdmissionPending) return;
+            roomQuestionHistoryAdmissionPending = true;
+            QuestionHistory.admitRoom(this, roomId, () -> {
+                roomQuestionHistoryAdmissionPending = false;
+                roomQuestionHistoryAdmitted = true;
+                if (!EXITING && !isFinishing()) loadOnlineBoardFromFirebase(snapshot);
+            }, error -> {
+                roomQuestionHistoryAdmissionPending = false;
+                questionSelectionFailed(error);
+                finish();
+            });
+            return;
+        }
         String myCategory = snapshot.child("picks").child(boardLocalSeatId()).child("category").getValue(String.class);
         if (myCategory != null) getIntent().putExtra("economyChosenCategory", myCategory);
         final int cols = boardRoomMatch ? boardSeatCount : 2;
@@ -6119,15 +6555,39 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                 q.setW2(boardCellString(cs.child("W2"), ""));
                 q.setW3(boardCellString(cs.child("W3"), ""));
                 q.setCategory(boardCellString(cs.child("Category"), boardSelectedCategories.get(col)));
+                q.setImg(boardCellString(cs.child("Img"), ""));
+                ArrayList<String> clubs = new ArrayList<>();
+                for (DataSnapshot club : cs.child("ClubPath").getChildren()) {
+                    String value = boardCellString(club, "");
+                    if (!value.isEmpty()) clubs.add(value);
+                }
+                q.setClubPath(clubs);
                 boardCellQuestion[col][row] = q;
             }
         }
+        ArrayList<Question> allocated = new ArrayList<>();
+        for (Question[] column : boardCellQuestion) java.util.Collections.addAll(allocated, column);
+        QuestionHistory.recordAll(this, allocated);
         boardCellsRemaining = cols * BOARD_ROWS;
         boardTotalTurns = cols * BOARD_ROWS;
         hideBoardOverlay();
-        if (!boardRoomMatch) applyDuelScores(snapshot);
-        beginOnlineBoardTurn(boardRoomMatch ? 0
-                : OnlineDuelState.number(snapshot.child("currentTurn").getValue(), 0));
+        int resumeTurn;
+        if (boardRoomMatch) {
+            RoomBoardRecovery.State recovered = RoomBoardRecovery.restore(
+                    OnlineDuelState.map(snapshot.getValue()), boardSeatCount, BOARD_ROWS, BOARD_VALUES);
+            boardCellConsumed = recovered.consumed;
+            boardCellsRemaining = countRemainingBoardCells();
+            for (int seat = 0; seat < boardSeatCount; seat++)
+                offlineContestants.setScoreForSlot(seat, recovered.scores[seat]);
+            roomResumeTurn = recovered.nextTurn;
+            roomResumeCol = recovered.pendingCol;
+            roomResumeRow = recovered.pendingRow;
+            resumeTurn = recovered.nextTurn;
+        } else {
+            applyDuelScores(snapshot);
+            resumeTurn = OnlineDuelState.number(snapshot.child("currentTurn").getValue(), 0);
+        }
+        beginOnlineBoardTurn(resumeTurn);
         if (!boardRoomMatch && duelTerminalRef != null && duelTerminalListener != null) {
             duelNeedsBoardResync = true;
             duelTerminalRef.addListenerForSingleValueEvent(duelTerminalListener);
@@ -6151,6 +6611,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         if (EXITING || duelActivityDestroyed || paidDuel == null) return;
         paidDuelState = match;
         paidDuelQuestion = question;
+        if (!ACTIVITY_PAUSED && backgroundGuard.enforce()) return;
         if (PaidDuelController.number(match.get("protocolVersion"), 0) != 2) {
             showBoardWaitingOverlay("هذه الدعوة تستخدم إصدارًا سابقًا. ألغِها وأرسل دعوة جديدة للعب بالنظام الأصلي.");
             return;
@@ -6302,9 +6763,14 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         q.setCategory(PaidDuelController.string(source.get("category")));
         q.setLevel(PaidDuelController.string(source.get("level")));
         q.setImg(PaidDuelController.string(source.get("img")));
+        ArrayList<String> clubs = new ArrayList<>();
+        Object path = source.get("clubPath");
+        if (path instanceof java.util.List) for (Object club : (java.util.List<?>) path) clubs.add(String.valueOf(club));
+        q.setClubPath(clubs);
         // Answers remain private until the server resolves the turn.
         q.setR(PaidDuelController.string(source.get("rightAnswer")));
         q.setW1(""); q.setW2(""); q.setW3("");
+        if (q.getQ() != null && !q.getQ().trim().isEmpty()) QuestionHistory.record(this, q);
         return q;
     }
 
@@ -6443,6 +6909,10 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         String headline = won ? "مبروك فزت بـ" + payoutCoins + " قطعة"
                 : !paid ? (draw ? "تعادل! أُعيدت القطع لكما" : "أُلغيت المباراة وأُعيدت القطع")
                 : "حظًا أوفر في المباراة القادمة";
+        String reason = PaidDuelController.string(paidDuelState.get("finishReason"));
+        if (paid && !won && ("forfeit".equals(reason) || "timeout".equals(reason)))
+            headline = "خسرت المباراة بسبب مغادرتك أو انتهاء مهلة اللعب";
+        final String resultHeadline = headline;
         if (paid || draw) PlayerStats.recordGameEnd(this, draw ? ProgressionRules.DRAW
                 : won ? ProgressionRules.WIN : ProgressionRules.LOSS, 0);
         if (won) { person.moveShow2Hands(1500); person.raiseEyeBrowsUp(1000, false, true); }
@@ -6452,7 +6922,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
             if (resultShown[0] || isFinishing() || isDestroyed()
                     || !myID.equals(ProgressionAccount.uid(this))) return;
             resultShown[0] = true;
-            showBoardResultScreen(headline, 0, 0, 0, new boolean[]{won || draw, (paid && !won) || draw});
+            showBoardResultScreen(resultHeadline, 0, 0, 0, new boolean[]{won || draw, (paid && !won) || draw});
         };
         new Handler().postDelayed(renderResult, 3000L);
         com.google.firebase.firestore.FirebaseFirestore.getInstance().collection("users").document(myID)
@@ -6511,7 +6981,19 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         boolean iAmPicker = (pickerSeat == mySeat);
         boardPickerIsHuman = iAmPicker;
         showBoardGrid();
+        boolean restoringPick = turn == roomResumeTurn && roomResumeCol >= 0 && roomResumeRow >= 0;
+        if (restoringPick) {
+            boardPickedCol = roomResumeCol;
+            boardPickedRow = roomResumeRow;
+            roomResumeTurn = -1;
+        }
         if (iAmPicker) {
+            if (restoringPick) {
+                cancelBoardSelectTimer();
+                boardCellConsumed[boardPickedCol][boardPickedRow] = true;
+                boardCurrentQuestion = boardCellQuestion[boardPickedCol][boardPickedRow];
+                enterBoardQuestion(true);
+            }
             // I pick a cell via the grid (onCellPicked → writes the pick + answer).
             return;
         }
@@ -6613,9 +7095,11 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         duelSessionSnapshot = new HashMap<>(OnlineDuelState.map(snapshot.getValue()));
         DataSnapshot board = snapshot.child("board");
         if ("forfeit".equals(board.child("finishReason").getValue(String.class))) {
+            if (ACTIVITY_PAUSED) { duelNeedsBoardResync = true; return; }
             showDuelForfeitResult(board);
             return;
         }
+        if (!ACTIVITY_PAUSED && backgroundGuard.enforce()) return;
         boolean ready = Boolean.TRUE.equals(board.child("ready").getValue(Boolean.class));
         boolean active = duelLocallyConnected && !ACTIVITY_PAUSED
                 && "active".equals(snapshot.child(myID).child("status").getValue(String.class));
@@ -6772,7 +7256,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         OnlineDuelResultStore.clearCompleted(this, gameID);
         PlayerProgress.onGameFinished(this, win, score, PlayerStats.getBestStreak(this), usedAllHelps(), usedAnyHelp());
         boardResultCurrencyDelta = PlayerProgress.getCoins(this) - previousCoins;
-        showBoardResultScreen(win ? "🏆 فزت بانسحاب المنافس" : "انتهت المباراة بالانسحاب",
+        showBoardResultScreen(win ? "🏆 فزت بانسحاب المنافس" : "خسرت المباراة بسبب مغادرتك وعدم العودة خلال المهلة",
                 0, 0, 0, new boolean[]{win, !win});
     }
 
@@ -6954,7 +7438,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         boardPickerIsHuman = false;
         CAN_PLAY = false;
         Question q = boardCurrentQuestion;
-        txtQ.setText(q.Q);
+        bindBoardQuestionVisual(q);
         applyQuestionTextSize(q.Q);
         final ArrayList<Integer> answerOrder = getQuestionShuffled(q);
         currentAnswerOrder.clear();
@@ -7547,7 +8031,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
      * classic staggered reveal and pick one of the four options.
      */
     private void showBoardQuestion(final Question question, final boolean humanTurn) {
-        if (EXITING || question == null) return;
+        if (EXITING || duelActivityDestroyed || question == null) return;
         ArrayList<String> economyCategories = new ArrayList<>();
         String chosenCategory = getIntent().getStringExtra("economyChosenCategory");
         if (boardOnline && chosenCategory != null) economyCategories.add(chosenCategory);
@@ -7555,6 +8039,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         int economyOrder = 0;
         try { economyOrder = Integer.parseInt(campaignStageId.replace("stage_", "")); } catch (Exception ignored) {}
         if (!GameEconomy.ensure(this, campaignMode, economyOrder, economyCategories, () -> showBoardQuestion(question, humanTurn))) return;
+        QuestionHistory.record(this, question);
         if (boardOnline && !boardRoomMatch) duelQuestionCallbackGeneration++;
         final int questionTurn = boardOnlineTurn;
         final int callbackGeneration = duelQuestionCallbackGeneration;
@@ -7568,7 +8053,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         }
         playQuestionMusic();
         boardCurrentQuestion = question;
-        txtQ.setText(question.Q);
+        bindBoardQuestionVisual(question);
         applyQuestionTextSize(question.Q);
 
         final ArrayList<Integer> answerOrder = getQuestionShuffled(question);
@@ -7672,6 +8157,24 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         handler.postDelayed(runnable, 700);
     }
 
+    private void bindBoardQuestionVisual(Question question) {
+        if (txtQ == null) return;
+        txtQ.setVisibility(View.VISIBLE);
+        String text = question == null || question.Q == null ? "" : question.Q;
+        if (question != null && "مسيرة لاعب".equals(question.getCategory())) {
+            txtQ.setMaxLines(Integer.MAX_VALUE);
+            if (question.getClubPath() != null && !question.getClubPath().isEmpty()) {
+                text = android.text.TextUtils.join(" ⬅️ ", question.getClubPath());
+            } else {
+                text = text.replaceAll("\\s*(?:،|,|←|⬅\\uFE0F?)\\s*", " ⬅️ ");
+            }
+            txtQ.setTextDirection(View.TEXT_DIRECTION_RTL);
+        } else {
+            txtQ.setMaxLines(2);
+            txtQ.setTextDirection(View.TEXT_DIRECTION_FIRST_STRONG);
+        }
+        txtQ.setText(text);
+    }
     /** Sets one option's text and tag, tracking which view holds the correct answer. */
     private void bindBoardAnswerView(int i, int answerKey, String text) {
         listAnswerViews.get(i).setText(text);
@@ -7690,6 +8193,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
 
     /** Opens the text box for the human's board turn; the four options stay hidden. */
     private void startBoardTypedTurn() {
+        if (presenterDialogue.defer("typedTurn", this::startBoardTypedTurn)) return;
         final int questionTurn = boardOnlineTurn;
         final Question question = boardCurrentQuestion;
         final int callbackGeneration = duelQuestionCallbackGeneration;
@@ -7713,6 +8217,10 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                 if (!boardMode || !boardAwaitingTypedInput
                         || !isCurrentBoardQuestionCallback(questionTurn,
                                 question, callbackGeneration)) return;
+                if (isRecoverableBotBoard() && ACTIVITY_PAUSED) {
+                    handler.postDelayed(this, 250L);
+                    return;
+                }
                 CAN_PLAY = false; // frame taps stay disabled until options are revealed
                 questionStartTimeMs = System.currentTimeMillis();
                 startTimer(true);
@@ -8440,6 +8948,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         new Handler().postDelayed(new Runnable() {
             @Override
             public void run() {
+                if (EXITING || isFinishing() || isDestroyed() || presenterDialogue.defer(this)) return;
                 if (EXITING || !boardMode || !boardStealActive) return;
                 if (boardAnswerInput != null) boardAnswerInput.setText("");
                 if (btnBoardSubmitAnswer != null) btnBoardSubmitAnswer.setEnabled(true);
@@ -8455,18 +8964,37 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     private void scheduleBotBoardAnswer() {
         final Question q = boardCurrentQuestion;
         final int slot = boardPickerSlot;
+        final int turn = boardTurnIndex;
+        final int delayMs = boardCampaignMatch
+                ? CampaignBoardRules.bossThinkTimeMs(q == null ? "" : q.getLevel(),
+                        q == null ? "" : q.Q, campaignBossStyleForSlot(slot),
+                        isCampaignBossSpecialtyCell(slot), boardRandom)
+                : 1800;
+        if (boardCampaignMatch) {
+            String name = offlineContestants.nameForSlot(slot);
+            showDialog(name + " يفكر في الإجابة..", "", 500,
+                    Math.max(600, delayMs - DIALOG_EXTRA_VISIBLE_MS),
+                    R.drawable.mouth_01, false);
+        }
         new Handler().postDelayed(new Runnable() {
             @Override
             public void run() {
-                if (EXITING || q != boardCurrentQuestion
+                if (EXITING || isFinishing() || isDestroyed() || turn != boardTurnIndex
+                        || slot != boardPickerSlot || q != boardCurrentQuestion
                         || (boardCampaignMatch && campaignResultPersisted)) return;
+                if (ACTIVITY_PAUSED) {
+                    new Handler().postDelayed(this, 250);
+                    return;
+                }
                 resolveBotBoardAnswer(slot);
             }
-        }, boardCampaignMatch ? ("speed".equals(campaignBossStyleForSlot(boardPickerSlot)) ? 300 : 900) : 1800);
+        }, delayMs);
     }
 
     private void resolveBotBoardAnswer(final int slot) {
         if (boardCampaignMatch && campaignResultPersisted) return;
+        final Question answeredQuestion = boardCurrentQuestion;
+        final int answeredTurn = boardTurnIndex;
         final boolean correct = offlineContestants.rollCorrectForSlot(slot,
                 boardCurrentQuestion != null ? boardCurrentQuestion.getLevel() : "0");
         int pickIdx = correct ? rightAnswer : pickRandomWrongIndex(rightAnswer);
@@ -8477,7 +9005,10 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         new Handler().postDelayed(new Runnable() {
             @Override
             public void run() {
-                if (EXITING || (boardCampaignMatch && campaignResultPersisted)) return;
+                if (EXITING || isFinishing() || isDestroyed() || presenterDialogue.defer(this)) return;
+                if (EXITING || duelActivityDestroyed || answeredTurn != boardTurnIndex
+                        || answeredQuestion != boardCurrentQuestion
+                        || (boardCampaignMatch && campaignResultPersisted)) return;
                 if (correct) {
                     if (imgPick != null) imgPick.setImageResource(R.drawable.frame_right);
                     offlineContestants.awardCell(slot, CampaignBoardRules.botAwardValue(
@@ -9003,6 +9534,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     }
 
     private void goToWinnerScreen(String amount) {
+        if (!EXITING && presenterDialogue.deferAll("winner", () -> goToWinnerScreen(amount))) return;
         try {
             int prize = Integer.parseInt(amount.replace("$", "").trim());
             PlayerStats.recordGameEnd(GameActivity.this, true, prize);
@@ -9090,6 +9622,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                 Runnable runnable = new Runnable() {
                     @Override
                     public void run() {
+                        if (EXITING || isFinishing() || isDestroyed() || presenterDialogue.defer(this)) return;
                         playSound(R.raw.new_level, false, false);
                         showDialog("ممتاز.. لقد وصلت إلى المستوى " + finalNewLevel, "", 1000, 3000, R.drawable.mouth_01, false);
                     }
@@ -9104,16 +9637,26 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         questionsReady = false;
         questionsLoadFailed = false;
         if (!modeOnline) {
-            GameActivity.this.questions = campaignMode
-                    ? LocalQuestions.loadAll(this)
-                    : LocalQuestions.load(this);
-            applyCampaignQuestionSelectionIfNeeded();
-            questionsReady = !GameActivity.this.questions.isEmpty();
+            prepareQuestionSelection(() -> {
+                questions = campaignMode ? LocalQuestions.loadAll(this) : LocalQuestions.load(this, questionExclusions);
+                applyCampaignQuestionSelectionIfNeeded();
+                if (questions.isEmpty() || campaignMode && questions.size() < getCampaignTargetQuestionCount()) {
+                    questionsLoadFailed = true;
+                    questionSelectionFailed(new IllegalStateException(QuestionHistory.EXHAUSTED));
+                    return;
+                }
+                questionSelectionPending = true;
+                QuestionHistory.reserve(this, "", "", questions, () -> {
+                    questionSelectionPending = false;
+                    questionsReady = !EXITING && !isFinishing();
+                }, error -> { questionsLoadFailed = true; questionSelectionFailed(error); });
+            });
             return;
         }
         new Data().getQuestions(gameID, new OnGetQuestionsListener() {
             @Override
             public void onSuccess(ArrayList<Question> questions) {
+                QuestionHistory.recordAll(GameActivity.this, questions);
                 GameActivity.this.questions = questions;
                 questionsReady = questions != null && !questions.isEmpty();
                 questionsLoadFailed = false;
@@ -9140,6 +9683,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                     new Data().getGameQuestions(GameActivity.this.gameID, new OnGetQuestionsListener() {
                         @Override
                         public void onSuccess(ArrayList<Question> questions) {
+                            QuestionHistory.recordAll(GameActivity.this, questions);
                             GameActivity.this.questions = questions;
                             questionsReady = questions != null && !questions.isEmpty();
                             questionsLoadFailed = false;
@@ -9331,6 +9875,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     }
 
     private void leaveOnlineMatchIfNeeded() {
+        if (isRecoverableBotBoard()) return;
         if (paidDuel != null) return; // Explicit exit goes through the stake callable.
         if (!modeOnline || matchStateCommitted) {
             return;
@@ -9385,6 +9930,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     }
 
     private void openOnlineResultScreen(boolean opponentLeft) {
+        if (!EXITING && presenterDialogue.deferAll("onlineResult", () -> openOnlineResultScreen(opponentLeft))) return;
         if (!modeOnline) {
             return;
         }
@@ -10679,7 +11225,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
             playSound(R.raw.correct_answer, false, false);
             campaignHudController.updateProgressHud(true);
             campaignAnswerMessage = getCampaignAnswerMessage(true, starsBefore);
-            campaignAnswerDialogMs = getReadableDialogDurationMs(campaignAnswerMessage, CAMPAIGN_FEEDBACK_MIN_READ_MS);
+            campaignAnswerDialogMs = CAMPAIGN_FEEDBACK_MIN_READ_MS;
             showDialog(campaignAnswerMessage, "", CAMPAIGN_FEEDBACK_TALK_MS, campaignAnswerDialogMs, R.drawable.mouth_01, false);
         } else {
             recordCampaignWrongAnswer();
@@ -10689,7 +11235,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
             if (imgRight != null) imgRight.setImageResource(R.drawable.frame_right);
             campaignHudController.updateProgressHud(false);
             campaignAnswerMessage = getCampaignAnswerMessage(false, starsBefore);
-            campaignAnswerDialogMs = getReadableDialogDurationMs(campaignAnswerMessage, CAMPAIGN_FEEDBACK_MIN_READ_MS);
+            campaignAnswerDialogMs = CAMPAIGN_FEEDBACK_MIN_READ_MS;
             showDialog(campaignAnswerMessage, "", CAMPAIGN_FEEDBACK_TALK_MS, campaignAnswerDialogMs, R.drawable.mouth_05, false);
         }
         final int campaignNextQuestionDelayMs = campaignAnswerDialogMs + CAMPAIGN_FEEDBACK_TRANSITION_GAP_MS;
@@ -10707,6 +11253,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                 if (EXITING || campaignResultPersisted) {
                     return;
                 }
+                if (presenterDialogue.defer(this)) return;
                 if (shouldFailCampaignAfterCurrentAnswer()) {
                     failCampaignStage(campaignFailureReason, 0);
                     return;
@@ -10924,6 +11471,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     }
 
     private void finishCampaignAndReturnToFlutter() {
+        if (!EXITING && presenterDialogue.deferAll("campaignResult", this::finishCampaignAndReturnToFlutter)) return;
         if (!campaignMode) {
             return;
         }
@@ -10947,6 +11495,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
             return;
         }
         ArrayList<Question> selected = new ArrayList<>();
+        Set<String> used = new HashSet<>(questionExclusions);
         if (!campaignQuestionIds.isEmpty()) {
             for (Integer id : campaignQuestionIds) {
                 if (id == null) {
@@ -10955,7 +11504,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                 int index = id;
                 if (index >= 0 && index < questions.size()) {
                     Question question = questions.get(index);
-                    if (isCampaignQuestionLevelAllowed(question)) {
+                    if (isCampaignQuestionLevelAllowed(question) && used.add(QuestionIdentity.key(question))) {
                         selected.add(question);
                     } else {
                         Log.w("CampaignStage", "Skipped question id=" + id
@@ -10970,20 +11519,17 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                 }
             }
         }
-        if (selected.size() < getCampaignTargetQuestionCount()
-                && !campaignAllowedLevels.isEmpty()) {
-            for (Question question : questions) {
+        if (selected.size() < getCampaignTargetQuestionCount()) {
+            for (Question question : QuestionSelection.unseen(questions, used, boardRandom)) {
                 if (selected.size() >= getCampaignTargetQuestionCount()) {
                     break;
                 }
-                if (isCampaignQuestionLevelAllowed(question) && !selected.contains(question)) {
+                if (isCampaignQuestionLevelAllowed(question) && used.add(QuestionIdentity.key(question))) {
                     selected.add(question);
                 }
             }
         }
-        if (!selected.isEmpty() || !campaignAllowedLevels.isEmpty()) {
-            questions = selected;
-        }
+        questions = selected;
         if (isDebuggableBuild()) {
             Log.d("CampaignStage", "loaded campaign questions=" + questions.size()
                     + " levels=" + campaignLevelSummary(questions));
@@ -11077,6 +11623,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
 
             @Override
             public void run() {
+                if (EXITING || isFinishing() || isDestroyed() || presenterDialogue.defer(this)) return;
                 t++;
                 switch (t) {
                     case 1:
@@ -11089,8 +11636,8 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                             showDialog("نبدأ الآن.. استعدوا للمباراة", "", 1000, 3000, R.drawable.mouth_01, false);
                         else if (campaignMode) {
                             String msg = (pendingCampaignResumeQuestion >= 0)
-                                    ? "مرحباً بعودتك.. نتابع تحدي المراحل"
-                                    : getCampaignOpeningMessage();
+                                    ? "استعد.. نتابع أسئلة هذه المرحلة"
+                                    : "استعد.. نبدأ أسئلة المرحلة!";
                             showDialog(msg, "", 1000, (pendingCampaignResumeQuestion >= 0) ? 2000 : 3000, R.drawable.mouth_01, false);
                         } else
                             showDialog("نبدأ الآن.. بالتوفيق للجميع", "", 1000, 3000, R.drawable.mouth_01, false);
@@ -11251,6 +11798,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     }
 
     void startTimer(boolean start) {
+        if (backgroundParticipationEnded || backgroundGuard.enforce()) return;
         if (paidDuel != null) {
             startPaidDuelQuestionTimer();
             return;
@@ -11262,11 +11810,20 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                 if (boardCampaignMatch && "boss".equals(boardCampaignKind)
                         && "speed".equals(boardBossStyle)) startTicks = 300;
                 PROGRESS_VALUE = startTicks;
+                if (isRecoverableBotBoard() && restoredBotQuestionDeadline > 0L) {
+                    PROGRESS_VALUE = (int) Math.min(startTicks, Math.max(0L,
+                            (restoredBotQuestionDeadline - System.currentTimeMillis() + 99L) / 100L));
+                    restoredBotQuestionDeadline = 0L;
+                    if (PROGRESS_VALUE <= 0) {
+                        handleQuestionTimeout();
+                        return;
+                    }
+                }
                 //TIMER_VALUE = 10000;
                 pbTime.setMax(startTicks);
                 pbTime.setRingProgressColor(getResources().getColor(R.color.progressGreen));
                 pbTime.setProgress(0);
-                txtProgress.setText(String.valueOf(startTicks / 10));
+                txtProgress.setText(String.valueOf((PROGRESS_VALUE + 9) / 10));
                 rlyProgress.setAlpha(1f); // the ring starts transparent in XML; force it opaque
                 if (modeOnline && !boardMode && hasBotOpponents()) {
                     randomTime = getFictitiousRandomTime();
@@ -11279,6 +11836,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                 }
             }
             isQuestionTimerRunning = true;
+            if (start && isRecoverableBotBoard()) saveOfflineBoardProgress(OfflineBoardGameStore.PHASE_QUESTION);
             if (cdtProgress != null) {
                 cdtProgress.cancel();
                 cdtProgress = null;
@@ -11434,6 +11992,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
 
                 @Override
                 public void run() {
+                    if (EXITING || isFinishing() || isDestroyed() || presenterDialogue.defer(this)) return;
                     t++;
                     switch (t) {
                         case 1:
@@ -11532,6 +12091,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         }*/
     private void initQuestion() {
         rightAnswer=0;
+        if (txtQ != null) txtQ.setVisibility(View.VISIBLE);
         txtQ.setText("");
         txtA1.setVisibility(View.VISIBLE);
         txtA2.setVisibility(View.VISIBLE);
@@ -11608,6 +12168,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     }
 
     private void showQuestionNow(final int questionIndex) {
+        if (presenterDialogue.defer("question:" + questionIndex, () -> showQuestionNow(questionIndex))) return;
         int economyOrder = 0;
         try { economyOrder = Integer.parseInt(campaignStageId.replace("stage_", "")); } catch (Exception ignored) {}
         if (!GameEconomy.ensure(this, campaignMode, economyOrder, new ArrayList<>(boardSelectedCategories), () -> showQuestionNow(questionIndex))) return;
@@ -11624,6 +12185,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
             if (currentQuestion < questions.size()) {
                 CAN_HOME = true;
                 final Question question = questions.get(currentQuestion);
+                QuestionHistory.record(this, question);
                 playQuestionMusic();
 
                 final ArrayList<Integer> answerOrder = getQuestionShuffled(question);
@@ -11643,6 +12205,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
 
                     @Override
                     public void run() {
+                        if (EXITING || isFinishing() || isDestroyed() || presenterDialogue.defer(this)) return;
                         if(!EXITING) {
                             i++;
                             switch (i) {
@@ -11693,7 +12256,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                     @Override
                     public void run() {
                         if (EXITING || isFinishing()) return;
-                        txtQ.setText(question.Q);
+                        bindBoardQuestionVisual(question);
                         applyQuestionTextSize(question.Q);
                         txtQ.setOnClickListener(null);
                         handler.postDelayed(runnable, 800);
@@ -11731,7 +12294,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                     });
                     autoPromptHandler.postDelayed(openObservation, 4000);
                 } else {
-                    txtQ.setText(question.Q);
+                    bindBoardQuestionVisual(question);
                     applyQuestionTextSize(question.Q);
                     handler.postDelayed(runnable, 1000);
                 }
@@ -11832,73 +12395,67 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     }
 
     void showDialog(final String message, final String tag, final int timeTalk, final int timeDialog, final int nextMouthId, final boolean gameStatusAfter) {
-        if(!EXITING) {
+        if (EXITING || isFinishing() || isDestroyed()) return;
+        // Live board deadlines belong to the shared/server clock. Keep their
+        // captions readable without withholding the player's ability to answer.
+        final boolean blocking = timeDialog <= 0
+                || (!gameStatusAfter && !boardOnline && paidDuel == null);
+        presenterDialogue.show(message, timeDialog, blocking, () -> {
+            if (EXITING || isFinishing() || isDestroyed()) return;
+            if (blocking) {
+                CAN_PLAY = false;
+                CAN_HOME = false;
+                CAN_CLICK = false;
+                currentDialog = tag;
+            }
             btnDialogYes.setVisibility(View.INVISIBLE);
             btnDialogNo.setVisibility(View.INVISIBLE);
-            final Handler handler = new Handler();
-            Runnable runnable = new Runnable() {
-                boolean firstRun = true;
-
-                @Override
-                public void run() {
-                    if (firstRun) {
-                        firstRun = false;
-                        CAN_PLAY = false;
-                        CAN_HOME = false;
-                        currentDialog = tag;
-                        int msgLen = message.replace("\n", "").length();
-                        if (msgLen <= 25)
-                            txtDialog.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
-                        else if (msgLen <= 40)
-                            txtDialog.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
-                        else if (msgLen <= 55)
-                            txtDialog.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
-                        else
-                            txtDialog.setTextSize(TypedValue.COMPLEX_UNIT_SP, 9);
-                        txtDialog.setCharacterDelay(DIALOG_CHARACTER_DELAY_MS);
-                        txtDialog.animateText(message);
-                        rlyDialog.setVisibility(View.VISIBLE);
-                        rlyDialog.bringToFront();
-                        Animations.dialogZoom(rlyDialog, 4, 150, 1.05f);
-                        person.talk(timeTalk, nextMouthId);
-                        if (timeDialog > 0) {
-                            btnDialogYes.setVisibility(View.INVISIBLE);
-                            btnDialogNo.setVisibility(View.INVISIBLE);
-                            txtDialog.setPadding(30, 10, 20, 30);
-                            handler.postDelayed(this, timeDialog + DIALOG_EXTRA_VISIBLE_MS);
-                        } else {
-                            CAN_CLICK = true;
-                            btnDialogYes.setVisibility(View.VISIBLE);
-                            btnDialogNo.setVisibility(View.VISIBLE);
-                            txtDialog.setPadding(30, 10, 20, 50);
-                            if ("OpponentLeftContinue".equals(tag)) {
-                                btnDialogYes.setText("أكمل");
-                                btnDialogNo.setText("إنهاء");
-                            } else if ("EliminationSpectatorChoice".equals(tag)) {
-                                btnDialogYes.setText("متابعة");
-                                btnDialogNo.setText("خروج");
-                            } else if (timeDialog == 0) {
-                                btnDialogYes.setText("نعم");
-                                btnDialogNo.setText("لا");
-                            } else {
-                                btnDialogYes.setText("التالي");
-                                btnDialogNo.setText("شكرا");
-                            }
-                        }
-                    } else {
-                        rlyDialog.setVisibility(View.INVISIBLE);
-                        CAN_PLAY = gameStatusAfter;
-                        CAN_HOME = true;
-                    }
-
+            int msgLen = message.replace("\n", "").length();
+            txtDialog.setTextSize(TypedValue.COMPLEX_UNIT_SP,
+                    msgLen <= 25 ? 15 : msgLen <= 40 ? 13 : msgLen <= 55 ? 11 : 9);
+            txtDialog.setCharacterDelay(PresenterDialogue.CHARACTER_DELAY_MS);
+            txtDialog.animateText(message, presenterDialogue::textCompleted);
+            rlyDialog.setVisibility(View.VISIBLE);
+            rlyDialog.bringToFront();
+            Animations.dialogZoom(rlyDialog, 4, 150, 1.05f);
+            person.talk(Math.max(timeTalk, (msgLen + 1) * PresenterDialogue.CHARACTER_DELAY_MS), nextMouthId);
+            txtDialog.setPadding(30, 10, 20, timeDialog > 0 ? 30 : 50);
+            if (timeDialog <= 0) {
+                CAN_CLICK = true;
+                btnDialogYes.setVisibility(View.VISIBLE);
+                btnDialogNo.setVisibility(View.VISIBLE);
+                if ("OpponentLeftContinue".equals(tag)) {
+                    btnDialogYes.setText("أكمل");
+                    btnDialogNo.setText("إنهاء");
+                } else if ("EliminationSpectatorChoice".equals(tag)) {
+                    btnDialogYes.setText("متابعة");
+                    btnDialogNo.setText("خروج");
+                } else {
+                    btnDialogYes.setText(timeDialog == 0 ? "نعم" : "التالي");
+                    btnDialogNo.setText(timeDialog == 0 ? "لا" : "شكرا");
                 }
-            };
-            handler.postDelayed(runnable, 0);
-        }
+            }
+        }, () -> {
+            txtDialog.stopAnimation();
+            rlyDialog.setVisibility(View.INVISIBLE);
+            if (blocking) {
+                CAN_PLAY = gameStatusAfter;
+                CAN_HOME = true;
+                CAN_CLICK = false;
+            }
+        });
     }
     @Override
+    protected void onStop() {
+        backgroundGuard.onStop();
+        super.onStop();
+    }
+
+    @Override
     protected void onPause() {
+        presenterDialogue.pause();
         ACTIVITY_PAUSED = true;
+        OnlineMatchRecovery.updateLaunch(this);
         if (paidDuel != null) {
             paidDuel.pause();
             cancelPendingBoardReveal();
@@ -11962,6 +12519,9 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
 
     @Override
     protected void onDestroy() {
+        presenterDialogue.dispose();
+        presenterHandler.removeCallbacksAndMessages(null);
+        backgroundGuard.onDestroy();
         duelActivityDestroyed = true;
         if (paidDuel != null) paidDuel.destroy();
         isQuestionTimerRunning = false;

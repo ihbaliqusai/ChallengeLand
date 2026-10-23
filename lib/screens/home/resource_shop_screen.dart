@@ -87,6 +87,8 @@ class _ResourceShopScreenState extends State<ResourceShopScreen> {
   bool _isAdProduct(String id) =>
       id == 'keys_1' || id == 'hearts_1' || id == 'tickets_1';
 
+  String _adResource(StoreProduct product) => product.id.split('_').first;
+
   Future<void> _claimAd(StoreProduct product) async {
     final resourceKey = switch (product.id) {
       'keys_1' => 'keys',
@@ -100,12 +102,25 @@ class _ResourceShopScreenState extends State<ResourceShopScreen> {
       _message = null;
     });
     try {
+      final app = context.read<AppState>();
+      final uid = app.currentUser?.uid;
+      await app.loadEconomy();
+      if (!mounted || app.currentUser?.uid != uid) return;
+      if (!app.economyLoaded || app.economyError != null) {
+        setState(() => _message = 'تعذر تحميل رصيد الإعلانات. حاول مجدداً.');
+        return;
+      }
+      if (app.economyWallet.remainingAdRewards(resourceKey) == 0) {
+        setState(() => _message =
+            'اكتملت إعلانات هذا المورد لليوم. تتجدد عند منتصف الليل UTC.');
+        return;
+      }
       AdService? adService;
       try {
         adService = context.read<AdService>();
       } catch (_) {}
       final watched = await adService?.showActionRewardedAd() ?? false;
-      if (!mounted) return;
+      if (!mounted || app.currentUser?.uid != uid) return;
       if (!watched) {
         setState(
             () => _message = 'الإعلان غير متاح حالياً أو لم تكتمل مشاهدته.');
@@ -311,12 +326,23 @@ class _ResourceShopScreenState extends State<ResourceShopScreen> {
                                 if (_isAdProduct(product.id))
                                   Center(
                                     child: FilledButton.icon(
-                                      onPressed: _busy
+                                      key:
+                                          ValueKey('resource-ad-${product.id}'),
+                                      onPressed: _busy ||
+                                              !app.economyLoaded ||
+                                              app.economyError != null ||
+                                              wallet.remainingAdRewards(
+                                                      _adResource(product)) ==
+                                                  0
                                           ? null
                                           : () => _claimAd(product),
                                       icon: const Icon(
                                           Icons.play_circle_outline_rounded),
-                                      label: const Text('مشاهدة إعلان مجاني'),
+                                      label: Text(wallet.remainingAdRewards(
+                                                  _adResource(product)) ==
+                                              0
+                                          ? 'اكتملت إعلانات اليوم'
+                                          : 'مشاهدة إعلان مجاني'),
                                     ),
                                   )
                                 else
@@ -347,12 +373,12 @@ class _ResourceShopScreenState extends State<ResourceShopScreen> {
                 const EconomyLoyaltySummary(),
                 const SizedBox(height: 16),
                 Text(
-                    'مكافآت الوفاء\nاليوم 7: 3 مفاتيح وتذكرتان\nاليوم 14: 3 مفاتيح وقلب\nاليوم 21: 4 مفاتيح\nاليوم 30: 5 مفاتيح وقلبان و3 تذاكر وقسيمة استئجار أسبوعية\nسلسلتك الحالية: ${wallet.streak} يوم\nقسائم الامتلاك: ${wallet.categoryVouchers} • قسائم الاستئجار: ${wallet.rentalVouchers}',
+                    'مكافآت الوفاء\nاليوم 7: مفتاح\nاليوم 14: قلب وتذكرة\nاليوم 21: مفتاح\nاليوم 30: مفتاحان وقلب وتذكرة\nسلسلتك الحالية: ${wallet.streak} يوم\nقسائم الامتلاك: ${wallet.categoryVouchers} • قسائم الاستئجار: ${wallet.rentalVouchers}',
                     textAlign: TextAlign.center,
                     style: const TextStyle(color: Colors.white, height: 1.8)),
                 const SizedBox(height: 16),
                 const Text(
-                    'مكافآت تقدمك في المراحل\nكل 10 مراحل: تذكرة تصنيف\nالمرحلة 10: مفتاحان إضافيان\nالمرحلة 25: 3 مفاتيح وقسيمة استئجار أسبوعية\nالمرحلتان 50 و100: اختر تصنيفاً لامتلاكه دائماً\nالمرحلة 75: 5 مفاتيح وقلبان\nتُمنح جوائز المراحل عند إكمالها أول مرة فقط.',
+                    'مكافآت تقدمك في المراحل\nكل 20 مرحلة: تذكرة تصنيف\nالمرحلتان 10 و25: مفتاح لكل منهما\nالمرحلتان 50 و75: مفتاح وقلب لكل منهما\nالمرحلة 100: مفتاحان وقسيمة استئجار أسبوعية\nتُمنح جوائز المراحل عند إكمالها أول مرة فقط. تحسين النجوم يمنح فرق مكافأة النقود والجواهر فقط.',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: Colors.white70, height: 1.8)),
                 if (wallet.rewardLog.isNotEmpty) ...[
@@ -376,6 +402,10 @@ class _ResourceShopScreenState extends State<ResourceShopScreen> {
                                 color: Colors.white70, height: 1.6))),
                 ],
                 const SizedBox(height: 12),
+                Text(
+                    'إعلانات الموارد اليوم: ${wallet.adRewardLimits['keys'] ?? 0} للمفاتيح، ${wallet.adRewardLimits['hearts'] ?? 0} للقلوب، ${wallet.adRewardLimits['tickets'] ?? 0} للتذاكر وتجربة التصنيفات معاً. يتجدد الحد عند منتصف الليل UTC.',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.white70, height: 1.6)),
                 const Text(
                     'مفتاح لكل مباراة كاملة. تذكرة لكل تصنيف مقفل تختاره لمباراة واحدة. خسارة المرحلة تستهلك قلباً والفوز يحافظ عليه.',
                     textAlign: TextAlign.center,
@@ -424,7 +454,7 @@ class EconomyLoyaltySummary extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                     app.economyLoaded
-                        ? 'دخول متواصل: ${wallet.streak} من 30 يوماً\nاللعب الأسبوعي: ${wallet.weekPlayDays.clamp(0, 3)} / 3 أيام • ${wallet.weekCorrect.clamp(0, 20)} / 20 إجابة صحيحة\n${wallet.weekRewardClaimed ? 'تم استلام مكافأة الأسبوع: مفتاحان وتذكرة' : 'المكافأة: مفتاحان وتذكرة عند إكمال الهدفين'}'
+                        ? 'دخول متواصل: ${wallet.streak} من 30 يوماً\nاللعب الأسبوعي: ${wallet.weekPlayDays.clamp(0, 3)} / 3 أيام • ${wallet.weekCorrect.clamp(0, 20)} / 20 إجابة صحيحة\n${wallet.weekRewardClaimed ? 'تم استلام مكافأة الأسبوع: مفتاح وتذكرة' : 'المكافأة: مفتاح وتذكرة عند إكمال الهدفين'}'
                         : 'اتصل لتحميل تقدم مكافآت اللعب.',
                     textAlign: TextAlign.center),
                 const SizedBox(height: 6),

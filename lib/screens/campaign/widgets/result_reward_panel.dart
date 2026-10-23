@@ -12,6 +12,7 @@ class ResultRewardPanel extends StatelessWidget {
     this.isDoubling = false,
     this.gameplayXp = 0,
     this.trophyDelta,
+    this.saving = false,
   });
 
   final StageSubmissionResult result;
@@ -21,6 +22,7 @@ class ResultRewardPanel extends StatelessWidget {
   final bool isDoubling;
   final int gameplayXp;
   final int? trophyDelta;
+  final bool saving;
 
   @override
   Widget build(BuildContext context) {
@@ -31,15 +33,17 @@ class ResultRewardPanel extends StatelessWidget {
         result.rewardCoinsGranted > 0 || result.rewardGemsGranted > 0;
     final coins = result.rewardCoinsGranted * (isDoubled ? 2 : 1);
     final gems = result.rewardGemsGranted * (isDoubled ? 2 : 1);
-    final status = isDoubled
-        ? 'تمت المضاعفة'
-        : currencyRewardApplied
-            ? 'تمت الإضافة'
-            : hasReward
-                ? 'محفوظة'
-                : result.attempt.completed
-                    ? 'استمر بالتحدي'
-                    : 'المحاولة القادمة';
+    final status = saving
+        ? 'جارٍ الحفظ...'
+        : isDoubled
+            ? 'تمت المضاعفة'
+            : currencyRewardApplied
+                ? 'تمت الإضافة'
+                : hasReward
+                    ? 'محفوظة'
+                    : result.attempt.completed
+                        ? 'استمر بالتحدي'
+                        : 'المحاولة القادمة';
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       width: double.infinity,
@@ -92,7 +96,11 @@ class ResultRewardPanel extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          if (hasReward)
+          if (saving)
+            const Text('تُحفظ النجوم والمكافآت تلقائيًا.',
+                style:
+                    TextStyle(color: Colors.white70, fontSize: 13, height: 1.4))
+          else if (hasReward)
             Wrap(
               spacing: 8,
               runSpacing: 8,

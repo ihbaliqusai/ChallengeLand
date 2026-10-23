@@ -14,7 +14,7 @@ import '../../services/campaign_result_handler.dart';
 import '../../services/campaign_service.dart';
 import '../../services/campaign_engagement_service.dart';
 import '../../services/native_bridge_service.dart';
-import 'stage_intro_screen.dart';
+import 'stage_play_screen.dart';
 import '../../models/store_catalog.dart';
 import '../home/store_screen.dart';
 import 'widgets/stage_node.dart';
@@ -37,6 +37,7 @@ class _CampaignMapScreenState extends State<CampaignMapScreen>
   late final NativeBridgeService _nativeBridgeService;
   late Future<_CampaignMapData> _future;
   String? _loadedPlayerId;
+  bool _openingStage = false;
 
   @override
   void initState() {
@@ -186,7 +187,7 @@ class _CampaignMapScreenState extends State<CampaignMapScreen>
               pulseAnimation: _pulseController,
               onRefresh: _reload,
               onLockedTap: _showLockedMessage,
-              onStageTap: _openStageIntro,
+              onStageTap: _playStage,
             );
           },
         ),
@@ -208,17 +209,23 @@ class _CampaignMapScreenState extends State<CampaignMapScreen>
       );
   }
 
-  Future<void> _openStageIntro(
+  Future<void> _playStage(
     CampaignStage stage,
     StageProgress progress,
   ) async {
-    await _stopCampaignMapMusic();
-    if (!mounted) return;
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => StageIntroScreen(stage: stage, progress: progress),
-      ),
-    );
+    if (_openingStage) return;
+    _openingStage = true;
+    try {
+      await _stopCampaignMapMusic();
+      if (!mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => StagePlayScreen(stage: stage, progress: progress),
+        ),
+      );
+    } finally {
+      _openingStage = false;
+    }
   }
 }
 

@@ -67,7 +67,61 @@ import org.json.JSONObject;
 import java.util.Iterator;
 import java.util.Locale;
 
-public abstract class BaseGameActivity extends AppCompatActivity implements ProgressionMatchHost {
+public abstract class BaseGameActivity extends AppCompatActivity implements ProgressionMatchHost, GameBackgroundGuard.Host {
+    private final GameBackgroundGuard backgroundGuard = new GameBackgroundGuard(this, this);
+    protected boolean backgroundDisqualified;
+
+    @Override public String backgroundQuestionKey() {
+        if (EXITING || isFinishing() || onlineResultScreenOpened || localPlayerEliminated
+                || spectatorEliminationRound || currentQuestion < 0 || myAnswerSubmitted
+                || (!isQuestionTimerRunning && !wasTimerRunningBeforePause)) return "";
+        return progressionAnswerId();
+    }
+
+    @Override public boolean applyBackgroundPenalty(String question, int violations) {
+        if (EXITING || isFinishing() || onlineResultScreenOpened) return false;
+        if (backgroundGuard.isBackground()) {
+            if (violations >= BackgroundAnswerPolicy.MAX_VIOLATIONS) {
+                backgroundDisqualified = true;
+                CAN_PLAY = false;
+                stopTimer(false);
+                cancelBlitzBotSimulation();
+                leaveOnlineMatchIfNeeded();
+            } else if (modeOnline && question.equals(progressionAnswerId()) && !myAnswerSubmitted) {
+                CAN_PLAY = false;
+                myAnswer = 0;
+                stopTimer(false);
+                submitOnlineAnswer(0);
+            } else if (modeOnline) {
+                backgroundGuard.acknowledge();
+                return false;
+            }
+            return true;
+        }
+        if (violations >= BackgroundAnswerPolicy.MAX_VIOLATIONS) {
+            backgroundDisqualified = true;
+            CAN_PLAY = false;
+            stopTimer(false);
+            cancelBlitzBotSimulation();
+            leaveOnlineMatchIfNeeded();
+            EXITING = true;
+            backgroundGuard.acknowledge();
+            new AlertDialog.Builder(this).setTitle("انتهت مشاركتك")
+                    .setMessage("انتهت مشاركتك لتكرار مغادرة اللعبة أكثر من 10 ثوانٍ أثناء الإجابة ثلاث مرات.")
+                    .setCancelable(false).setPositiveButton("العودة", (dialog, which) -> {
+                        navigateToHome();
+                        finish();
+                    }).show();
+            return true;
+        }
+        if (currentQuestion < 0) return false; // Restore the question before enforcing a saved violation.
+        backgroundGuard.acknowledge();
+        if (!question.equals(progressionAnswerId()) || myAnswerSubmitted) return false;
+        CAN_PLAY = false;
+        myAnswer = 0;
+        handleQuestionTimeout();
+        return true;
+    }
     @Override public String progressionMatchId() {
         if (roomId != null && !roomId.trim().isEmpty()) return "room:" + roomId + ":"
                 + getMatchModeId() + ":" + Math.max(1, roomRoundNumber);
@@ -87,7 +141,10 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
         super.onSaveInstanceState(state);
     }
     private static final float MUSIC_VOLUME = 0.5f;
-    private static final int DIALOG_EXTRA_VISIBLE_MS = 1000;
+    private final Handler presenterHandler = new Handler();
+    private final PresenterDialogue presenterDialogue = new PresenterDialogue(
+            android.os.SystemClock::uptimeMillis, presenterHandler::postDelayed);
+
 
     protected abstract int getLayoutResId();
 
@@ -382,6 +439,12 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
         supportRequestWindowFeature(Window.FEATURE_NO_TITLE);
         super.onCreate(savedInstanceState);
         NativeProgression.restore(this, savedInstanceState);
+        if (OnlineMatchRecovery.isFinished(this)) {
+            startActivity(new Intent(this, MainActivity.class)
+                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
+            finish();
+            return;
+        }
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
                 WindowManager.LayoutParams.FLAG_FULLSCREEN);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
@@ -402,13 +465,15 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
         String modeExtra = getIntent().getStringExtra("mode");
         String matchModeExtra = safeString(getIntent().getStringExtra("matchMode"));
         modeOnline = "online".equals(modeExtra);
+        OnlineMatchRecovery.track(this);
         eliminationMode = usesEliminationRoundFlow();
         meOwner = getIntent().getBooleanExtra("meOwner", true);
         myTeam = safeString(getIntent().getStringExtra("myTeam"));
         roomId = safeString(getIntent().getStringExtra("roomId"));
         roomMatchMode = matchModeExtra.isEmpty() ? getMatchModeId() : matchModeExtra;
         roomRoundNumber = Math.max(1, getIntent().getIntExtra("roomRoundNumber", 1));
-        resumeExistingRoomGame = getIntent().getBooleanExtra("resumeExistingGame", false);
+        resumeExistingRoomGame = savedInstanceState != null
+                || getIntent().getBooleanExtra("resumeExistingGame", false);
         seatSourceId = safeString(getIntent().getStringExtra("seatSourceId"));
         matchPlayerId = getResolvedMatchPlayerId();
         initialRoomScore = Math.max(0, getIntent().getIntExtra("initialScore", 0));
@@ -616,6 +681,7 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
 
             @Override
             public void run() {
+                if (EXITING || isFinishing() || isDestroyed() || presenterDialogue.defer(this)) return;
                 t++;
                 switch (t) {
                     case 1:
@@ -670,6 +736,7 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
                 gameHaptic(view);
 
                 if (CAN_CLICK) {
+                    presenterDialogue.dismissPrompt();
                     CAN_CLICK = false;
                     CAN_HOME = true;
                     rlyDialog.setVisibility(View.INVISIBLE);
@@ -823,6 +890,7 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
                 gameHaptic(view);
 
                 if (CAN_CLICK) {
+                    presenterDialogue.dismissPrompt();
                     CAN_CLICK = false;
                     CAN_HOME = true;
                     switch (currentDialog) {
@@ -996,6 +1064,8 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
     @Override
     protected void onResume() {
         super.onResume();
+        if (backgroundGuard.onResume()) return;
+        presenterDialogue.resume();
         startGameBackgroundVideo();
         SOUND_ON = AppPrefs.isSoundEnabled(this);
         MUSIC_ON = AppPrefs.isMusicEnabled(this);
@@ -2359,6 +2429,7 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
 
             @Override
             public void run() {
+                if (EXITING || isFinishing() || isDestroyed() || presenterDialogue.defer(this)) return;
                 t++;
                 switch (t) {
                     case 1:
@@ -2529,13 +2600,13 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
             PlayerStats.recordCorrectAnswer(BaseGameActivity.this);
             person.like(700);
             playSound(R.raw.correct_answer, false, false);
-            showDialog("\u0627\u0644\u062c\u0648\u0627\u0628 \u0635\u062d\u064a\u062d", "", 700, 700, R.drawable.mouth_01, false);
+            showBlitzFeedback("\u0627\u0644\u062c\u0648\u0627\u0628 \u0635\u062d\u064a\u062d", "", 700, 700, R.drawable.mouth_01, false);
         } else {
             PlayerStats.recordWrongAnswer(BaseGameActivity.this);
             playSound(R.raw.wrong_answer, false, false);
             if (imgSelected != null && !timeout) imgSelected.setImageResource(R.drawable.frame_wrong);
             if (imgRight != null) imgRight.setImageResource(R.drawable.frame_right);
-            showDialog(timeout
+            showBlitzFeedback(timeout
                             ? "\u0627\u0646\u062a\u0647\u0649 \u0627\u0644\u0648\u0642\u062a \u0644\u0644\u0623\u0633\u0641"
                             : "\u0625\u062c\u0627\u0628\u0629 \u062e\u0627\u0637\u0626\u0629 \u0644\u0644\u0623\u0633\u0641",
                     "", 700, 700, R.drawable.mouth_05, false);
@@ -2949,6 +3020,7 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
     }
 
     private void goToWinnerScreen(String amount) {
+        if (!EXITING && presenterDialogue.deferAll("winner", () -> goToWinnerScreen(amount))) return;
         try {
             int prize = Integer.parseInt(amount.replace("$", "").trim());
             PlayerStats.recordGameEnd(BaseGameActivity.this, true, prize);
@@ -3033,6 +3105,7 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
                 Runnable runnable = new Runnable() {
                     @Override
                     public void run() {
+                        if (EXITING || isFinishing() || isDestroyed() || presenterDialogue.defer(this)) return;
                         playSound(R.raw.new_level, false, false);
                         showDialog("ممتاز.. لقد وصلت إلى المستوى " + finalNewLevel, "", 1000, 3000, R.drawable.mouth_01, false);
                     }
@@ -3047,17 +3120,38 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
         questionsReady = false;
         questionsLoadFailed = false;
         if (!modeOnline) {
-            BaseGameActivity.this.questions = LocalQuestions.load(this);
-            questionsReady = !BaseGameActivity.this.questions.isEmpty();
+            QuestionHistory.prepare(this, "", "", excluded -> {
+                if (EXITING || isFinishing()) return;
+                questions = trimQuestionsForCurrentMatch(LocalQuestions.load(this, excluded));
+                if (questions.isEmpty()) {
+                    questionsLoadFailed = true;
+                    Toast.makeText(this, QuestionHistory.EXHAUSTED, Toast.LENGTH_LONG).show();
+                    return;
+                }
+                QuestionHistory.reserve(this, "", "", questions, () -> questionsReady = !EXITING,
+                        error -> {
+                            questionsLoadFailed = true;
+                            Toast.makeText(this, error.getMessage(), Toast.LENGTH_LONG).show();
+                        });
+            }, error -> {
+                questionsLoadFailed = true;
+                Toast.makeText(this, error.getMessage(), Toast.LENGTH_LONG).show();
+            });
             return;
         }
         if (isRoomMatchSession()) {
-            fetchRoomQuestionsWithRetry(gameID, 25);
+            QuestionHistory.registerRoom(this, roomId, () -> {
+                if (!EXITING && !isFinishing()) fetchRoomQuestionsWithRetry(gameID, 25);
+            }, error -> {
+                questionsLoadFailed = true;
+                Toast.makeText(this, error.getMessage(), Toast.LENGTH_LONG).show();
+            });
             return;
         }
         new Data().getQuestions(gameID, new OnGetQuestionsListener() {
             @Override
             public void onSuccess(ArrayList<Question> questions) {
+                QuestionHistory.recordAll(BaseGameActivity.this, questions);
                 BaseGameActivity.this.questions = trimQuestionsForCurrentMatch(questions);
                 questionsReady = !BaseGameActivity.this.questions.isEmpty();
                 questionsLoadFailed = false;
@@ -3078,10 +3172,22 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
             @Override
             public void onSuccess(ArrayList<Question> questions) {
                 BaseGameActivity.this.questions = trimQuestionsForCurrentMatch(questions);
-                questionsReady = !BaseGameActivity.this.questions.isEmpty();
+                boolean loaded = !BaseGameActivity.this.questions.isEmpty();
                 questionsLoadFailed = false;
-                if (questionsReady || attemptsLeft <= 1) {
-                    if (!questionsReady) {
+                if (loaded) {
+                    QuestionHistory.admitRoom(BaseGameActivity.this, roomId, () -> {
+                                QuestionHistory.recordAll(BaseGameActivity.this, questions);
+                                questionsReady = !EXITING;
+                            },
+                            error -> {
+                                questionsLoadFailed = true;
+                                Toast.makeText(BaseGameActivity.this, error.getMessage(), Toast.LENGTH_LONG).show();
+                                finish();
+                            });
+                    return;
+                }
+                if (attemptsLeft <= 1) {
+                    if (!loaded) {
                         questionsLoadFailed = true;
                     }
                     return;
@@ -3117,6 +3223,7 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
                     new Data().getGameQuestions(BaseGameActivity.this.gameID, new OnGetQuestionsListener() {
                         @Override
                         public void onSuccess(ArrayList<Question> questions) {
+                            QuestionHistory.recordAll(BaseGameActivity.this, questions);
                             BaseGameActivity.this.questions = trimQuestionsForCurrentMatch(questions);
                             questionsReady = !BaseGameActivity.this.questions.isEmpty();
                             questionsLoadFailed = false;
@@ -3865,6 +3972,7 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
         if (!modeOnline || matchStateCommitted) {
             return;
         }
+        OnlineMatchRecovery.complete(this, "خسرت المباراة بسبب الانسحاب منها", false);
         PlayerStats.recordGameEnd(this, ProgressionRules.ABANDON, 0);
         markMyGameState("left");
         detachOpponentStatusListener();
@@ -3911,7 +4019,8 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
     }
 
     protected void openOnlineResultScreen(boolean opponentLeft) {
-        if (!modeOnline || onlineResultScreenOpened) {
+        if (!EXITING && presenterDialogue.deferAll("onlineResult", () -> openOnlineResultScreen(opponentLeft))) return;
+        if (!modeOnline || onlineResultScreenOpened || backgroundDisqualified) {
             return;
         }
         onlineResultScreenOpened = true;
@@ -3955,6 +4064,7 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
         PlayerProgress.onOnlineMatchFinished(this, resultState.didWin || opponentLeft, setMe,
                 progressionMode(), true, progressionMatchId());
         persistPendingRoomMatchResult();
+        OnlineMatchRecovery.complete(this, "انتهت المباراة. يمكنك الاطلاع على نتيجتها في غرفة اللعب.", true);
         startActivity(intent);
         finish();
     }
@@ -5189,6 +5299,7 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
 
             @Override
             public void run() {
+                if (EXITING || isFinishing() || isDestroyed() || presenterDialogue.defer(this)) return;
                 t++;
                 switch (t) {
                     case 1:
@@ -5278,6 +5389,7 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
     }
 
     private void startTimer(boolean start) {
+        if (backgroundDisqualified || backgroundGuard.enforce()) return;
         int randomTime = 15;
         if (!EXITING) {
             if (start) {
@@ -5453,6 +5565,7 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
 
                 @Override
                 public void run() {
+                    if (EXITING || isFinishing() || isDestroyed() || presenterDialogue.defer(this)) return;
                     t++;
                     switch (t) {
                         case 1:
@@ -5675,6 +5788,7 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
     }
 
     private void showQuestionNow(final int questionIndex) {
+        if (presenterDialogue.defer("question:" + questionIndex, () -> showQuestionNow(questionIndex))) return;
         if (!GameEconomy.ensure(this, false, 0, new java.util.ArrayList<>(), () -> showQuestionNow(questionIndex))) return;
         if(!EXITING) {
             currentQuestion = questionIndex;
@@ -5684,6 +5798,7 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
             if (currentQuestion < questions.size()) {
                 CAN_HOME = true;
                 final Question question = questions.get(currentQuestion);
+                QuestionHistory.record(this, question);
                 playQuestionMusic();
 
                 final ArrayList<Integer> answerOrder = getQuestionShuffled(question);
@@ -6035,69 +6150,61 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
     }
 
     private void showDialog(final String message, final String tag, final int timeTalk, final int timeDialog, final int nextMouthId, final boolean gameStatusAfter) {
-        if(!EXITING) {
+        showPresenterDialog(message, tag, timeTalk, timeDialog, nextMouthId, gameStatusAfter,
+                timeDialog <= 0 || !gameStatusAfter);
+    }
+
+    private void showBlitzFeedback(String message, String tag, int timeTalk, int timeDialog, int nextMouthId, boolean gameStatusAfter) {
+        // Feedback remains readable while Blitz keeps its independent clock and questions.
+        showPresenterDialog(message, tag, timeTalk, timeDialog, nextMouthId, gameStatusAfter, false);
+    }
+
+    private void showPresenterDialog(String message, String tag, int timeTalk, int timeDialog, int nextMouthId, boolean gameStatusAfter, boolean blocking) {
+        if (EXITING || isFinishing() || isDestroyed()) return;
+        presenterDialogue.show(message, timeDialog, blocking, () -> {
+            if (EXITING || isFinishing() || isDestroyed()) return;
+            if (blocking) {
+                CAN_PLAY = false;
+                CAN_HOME = false;
+                CAN_CLICK = false;
+                currentDialog = tag;
+            }
             btnDialogYes.setVisibility(View.INVISIBLE);
             btnDialogNo.setVisibility(View.INVISIBLE);
-            final Handler handler = new Handler();
-            Runnable runnable = new Runnable() {
-                boolean firstRun = true;
-
-                @Override
-                public void run() {
-                    if (firstRun) {
-                        firstRun = false;
-                        CAN_PLAY = false;
-                        CAN_HOME = false;
-                        currentDialog = tag;
-                        int msgLen = message.replace("\n", "").length();
-                        if (msgLen <= 25)
-                            txtDialog.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
-                        else if (msgLen <= 40)
-                            txtDialog.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
-                        else if (msgLen <= 55)
-                            txtDialog.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
-                        else
-                            txtDialog.setTextSize(TypedValue.COMPLEX_UNIT_SP, 9);
-                        txtDialog.setCharacterDelay(18);
-                        txtDialog.animateText(message);
-                        rlyDialog.setVisibility(View.VISIBLE);
-                        rlyDialog.bringToFront();
-                        Animations.dialogZoom(rlyDialog, 4, 150, 1.05f);
-                        person.talk(timeTalk, nextMouthId);
-                        if (timeDialog > 0) {
-                            btnDialogYes.setVisibility(View.INVISIBLE);
-                            btnDialogNo.setVisibility(View.INVISIBLE);
-                            txtDialog.setPadding(30, 10, 20, 30);
-                            handler.postDelayed(this, timeDialog + DIALOG_EXTRA_VISIBLE_MS);
-                        } else {
-                            CAN_CLICK = true;
-                            btnDialogYes.setVisibility(View.VISIBLE);
-                            btnDialogNo.setVisibility(View.VISIBLE);
-                            txtDialog.setPadding(30, 10, 20, 50);
-                            if ("OpponentLeftContinue".equals(tag)) {
-                                btnDialogYes.setText("أكمل");
-                                btnDialogNo.setText("إنهاء");
-                            } else if ("EliminationSpectatorChoice".equals(tag)) {
-                                btnDialogYes.setText("متابعة");
-                                btnDialogNo.setText("خروج");
-                            } else if (timeDialog == 0) {
-                                btnDialogYes.setText("نعم");
-                                btnDialogNo.setText("لا");
-                            } else {
-                                btnDialogYes.setText("التالي");
-                                btnDialogNo.setText("شكرا");
-                            }
-                        }
-                    } else {
-                        rlyDialog.setVisibility(View.INVISIBLE);
-                        CAN_PLAY = gameStatusAfter;
-                        CAN_HOME = true;
-                    }
-
+            int msgLen = message.replace("\n", "").length();
+            txtDialog.setTextSize(TypedValue.COMPLEX_UNIT_SP,
+                    msgLen <= 25 ? 15 : msgLen <= 40 ? 13 : msgLen <= 55 ? 11 : 9);
+            txtDialog.setCharacterDelay(PresenterDialogue.CHARACTER_DELAY_MS);
+            txtDialog.animateText(message, presenterDialogue::textCompleted);
+            rlyDialog.setVisibility(View.VISIBLE);
+            rlyDialog.bringToFront();
+            Animations.dialogZoom(rlyDialog, 4, 150, 1.05f);
+            person.talk(Math.max(timeTalk, (msgLen + 1) * PresenterDialogue.CHARACTER_DELAY_MS), nextMouthId);
+            txtDialog.setPadding(30, 10, 20, timeDialog > 0 ? 30 : 50);
+            if (timeDialog <= 0) {
+                CAN_CLICK = true;
+                btnDialogYes.setVisibility(View.VISIBLE);
+                btnDialogNo.setVisibility(View.VISIBLE);
+                if ("OpponentLeftContinue".equals(tag)) {
+                    btnDialogYes.setText("أكمل");
+                    btnDialogNo.setText("إنهاء");
+                } else if ("EliminationSpectatorChoice".equals(tag)) {
+                    btnDialogYes.setText("متابعة");
+                    btnDialogNo.setText("خروج");
+                } else {
+                    btnDialogYes.setText(timeDialog == 0 ? "نعم" : "التالي");
+                    btnDialogNo.setText(timeDialog == 0 ? "لا" : "شكرا");
                 }
-            };
-            handler.postDelayed(runnable, 0);
-        }
+            }
+        }, () -> {
+            txtDialog.stopAnimation();
+            rlyDialog.setVisibility(View.INVISIBLE);
+            if (blocking) {
+                CAN_PLAY = gameStatusAfter;
+                CAN_HOME = true;
+                CAN_CLICK = false;
+            }
+        });
     }
 
     public void phoneTalk(int duration) {
@@ -6201,6 +6308,7 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
         (new Handler()).postDelayed(new Runnable() {
             @Override
             public void run() {
+                if (EXITING || isFinishing() || isDestroyed() || presenterDialogue.defer(this)) return;
                 btnCloseVote.setVisibility(View.VISIBLE);
                 playSound(R.raw.s_32000,true, false);
                 startTimer(false);
@@ -6367,7 +6475,15 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
     }
 
     @Override
+    protected void onStop() {
+        backgroundGuard.onStop();
+        super.onStop();
+    }
+
+    @Override
     protected void onPause() {
+        presenterDialogue.pause();
+        OnlineMatchRecovery.updateLaunch(this);
         if (isQuestionTimerRunning && cdtProgress != null) {
             wasTimerRunningBeforePause = true;
             timerPauseElapsedRealtime = SystemClock.elapsedRealtime();
@@ -6393,6 +6509,9 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
 
     @Override
     protected void onDestroy() {
+        presenterDialogue.dispose();
+        presenterHandler.removeCallbacksAndMessages(null);
+        backgroundGuard.onDestroy();
         isQuestionTimerRunning = false;
         wasTimerRunningBeforePause = false;
         cancelPendingFictitiousAnswer();

@@ -1,0 +1,6422 @@
+[
+  {
+    "name": "زين الدين زيدان",
+    "page": "Zinedine Zidane",
+    "points": 200,
+    "clubsEnglish": [
+      "Cannes",
+      "Bordeaux",
+      "Juventus",
+      "Real Madrid"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Zinedine_Zidane"
+    ],
+    "clubs": [
+      "كان",
+      "بوردو",
+      "يوفنتوس",
+      "ريال مدريد"
+    ]
+  },
+  {
+    "name": "دييغو مارادونا",
+    "page": "Diego Maradona",
+    "points": 200,
+    "clubsEnglish": [
+      "Argentinos Juniors",
+      "Boca Juniors",
+      "Barcelona",
+      "Napoli",
+      "Sevilla",
+      "Newell's Old Boys",
+      "Boca Juniors"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Diego_Maradona"
+    ],
+    "clubs": [
+      "أرجنتينوس جونيورز",
+      "بوكا جونيورز",
+      "برشلونة",
+      "نابولي",
+      "إشبيلية",
+      "نيويلز أولد بويز",
+      "بوكا جونيورز"
+    ]
+  },
+  {
+    "name": "بيليه",
+    "page": "Pelé",
+    "points": 200,
+    "clubsEnglish": [
+      "Santos",
+      "New York Cosmos"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Pel%C3%A9"
+    ],
+    "clubs": [
+      "سانتوس",
+      "نيويورك كوزموس"
+    ]
+  },
+  {
+    "name": "فرانز بيكنباور",
+    "page": "Franz Beckenbauer",
+    "points": 200,
+    "clubsEnglish": [
+      "Bayern Munich",
+      "New York Cosmos",
+      "Hamburger SV",
+      "New York Cosmos"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Franz_Beckenbauer"
+    ],
+    "clubs": [
+      "بايرن ميونخ",
+      "نيويورك كوزموس",
+      "هامبورغ",
+      "نيويورك كوزموس"
+    ]
+  },
+  {
+    "name": "يوهان كرويف",
+    "page": "Johan Cruyff",
+    "points": 200,
+    "clubsEnglish": [
+      "Ajax",
+      "Barcelona",
+      "Los Angeles Aztecs",
+      "Washington Diplomats",
+      "Levante",
+      "Washington Diplomats",
+      "Ajax",
+      "Feyenoord"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Johan_Cruyff",
+      "https://www.fcbarcelona.com/en/news/1629219/johan-cruyff-an-incomparable-legend/amp"
+    ],
+    "clubs": [
+      "أياكس",
+      "برشلونة",
+      "لوس أنجلوس أزتيكس",
+      "واشنطن دبلوماتس",
+      "ليفانتي",
+      "واشنطن دبلوماتس",
+      "أياكس",
+      "فينورد"
+    ]
+  },
+  {
+    "name": "ميشيل بلاتيني",
+    "page": "Michel Platini",
+    "points": 200,
+    "clubsEnglish": [
+      "Nancy",
+      "Saint-Étienne",
+      "Juventus"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Michel_Platini"
+    ],
+    "clubs": [
+      "نانسي",
+      "سانت إتيان",
+      "يوفنتوس"
+    ]
+  },
+  {
+    "name": "روبرتو باجيو",
+    "page": "Roberto Baggio",
+    "points": 200,
+    "clubsEnglish": [
+      "Vicenza",
+      "Fiorentina",
+      "Juventus",
+      "AC Milan",
+      "Bologna",
+      "Inter Milan",
+      "Brescia"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Roberto_Baggio"
+    ],
+    "clubs": [
+      "فيتشنزا",
+      "فيورنتينا",
+      "يوفنتوس",
+      "ميلان",
+      "بولونيا",
+      "إنتر ميلان",
+      "بريشيا"
+    ]
+  },
+  {
+    "name": "غابرييل باتيستوتا",
+    "page": "Gabriel Batistuta",
+    "points": 200,
+    "clubsEnglish": [
+      "Newell's Old Boys",
+      "River Plate",
+      "Boca Juniors",
+      "Fiorentina",
+      "Roma",
+      "Inter Milan",
+      "Al-Arabi"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Gabriel_Batistuta"
+    ],
+    "clubs": [
+      "نيويلز أولد بويز",
+      "ريفر بليت",
+      "بوكا جونيورز",
+      "فيورنتينا",
+      "روما",
+      "إنتر ميلان",
+      "العربي القطري"
+    ]
+  },
+  {
+    "name": "هيرنان كريسبو",
+    "page": "Hernán Crespo",
+    "points": 200,
+    "clubsEnglish": [
+      "River Plate",
+      "Parma",
+      "Lazio",
+      "Inter Milan",
+      "Chelsea",
+      "AC Milan",
+      "Chelsea",
+      "Inter Milan",
+      "Genoa",
+      "Parma"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Hern%C3%A1n_Crespo"
+    ],
+    "clubs": [
+      "ريفر بليت",
+      "بارما",
+      "لاتسيو",
+      "إنتر ميلان",
+      "تشيلسي",
+      "ميلان",
+      "تشيلسي",
+      "إنتر ميلان",
+      "جنوى",
+      "بارما"
+    ]
+  },
+  {
+    "name": "أندريه شيفتشينكو",
+    "page": "Andriy Shevchenko",
+    "points": 200,
+    "clubsEnglish": [
+      "Dynamo Kyiv",
+      "AC Milan",
+      "Chelsea",
+      "AC Milan",
+      "Dynamo Kyiv"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Andriy_Shevchenko"
+    ],
+    "clubs": [
+      "دينامو كييف",
+      "ميلان",
+      "تشيلسي",
+      "ميلان",
+      "دينامو كييف"
+    ]
+  },
+  {
+    "name": "روبيرتو مانشيني",
+    "page": "Roberto Mancini",
+    "points": 200,
+    "clubsEnglish": [
+      "Bologna",
+      "Sampdoria",
+      "Lazio",
+      "Leicester City"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Roberto_Mancini"
+    ],
+    "clubs": [
+      "بولونيا",
+      "سامبدوريا",
+      "لاتسيو",
+      "ليستر سيتي"
+    ]
+  },
+  {
+    "name": "مايكل بالاك",
+    "page": "Michael Ballack",
+    "points": 200,
+    "clubsEnglish": [
+      "Chemnitzer FC",
+      "Kaiserslautern",
+      "Bayer Leverkusen",
+      "Bayern Munich",
+      "Chelsea",
+      "Bayer Leverkusen"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Michael_Ballack"
+    ],
+    "clubs": [
+      "كيمنتسر",
+      "كايزرسلاوترن",
+      "باير ليفركوزن",
+      "بايرن ميونخ",
+      "تشيلسي",
+      "باير ليفركوزن"
+    ]
+  },
+  {
+    "name": "ميروسلاف كلوزه",
+    "page": "Miroslav Klose",
+    "points": 200,
+    "clubsEnglish": [
+      "SG Blaubach-Diedelkopf",
+      "FC 08 Homburg",
+      "Kaiserslautern",
+      "Werder Bremen",
+      "Bayern Munich",
+      "Lazio"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Miroslav_Klose",
+      "https://fck.de/blog/45-geburtstag-miroslav-klose/",
+      "https://www.fifa.com/de/articles/miroslav-kloses-deutschland-debut-dfb-nationalmannschaft-25-jahre"
+    ],
+    "clubs": [
+      "بلاوباخ ديدلكوبف",
+      "هومبورغ",
+      "كايزرسلاوترن",
+      "فيردر بريمن",
+      "بايرن ميونخ",
+      "لاتسيو"
+    ]
+  },
+  {
+    "name": "أوليفر كان",
+    "page": "Oliver Kahn",
+    "points": 200,
+    "clubsEnglish": [
+      "Karlsruher SC",
+      "Bayern Munich"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Oliver_Kahn"
+    ],
+    "clubs": [
+      "كارلسروه",
+      "بايرن ميونخ"
+    ]
+  },
+  {
+    "name": "بيتر شمايكل",
+    "page": "Peter Schmeichel",
+    "points": 200,
+    "clubsEnglish": [
+      "Gladsaxe-Hero",
+      "Hvidovre",
+      "Brøndby",
+      "Manchester United",
+      "Sporting CP",
+      "Aston Villa",
+      "Manchester City"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Peter_Schmeichel"
+    ],
+    "clubs": [
+      "غلادساكس هيرو",
+      "هفيدوفره",
+      "بروندبي",
+      "مانشستر يونايتد",
+      "سبورتنغ لشبونة",
+      "أستون فيلا",
+      "مانشستر سيتي"
+    ]
+  },
+  {
+    "name": "بيتر تشيك",
+    "page": "Petr Čech",
+    "points": 200,
+    "clubsEnglish": [
+      "Chmel Blšany",
+      "Sparta Prague",
+      "Rennes",
+      "Chelsea",
+      "Arsenal"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Petr_%C4%8Cech"
+    ],
+    "clubs": [
+      "خميل بلشاني",
+      "سبارتا براغ",
+      "رين",
+      "تشيلسي",
+      "أرسنال"
+    ]
+  },
+  {
+    "name": "إيكر كاسياس",
+    "page": "Iker Casillas",
+    "points": 200,
+    "clubsEnglish": [
+      "Real Madrid",
+      "Porto"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Iker_Casillas"
+    ],
+    "clubs": [
+      "ريال مدريد",
+      "بورتو"
+    ]
+  },
+  {
+    "name": "ديدا",
+    "page": "Dida (footballer, born 1973)",
+    "points": 200,
+    "clubsEnglish": [
+      "Vitória",
+      "Cruzeiro",
+      "Corinthians",
+      "AC Milan",
+      "Corinthians",
+      "AC Milan",
+      "Portuguesa",
+      "Grêmio",
+      "Internacional"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Dida_(footballer%2C_born_1973)"
+    ],
+    "clubs": [
+      "فيتوريا البرازيلي",
+      "كروزيرو",
+      "كورينثيانز",
+      "ميلان",
+      "كورينثيانز",
+      "ميلان",
+      "بورتوغيزا",
+      "غريميو",
+      "إنترناسيونال"
+    ]
+  },
+  {
+    "name": "فرناندو هييرو",
+    "page": "Fernando Hierro",
+    "points": 200,
+    "clubsEnglish": [
+      "Valladolid",
+      "Real Madrid",
+      "Al-Rayyan",
+      "Bolton Wanderers"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Fernando_Hierro"
+    ],
+    "clubs": [
+      "ريال بلد الوليد",
+      "ريال مدريد",
+      "الريان",
+      "بولتون واندررز"
+    ]
+  },
+  {
+    "name": "ليليان تورام",
+    "page": "Lilian Thuram",
+    "points": 200,
+    "clubsEnglish": [
+      "Monaco",
+      "Parma",
+      "Juventus",
+      "Barcelona"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Lilian_Thuram",
+      "https://www.fff.fr/equipe-nationale/joueur/8540-thuram-lilian/fiche.html"
+    ],
+    "clubs": [
+      "موناكو",
+      "بارما",
+      "يوفنتوس",
+      "برشلونة"
+    ]
+  },
+  {
+    "name": "أليساندرو نيستا",
+    "page": "Alessandro Nesta",
+    "points": 200,
+    "clubsEnglish": [
+      "Lazio",
+      "AC Milan",
+      "Montreal Impact",
+      "Chennaiyin"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Alessandro_Nesta"
+    ],
+    "clubs": [
+      "لاتسيو",
+      "ميلان",
+      "مونتريال إمباكت",
+      "تشينايين"
+    ]
+  },
+  {
+    "name": "فابيو كانافارو",
+    "page": "Fabio Cannavaro",
+    "points": 200,
+    "clubsEnglish": [
+      "Napoli",
+      "Parma",
+      "Inter Milan",
+      "Juventus",
+      "Real Madrid",
+      "Juventus",
+      "Al Ahli Dubai"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Fabio_Cannavaro"
+    ],
+    "clubs": [
+      "نابولي",
+      "بارما",
+      "إنتر ميلان",
+      "يوفنتوس",
+      "ريال مدريد",
+      "يوفنتوس",
+      "الأهلي الإماراتي"
+    ]
+  },
+  {
+    "name": "روبرتو كارلوس",
+    "page": "Roberto Carlos",
+    "points": 200,
+    "clubsEnglish": [
+      "União São João",
+      "Palmeiras",
+      "Inter Milan",
+      "Real Madrid",
+      "Fenerbahçe",
+      "Corinthians",
+      "Anzhi Makhachkala",
+      "Delhi Dynamos"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Roberto_Carlos",
+      "https://terceirotempo.uol.com.br/noticias/achados-perdidos-completando-53-anos-roberto-carlos-teve-passagem-meteorica-pelo-galo"
+    ],
+    "clubs": [
+      "أونياو ساو جواو",
+      "بالميراس",
+      "إنتر ميلان",
+      "ريال مدريد",
+      "فنربخشة",
+      "كورينثيانز",
+      "أنجي محج قلعة",
+      "دلهي ديناموز"
+    ]
+  },
+  {
+    "name": "مارسيلو",
+    "page": "Marcelo (footballer, born 1988)",
+    "points": 200,
+    "clubsEnglish": [
+      "Fluminense",
+      "Real Madrid",
+      "Olympiacos",
+      "Fluminense"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Marcelo_(footballer%2C_born_1988)"
+    ],
+    "clubs": [
+      "فلومينينسي",
+      "ريال مدريد",
+      "أولمبياكوس",
+      "فلومينينسي"
+    ]
+  },
+  {
+    "name": "فيليبو إنزاغي",
+    "page": "Filippo Inzaghi",
+    "points": 200,
+    "clubsEnglish": [
+      "Piacenza",
+      "Leffe",
+      "Verona",
+      "Piacenza",
+      "Parma",
+      "Atalanta",
+      "Juventus",
+      "AC Milan"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Filippo_Inzaghi"
+    ],
+    "clubs": [
+      "بياتشينزا",
+      "ليفي",
+      "هيلاس فيرونا",
+      "بياتشينزا",
+      "بارما",
+      "أتالانتا",
+      "يوفنتوس",
+      "ميلان"
+    ]
+  },
+  {
+    "name": "دانييلي دي روسي",
+    "page": "Daniele De Rossi",
+    "points": 200,
+    "clubsEnglish": [
+      "Roma",
+      "Boca Juniors"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Daniele_De_Rossi"
+    ],
+    "clubs": [
+      "روما",
+      "بوكا جونيورز"
+    ]
+  },
+  {
+    "name": "ستيفن جيرارد",
+    "page": "Steven Gerrard",
+    "points": 200,
+    "clubsEnglish": [
+      "Liverpool",
+      "LA Galaxy"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Steven_Gerrard"
+    ],
+    "clubs": [
+      "ليفربول",
+      "لوس أنجلوس غالاكسي"
+    ]
+  },
+  {
+    "name": "فرانك لامبارد",
+    "page": "Frank Lampard",
+    "points": 200,
+    "clubsEnglish": [
+      "Swansea City",
+      "West Ham United",
+      "Chelsea",
+      "Manchester City",
+      "New York City FC"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Frank_Lampard",
+      "https://www.swanseacity.com/news/world-cup-swans-frank-lampard",
+      "https://www.newyorkcityfc.com/news/frank-lampard-s-road-300"
+    ],
+    "clubs": [
+      "سوانزي سيتي",
+      "وست هام يونايتد",
+      "تشيلسي",
+      "مانشستر سيتي",
+      "نيويورك سيتي"
+    ]
+  },
+  {
+    "name": "روي كين",
+    "page": "Roy Keane",
+    "points": 200,
+    "clubsEnglish": [
+      "Cobh Ramblers",
+      "Nottingham Forest",
+      "Manchester United",
+      "Celtic"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Roy_Keane"
+    ],
+    "clubs": [
+      "كوف رامبلرز",
+      "نوتنغهام فورست",
+      "مانشستر يونايتد",
+      "سيلتيك"
+    ]
+  },
+  {
+    "name": "دينيس بيركامب",
+    "page": "Dennis Bergkamp",
+    "points": 200,
+    "clubsEnglish": [
+      "Ajax",
+      "Inter Milan",
+      "Arsenal"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Dennis_Bergkamp"
+    ],
+    "clubs": [
+      "أياكس",
+      "إنتر ميلان",
+      "أرسنال"
+    ]
+  },
+  {
+    "name": "إريك كانتونا",
+    "page": "Eric Cantona",
+    "points": 200,
+    "clubsEnglish": [
+      "Auxerre",
+      "Martigues",
+      "Auxerre",
+      "Marseille",
+      "Bordeaux",
+      "Montpellier",
+      "Marseille",
+      "Nîmes",
+      "Leeds United",
+      "Manchester United"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Eric_Cantona"
+    ],
+    "clubs": [
+      "أوكسير",
+      "مارتيغ",
+      "أوكسير",
+      "مارسيليا",
+      "بوردو",
+      "مونبلييه",
+      "مارسيليا",
+      "نيم",
+      "ليدز يونايتد",
+      "مانشستر يونايتد"
+    ]
+  },
+  {
+    "name": "دافيد تريزيغيه",
+    "page": "David Trezeguet",
+    "points": 200,
+    "clubsEnglish": [
+      "Platense",
+      "Monaco",
+      "Juventus",
+      "Hércules",
+      "Baniyas",
+      "River Plate",
+      "Newell's Old Boys",
+      "Pune City"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/David_Trezeguet"
+    ],
+    "clubs": [
+      "بلاتينسي",
+      "موناكو",
+      "يوفنتوس",
+      "هيركوليس",
+      "بني ياس",
+      "ريفر بليت",
+      "نيويلز أولد بويز",
+      "بوني سيتي"
+    ]
+  },
+  {
+    "name": "باتريك فييرا",
+    "page": "Patrick Vieira",
+    "points": 200,
+    "clubsEnglish": [
+      "Cannes",
+      "AC Milan",
+      "Arsenal",
+      "Juventus",
+      "Inter Milan",
+      "Manchester City"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Patrick_Vieira"
+    ],
+    "clubs": [
+      "كان",
+      "ميلان",
+      "أرسنال",
+      "يوفنتوس",
+      "إنتر ميلان",
+      "مانشستر سيتي"
+    ]
+  },
+  {
+    "name": "كلود ماكيليلي",
+    "page": "Claude Makélélé",
+    "points": 200,
+    "clubsEnglish": [
+      "Nantes",
+      "Marseille",
+      "Celta Vigo",
+      "Real Madrid",
+      "Chelsea",
+      "Paris Saint-Germain"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Claude_Mak%C3%A9l%C3%A9l%C3%A9"
+    ],
+    "clubs": [
+      "نانت",
+      "مارسيليا",
+      "سيلتا فيغو",
+      "ريال مدريد",
+      "تشيلسي",
+      "باريس سان جيرمان"
+    ]
+  },
+  {
+    "name": "مايكل أوين",
+    "page": "Michael Owen",
+    "points": 200,
+    "clubsEnglish": [
+      "Liverpool",
+      "Real Madrid",
+      "Newcastle United",
+      "Manchester United",
+      "Stoke City"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Michael_Owen"
+    ],
+    "clubs": [
+      "ليفربول",
+      "ريال مدريد",
+      "نيوكاسل يونايتد",
+      "مانشستر يونايتد",
+      "ستوك سيتي"
+    ]
+  },
+  {
+    "name": "آلان شيرر",
+    "page": "Alan Shearer",
+    "points": 200,
+    "clubsEnglish": [
+      "Southampton",
+      "Blackburn Rovers",
+      "Newcastle United"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Alan_Shearer"
+    ],
+    "clubs": [
+      "ساوثهامبتون",
+      "بلاكبيرن روفرز",
+      "نيوكاسل يونايتد"
+    ]
+  },
+  {
+    "name": "غاري لينيكر",
+    "page": "Gary Lineker",
+    "points": 200,
+    "clubsEnglish": [
+      "Leicester City",
+      "Everton",
+      "Barcelona",
+      "Tottenham Hotspur",
+      "Nagoya Grampus"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Gary_Lineker"
+    ],
+    "clubs": [
+      "ليستر سيتي",
+      "إيفرتون",
+      "برشلونة",
+      "توتنهام هوتسبير",
+      "ناغويا غرامبوس"
+    ]
+  },
+  {
+    "name": "رود فان نيستلروي",
+    "page": "Ruud van Nistelrooy",
+    "points": 400,
+    "clubsEnglish": [
+      "Den Bosch",
+      "Heerenveen",
+      "PSV Eindhoven",
+      "Manchester United",
+      "Real Madrid",
+      "Hamburger SV",
+      "Málaga"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Ruud_van_Nistelrooy"
+    ],
+    "clubs": [
+      "دين بوش",
+      "هيرنفين",
+      "آيندهوفن",
+      "مانشستر يونايتد",
+      "ريال مدريد",
+      "هامبورغ",
+      "مالقة"
+    ]
+  },
+  {
+    "name": "ياب ستام",
+    "page": "Jaap Stam",
+    "points": 400,
+    "clubsEnglish": [
+      "FC Zwolle",
+      "Cambuur",
+      "Willem II",
+      "PSV Eindhoven",
+      "Manchester United",
+      "Lazio",
+      "AC Milan",
+      "Ajax"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Jaap_Stam"
+    ],
+    "clubs": [
+      "زفوله",
+      "كامبور",
+      "فيلم تو تيلبورغ",
+      "آيندهوفن",
+      "مانشستر يونايتد",
+      "لاتسيو",
+      "ميلان",
+      "أياكس"
+    ]
+  },
+  {
+    "name": "إدغار دافيدز",
+    "page": "Edgar Davids",
+    "points": 400,
+    "clubsEnglish": [
+      "Ajax",
+      "AC Milan",
+      "Juventus",
+      "Barcelona",
+      "Inter Milan",
+      "Tottenham Hotspur",
+      "Ajax",
+      "Crystal Palace",
+      "Barnet"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Edgar_Davids"
+    ],
+    "clubs": [
+      "أياكس",
+      "ميلان",
+      "يوفنتوس",
+      "برشلونة",
+      "إنتر ميلان",
+      "توتنهام هوتسبير",
+      "أياكس",
+      "كريستال بالاس",
+      "بارنت"
+    ]
+  },
+  {
+    "name": "مارك فان بوميل",
+    "page": "Mark van Bommel",
+    "points": 400,
+    "clubsEnglish": [
+      "Fortuna Sittard",
+      "PSV",
+      "Barcelona",
+      "Bayern Munich",
+      "AC Milan",
+      "PSV"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Mark_van_Bommel"
+    ],
+    "clubs": [
+      "فورتونا سيتارد",
+      "آيندهوفن",
+      "برشلونة",
+      "بايرن ميونخ",
+      "ميلان",
+      "آيندهوفن"
+    ]
+  },
+  {
+    "name": "جيوفاني فان برونكهورست",
+    "page": "Giovanni van Bronckhorst",
+    "points": 400,
+    "clubsEnglish": [
+      "RKC Waalwijk",
+      "Feyenoord",
+      "Rangers",
+      "Arsenal",
+      "Barcelona",
+      "Feyenoord"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Giovanni_van_Bronckhorst"
+    ],
+    "clubs": [
+      "آر كي سي فالفيك",
+      "فينورد",
+      "رينجرز",
+      "أرسنال",
+      "برشلونة",
+      "فينورد"
+    ]
+  },
+  {
+    "name": "ديرك كاوت",
+    "page": "Dirk Kuyt",
+    "points": 400,
+    "clubsEnglish": [
+      "Quick Boys",
+      "Utrecht",
+      "Feyenoord",
+      "Liverpool",
+      "Fenerbahçe",
+      "Feyenoord",
+      "Quick Boys"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Dirk_Kuyt"
+    ],
+    "clubs": [
+      "كويك بويز",
+      "أوتريخت",
+      "فينورد",
+      "ليفربول",
+      "فنربخشة",
+      "فينورد",
+      "كويك بويز"
+    ]
+  },
+  {
+    "name": "رود خوليت",
+    "page": "Ruud Gullit",
+    "points": 400,
+    "clubsEnglish": [
+      "Haarlem",
+      "Feyenoord",
+      "PSV",
+      "AC Milan",
+      "Sampdoria",
+      "AC Milan",
+      "Sampdoria",
+      "Chelsea"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Ruud_Gullit"
+    ],
+    "clubs": [
+      "هارلم",
+      "فينورد",
+      "آيندهوفن",
+      "ميلان",
+      "سامبدوريا",
+      "ميلان",
+      "سامبدوريا",
+      "تشيلسي"
+    ]
+  },
+  {
+    "name": "فرانك ريكارد",
+    "page": "Frank Rijkaard",
+    "points": 400,
+    "clubsEnglish": [
+      "Ajax",
+      "Real Zaragoza",
+      "AC Milan",
+      "Ajax"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Frank_Rijkaard"
+    ],
+    "clubs": [
+      "أياكس",
+      "ريال سرقسطة",
+      "ميلان",
+      "أياكس"
+    ]
+  },
+  {
+    "name": "رونالد كومان",
+    "page": "Ronald Koeman",
+    "points": 400,
+    "clubsEnglish": [
+      "Groningen",
+      "Ajax",
+      "PSV",
+      "Barcelona",
+      "Feyenoord"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Ronald_Koeman"
+    ],
+    "clubs": [
+      "غرونينغن",
+      "أياكس",
+      "آيندهوفن",
+      "برشلونة",
+      "فينورد"
+    ]
+  },
+  {
+    "name": "فرانك دي بور",
+    "page": "Frank de Boer",
+    "points": 400,
+    "clubsEnglish": [
+      "Ajax",
+      "Barcelona",
+      "Galatasaray",
+      "Rangers",
+      "Al-Rayyan",
+      "Al-Shamal"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Frank_de_Boer"
+    ],
+    "clubs": [
+      "أياكس",
+      "برشلونة",
+      "غلطة سراي",
+      "رينجرز",
+      "الريان",
+      "الشمال"
+    ]
+  },
+  {
+    "name": "رونالد دي بور",
+    "page": "Ronald de Boer",
+    "points": 400,
+    "clubsEnglish": [
+      "Ajax",
+      "Twente",
+      "Ajax",
+      "Barcelona",
+      "Rangers",
+      "Al-Rayyan",
+      "Al-Shamal"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Ronald_de_Boer"
+    ],
+    "clubs": [
+      "أياكس",
+      "تفينتي",
+      "أياكس",
+      "برشلونة",
+      "رينجرز",
+      "الريان",
+      "الشمال"
+    ]
+  },
+  {
+    "name": "مارك أوفرمارس",
+    "page": "Marc Overmars",
+    "points": 400,
+    "clubsEnglish": [
+      "Go Ahead Eagles",
+      "Willem II",
+      "Ajax",
+      "Arsenal",
+      "Barcelona",
+      "Go Ahead Eagles"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Marc_Overmars"
+    ],
+    "clubs": [
+      "غو أهيد إيغلز",
+      "فيلم تو تيلبورغ",
+      "أياكس",
+      "أرسنال",
+      "برشلونة",
+      "غو أهيد إيغلز"
+    ]
+  },
+  {
+    "name": "باتريك كلويفرت",
+    "page": "Patrick Kluivert",
+    "points": 400,
+    "clubsEnglish": [
+      "Ajax",
+      "AC Milan",
+      "Barcelona",
+      "Newcastle United",
+      "Valencia",
+      "PSV",
+      "Lille"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Patrick_Kluivert"
+    ],
+    "clubs": [
+      "أياكس",
+      "ميلان",
+      "برشلونة",
+      "نيوكاسل يونايتد",
+      "فالنسيا",
+      "آيندهوفن",
+      "ليل"
+    ]
+  },
+  {
+    "name": "روي ماكاي",
+    "page": "Roy Makaay",
+    "points": 400,
+    "clubsEnglish": [
+      "Vitesse",
+      "Tenerife",
+      "Deportivo La Coruña",
+      "Bayern Munich",
+      "Feyenoord"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Roy_Makaay"
+    ],
+    "clubs": [
+      "فيتيسه",
+      "تينيريفي",
+      "ديبورتيفو لاكورونيا",
+      "بايرن ميونخ",
+      "فينورد"
+    ]
+  },
+  {
+    "name": "ويم يونك",
+    "page": "Wim Jonk",
+    "points": 400,
+    "clubsEnglish": [
+      "Volendam",
+      "Ajax",
+      "Inter Milan",
+      "PSV",
+      "Sheffield Wednesday"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Wim_Jonk"
+    ],
+    "clubs": [
+      "فولندام",
+      "أياكس",
+      "إنتر ميلان",
+      "آيندهوفن",
+      "شيفيلد وينزداي"
+    ]
+  },
+  {
+    "name": "جون هيتينغا",
+    "page": "John Heitinga",
+    "points": 400,
+    "clubsEnglish": [
+      "Ajax",
+      "Atlético Madrid",
+      "Everton",
+      "Fulham",
+      "Hertha BSC",
+      "Ajax"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/John_Heitinga"
+    ],
+    "clubs": [
+      "أياكس",
+      "أتلتيكو مدريد",
+      "إيفرتون",
+      "فولهام",
+      "هيرتا برلين",
+      "أياكس"
+    ]
+  },
+  {
+    "name": "يوريس ماثايسن",
+    "page": "Joris Mathijsen",
+    "points": 400,
+    "clubsEnglish": [
+      "Willem II",
+      "AZ",
+      "Hamburger SV",
+      "Málaga",
+      "Feyenoord"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Joris_Mathijsen"
+    ],
+    "clubs": [
+      "فيلم تو تيلبورغ",
+      "ألكمار",
+      "هامبورغ",
+      "مالقة",
+      "فينورد"
+    ]
+  },
+  {
+    "name": "كيفن كوراني",
+    "page": "Kevin Kurányi",
+    "points": 400,
+    "clubsEnglish": [
+      "VfB Stuttgart",
+      "Schalke 04",
+      "Dynamo Moscow",
+      "1899 Hoffenheim"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Kevin_Kur%C3%A1nyi"
+    ],
+    "clubs": [
+      "شتوتغارت",
+      "شالكه 04",
+      "دينامو موسكو",
+      "هوفنهايم"
+    ]
+  },
+  {
+    "name": "أوليفر بيرهوف",
+    "page": "Oliver Bierhoff",
+    "points": 400,
+    "clubsEnglish": [
+      "Bayer Uerdingen",
+      "Hamburger SV",
+      "Borussia Mönchengladbach",
+      "Austria Salzburg",
+      "Ascoli",
+      "Udinese",
+      "AC Milan",
+      "Monaco",
+      "Chievo"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Oliver_Bierhoff"
+    ],
+    "clubs": [
+      "باير أوردينغن",
+      "هامبورغ",
+      "بوروسيا مونشنغلادباخ",
+      "أوستريا سالزبورغ",
+      "أسكولي",
+      "أودينيزي",
+      "ميلان",
+      "موناكو",
+      "كييفو فيرونا"
+    ]
+  },
+  {
+    "name": "يورغن كلينسمان",
+    "page": "Jürgen Klinsmann",
+    "points": 400,
+    "clubsEnglish": [
+      "Stuttgarter Kickers",
+      "VfB Stuttgart",
+      "Inter Milan",
+      "Monaco",
+      "Tottenham Hotspur",
+      "Bayern Munich",
+      "Sampdoria",
+      "Tottenham Hotspur",
+      "Orange County Blue Star"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/J%C3%BCrgen_Klinsmann"
+    ],
+    "clubs": [
+      "شتوتغارتر كيكرز",
+      "شتوتغارت",
+      "إنتر ميلان",
+      "موناكو",
+      "توتنهام هوتسبير",
+      "بايرن ميونخ",
+      "سامبدوريا",
+      "توتنهام هوتسبير",
+      "أورانج كاونتي بلو ستار"
+    ]
+  },
+  {
+    "name": "رودي فولر",
+    "page": "Rudi Völler",
+    "points": 400,
+    "clubsEnglish": [
+      "Kickers Offenbach",
+      "1860 Munich",
+      "Werder Bremen",
+      "Roma",
+      "Marseille",
+      "Bayer Leverkusen"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Rudi_V%C3%B6ller"
+    ],
+    "clubs": [
+      "كيكرز أوفنباخ",
+      "ميونيخ 1860",
+      "فيردر بريمن",
+      "روما",
+      "مارسيليا",
+      "باير ليفركوزن"
+    ]
+  },
+  {
+    "name": "أندرياس بريمه",
+    "page": "Andreas Brehme",
+    "points": 400,
+    "clubsEnglish": [
+      "HSV Barmbek-Uhlenhorst",
+      "1. FC Saarbrücken",
+      "Kaiserslautern",
+      "Bayern Munich",
+      "Inter Milan",
+      "Zaragoza",
+      "Kaiserslautern"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Andreas_Brehme"
+    ],
+    "clubs": [
+      "بارمبيك أولينهورت",
+      "ساربروكن",
+      "كايزرسلاوترن",
+      "بايرن ميونخ",
+      "إنتر ميلان",
+      "ريال سرقسطة",
+      "كايزرسلاوترن"
+    ]
+  },
+  {
+    "name": "لوثار ماتيوس",
+    "page": "Lothar Matthäus",
+    "points": 400,
+    "clubsEnglish": [
+      "1. FC Herzogenaurach",
+      "Borussia Mönchengladbach",
+      "Bayern Munich",
+      "Inter Milan",
+      "Bayern Munich",
+      "MetroStars",
+      "Lokomotive Leipzig",
+      "1. FC Herzogenaurach"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Lothar_Matth%C3%A4us",
+      "https://rsssf.org/players/dzdmatthaeus.html",
+      "https://lok-leipzig.com/verein/geschichte/vereinshistorie"
+    ],
+    "clubs": [
+      "هيرتسوغن آوراخ",
+      "بوروسيا مونشنغلادباخ",
+      "بايرن ميونخ",
+      "إنتر ميلان",
+      "بايرن ميونخ",
+      "متروستارز",
+      "لوكوموتيف لايبزيغ",
+      "هيرتسوغن آوراخ"
+    ]
+  },
+  {
+    "name": "شتيفان إيفنبرغ",
+    "page": "Stefan Effenberg",
+    "points": 400,
+    "clubsEnglish": [
+      "Borussia Mönchengladbach",
+      "Bayern Munich",
+      "Fiorentina",
+      "Borussia Mönchengladbach",
+      "Bayern Munich",
+      "VfL Wolfsburg",
+      "Al-Arabi"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Stefan_Effenberg"
+    ],
+    "clubs": [
+      "بوروسيا مونشنغلادباخ",
+      "بايرن ميونخ",
+      "فيورنتينا",
+      "بوروسيا مونشنغلادباخ",
+      "بايرن ميونخ",
+      "فولفسبورغ",
+      "العربي القطري"
+    ]
+  },
+  {
+    "name": "باستيان شفاينشتايغر",
+    "page": "Bastian Schweinsteiger",
+    "points": 400,
+    "clubsEnglish": [
+      "Bayern Munich",
+      "Manchester United",
+      "Chicago Fire"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Bastian_Schweinsteiger"
+    ],
+    "clubs": [
+      "بايرن ميونخ",
+      "مانشستر يونايتد",
+      "شيكاغو فاير"
+    ]
+  },
+  {
+    "name": "فيليب لام",
+    "page": "Philipp Lahm",
+    "points": 400,
+    "clubsEnglish": [
+      "Bayern Munich",
+      "VfB Stuttgart",
+      "Bayern Munich"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Philipp_Lahm"
+    ],
+    "clubs": [
+      "بايرن ميونخ",
+      "شتوتغارت",
+      "بايرن ميونخ"
+    ]
+  },
+  {
+    "name": "بير ميرتساكر",
+    "page": "Per Mertesacker",
+    "points": 400,
+    "clubsEnglish": [
+      "Hannover 96",
+      "Werder Bremen",
+      "Arsenal"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Per_Mertesacker"
+    ],
+    "clubs": [
+      "هانوفر 96",
+      "فيردر بريمن",
+      "أرسنال"
+    ]
+  },
+  {
+    "name": "كريستوف ميتسلدر",
+    "page": "Christoph Metzelder",
+    "points": 400,
+    "clubsEnglish": [
+      "Preußen Münster",
+      "Borussia Dortmund",
+      "Real Madrid",
+      "Schalke 04",
+      "TuS Haltern"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Christoph_Metzelder"
+    ],
+    "clubs": [
+      "برويسن مونستر",
+      "بوروسيا دورتموند",
+      "ريال مدريد",
+      "شالكه 04",
+      "هالترن"
+    ]
+  },
+  {
+    "name": "ديتمار هامان",
+    "page": "Dietmar Hamann",
+    "points": 400,
+    "clubsEnglish": [
+      "Bayern Munich",
+      "Newcastle United",
+      "Liverpool",
+      "Manchester City",
+      "Milton Keynes Dons"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Dietmar_Hamann"
+    ],
+    "clubs": [
+      "بايرن ميونخ",
+      "نيوكاسل يونايتد",
+      "ليفربول",
+      "مانشستر سيتي",
+      "ميلتون كينز دونز"
+    ]
+  },
+  {
+    "name": "تورستن فرينغز",
+    "page": "Torsten Frings",
+    "points": 400,
+    "clubsEnglish": [
+      "Alemannia Aachen",
+      "Werder Bremen",
+      "Borussia Dortmund",
+      "Bayern Munich",
+      "Werder Bremen",
+      "Toronto FC"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Torsten_Frings"
+    ],
+    "clubs": [
+      "ألمانيا آخن",
+      "فيردر بريمن",
+      "بوروسيا دورتموند",
+      "بايرن ميونخ",
+      "فيردر بريمن",
+      "تورونتو إف سي"
+    ]
+  },
+  {
+    "name": "توماس هاسلر",
+    "page": "Thomas Häßler",
+    "points": 400,
+    "clubsEnglish": [
+      "1. FC Köln",
+      "Juventus",
+      "Roma",
+      "Karlsruher SC",
+      "Borussia Dortmund",
+      "1860 Munich",
+      "Austria Salzburg"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Thomas_H%C3%A4%C3%9Fler"
+    ],
+    "clubs": [
+      "كولن",
+      "يوفنتوس",
+      "روما",
+      "كارلسروه",
+      "بوروسيا دورتموند",
+      "ميونيخ 1860",
+      "أوستريا سالزبورغ"
+    ]
+  },
+  {
+    "name": "بيرند شنايدر",
+    "page": "Bernd Schneider (footballer)",
+    "points": 400,
+    "clubsEnglish": [
+      "Carl Zeiss Jena",
+      "Eintracht Frankfurt",
+      "Bayer Leverkusen"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Bernd_Schneider_(footballer)"
+    ],
+    "clubs": [
+      "كارل تسايس يينا",
+      "آينتراخت فرانكفورت",
+      "باير ليفركوزن"
+    ]
+  },
+  {
+    "name": "كيفن برينس بواتينغ",
+    "page": "Kevin-Prince Boateng",
+    "points": 400,
+    "clubsEnglish": [
+      "Hertha BSC",
+      "Tottenham Hotspur",
+      "Borussia Dortmund",
+      "Portsmouth",
+      "AC Milan",
+      "Schalke 04",
+      "AC Milan",
+      "Las Palmas",
+      "Eintracht Frankfurt",
+      "Sassuolo",
+      "Barcelona",
+      "Fiorentina",
+      "Beşiktaş",
+      "Monza",
+      "Hertha BSC"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Kevin-Prince_Boateng"
+    ],
+    "clubs": [
+      "هيرتا برلين",
+      "توتنهام هوتسبير",
+      "بوروسيا دورتموند",
+      "بورتسموث",
+      "ميلان",
+      "شالكه 04",
+      "ميلان",
+      "لاس بالماس",
+      "آينتراخت فرانكفورت",
+      "ساسولو",
+      "برشلونة",
+      "فيورنتينا",
+      "بشكتاش",
+      "مونزا",
+      "هيرتا برلين"
+    ]
+  },
+  {
+    "name": "جيروم بواتينغ",
+    "page": "Jérôme Boateng",
+    "points": 400,
+    "clubsEnglish": [
+      "Hertha BSC",
+      "Hamburger SV",
+      "Manchester City",
+      "Bayern Munich",
+      "Lyon",
+      "Salernitana",
+      "LASK"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/J%C3%A9r%C3%B4me_Boateng"
+    ],
+    "clubs": [
+      "هيرتا برلين",
+      "هامبورغ",
+      "مانشستر سيتي",
+      "بايرن ميونخ",
+      "ليون",
+      "ساليرنيتانا",
+      "لاسك لينتس"
+    ]
+  },
+  {
+    "name": "غوتي",
+    "page": "Guti",
+    "points": 400,
+    "clubsEnglish": [
+      "Real Madrid",
+      "Beşiktaş"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Guti"
+    ],
+    "clubs": [
+      "ريال مدريد",
+      "بشكتاش"
+    ]
+  },
+  {
+    "name": "غايزكا مندييتا",
+    "page": "Gaizka Mendieta",
+    "points": 400,
+    "clubsEnglish": [
+      "Castellón",
+      "Valencia",
+      "Lazio",
+      "Barcelona",
+      "Middlesbrough"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Gaizka_Mendieta"
+    ],
+    "clubs": [
+      "كاستيون",
+      "فالنسيا",
+      "لاتسيو",
+      "برشلونة",
+      "ميدلزبره"
+    ]
+  },
+  {
+    "name": "خوان كارلوس فاليرون",
+    "page": "Juan Carlos Valerón",
+    "points": 400,
+    "clubsEnglish": [
+      "Las Palmas",
+      "Mallorca",
+      "Atlético Madrid",
+      "Deportivo La Coruña",
+      "Las Palmas"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Juan_Carlos_Valer%C3%B3n"
+    ],
+    "clubs": [
+      "لاس بالماس",
+      "مايوركا",
+      "أتلتيكو مدريد",
+      "ديبورتيفو لاكورونيا",
+      "لاس بالماس"
+    ]
+  },
+  {
+    "name": "دييغو تريستان",
+    "page": "Diego Tristán",
+    "points": 400,
+    "clubsEnglish": [
+      "Mallorca",
+      "Deportivo La Coruña",
+      "Mallorca",
+      "Livorno",
+      "West Ham United",
+      "Cádiz"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Diego_Trist%C3%A1n"
+    ],
+    "clubs": [
+      "مايوركا",
+      "ديبورتيفو لاكورونيا",
+      "مايوركا",
+      "ليفورنو",
+      "وست هام يونايتد",
+      "قادش"
+    ]
+  },
+  {
+    "name": "فرناندو ريدوندو",
+    "page": "Fernando Redondo",
+    "points": 400,
+    "clubsEnglish": [
+      "Argentinos Juniors",
+      "Tenerife",
+      "Real Madrid",
+      "AC Milan"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Fernando_Redondo"
+    ],
+    "clubs": [
+      "أرجنتينوس جونيورز",
+      "تينيريفي",
+      "ريال مدريد",
+      "ميلان"
+    ]
+  },
+  {
+    "name": "إستيبان كامبياسو",
+    "page": "Esteban Cambiasso",
+    "points": 400,
+    "clubsEnglish": [
+      "Independiente",
+      "River Plate",
+      "Real Madrid",
+      "Inter Milan",
+      "Leicester City",
+      "Olympiacos"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Esteban_Cambiasso"
+    ],
+    "clubs": [
+      "إنديبندينتي",
+      "ريفر بليت",
+      "ريال مدريد",
+      "إنتر ميلان",
+      "ليستر سيتي",
+      "أولمبياكوس"
+    ]
+  },
+  {
+    "name": "خافيير زانيتي",
+    "page": "Javier Zanetti",
+    "points": 400,
+    "clubsEnglish": [
+      "Talleres",
+      "Banfield",
+      "Inter Milan"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Javier_Zanetti"
+    ],
+    "clubs": [
+      "تاييريس ريميديوس دي إسكالادا",
+      "بانفيلد",
+      "إنتر ميلان"
+    ]
+  },
+  {
+    "name": "والتر صامويل",
+    "page": "Walter Samuel",
+    "points": 400,
+    "clubsEnglish": [
+      "Newell's Old Boys",
+      "Boca Juniors",
+      "Roma",
+      "Real Madrid",
+      "Inter Milan",
+      "Basel"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Walter_Samuel"
+    ],
+    "clubs": [
+      "نيويلز أولد بويز",
+      "بوكا جونيورز",
+      "روما",
+      "ريال مدريد",
+      "إنتر ميلان",
+      "بازل"
+    ]
+  },
+  {
+    "name": "مارسيل ديسايي",
+    "page": "Marcel Desailly",
+    "points": 400,
+    "clubsEnglish": [
+      "Nantes",
+      "Marseille",
+      "AC Milan",
+      "Chelsea",
+      "Al-Gharafa",
+      "Qatar SC"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Marcel_Desailly"
+    ],
+    "clubs": [
+      "نانت",
+      "مارسيليا",
+      "ميلان",
+      "تشيلسي",
+      "الغرافة",
+      "قطر"
+    ]
+  },
+  {
+    "name": "مايكون",
+    "page": "Maicon (footballer, born 1981)",
+    "points": 400,
+    "clubsEnglish": [
+      "Cruzeiro",
+      "Monaco",
+      "Inter Milan",
+      "Manchester City",
+      "Roma",
+      "Avaí",
+      "Criciúma",
+      "Villa Nova",
+      "Sona",
+      "Tre Penne"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Maicon_(footballer%2C_born_1981)"
+    ],
+    "clubs": [
+      "كروزيرو",
+      "موناكو",
+      "إنتر ميلان",
+      "مانشستر سيتي",
+      "روما",
+      "أفاي",
+      "كريسيوما",
+      "فيلا نوفا",
+      "سونا",
+      "تري بيني"
+    ]
+  },
+  {
+    "name": "خوان سيباستيان فيرون",
+    "page": "Juan Sebastián Verón",
+    "points": 400,
+    "clubsEnglish": [
+      "Estudiantes LP",
+      "Boca Juniors",
+      "Sampdoria",
+      "Parma",
+      "Lazio",
+      "Manchester United",
+      "Chelsea",
+      "Inter Milan",
+      "Estudiantes LP",
+      "Brandsen",
+      "Estudiantes LP"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Juan_Sebasti%C3%A1n_Ver%C3%B3n"
+    ],
+    "clubs": [
+      "إستوديانتيس لا بلاتا",
+      "بوكا جونيورز",
+      "سامبدوريا",
+      "بارما",
+      "لاتسيو",
+      "مانشستر يونايتد",
+      "تشيلسي",
+      "إنتر ميلان",
+      "إستوديانتيس لا بلاتا",
+      "أسوسياسيون براندسن",
+      "إستوديانتيس لا بلاتا"
+    ]
+  },
+  {
+    "name": "دييغو ميليتو",
+    "page": "Diego Milito",
+    "points": 400,
+    "clubsEnglish": [
+      "Racing Club",
+      "Genoa",
+      "Zaragoza",
+      "Genoa",
+      "Inter Milan",
+      "Racing Club"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Diego_Milito"
+    ],
+    "clubs": [
+      "راسينغ الأرجنتيني",
+      "جنوى",
+      "ريال سرقسطة",
+      "جنوى",
+      "إنتر ميلان",
+      "راسينغ الأرجنتيني"
+    ]
+  },
+  {
+    "name": "غابرييل ميليتو",
+    "page": "Gabriel Milito",
+    "points": 400,
+    "clubsEnglish": [
+      "Independiente",
+      "Zaragoza",
+      "Barcelona",
+      "Independiente"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Gabriel_Milito"
+    ],
+    "clubs": [
+      "إنديبندينتي",
+      "ريال سرقسطة",
+      "برشلونة",
+      "إنديبندينتي"
+    ]
+  },
+  {
+    "name": "دييغو فورلان",
+    "page": "Diego Forlán",
+    "points": 400,
+    "clubsEnglish": [
+      "Independiente",
+      "Manchester United",
+      "Villarreal",
+      "Atlético Madrid",
+      "Inter Milan",
+      "Internacional",
+      "Cerezo Osaka",
+      "Peñarol",
+      "Mumbai City",
+      "Kitchee"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Diego_Forl%C3%A1n"
+    ],
+    "clubs": [
+      "إنديبندينتي",
+      "مانشستر يونايتد",
+      "فياريال",
+      "أتلتيكو مدريد",
+      "إنتر ميلان",
+      "إنترناسيونال",
+      "سيريزو أوساكا",
+      "بنيارول",
+      "مومباي سيتي",
+      "كيتشي"
+    ]
+  },
+  {
+    "name": "ألفارو ريكوبا",
+    "page": "Álvaro Recoba",
+    "points": 400,
+    "clubsEnglish": [
+      "Danubio",
+      "Nacional",
+      "Inter Milan",
+      "Venezia",
+      "Inter Milan",
+      "Torino",
+      "Panionios",
+      "Danubio",
+      "Nacional"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/%C3%81lvaro_Recoba"
+    ],
+    "clubs": [
+      "دانوبيو",
+      "ناسيونال",
+      "إنتر ميلان",
+      "فينيتسيا",
+      "إنتر ميلان",
+      "تورينو",
+      "بانيونيوس",
+      "دانوبيو",
+      "ناسيونال"
+    ]
+  },
+  {
+    "name": "إيفان زامورانو",
+    "page": "Iván Zamorano",
+    "points": 400,
+    "clubsEnglish": [
+      "Cobresal",
+      "Cobreandino",
+      "Cobresal",
+      "St. Gallen",
+      "Sevilla",
+      "Real Madrid",
+      "Inter Milan",
+      "América",
+      "Colo-Colo"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Iv%C3%A1n_Zamorano"
+    ],
+    "clubs": [
+      "كوبريسال",
+      "كوبرياندينو",
+      "كوبريسال",
+      "سانت غالن",
+      "إشبيلية",
+      "ريال مدريد",
+      "إنتر ميلان",
+      "كلوب أمريكا",
+      "كولو كولو"
+    ]
+  },
+  {
+    "name": "مارسيلو سالاس",
+    "page": "Marcelo Salas",
+    "points": 400,
+    "clubsEnglish": [
+      "Universidad de Chile",
+      "River Plate",
+      "Lazio",
+      "Juventus",
+      "River Plate",
+      "Universidad de Chile"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Marcelo_Salas"
+    ],
+    "clubs": [
+      "يونيفرسيداد دي تشيلي",
+      "ريفر بليت",
+      "لاتسيو",
+      "يوفنتوس",
+      "ريفر بليت",
+      "يونيفرسيداد دي تشيلي"
+    ]
+  },
+  {
+    "name": "كلاوديو بيتزارو",
+    "page": "Claudio Pizarro",
+    "points": 400,
+    "clubsEnglish": [
+      "Deportivo Pesquero",
+      "Alianza Lima",
+      "Werder Bremen",
+      "Bayern Munich",
+      "Chelsea",
+      "Werder Bremen",
+      "Bayern Munich",
+      "Werder Bremen",
+      "1. FC Köln",
+      "Werder Bremen"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Claudio_Pizarro"
+    ],
+    "clubs": [
+      "ديبورتيفو بيسكيرو",
+      "أليانزا ليما",
+      "فيردر بريمن",
+      "بايرن ميونخ",
+      "تشيلسي",
+      "فيردر بريمن",
+      "بايرن ميونخ",
+      "فيردر بريمن",
+      "كولن",
+      "فيردر بريمن"
+    ]
+  },
+  {
+    "name": "جيفرسون فارفان",
+    "page": "Jefferson Farfán",
+    "points": 400,
+    "clubsEnglish": [
+      "Alianza Lima",
+      "PSV",
+      "Schalke 04",
+      "Al-Jazira",
+      "Lokomotiv Moscow",
+      "Alianza Lima"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Jefferson_Farf%C3%A1n"
+    ],
+    "clubs": [
+      "أليانزا ليما",
+      "آيندهوفن",
+      "شالكه 04",
+      "الجزيرة الإماراتي",
+      "لوكوموتيف موسكو",
+      "أليانزا ليما"
+    ]
+  },
+  {
+    "name": "خوان مانويل فارغاس",
+    "page": "Juan Manuel Vargas",
+    "points": 400,
+    "clubsEnglish": [
+      "Universitario",
+      "Colón",
+      "Catania",
+      "Fiorentina",
+      "Genoa",
+      "Fiorentina",
+      "Real Betis",
+      "Universitario"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Juan_Manuel_Vargas"
+    ],
+    "clubs": [
+      "يونيفرسيتاريو",
+      "كولون الأرجنتيني",
+      "كاتانيا",
+      "فيورنتينا",
+      "جنوى",
+      "فيورنتينا",
+      "ريال بيتيس",
+      "يونيفرسيتاريو"
+    ]
+  },
+  {
+    "name": "روبرتو سولدادو",
+    "page": "Roberto Soldado",
+    "points": 400,
+    "clubsEnglish": [
+      "Real Madrid",
+      "Osasuna",
+      "Real Madrid",
+      "Getafe",
+      "Valencia",
+      "Tottenham Hotspur",
+      "Villarreal",
+      "Fenerbahçe",
+      "Granada",
+      "Levante"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Roberto_Soldado"
+    ],
+    "clubs": [
+      "ريال مدريد",
+      "أوساسونا",
+      "ريال مدريد",
+      "خيتافي",
+      "فالنسيا",
+      "توتنهام هوتسبير",
+      "فياريال",
+      "فنربخشة",
+      "غرناطة",
+      "ليفانتي"
+    ]
+  },
+  {
+    "name": "ألفارو نيغريدو",
+    "page": "Álvaro Negredo",
+    "points": 400,
+    "clubsEnglish": [
+      "Rayo Vallecano",
+      "Almería",
+      "Sevilla",
+      "Manchester City",
+      "Valencia",
+      "Middlesbrough",
+      "Beşiktaş",
+      "Al-Nasr",
+      "Cádiz",
+      "Valladolid"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/%C3%81lvaro_Negredo"
+    ],
+    "clubs": [
+      "رايو فاييكانو",
+      "ألميريا",
+      "إشبيلية",
+      "مانشستر سيتي",
+      "فالنسيا",
+      "ميدلزبره",
+      "بشكتاش",
+      "النصر الإماراتي",
+      "قادش",
+      "ريال بلد الوليد"
+    ]
+  },
+  {
+    "name": "فرناندو يورينتي",
+    "page": "Fernando Llorente",
+    "points": 400,
+    "clubsEnglish": [
+      "Athletic Bilbao",
+      "Juventus",
+      "Sevilla",
+      "Swansea City",
+      "Tottenham Hotspur",
+      "Napoli",
+      "Udinese",
+      "Eibar"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Fernando_Llorente"
+    ],
+    "clubs": [
+      "أتلتيك بلباو",
+      "يوفنتوس",
+      "إشبيلية",
+      "سوانزي سيتي",
+      "توتنهام هوتسبير",
+      "نابولي",
+      "أودينيزي",
+      "إيبار"
+    ]
+  },
+  {
+    "name": "أريتز أدوريز",
+    "page": "Aritz Aduriz",
+    "points": 400,
+    "clubsEnglish": [
+      "Aurrerá",
+      "Athletic Bilbao",
+      "Burgos",
+      "Valladolid",
+      "Athletic Bilbao",
+      "Mallorca",
+      "Valencia",
+      "Athletic Bilbao"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Aritz_Aduriz"
+    ],
+    "clubs": [
+      "أوريرا فيتوريا",
+      "أتلتيك بلباو",
+      "بورغوس",
+      "ريال بلد الوليد",
+      "أتلتيك بلباو",
+      "مايوركا",
+      "فالنسيا",
+      "أتلتيك بلباو"
+    ]
+  },
+  {
+    "name": "خواكين سانشيز",
+    "page": "Joaquín (footballer, born 1981)",
+    "points": 400,
+    "clubsEnglish": [
+      "Real Betis",
+      "Valencia",
+      "Málaga",
+      "Fiorentina",
+      "Real Betis"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Joaqu%C3%ADn_(footballer%2C_born_1981)"
+    ],
+    "clubs": [
+      "ريال بيتيس",
+      "فالنسيا",
+      "مالقة",
+      "فيورنتينا",
+      "ريال بيتيس"
+    ]
+  },
+  {
+    "name": "فيسنتي رودريغيز",
+    "page": "Vicente Rodríguez",
+    "points": 400,
+    "clubsEnglish": [
+      "Levante",
+      "Valencia",
+      "Brighton & Hove Albion"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Vicente_Rodr%C3%ADguez"
+    ],
+    "clubs": [
+      "ليفانتي",
+      "فالنسيا",
+      "برايتون أند هوف ألبيون"
+    ]
+  },
+  {
+    "name": "ألبرت رييرا",
+    "page": "Albert Riera",
+    "points": 400,
+    "clubsEnglish": [
+      "Mallorca",
+      "Bordeaux",
+      "Espanyol",
+      "Manchester City",
+      "Espanyol",
+      "Liverpool",
+      "Olympiacos",
+      "Galatasaray",
+      "Watford",
+      "Mallorca",
+      "Zavrč",
+      "Koper"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Albert_Riera"
+    ],
+    "clubs": [
+      "مايوركا",
+      "بوردو",
+      "إسبانيول",
+      "مانشستر سيتي",
+      "إسبانيول",
+      "ليفربول",
+      "أولمبياكوس",
+      "غلطة سراي",
+      "واتفورد",
+      "مايوركا",
+      "زافرتش",
+      "كوبر"
+    ]
+  },
+  {
+    "name": "ألبرت لوكي",
+    "page": "Albert Luque",
+    "points": 400,
+    "clubsEnglish": [
+      "Mallorca",
+      "Málaga",
+      "Mallorca",
+      "Deportivo La Coruña",
+      "Newcastle United",
+      "Ajax",
+      "Málaga"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Albert_Luque"
+    ],
+    "clubs": [
+      "مايوركا",
+      "مالقة",
+      "مايوركا",
+      "ديبورتيفو لاكورونيا",
+      "نيوكاسل يونايتد",
+      "أياكس",
+      "مالقة"
+    ]
+  },
+  {
+    "name": "بيدرو مونيتيس",
+    "page": "Pedro Munitis",
+    "points": 400,
+    "clubsEnglish": [
+      "Santoña",
+      "Racing Santander",
+      "Badajoz",
+      "Racing Santander",
+      "Real Madrid",
+      "Racing Santander",
+      "Deportivo La Coruña",
+      "Racing Santander"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Pedro_Munitis"
+    ],
+    "clubs": [
+      "سانتونيا",
+      "راسينغ سانتاندير",
+      "باداخوث",
+      "راسينغ سانتاندير",
+      "ريال مدريد",
+      "راسينغ سانتاندير",
+      "ديبورتيفو لاكورونيا",
+      "راسينغ سانتاندير"
+    ]
+  },
+  {
+    "name": "ميستا",
+    "page": "Mista (footballer)",
+    "points": 400,
+    "clubsEnglish": [
+      "Tenerife",
+      "Valencia",
+      "Atlético Madrid",
+      "Deportivo La Coruña",
+      "Toronto FC"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Mista_(footballer)"
+    ],
+    "clubs": [
+      "تينيريفي",
+      "فالنسيا",
+      "أتلتيكو مدريد",
+      "ديبورتيفو لاكورونيا",
+      "تورونتو إف سي"
+    ]
+  },
+  {
+    "name": "خافيير سافيولا",
+    "page": "Javier Saviola",
+    "points": 400,
+    "clubsEnglish": [
+      "River Plate",
+      "Barcelona",
+      "Monaco",
+      "Sevilla",
+      "Barcelona",
+      "Real Madrid",
+      "Benfica",
+      "Málaga",
+      "Olympiacos",
+      "Verona",
+      "River Plate"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Javier_Saviola"
+    ],
+    "clubs": [
+      "ريفر بليت",
+      "برشلونة",
+      "موناكو",
+      "إشبيلية",
+      "برشلونة",
+      "ريال مدريد",
+      "بنفيكا",
+      "مالقة",
+      "أولمبياكوس",
+      "هيلاس فيرونا",
+      "ريفر بليت"
+    ]
+  },
+  {
+    "name": "بابلو أيمار",
+    "page": "Pablo Aimar",
+    "points": 400,
+    "clubsEnglish": [
+      "River Plate",
+      "Valencia",
+      "Zaragoza",
+      "Benfica",
+      "Johor Darul Ta'zim",
+      "River Plate",
+      "Estudiantes Río Cuarto"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Pablo_Aimar"
+    ],
+    "clubs": [
+      "ريفر بليت",
+      "فالنسيا",
+      "ريال سرقسطة",
+      "بنفيكا",
+      "جوهور دار التعظيم",
+      "ريفر بليت",
+      "إستوديانتيس ريو كوارتو"
+    ]
+  },
+  {
+    "name": "أندريس داليساندرو",
+    "page": "Andrés D'Alessandro",
+    "points": 400,
+    "clubsEnglish": [
+      "River Plate",
+      "VfL Wolfsburg",
+      "Portsmouth",
+      "Zaragoza",
+      "San Lorenzo",
+      "Internacional",
+      "River Plate",
+      "Internacional",
+      "Nacional",
+      "Internacional"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Andr%C3%A9s_D'Alessandro"
+    ],
+    "clubs": [
+      "ريفر بليت",
+      "فولفسبورغ",
+      "بورتسموث",
+      "ريال سرقسطة",
+      "سان لورينزو",
+      "إنترناسيونال",
+      "ريفر بليت",
+      "إنترناسيونال",
+      "ناسيونال",
+      "إنترناسيونال"
+    ]
+  },
+  {
+    "name": "كارلوس تيفيز",
+    "page": "Carlos Tevez",
+    "points": 400,
+    "clubsEnglish": [
+      "Boca Juniors",
+      "Corinthians",
+      "West Ham United",
+      "Manchester United",
+      "Manchester City",
+      "Juventus",
+      "Boca Juniors",
+      "Shanghai Shenhua",
+      "Boca Juniors"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Carlos_Tevez"
+    ],
+    "clubs": [
+      "بوكا جونيورز",
+      "كورينثيانز",
+      "وست هام يونايتد",
+      "مانشستر يونايتد",
+      "مانشستر سيتي",
+      "يوفنتوس",
+      "بوكا جونيورز",
+      "شنغهاي شينهوا",
+      "بوكا جونيورز"
+    ]
+  },
+  {
+    "name": "خافيير ماسكيرانو",
+    "page": "Javier Mascherano",
+    "points": 400,
+    "clubsEnglish": [
+      "River Plate",
+      "Corinthians",
+      "West Ham United",
+      "Liverpool",
+      "Barcelona",
+      "Hebei China Fortune",
+      "Estudiantes"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Javier_Mascherano"
+    ],
+    "clubs": [
+      "ريفر بليت",
+      "كورينثيانز",
+      "وست هام يونايتد",
+      "ليفربول",
+      "برشلونة",
+      "هيبي تشاينا فورتشن",
+      "إستوديانتيس لا بلاتا"
+    ]
+  },
+  {
+    "name": "ماكسي رودريغيز",
+    "page": "Maxi Rodríguez",
+    "points": 400,
+    "clubsEnglish": [
+      "Newell's Old Boys",
+      "Espanyol",
+      "Atlético Madrid",
+      "Liverpool",
+      "Newell's Old Boys",
+      "Peñarol",
+      "Newell's Old Boys"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Maxi_Rodr%C3%ADguez"
+    ],
+    "clubs": [
+      "نيويلز أولد بويز",
+      "إسبانيول",
+      "أتلتيكو مدريد",
+      "ليفربول",
+      "نيويلز أولد بويز",
+      "بنيارول",
+      "نيويلز أولد بويز"
+    ]
+  },
+  {
+    "name": "مارتين ديميكيليس",
+    "page": "Martín Demichelis",
+    "points": 400,
+    "clubsEnglish": [
+      "River Plate",
+      "Bayern Munich",
+      "Málaga",
+      "Manchester City",
+      "Espanyol",
+      "Málaga"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Mart%C3%ADn_Demichelis"
+    ],
+    "clubs": [
+      "ريفر بليت",
+      "بايرن ميونخ",
+      "مالقة",
+      "مانشستر سيتي",
+      "إسبانيول",
+      "مالقة"
+    ]
+  },
+  {
+    "name": "مارتين باليرمو",
+    "page": "Martín Palermo",
+    "points": 400,
+    "clubsEnglish": [
+      "Estudiantes de La Plata",
+      "Boca Juniors",
+      "Villarreal",
+      "Real Betis",
+      "Alavés",
+      "Boca Juniors"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Mart%C3%ADn_Palermo"
+    ],
+    "clubs": [
+      "إستوديانتيس لا بلاتا",
+      "بوكا جونيورز",
+      "فياريال",
+      "ريال بيتيس",
+      "ديبورتيفو ألافيس",
+      "بوكا جونيورز"
+    ]
+  },
+  {
+    "name": "غييرمو باروس سكيلوتو",
+    "page": "Guillermo Barros Schelotto",
+    "points": 400,
+    "clubsEnglish": [
+      "Gimnasia La Plata",
+      "Boca Juniors",
+      "Columbus Crew",
+      "Gimnasia La Plata"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Guillermo_Barros_Schelotto"
+    ],
+    "clubs": [
+      "خيمناسيا لا بلاتا",
+      "بوكا جونيورز",
+      "كولومبوس كرو",
+      "خيمناسيا لا بلاتا"
+    ]
+  },
+  {
+    "name": "خوان بابلو أنخيل",
+    "page": "Juan Pablo Ángel",
+    "points": 400,
+    "clubsEnglish": [
+      "Atlético Nacional",
+      "River Plate",
+      "Aston Villa",
+      "New York Red Bulls",
+      "Los Angeles Galaxy",
+      "Chivas USA",
+      "Atlético Nacional"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Juan_Pablo_%C3%81ngel"
+    ],
+    "clubs": [
+      "أتلتيكو ناسيونال",
+      "ريفر بليت",
+      "أستون فيلا",
+      "نيويورك ريد بولز",
+      "لوس أنجلوس غالاكسي",
+      "تشيفاس يو إس إيه",
+      "أتلتيكو ناسيونال"
+    ]
+  },
+  {
+    "name": "لوكاس باريوس",
+    "page": "Lucas Barrios",
+    "points": 400,
+    "clubsEnglish": [
+      "Argentinos Juniors",
+      "Tigre",
+      "Temuco",
+      "Tiro Federal",
+      "Cobreloa",
+      "Atlas",
+      "Colo-Colo",
+      "Borussia Dortmund",
+      "Guangzhou Evergrande",
+      "Spartak Moscow",
+      "Montpellier",
+      "Palmeiras",
+      "Grêmio",
+      "Argentinos Juniors",
+      "Colo-Colo",
+      "Huracán",
+      "Gimnasia La Plata",
+      "Defensa y Justicia",
+      "Patronato",
+      "Sportivo Trinidense",
+      "Sportivo Luqueño"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Lucas_Barrios"
+    ],
+    "clubs": [
+      "أرجنتينوس جونيورز",
+      "تيغري",
+      "ديبورتيس تيموكو",
+      "تيرو فيديرال",
+      "كوبريلوا",
+      "أطلس",
+      "كولو كولو",
+      "بوروسيا دورتموند",
+      "غوانغجو إيفرغراند",
+      "سبارتاك موسكو",
+      "مونبلييه",
+      "بالميراس",
+      "غريميو",
+      "أرجنتينوس جونيورز",
+      "كولو كولو",
+      "هوراكان",
+      "خيمناسيا لا بلاتا",
+      "ديفينسا إي خوستيسيا",
+      "باتروناتو",
+      "سبورتيفو ترينيدينسي",
+      "سبورتيفو لوكينيو"
+    ]
+  },
+  {
+    "name": "روكي سانتا كروز",
+    "page": "Roque Santa Cruz",
+    "points": 400,
+    "clubsEnglish": [
+      "Olimpia",
+      "Bayern Munich",
+      "Blackburn Rovers",
+      "Manchester City",
+      "Blackburn Rovers",
+      "Real Betis",
+      "Málaga",
+      "Cruz Azul",
+      "Málaga",
+      "Olimpia",
+      "Libertad",
+      "Nacional (Paraguay)"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Roque_Santa_Cruz"
+    ],
+    "clubs": [
+      "أوليمبيا أسونسيون",
+      "بايرن ميونخ",
+      "بلاكبيرن روفرز",
+      "مانشستر سيتي",
+      "بلاكبيرن روفرز",
+      "ريال بيتيس",
+      "مالقة",
+      "كروز أزول",
+      "مالقة",
+      "أوليمبيا أسونسيون",
+      "ليبرتاد",
+      "ناسيونال الباراغواياني"
+    ]
+  },
+  {
+    "name": "أوين هارغريفز",
+    "page": "Owen Hargreaves",
+    "points": 400,
+    "clubsEnglish": [
+      "Bayern Munich",
+      "Manchester United",
+      "Manchester City"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Owen_Hargreaves"
+    ],
+    "clubs": [
+      "بايرن ميونخ",
+      "مانشستر يونايتد",
+      "مانشستر سيتي"
+    ]
+  },
+  {
+    "name": "مايكل كاريك",
+    "page": "Michael Carrick",
+    "points": 400,
+    "clubsEnglish": [
+      "West Ham United",
+      "Swindon Town",
+      "West Ham United",
+      "Birmingham City",
+      "West Ham United",
+      "Tottenham Hotspur",
+      "Manchester United"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Michael_Carrick"
+    ],
+    "clubs": [
+      "وست هام يونايتد",
+      "سويندون تاون",
+      "وست هام يونايتد",
+      "برمنغهام سيتي",
+      "وست هام يونايتد",
+      "توتنهام هوتسبير",
+      "مانشستر يونايتد"
+    ]
+  },
+  {
+    "name": "جو كول",
+    "page": "Joe Cole",
+    "points": 400,
+    "clubsEnglish": [
+      "West Ham United",
+      "Chelsea",
+      "Liverpool",
+      "Lille",
+      "Liverpool",
+      "West Ham United",
+      "Aston Villa",
+      "Coventry City",
+      "Tampa Bay Rowdies"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Joe_Cole"
+    ],
+    "clubs": [
+      "وست هام يونايتد",
+      "تشيلسي",
+      "ليفربول",
+      "ليل",
+      "ليفربول",
+      "وست هام يونايتد",
+      "أستون فيلا",
+      "كوفنتري سيتي",
+      "تامبا باي راوديز"
+    ]
+  },
+  {
+    "name": "ستيوارت داونينغ",
+    "page": "Stewart Downing",
+    "points": 400,
+    "clubsEnglish": [
+      "Middlesbrough",
+      "Sunderland",
+      "Middlesbrough",
+      "Aston Villa",
+      "Liverpool",
+      "West Ham United",
+      "Middlesbrough",
+      "Blackburn Rovers"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Stewart_Downing"
+    ],
+    "clubs": [
+      "ميدلزبره",
+      "سندرلاند",
+      "ميدلزبره",
+      "أستون فيلا",
+      "ليفربول",
+      "وست هام يونايتد",
+      "ميدلزبره",
+      "بلاكبيرن روفرز"
+    ]
+  },
+  {
+    "name": "كيرون داير",
+    "page": "Kieron Dyer",
+    "points": 400,
+    "clubsEnglish": [
+      "Ipswich Town",
+      "Newcastle United",
+      "West Ham United",
+      "Ipswich Town",
+      "Queens Park Rangers",
+      "Middlesbrough"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Kieron_Dyer"
+    ],
+    "clubs": [
+      "إيبسويتش تاون",
+      "نيوكاسل يونايتد",
+      "وست هام يونايتد",
+      "إيبسويتش تاون",
+      "كوينز بارك رينجرز",
+      "ميدلزبره"
+    ]
+  },
+  {
+    "name": "بول إينس",
+    "page": "Paul Ince",
+    "points": 400,
+    "clubsEnglish": [
+      "West Ham United",
+      "Manchester United",
+      "Inter Milan",
+      "Liverpool",
+      "Middlesbrough",
+      "Wolverhampton Wanderers",
+      "Swindon Town",
+      "Macclesfield Town"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Paul_Ince"
+    ],
+    "clubs": [
+      "وست هام يونايتد",
+      "مانشستر يونايتد",
+      "إنتر ميلان",
+      "ليفربول",
+      "ميدلزبره",
+      "وولفرهامبتون واندررز",
+      "سويندون تاون",
+      "ماكليسفيلد تاون"
+    ]
+  },
+  {
+    "name": "بول غاسكوين",
+    "page": "Paul Gascoigne",
+    "points": 400,
+    "clubsEnglish": [
+      "Newcastle United",
+      "Tottenham Hotspur",
+      "Lazio",
+      "Rangers",
+      "Middlesbrough",
+      "Everton",
+      "Burnley",
+      "Gansu Tianma",
+      "Boston United"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Paul_Gascoigne"
+    ],
+    "clubs": [
+      "نيوكاسل يونايتد",
+      "توتنهام هوتسبير",
+      "لاتسيو",
+      "رينجرز",
+      "ميدلزبره",
+      "إيفرتون",
+      "بيرنلي",
+      "غانسو تيانما",
+      "بوسطن يونايتد"
+    ]
+  },
+  {
+    "name": "دافيد جينولا",
+    "page": "David Ginola",
+    "points": 400,
+    "clubsEnglish": [
+      "Toulon",
+      "Racing Paris",
+      "Brest",
+      "Paris Saint-Germain",
+      "Newcastle United",
+      "Tottenham Hotspur",
+      "Aston Villa",
+      "Everton"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/David_Ginola"
+    ],
+    "clubs": [
+      "تولون",
+      "راسينغ باريس",
+      "بريست",
+      "باريس سان جيرمان",
+      "نيوكاسل يونايتد",
+      "توتنهام هوتسبير",
+      "أستون فيلا",
+      "إيفرتون"
+    ]
+  },
+  {
+    "name": "دافيد بلات",
+    "page": "David Platt",
+    "points": 400,
+    "clubsEnglish": [
+      "Crewe Alexandra",
+      "Aston Villa",
+      "Bari",
+      "Juventus",
+      "Sampdoria",
+      "Arsenal",
+      "Nottingham Forest"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/David_Platt"
+    ],
+    "clubs": [
+      "كرو ألكسندرا",
+      "أستون فيلا",
+      "باري",
+      "يوفنتوس",
+      "سامبدوريا",
+      "أرسنال",
+      "نوتنغهام فورست"
+    ]
+  },
+  {
+    "name": "روبير بيريز",
+    "page": "Robert Pires",
+    "points": 400,
+    "clubsEnglish": [
+      "Reims",
+      "Metz",
+      "Marseille",
+      "Arsenal",
+      "Villarreal",
+      "Aston Villa",
+      "FC Goa"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Robert_Pires",
+      "https://archivesreimsfootball.fr/personnalites/pires-robert"
+    ],
+    "clubs": [
+      "ستاد ريمس",
+      "ميتز",
+      "مارسيليا",
+      "أرسنال",
+      "فياريال",
+      "أستون فيلا",
+      "غوا"
+    ]
+  },
+  {
+    "name": "تيدي شيرينغهام",
+    "page": "Teddy Sheringham",
+    "points": 400,
+    "clubsEnglish": [
+      "Millwall",
+      "Aldershot",
+      "Djurgårdens IF",
+      "Millwall",
+      "Nottingham Forest",
+      "Tottenham Hotspur",
+      "Manchester United",
+      "Tottenham Hotspur",
+      "Portsmouth",
+      "West Ham United",
+      "Colchester United"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Teddy_Sheringham"
+    ],
+    "clubs": [
+      "ميلوول",
+      "ألدرشوت",
+      "يورغوردن",
+      "ميلوول",
+      "نوتنغهام فورست",
+      "توتنهام هوتسبير",
+      "مانشستر يونايتد",
+      "توتنهام هوتسبير",
+      "بورتسموث",
+      "وست هام يونايتد",
+      "كولشيستر يونايتد"
+    ]
+  },
+  {
+    "name": "روبي فاولر",
+    "page": "Robbie Fowler",
+    "points": 400,
+    "clubsEnglish": [
+      "Liverpool",
+      "Leeds United",
+      "Manchester City",
+      "Liverpool",
+      "Cardiff City",
+      "Blackburn Rovers",
+      "North Queensland Fury",
+      "Perth Glory",
+      "Muangthong United"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Robbie_Fowler"
+    ],
+    "clubs": [
+      "ليفربول",
+      "ليدز يونايتد",
+      "مانشستر سيتي",
+      "ليفربول",
+      "كارديف سيتي",
+      "بلاكبيرن روفرز",
+      "نورث كوينزلاند فيوري",
+      "بيرث غلوري",
+      "موانغتونغ يونايتد"
+    ]
+  },
+  {
+    "name": "ليس فرديناند",
+    "page": "Les Ferdinand",
+    "points": 400,
+    "clubsEnglish": [
+      "Southall",
+      "Hayes",
+      "Queens Park Rangers",
+      "Brentford",
+      "Beşiktaş",
+      "Queens Park Rangers",
+      "Newcastle United",
+      "Tottenham Hotspur",
+      "West Ham United",
+      "Leicester City",
+      "Bolton Wanderers",
+      "Reading"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Les_Ferdinand"
+    ],
+    "clubs": [
+      "ساوثال",
+      "هايز",
+      "كوينز بارك رينجرز",
+      "برينتفورد",
+      "بشكتاش",
+      "كوينز بارك رينجرز",
+      "نيوكاسل يونايتد",
+      "توتنهام هوتسبير",
+      "وست هام يونايتد",
+      "ليستر سيتي",
+      "بولتون واندررز",
+      "ريدينغ"
+    ]
+  },
+  {
+    "name": "آندي كول",
+    "page": "Andy Cole",
+    "points": 400,
+    "clubsEnglish": [
+      "Arsenal",
+      "Fulham",
+      "Bristol City",
+      "Newcastle United",
+      "Manchester United",
+      "Blackburn Rovers",
+      "Fulham",
+      "Manchester City",
+      "Portsmouth",
+      "Birmingham City",
+      "Sunderland",
+      "Burnley",
+      "Nottingham Forest"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Andy_Cole"
+    ],
+    "clubs": [
+      "أرسنال",
+      "فولهام",
+      "بريستول سيتي",
+      "نيوكاسل يونايتد",
+      "مانشستر يونايتد",
+      "بلاكبيرن روفرز",
+      "فولهام",
+      "مانشستر سيتي",
+      "بورتسموث",
+      "برمنغهام سيتي",
+      "سندرلاند",
+      "بيرنلي",
+      "نوتنغهام فورست"
+    ]
+  },
+  {
+    "name": "نيكولا أنيلكا",
+    "page": "Nicolas Anelka",
+    "points": 600,
+    "clubsEnglish": [
+      "Paris Saint-Germain",
+      "Arsenal",
+      "Real Madrid",
+      "Paris Saint-Germain",
+      "Liverpool",
+      "Manchester City",
+      "Fenerbahçe",
+      "Bolton Wanderers",
+      "Chelsea",
+      "Shanghai Shenhua",
+      "Juventus",
+      "West Bromwich Albion",
+      "Mumbai City"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Nicolas_Anelka"
+    ],
+    "clubs": [
+      "باريس سان جيرمان",
+      "أرسنال",
+      "ريال مدريد",
+      "باريس سان جيرمان",
+      "ليفربول",
+      "مانشستر سيتي",
+      "فنربخشة",
+      "بولتون واندررز",
+      "تشيلسي",
+      "شنغهاي شينهوا",
+      "يوفنتوس",
+      "وست بروميتش ألبيون",
+      "مومباي سيتي"
+    ]
+  },
+  {
+    "name": "دجبريل سيسيه",
+    "page": "Djibril Cissé",
+    "points": 600,
+    "clubsEnglish": [
+      "Auxerre",
+      "Liverpool",
+      "Marseille",
+      "Sunderland",
+      "Panathinaikos",
+      "Lazio",
+      "Queens Park Rangers",
+      "Al-Gharafa",
+      "Kuban Krasnodar",
+      "Bastia",
+      "Saint-Pierroise",
+      "Yverdon"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Djibril_Ciss%C3%A9"
+    ],
+    "clubs": [
+      "أوكسير",
+      "ليفربول",
+      "مارسيليا",
+      "سندرلاند",
+      "باناثينايكوس",
+      "لاتسيو",
+      "كوينز بارك رينجرز",
+      "الغرافة",
+      "كوبان كراسنودار",
+      "باستيا",
+      "سان بيرواز",
+      "إيفردون سبورت"
+    ]
+  },
+  {
+    "name": "فلوران مالودا",
+    "page": "Florent Malouda",
+    "points": 600,
+    "clubsEnglish": [
+      "Châteauroux",
+      "Guingamp",
+      "Lyon",
+      "Chelsea",
+      "Trabzonspor",
+      "Metz",
+      "Delhi Dynamos",
+      "Wadi Degla",
+      "Delhi Dynamos",
+      "FC Differdange 03"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Florent_Malouda"
+    ],
+    "clubs": [
+      "شاتورو",
+      "غانغان",
+      "ليون",
+      "تشيلسي",
+      "طرابزون سبور",
+      "ميتز",
+      "دلهي ديناموز",
+      "وادي دجلة",
+      "دلهي ديناموز",
+      "ديفردانج 03"
+    ]
+  },
+  {
+    "name": "لويس ساها",
+    "page": "Louis Saha",
+    "points": 600,
+    "clubsEnglish": [
+      "Metz",
+      "Newcastle United",
+      "Metz",
+      "Fulham",
+      "Manchester United",
+      "Everton",
+      "Tottenham Hotspur",
+      "Sunderland",
+      "Lazio"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Louis_Saha"
+    ],
+    "clubs": [
+      "ميتز",
+      "نيوكاسل يونايتد",
+      "ميتز",
+      "فولهام",
+      "مانشستر يونايتد",
+      "إيفرتون",
+      "توتنهام هوتسبير",
+      "سندرلاند",
+      "لاتسيو"
+    ]
+  },
+  {
+    "name": "سيلفان ويلتورد",
+    "page": "Sylvain Wiltord",
+    "points": 600,
+    "clubsEnglish": [
+      "Rennes",
+      "Bordeaux",
+      "Arsenal",
+      "Lyon",
+      "Rennes",
+      "Marseille",
+      "Metz",
+      "Nantes"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Sylvain_Wiltord"
+    ],
+    "clubs": [
+      "رين",
+      "بوردو",
+      "أرسنال",
+      "ليون",
+      "رين",
+      "مارسيليا",
+      "ميتز",
+      "نانت"
+    ]
+  },
+  {
+    "name": "يوهان ميكو",
+    "page": "Johan Micoud",
+    "points": 600,
+    "clubsEnglish": [
+      "Cannes",
+      "Bordeaux",
+      "Parma",
+      "Werder Bremen",
+      "Bordeaux"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Johan_Micoud"
+    ],
+    "clubs": [
+      "كان",
+      "بوردو",
+      "بارما",
+      "فيردر بريمن",
+      "بوردو"
+    ]
+  },
+  {
+    "name": "لودوفيك جولي",
+    "page": "Ludovic Giuly",
+    "points": 600,
+    "clubsEnglish": [
+      "Lyon",
+      "Monaco",
+      "Barcelona",
+      "Roma",
+      "Paris Saint-Germain",
+      "Monaco",
+      "Lorient",
+      "Monts d'Or Azergues"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Ludovic_Giuly"
+    ],
+    "clubs": [
+      "ليون",
+      "موناكو",
+      "برشلونة",
+      "روما",
+      "باريس سان جيرمان",
+      "موناكو",
+      "لوريان",
+      "مون دور أزيرغ"
+    ]
+  },
+  {
+    "name": "فيكاش دوراسو",
+    "page": "Vikash Dhorasoo",
+    "points": 600,
+    "clubsEnglish": [
+      "Le Havre",
+      "Lyon",
+      "Bordeaux",
+      "Lyon",
+      "AC Milan",
+      "Paris Saint-Germain"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Vikash_Dhorasoo"
+    ],
+    "clubs": [
+      "لوهافر",
+      "ليون",
+      "بوردو",
+      "ليون",
+      "ميلان",
+      "باريس سان جيرمان"
+    ]
+  },
+  {
+    "name": "بينوا بيدريتي",
+    "page": "Benoît Pedretti",
+    "points": 600,
+    "clubsEnglish": [
+      "Sochaux",
+      "Marseille",
+      "Lyon",
+      "Auxerre",
+      "Lille",
+      "Ajaccio",
+      "Nancy"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Beno%C3%AEt_Pedretti"
+    ],
+    "clubs": [
+      "سوشو",
+      "مارسيليا",
+      "ليون",
+      "أوكسير",
+      "ليل",
+      "أجاكسيو",
+      "نانسي"
+    ]
+  },
+  {
+    "name": "بينوا شيرو",
+    "page": "Benoît Cheyrou",
+    "points": 600,
+    "clubsEnglish": [
+      "Lille",
+      "Auxerre",
+      "Marseille",
+      "Toronto FC"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Beno%C3%AEt_Cheyrou"
+    ],
+    "clubs": [
+      "ليل",
+      "أوكسير",
+      "مارسيليا",
+      "تورونتو إف سي"
+    ]
+  },
+  {
+    "name": "برونو شيرو",
+    "page": "Bruno Cheyrou",
+    "points": 600,
+    "clubsEnglish": [
+      "Lille",
+      "Liverpool",
+      "Marseille",
+      "Bordeaux",
+      "Rennes",
+      "Anorthosis",
+      "Nantes"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Bruno_Cheyrou"
+    ],
+    "clubs": [
+      "ليل",
+      "ليفربول",
+      "مارسيليا",
+      "بوردو",
+      "رين",
+      "أنورثوسيس فاماغوستا",
+      "نانت"
+    ]
+  },
+  {
+    "name": "ألو ديارا",
+    "page": "Alou Diarra",
+    "points": 600,
+    "clubsEnglish": [
+      "Louhans-Cuiseaux",
+      "Le Havre",
+      "Bastia",
+      "Lens",
+      "Lyon",
+      "Bordeaux",
+      "Marseille",
+      "West Ham United",
+      "Rennes",
+      "West Ham United",
+      "Charlton Athletic",
+      "Nancy"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Alou_Diarra"
+    ],
+    "clubs": [
+      "لوهان كويسو",
+      "لوهافر",
+      "باستيا",
+      "لانس",
+      "ليون",
+      "بوردو",
+      "مارسيليا",
+      "وست هام يونايتد",
+      "رين",
+      "وست هام يونايتد",
+      "تشارلتون أتلتيك",
+      "نانسي"
+    ]
+  },
+  {
+    "name": "لاسانا ديارا",
+    "page": "Lassana Diarra",
+    "points": 600,
+    "clubsEnglish": [
+      "Le Havre",
+      "Chelsea",
+      "Arsenal",
+      "Portsmouth",
+      "Real Madrid",
+      "Anzhi Makhachkala",
+      "Lokomotiv Moscow",
+      "Marseille",
+      "Al-Jazira",
+      "Paris Saint-Germain"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Lassana_Diarra"
+    ],
+    "clubs": [
+      "لوهافر",
+      "تشيلسي",
+      "أرسنال",
+      "بورتسموث",
+      "ريال مدريد",
+      "أنجي محج قلعة",
+      "لوكوموتيف موسكو",
+      "مارسيليا",
+      "الجزيرة الإماراتي",
+      "باريس سان جيرمان"
+    ]
+  },
+  {
+    "name": "أبو ديابي",
+    "page": "Abou Diaby",
+    "points": 600,
+    "clubsEnglish": [
+      "Auxerre",
+      "Arsenal",
+      "Marseille"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Abou_Diaby"
+    ],
+    "clubs": [
+      "أوكسير",
+      "أرسنال",
+      "مارسيليا"
+    ]
+  },
+  {
+    "name": "ماثيو فلاميني",
+    "page": "Mathieu Flamini",
+    "points": 600,
+    "clubsEnglish": [
+      "Marseille",
+      "Arsenal",
+      "AC Milan",
+      "Arsenal",
+      "Crystal Palace",
+      "Getafe"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Mathieu_Flamini"
+    ],
+    "clubs": [
+      "مارسيليا",
+      "أرسنال",
+      "ميلان",
+      "أرسنال",
+      "كريستال بالاس",
+      "خيتافي"
+    ]
+  },
+  {
+    "name": "بكاري سانيا",
+    "page": "Bacary Sagna",
+    "points": 600,
+    "clubsEnglish": [
+      "Auxerre",
+      "Arsenal",
+      "Manchester City",
+      "Benevento",
+      "Montreal Impact"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Bacary_Sagna"
+    ],
+    "clubs": [
+      "أوكسير",
+      "أرسنال",
+      "مانشستر سيتي",
+      "بينيفينتو",
+      "مونتريال إمباكت"
+    ]
+  },
+  {
+    "name": "غايل كليشي",
+    "page": "Gaël Clichy",
+    "points": 600,
+    "clubsEnglish": [
+      "Cannes",
+      "Arsenal",
+      "Manchester City",
+      "İstanbul Başakşehir",
+      "Servette"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Ga%C3%ABl_Clichy"
+    ],
+    "clubs": [
+      "كان",
+      "أرسنال",
+      "مانشستر سيتي",
+      "إسطنبول باشاك شهير",
+      "سيرفيت"
+    ]
+  },
+  {
+    "name": "باتريس إيفرا",
+    "page": "Patrice Evra",
+    "points": 600,
+    "clubsEnglish": [
+      "Marsala",
+      "Monza",
+      "Nice",
+      "Monaco",
+      "Manchester United",
+      "Juventus",
+      "Marseille",
+      "West Ham United"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Patrice_Evra"
+    ],
+    "clubs": [
+      "مارسالا",
+      "مونزا",
+      "نيس",
+      "موناكو",
+      "مانشستر يونايتد",
+      "يوفنتوس",
+      "مارسيليا",
+      "وست هام يونايتد"
+    ]
+  },
+  {
+    "name": "باسكال تشيمبوندا",
+    "page": "Pascal Chimbonda",
+    "points": 600,
+    "clubsEnglish": [
+      "Le Havre",
+      "Bastia",
+      "Wigan Athletic",
+      "Tottenham Hotspur",
+      "Sunderland",
+      "Tottenham Hotspur",
+      "Blackburn Rovers",
+      "Queens Park Rangers",
+      "Doncaster Rovers",
+      "Carlisle United",
+      "Arles-Avignon",
+      "Washington",
+      "Ashton Town",
+      "Skelmersdale United"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Pascal_Chimbonda"
+    ],
+    "clubs": [
+      "لوهافر",
+      "باستيا",
+      "ويغان أتلتيك",
+      "توتنهام هوتسبير",
+      "سندرلاند",
+      "توتنهام هوتسبير",
+      "بلاكبيرن روفرز",
+      "كوينز بارك رينجرز",
+      "دونكاستر روفرز",
+      "كارلايل يونايتد",
+      "آرل أفينيون",
+      "واشنطن الإنجليزي",
+      "أشتون تاون",
+      "سكيلميرسديل يونايتد"
+    ]
+  },
+  {
+    "name": "ميكايل سيلفستر",
+    "page": "Mikaël Silvestre",
+    "points": 600,
+    "clubsEnglish": [
+      "Rennes",
+      "Inter Milan",
+      "Manchester United",
+      "Arsenal",
+      "Werder Bremen",
+      "Portland Timbers",
+      "Chennaiyin"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Mika%C3%ABl_Silvestre"
+    ],
+    "clubs": [
+      "رين",
+      "إنتر ميلان",
+      "مانشستر يونايتد",
+      "أرسنال",
+      "فيردر بريمن",
+      "بورتلاند تمبرز",
+      "تشينايين"
+    ]
+  },
+  {
+    "name": "سيباستيان سكيلاتشي",
+    "page": "Sébastien Squillaci",
+    "points": 600,
+    "clubsEnglish": [
+      "Toulon",
+      "Ajaccio",
+      "Monaco",
+      "Lyon",
+      "Sevilla",
+      "Arsenal",
+      "Bastia"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/S%C3%A9bastien_Squillaci"
+    ],
+    "clubs": [
+      "تولون",
+      "أجاكسيو",
+      "موناكو",
+      "ليون",
+      "إشبيلية",
+      "أرسنال",
+      "باستيا"
+    ]
+  },
+  {
+    "name": "جان آلان بومسونغ",
+    "page": "Jean-Alain Boumsong",
+    "points": 600,
+    "clubsEnglish": [
+      "Le Havre",
+      "Auxerre",
+      "Rangers",
+      "Newcastle United",
+      "Juventus",
+      "Lyon",
+      "Panathinaikos"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Jean-Alain_Boumsong"
+    ],
+    "clubs": [
+      "لوهافر",
+      "أوكسير",
+      "رينجرز",
+      "نيوكاسل يونايتد",
+      "يوفنتوس",
+      "ليون",
+      "باناثينايكوس"
+    ]
+  },
+  {
+    "name": "ويليام غالاس",
+    "page": "William Gallas",
+    "points": 600,
+    "clubsEnglish": [
+      "Caen",
+      "Marseille",
+      "Chelsea",
+      "Arsenal",
+      "Tottenham Hotspur",
+      "Perth Glory"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/William_Gallas"
+    ],
+    "clubs": [
+      "كان",
+      "مارسيليا",
+      "تشيلسي",
+      "أرسنال",
+      "توتنهام هوتسبير",
+      "بيرث غلوري"
+    ]
+  },
+  {
+    "name": "فيليب مكسيس",
+    "page": "Philippe Mexès",
+    "points": 600,
+    "clubsEnglish": [
+      "Auxerre",
+      "Roma",
+      "AC Milan"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Philippe_Mex%C3%A8s"
+    ],
+    "clubs": [
+      "أوكسير",
+      "روما",
+      "ميلان"
+    ]
+  },
+  {
+    "name": "عادل رامي",
+    "page": "Adil Rami",
+    "points": 600,
+    "clubsEnglish": [
+      "Fréjus",
+      "Lille",
+      "Valencia",
+      "AC Milan",
+      "Sevilla",
+      "Marseille",
+      "Fenerbahçe",
+      "Boavista",
+      "Troyes"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Adil_Rami"
+    ],
+    "clubs": [
+      "فريجوس",
+      "ليل",
+      "فالنسيا",
+      "ميلان",
+      "إشبيلية",
+      "مارسيليا",
+      "فنربخشة",
+      "بوافيشتا",
+      "تروا"
+    ]
+  },
+  {
+    "name": "فلوران سيناما بونغول",
+    "page": "Florent Sinama Pongolle",
+    "points": 600,
+    "clubsEnglish": [
+      "Le Havre",
+      "Liverpool",
+      "Blackburn Rovers",
+      "Recreativo",
+      "Atlético Madrid",
+      "Sporting CP",
+      "Zaragoza",
+      "Saint-Étienne",
+      "Rostov",
+      "Chicago Fire",
+      "Dundee United",
+      "Chainat Hornbill",
+      "Saint-Pierroise"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Florent_Sinama_Pongolle"
+    ],
+    "clubs": [
+      "لوهافر",
+      "ليفربول",
+      "بلاكبيرن روفرز",
+      "ريكرياتيفو هويلفا",
+      "أتلتيكو مدريد",
+      "سبورتنغ لشبونة",
+      "ريال سرقسطة",
+      "سانت إتيان",
+      "روستوف",
+      "شيكاغو فاير",
+      "دندي يونايتد",
+      "تشاينات هورنبيل",
+      "سان بيرواز"
+    ]
+  },
+  {
+    "name": "أنتوني لو تاليك",
+    "page": "Anthony Le Tallec",
+    "points": 600,
+    "clubsEnglish": [
+      "Le Havre",
+      "Liverpool",
+      "Saint-Étienne",
+      "Liverpool",
+      "Sunderland",
+      "Sochaux",
+      "Le Mans",
+      "Auxerre",
+      "Valenciennes",
+      "Atromitos",
+      "Astra Giurgiu",
+      "Orléans",
+      "Annecy"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Anthony_Le_Tallec"
+    ],
+    "clubs": [
+      "لوهافر",
+      "ليفربول",
+      "سانت إتيان",
+      "ليفربول",
+      "سندرلاند",
+      "سوشو",
+      "لو مان",
+      "أوكسير",
+      "فالنسيان",
+      "أتروميتوس",
+      "أسترا جورجيو",
+      "أورليان",
+      "آنسي"
+    ]
+  },
+  {
+    "name": "جيريمي مينيز",
+    "page": "Jérémy Ménez",
+    "points": 600,
+    "clubsEnglish": [
+      "Sochaux",
+      "Monaco",
+      "Roma",
+      "Paris Saint-Germain",
+      "AC Milan",
+      "Bordeaux",
+      "Antalyaspor",
+      "América",
+      "Paris FC",
+      "Reggina",
+      "Bari"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/J%C3%A9r%C3%A9my_M%C3%A9nez"
+    ],
+    "clubs": [
+      "سوشو",
+      "موناكو",
+      "روما",
+      "باريس سان جيرمان",
+      "ميلان",
+      "بوردو",
+      "أنطاليا سبور",
+      "كلوب أمريكا",
+      "باريس إف سي",
+      "ريجينا",
+      "باري"
+    ]
+  },
+  {
+    "name": "حاتم بن عرفة",
+    "page": "Hatem Ben Arfa",
+    "points": 600,
+    "clubsEnglish": [
+      "Lyon",
+      "Marseille",
+      "Newcastle United",
+      "Hull City",
+      "Nice",
+      "Paris Saint-Germain",
+      "Rennes",
+      "Valladolid",
+      "Bordeaux",
+      "Lille"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Hatem_Ben_Arfa"
+    ],
+    "clubs": [
+      "ليون",
+      "مارسيليا",
+      "نيوكاسل يونايتد",
+      "هال سيتي",
+      "نيس",
+      "باريس سان جيرمان",
+      "رين",
+      "ريال بلد الوليد",
+      "بوردو",
+      "ليل"
+    ]
+  },
+  {
+    "name": "سمير نصري",
+    "page": "Samir Nasri",
+    "points": 600,
+    "clubsEnglish": [
+      "Marseille",
+      "Arsenal",
+      "Manchester City",
+      "Sevilla",
+      "Antalyaspor",
+      "West Ham United",
+      "Anderlecht"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Samir_Nasri"
+    ],
+    "clubs": [
+      "مارسيليا",
+      "أرسنال",
+      "مانشستر سيتي",
+      "إشبيلية",
+      "أنطاليا سبور",
+      "وست هام يونايتد",
+      "أندرلخت"
+    ]
+  },
+  {
+    "name": "يوهان غوركوف",
+    "page": "Yoann Gourcuff",
+    "points": 600,
+    "clubsEnglish": [
+      "Rennes",
+      "AC Milan",
+      "Bordeaux",
+      "Lyon",
+      "Rennes",
+      "Dijon"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Yoann_Gourcuff"
+    ],
+    "clubs": [
+      "رين",
+      "ميلان",
+      "بوردو",
+      "ليون",
+      "رين",
+      "ديجون"
+    ]
+  },
+  {
+    "name": "يوهان كاباي",
+    "page": "Yohan Cabaye",
+    "points": 600,
+    "clubsEnglish": [
+      "Lille",
+      "Newcastle United",
+      "Paris Saint-Germain",
+      "Crystal Palace",
+      "Al-Nasr",
+      "Saint-Étienne"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Yohan_Cabaye"
+    ],
+    "clubs": [
+      "ليل",
+      "نيوكاسل يونايتد",
+      "باريس سان جيرمان",
+      "كريستال بالاس",
+      "النصر الإماراتي",
+      "سانت إتيان"
+    ]
+  },
+  {
+    "name": "ماثيو فالبوينا",
+    "page": "Mathieu Valbuena",
+    "points": 600,
+    "clubsEnglish": [
+      "Libourne",
+      "Marseille",
+      "Dynamo Moscow",
+      "Lyon",
+      "Fenerbahçe",
+      "Olympiacos",
+      "Apollon Limassol",
+      "Athens Kallithea"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Mathieu_Valbuena"
+    ],
+    "clubs": [
+      "ليبورن",
+      "مارسيليا",
+      "دينامو موسكو",
+      "ليون",
+      "فنربخشة",
+      "أولمبياكوس",
+      "أبولون ليماسول",
+      "أثينا كاليثيا"
+    ]
+  },
+  {
+    "name": "ديميتري باييت",
+    "page": "Dimitri Payet",
+    "points": 600,
+    "clubsEnglish": [
+      "AS Excelsior",
+      "Nantes",
+      "Saint-Étienne",
+      "Lille",
+      "Marseille",
+      "West Ham United",
+      "Marseille",
+      "Vasco da Gama"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Dimitri_Payet"
+    ],
+    "clubs": [
+      "إكسيلسيور ريونيون",
+      "نانت",
+      "سانت إتيان",
+      "ليل",
+      "مارسيليا",
+      "وست هام يونايتد",
+      "مارسيليا",
+      "فاسكو دا غاما"
+    ]
+  },
+  {
+    "name": "كريستوف دوغاري",
+    "page": "Christophe Dugarry",
+    "points": 600,
+    "clubsEnglish": [
+      "Bordeaux",
+      "AC Milan",
+      "Barcelona",
+      "Marseille",
+      "Bordeaux",
+      "Birmingham City"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Christophe_Dugarry"
+    ],
+    "clubs": [
+      "بوردو",
+      "ميلان",
+      "برشلونة",
+      "مارسيليا",
+      "بوردو",
+      "برمنغهام سيتي"
+    ]
+  },
+  {
+    "name": "ستيفان غيفارش",
+    "page": "Stéphane Guivarc'h",
+    "points": 600,
+    "clubsEnglish": [
+      "Brest",
+      "Guingamp",
+      "Auxerre",
+      "Rennes",
+      "Auxerre",
+      "Newcastle United",
+      "Rangers",
+      "Auxerre",
+      "Guingamp"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/St%C3%A9phane_Guivarc'h"
+    ],
+    "clubs": [
+      "بريست",
+      "غانغان",
+      "أوكسير",
+      "رين",
+      "أوكسير",
+      "نيوكاسل يونايتد",
+      "رينجرز",
+      "أوكسير",
+      "غانغان"
+    ]
+  },
+  {
+    "name": "يوري دجوركاييف",
+    "page": "Youri Djorkaeff",
+    "points": 600,
+    "clubsEnglish": [
+      "Grenoble",
+      "Strasbourg",
+      "Monaco",
+      "Paris Saint-Germain",
+      "Inter Milan",
+      "Kaiserslautern",
+      "Bolton Wanderers",
+      "Blackburn Rovers",
+      "New York Red Bulls"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Youri_Djorkaeff"
+    ],
+    "clubs": [
+      "غرونوبل",
+      "ستراسبورغ",
+      "موناكو",
+      "باريس سان جيرمان",
+      "إنتر ميلان",
+      "كايزرسلاوترن",
+      "بولتون واندررز",
+      "بلاكبيرن روفرز",
+      "نيويورك ريد بولز"
+    ]
+  },
+  {
+    "name": "برنار ديوميد",
+    "page": "Bernard Diomède",
+    "points": 600,
+    "clubsEnglish": [
+      "Auxerre",
+      "Liverpool",
+      "Ajaccio",
+      "Créteil",
+      "Clermont Foot"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Bernard_Diom%C3%A8de"
+    ],
+    "clubs": [
+      "أوكسير",
+      "ليفربول",
+      "أجاكسيو",
+      "كريتاي",
+      "كليرمون"
+    ]
+  },
+  {
+    "name": "إبراهيم با",
+    "page": "Ibrahim Ba",
+    "points": 600,
+    "clubsEnglish": [
+      "Le Havre",
+      "Bordeaux",
+      "AC Milan",
+      "Perugia",
+      "AC Milan",
+      "Marseille",
+      "AC Milan",
+      "Bolton Wanderers",
+      "Çaykur Rizespor",
+      "Djurgården"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Ibrahim_Ba"
+    ],
+    "clubs": [
+      "لوهافر",
+      "بوردو",
+      "ميلان",
+      "بيروجيا",
+      "ميلان",
+      "مارسيليا",
+      "ميلان",
+      "بولتون واندررز",
+      "تشايكور ريزه سبور",
+      "يورغوردن"
+    ]
+  },
+  {
+    "name": "أوليفييه داكور",
+    "page": "Olivier Dacourt",
+    "points": 600,
+    "clubsEnglish": [
+      "Strasbourg",
+      "Everton",
+      "Lens",
+      "Leeds United",
+      "Roma",
+      "Inter Milan",
+      "Fulham",
+      "Standard Liège"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Olivier_Dacourt"
+    ],
+    "clubs": [
+      "ستراسبورغ",
+      "إيفرتون",
+      "لانس",
+      "ليدز يونايتد",
+      "روما",
+      "إنتر ميلان",
+      "فولهام",
+      "ستاندار لييج"
+    ]
+  },
+  {
+    "name": "صبري لموشي",
+    "page": "Sabri Lamouchi",
+    "points": 600,
+    "clubsEnglish": [
+      "Alès",
+      "Auxerre",
+      "Monaco",
+      "Parma",
+      "Inter Milan",
+      "Genoa",
+      "Marseille",
+      "Al-Rayyan",
+      "Umm-Salal",
+      "Al-Kharitiyath"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Sabri_Lamouchi",
+      "https://www.national-football-teams.com/player/10687/Sabri_Lamouchi.html"
+    ],
+    "clubs": [
+      "أولمبيك أليس",
+      "أوكسير",
+      "موناكو",
+      "بارما",
+      "إنتر ميلان",
+      "جنوى",
+      "مارسيليا",
+      "الريان",
+      "أم صلال",
+      "الخريطيات"
+    ]
+  },
+  {
+    "name": "فينسنت كانديلا",
+    "page": "Vincent Candela",
+    "points": 600,
+    "clubsEnglish": [
+      "Toulouse",
+      "Guingamp",
+      "Roma",
+      "Bolton Wanderers",
+      "Udinese",
+      "Siena",
+      "Messina"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Vincent_Candela"
+    ],
+    "clubs": [
+      "تولوز",
+      "غانغان",
+      "روما",
+      "بولتون واندررز",
+      "أودينيزي",
+      "سيينا",
+      "ميسينا"
+    ]
+  },
+  {
+    "name": "عثمان دابو",
+    "page": "Ousmane Dabo",
+    "points": 600,
+    "clubsEnglish": [
+      "Rennes",
+      "Inter Milan",
+      "Vicenza",
+      "Parma",
+      "Monaco",
+      "Vicenza",
+      "Atalanta",
+      "Lazio",
+      "Manchester City",
+      "Lazio",
+      "New England Revolution"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Ousmane_Dabo"
+    ],
+    "clubs": [
+      "رين",
+      "إنتر ميلان",
+      "فيتشنزا",
+      "بارما",
+      "موناكو",
+      "فيتشنزا",
+      "أتالانتا",
+      "لاتسيو",
+      "مانشستر سيتي",
+      "لاتسيو",
+      "نيو إنغلاند ريفولوشن"
+    ]
+  },
+  {
+    "name": "باتريك مولر",
+    "page": "Patrick Müller (footballer)",
+    "points": 600,
+    "clubsEnglish": [
+      "Servette",
+      "Grasshoppers",
+      "Lyon",
+      "Mallorca",
+      "Basel",
+      "Lyon",
+      "Monaco"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Patrick_M%C3%BCller_(footballer)"
+    ],
+    "clubs": [
+      "سيرفيت",
+      "غراسهوبرز",
+      "ليون",
+      "مايوركا",
+      "بازل",
+      "ليون",
+      "موناكو"
+    ]
+  },
+  {
+    "name": "هاكان ياكين",
+    "page": "Hakan Yakin",
+    "points": 600,
+    "clubsEnglish": [
+      "Concordia Basel",
+      "Basel",
+      "Grasshoppers",
+      "St. Gallen",
+      "Grasshoppers",
+      "Basel",
+      "VfB Stuttgart",
+      "Galatasaray",
+      "Young Boys",
+      "Al-Gharafa",
+      "Luzern",
+      "Bellinzona"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Hakan_Yakin",
+      "https://www.national-football-teams.com/player/6441/Hakan_Yakin.html"
+    ],
+    "clubs": [
+      "كونكورديا بازل",
+      "بازل",
+      "غراسهوبرز",
+      "سانت غالن",
+      "غراسهوبرز",
+      "بازل",
+      "شتوتغارت",
+      "غلطة سراي",
+      "يونغ بويز",
+      "الغرافة",
+      "لوتسيرن",
+      "بيلينزونا"
+    ]
+  },
+  {
+    "name": "مراد ياكين",
+    "page": "Murat Yakin",
+    "points": 600,
+    "clubsEnglish": [
+      "Grasshoppers",
+      "VfB Stuttgart",
+      "Fenerbahçe",
+      "Basel",
+      "Kaiserslautern",
+      "Basel"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Murat_Yakin"
+    ],
+    "clubs": [
+      "غراسهوبرز",
+      "شتوتغارت",
+      "فنربخشة",
+      "بازل",
+      "كايزرسلاوترن",
+      "بازل"
+    ]
+  },
+  {
+    "name": "ستيفان شابويزا",
+    "page": "Stéphane Chapuisat",
+    "points": 600,
+    "clubsEnglish": [
+      "Malley",
+      "Lausanne",
+      "Bayer Uerdingen",
+      "Borussia Dortmund",
+      "Grasshoppers",
+      "Young Boys",
+      "Lausanne"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/St%C3%A9phane_Chapuisat"
+    ],
+    "clubs": [
+      "مالي",
+      "لوزان",
+      "باير أوردينغن",
+      "بوروسيا دورتموند",
+      "غراسهوبرز",
+      "يونغ بويز",
+      "لوزان"
+    ]
+  },
+  {
+    "name": "ألكسندر فراي",
+    "page": "Alexander Frei",
+    "points": 600,
+    "clubsEnglish": [
+      "Basel",
+      "Thun",
+      "FC Luzern",
+      "Servette",
+      "Rennes",
+      "Borussia Dortmund",
+      "Basel"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Alexander_Frei"
+    ],
+    "clubs": [
+      "بازل",
+      "ثون",
+      "لوتسيرن",
+      "سيرفيت",
+      "رين",
+      "بوروسيا دورتموند",
+      "بازل"
+    ]
+  },
+  {
+    "name": "ماركو شتريلر",
+    "page": "Marco Streller",
+    "points": 600,
+    "clubsEnglish": [
+      "Arlesheim",
+      "Basel",
+      "Concordia Basel",
+      "Basel",
+      "Thun",
+      "Basel",
+      "VfB Stuttgart",
+      "1. FC Köln",
+      "VfB Stuttgart",
+      "Basel"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Marco_Streller",
+      "https://www.fcb.ch/fileadmin/Static_Pages/Rotblau_Magazin/2015/rotblau_15_2015.pdf",
+      "https://www.national-football-teams.com/player/6417/Marco_Streller.html"
+    ],
+    "clubs": [
+      "آرلسهايم",
+      "بازل",
+      "كونكورديا بازل",
+      "بازل",
+      "ثون",
+      "بازل",
+      "شتوتغارت",
+      "كولن",
+      "شتوتغارت",
+      "بازل"
+    ]
+  },
+  {
+    "name": "ترانكيلو بارنيتا",
+    "page": "Tranquillo Barnetta",
+    "points": 600,
+    "clubsEnglish": [
+      "St. Gallen",
+      "Hannover 96",
+      "Bayer Leverkusen",
+      "Schalke 04",
+      "Eintracht Frankfurt",
+      "Schalke 04",
+      "Philadelphia Union",
+      "St. Gallen"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Tranquillo_Barnetta"
+    ],
+    "clubs": [
+      "سانت غالن",
+      "هانوفر 96",
+      "باير ليفركوزن",
+      "شالكه 04",
+      "آينتراخت فرانكفورت",
+      "شالكه 04",
+      "فيلادلفيا يونيون",
+      "سانت غالن"
+    ]
+  },
+  {
+    "name": "غوكهان إنلر",
+    "page": "Gökhan Inler",
+    "points": 600,
+    "clubsEnglish": [
+      "Aarau",
+      "Zürich",
+      "Udinese",
+      "Napoli",
+      "Leicester City",
+      "Beşiktaş",
+      "İstanbul Başakşehir",
+      "Adana Demirspor"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/G%C3%B6khan_Inler"
+    ],
+    "clubs": [
+      "آراو",
+      "زيورخ",
+      "أودينيزي",
+      "نابولي",
+      "ليستر سيتي",
+      "بشكتاش",
+      "إسطنبول باشاك شهير",
+      "أضنة دمير سبور"
+    ]
+  },
+  {
+    "name": "فالون بهرامي",
+    "page": "Valon Behrami",
+    "points": 600,
+    "clubsEnglish": [
+      "Lugano",
+      "Genoa",
+      "Hellas Verona",
+      "Lazio",
+      "West Ham United",
+      "Fiorentina",
+      "Napoli",
+      "Hamburger SV",
+      "Watford",
+      "Udinese",
+      "Sion",
+      "Genoa",
+      "Brescia"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Valon_Behrami"
+    ],
+    "clubs": [
+      "لوغانو",
+      "جنوى",
+      "هيلاس فيرونا",
+      "لاتسيو",
+      "وست هام يونايتد",
+      "فيورنتينا",
+      "نابولي",
+      "هامبورغ",
+      "واتفورد",
+      "أودينيزي",
+      "سيون",
+      "جنوى",
+      "بريشيا"
+    ]
+  },
+  {
+    "name": "بليريم دزيمايلي",
+    "page": "Blerim Džemaili",
+    "points": 600,
+    "clubsEnglish": [
+      "Zürich",
+      "Bolton Wanderers",
+      "Torino",
+      "Parma",
+      "Napoli",
+      "Galatasaray",
+      "Genoa",
+      "Bologna",
+      "Montreal Impact",
+      "Bologna",
+      "Zürich"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Blerim_D%C5%BEemaili"
+    ],
+    "clubs": [
+      "زيورخ",
+      "بولتون واندررز",
+      "تورينو",
+      "بارما",
+      "نابولي",
+      "غلطة سراي",
+      "جنوى",
+      "بولونيا",
+      "مونتريال إمباكت",
+      "بولونيا",
+      "زيورخ"
+    ]
+  },
+  {
+    "name": "فيليب سينديروس",
+    "page": "Philippe Senderos",
+    "points": 600,
+    "clubsEnglish": [
+      "Servette",
+      "Arsenal",
+      "AC Milan",
+      "Arsenal",
+      "Everton",
+      "Fulham",
+      "Valencia",
+      "Aston Villa",
+      "Grasshoppers",
+      "Rangers",
+      "Houston Dynamo",
+      "Chiasso"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Philippe_Senderos"
+    ],
+    "clubs": [
+      "سيرفيت",
+      "أرسنال",
+      "ميلان",
+      "أرسنال",
+      "إيفرتون",
+      "فولهام",
+      "فالنسيا",
+      "أستون فيلا",
+      "غراسهوبرز",
+      "رينجرز",
+      "هيوستن دينامو",
+      "كياسو"
+    ]
+  },
+  {
+    "name": "يوهان دجورو",
+    "page": "Johan Djourou",
+    "points": 600,
+    "clubsEnglish": [
+      "Arsenal",
+      "Birmingham City",
+      "Arsenal",
+      "Hannover 96",
+      "Hamburger SV",
+      "Antalyaspor",
+      "SPAL",
+      "Sion",
+      "Neuchâtel Xamax",
+      "Nordsjælland"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Johan_Djourou"
+    ],
+    "clubs": [
+      "أرسنال",
+      "برمنغهام سيتي",
+      "أرسنال",
+      "هانوفر 96",
+      "هامبورغ",
+      "أنطاليا سبور",
+      "سبال",
+      "سيون",
+      "نوشاتيل زاماكس",
+      "نوردشيلاند"
+    ]
+  },
+  {
+    "name": "ريتو تسيغلر",
+    "page": "Reto Ziegler",
+    "points": 600,
+    "clubsEnglish": [
+      "Grasshoppers",
+      "Tottenham Hotspur",
+      "Hamburger SV",
+      "Wigan Athletic",
+      "Tottenham Hotspur",
+      "Sampdoria",
+      "Fenerbahçe",
+      "Lokomotiv Moscow",
+      "Fenerbahçe",
+      "Sassuolo",
+      "Sion",
+      "Luzern",
+      "FC Dallas",
+      "Lugano",
+      "Sion"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Reto_Ziegler"
+    ],
+    "clubs": [
+      "غراسهوبرز",
+      "توتنهام هوتسبير",
+      "هامبورغ",
+      "ويغان أتلتيك",
+      "توتنهام هوتسبير",
+      "سامبدوريا",
+      "فنربخشة",
+      "لوكوموتيف موسكو",
+      "فنربخشة",
+      "ساسولو",
+      "سيون",
+      "لوتسيرن",
+      "إف سي دالاس",
+      "لوغانو",
+      "سيون"
+    ]
+  },
+  {
+    "name": "ستيفن أبياه",
+    "page": "Stephen Appiah",
+    "points": 600,
+    "clubsEnglish": [
+      "Hearts of Oak",
+      "Udinese",
+      "Parma",
+      "Brescia",
+      "Juventus",
+      "Fenerbahçe",
+      "Bologna",
+      "Cesena",
+      "Vojvodina"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Stephen_Appiah"
+    ],
+    "clubs": [
+      "هارتس أوف أوك",
+      "أودينيزي",
+      "بارما",
+      "بريشيا",
+      "يوفنتوس",
+      "فنربخشة",
+      "بولونيا",
+      "تشيزينا",
+      "فويفودينا"
+    ]
+  },
+  {
+    "name": "سولي مونتاري",
+    "page": "Sulley Muntari",
+    "points": 600,
+    "clubsEnglish": [
+      "Udinese",
+      "Portsmouth",
+      "Inter Milan",
+      "Sunderland",
+      "Inter Milan",
+      "AC Milan",
+      "Al Ittihad",
+      "Pescara",
+      "Deportivo La Coruña",
+      "Albacete",
+      "Hearts of Oak"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Sulley_Muntari"
+    ],
+    "clubs": [
+      "أودينيزي",
+      "بورتسموث",
+      "إنتر ميلان",
+      "سندرلاند",
+      "إنتر ميلان",
+      "ميلان",
+      "الاتحاد السعودي",
+      "بيسكارا",
+      "ديبورتيفو لاكورونيا",
+      "ألباسيتي",
+      "هارتس أوف أوك"
+    ]
+  },
+  {
+    "name": "مايكل إيسيان",
+    "page": "Michael Essien",
+    "points": 600,
+    "clubsEnglish": [
+      "Bastia",
+      "Lyon",
+      "Chelsea",
+      "Real Madrid",
+      "Chelsea",
+      "AC Milan",
+      "Panathinaikos",
+      "Persib Bandung",
+      "Sabail"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Michael_Essien"
+    ],
+    "clubs": [
+      "باستيا",
+      "ليون",
+      "تشيلسي",
+      "ريال مدريد",
+      "تشيلسي",
+      "ميلان",
+      "باناثينايكوس",
+      "برسيب باندونغ",
+      "سبايل"
+    ]
+  },
+  {
+    "name": "جون أوبي ميكيل",
+    "page": "John Obi Mikel",
+    "points": 600,
+    "clubsEnglish": [
+      "Lyn",
+      "Chelsea",
+      "Tianjin TEDA",
+      "Middlesbrough",
+      "Trabzonspor",
+      "Stoke City",
+      "Kuwait SC"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/John_Obi_Mikel"
+    ],
+    "clubs": [
+      "لين أوسلو",
+      "تشيلسي",
+      "تيانجين تيدا",
+      "ميدلزبره",
+      "طرابزون سبور",
+      "ستوك سيتي",
+      "الكويت"
+    ]
+  },
+  {
+    "name": "ديدييه ديشان",
+    "page": "Didier Deschamps",
+    "points": 600,
+    "clubsEnglish": [
+      "Nantes",
+      "Marseille",
+      "Bordeaux",
+      "Marseille",
+      "Juventus",
+      "Chelsea",
+      "Valencia"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Didier_Deschamps"
+    ],
+    "clubs": [
+      "نانت",
+      "مارسيليا",
+      "بوردو",
+      "مارسيليا",
+      "يوفنتوس",
+      "تشيلسي",
+      "فالنسيا"
+    ]
+  },
+  {
+    "name": "ياكوبو أيغبيني",
+    "page": "Yakubu (footballer)",
+    "points": 600,
+    "clubsEnglish": [
+      "Julius Berger",
+      "Hapoel Kfar Saba",
+      "Maccabi Haifa",
+      "Portsmouth",
+      "Middlesbrough",
+      "Everton",
+      "Leicester City",
+      "Blackburn Rovers",
+      "Guangzhou R&F",
+      "Al-Rayyan",
+      "Reading",
+      "Kayserispor",
+      "Coventry City"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Yakubu_(footballer)"
+    ],
+    "clubs": [
+      "جوليوس بيرغر",
+      "هبوعيل كفار سابا",
+      "مكابي حيفا",
+      "بورتسموث",
+      "ميدلزبره",
+      "إيفرتون",
+      "ليستر سيتي",
+      "بلاكبيرن روفرز",
+      "غوانغجو آر أند إف",
+      "الريان",
+      "ريدينغ",
+      "قيصري سبور",
+      "كوفنتري سيتي"
+    ]
+  },
+  {
+    "name": "أوبافيمي مارتينز",
+    "page": "Obafemi Martins",
+    "points": 600,
+    "clubsEnglish": [
+      "Reggiana",
+      "Inter Milan",
+      "Newcastle United",
+      "VfL Wolfsburg",
+      "Rubin Kazan",
+      "Birmingham City",
+      "Rubin Kazan",
+      "Levante",
+      "Seattle Sounders FC",
+      "Shanghai Shenhua",
+      "Wuhan"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Obafemi_Martins"
+    ],
+    "clubs": [
+      "ريجيانا",
+      "إنتر ميلان",
+      "نيوكاسل يونايتد",
+      "فولفسبورغ",
+      "روبين قازان",
+      "برمنغهام سيتي",
+      "روبين قازان",
+      "ليفانتي",
+      "سياتل ساوندرز",
+      "شنغهاي شينهوا",
+      "ووهان"
+    ]
+  },
+  {
+    "name": "جوليوس أغاهوا",
+    "page": "Julius Aghahowa",
+    "points": 600,
+    "clubsEnglish": [
+      "Bendel Insurance",
+      "Espérance",
+      "Shakhtar Donetsk",
+      "Wigan Athletic",
+      "Kayserispor",
+      "Shakhtar Donetsk",
+      "Sevastopol"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Julius_Aghahowa"
+    ],
+    "clubs": [
+      "بندل إنشورانس",
+      "الترجي الرياضي التونسي",
+      "شاختار دونيتسك",
+      "ويغان أتلتيك",
+      "قيصري سبور",
+      "شاختار دونيتسك",
+      "سيفاستوبول"
+    ]
+  },
+  {
+    "name": "نوانكو كانو",
+    "page": "Nwankwo Kanu",
+    "points": 600,
+    "clubsEnglish": [
+      "Iwuanyanwu Nationale",
+      "Ajax",
+      "Inter Milan",
+      "Arsenal",
+      "West Bromwich Albion",
+      "Portsmouth"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Nwankwo_Kanu"
+    ],
+    "clubs": [
+      "إيوانيانو ناشيونال",
+      "أياكس",
+      "إنتر ميلان",
+      "أرسنال",
+      "وست بروميتش ألبيون",
+      "بورتسموث"
+    ]
+  },
+  {
+    "name": "جاي جاي أوكوتشا",
+    "page": "Jay-Jay Okocha",
+    "points": 600,
+    "clubsEnglish": [
+      "Borussia Neunkirchen",
+      "Eintracht Frankfurt",
+      "Fenerbahçe",
+      "Paris Saint-Germain",
+      "Bolton Wanderers",
+      "Qatar SC",
+      "Hull City"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Jay-Jay_Okocha"
+    ],
+    "clubs": [
+      "بوروسيا نوينكيرشن",
+      "آينتراخت فرانكفورت",
+      "فنربخشة",
+      "باريس سان جيرمان",
+      "بولتون واندررز",
+      "قطر",
+      "هال سيتي"
+    ]
+  },
+  {
+    "name": "فينيدي جورج",
+    "page": "Finidi George",
+    "points": 600,
+    "clubsEnglish": [
+      "Calabar Rovers",
+      "Iwuanyanwu Nationale",
+      "Sharks",
+      "Ajax",
+      "Real Betis",
+      "Mallorca",
+      "Ipswich Town",
+      "Mallorca"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Finidi_George"
+    ],
+    "clubs": [
+      "كالابار روفرز",
+      "إيوانيانو ناشيونال",
+      "شاركس النيجيري",
+      "أياكس",
+      "ريال بيتيس",
+      "مايوركا",
+      "إيبسويتش تاون",
+      "مايوركا"
+    ]
+  },
+  {
+    "name": "سيليستين بابايارو",
+    "page": "Celestine Babayaro",
+    "points": 600,
+    "clubsEnglish": [
+      "Anderlecht",
+      "Chelsea",
+      "Newcastle United"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Celestine_Babayaro"
+    ],
+    "clubs": [
+      "أندرلخت",
+      "تشيلسي",
+      "نيوكاسل يونايتد"
+    ]
+  },
+  {
+    "name": "جوزيف يوبو",
+    "page": "Joseph Yobo",
+    "points": 600,
+    "clubsEnglish": [
+      "Standard Liège",
+      "Marseille",
+      "Everton",
+      "Fenerbahçe",
+      "Norwich City"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Joseph_Yobo"
+    ],
+    "clubs": [
+      "ستاندار لييج",
+      "مارسيليا",
+      "إيفرتون",
+      "فنربخشة",
+      "نوريتش سيتي"
+    ]
+  },
+  {
+    "name": "تايي تايوو",
+    "page": "Taye Taiwo",
+    "points": 600,
+    "clubsEnglish": [
+      "Gabros International",
+      "Lobi Stars",
+      "Marseille",
+      "AC Milan",
+      "Queens Park Rangers",
+      "Dynamo Kyiv",
+      "Bursaspor",
+      "HJK Helsinki",
+      "Lausanne",
+      "AFC Eskilstuna",
+      "RoPS",
+      "Palm Beach Stars",
+      "Sant'Angelo",
+      "SalPa"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Taye_Taiwo",
+      "https://www.national-football-teams.com/player/8595/Taye_Taiwo.html"
+    ],
+    "clubs": [
+      "غابروس إنترناشيونال",
+      "لوبي ستارز",
+      "مارسيليا",
+      "ميلان",
+      "كوينز بارك رينجرز",
+      "دينامو كييف",
+      "بورصة سبور",
+      "هلسنكي",
+      "لوزان",
+      "إسكلستونا",
+      "روبس روفانييمي",
+      "بالم بيتش ستارز",
+      "سانت أنجيلو",
+      "سالبا سالو"
+    ]
+  },
+  {
+    "name": "بينوا أسو إكوتو",
+    "page": "Benoît Assou-Ekotto",
+    "points": 600,
+    "clubsEnglish": [
+      "Lens",
+      "Tottenham Hotspur",
+      "Queens Park Rangers",
+      "Saint-Étienne",
+      "Metz"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Beno%C3%AEt_Assou-Ekotto"
+    ],
+    "clubs": [
+      "لانس",
+      "توتنهام هوتسبير",
+      "كوينز بارك رينجرز",
+      "سانت إتيان",
+      "ميتز"
+    ]
+  },
+  {
+    "name": "جيريمي نجيتاب",
+    "page": "Geremi",
+    "points": 600,
+    "clubsEnglish": [
+      "Racing Bafoussam",
+      "Cerro Porteño",
+      "Gençlerbirliği",
+      "Real Madrid",
+      "Middlesbrough",
+      "Chelsea",
+      "Newcastle United",
+      "Ankaragücü",
+      "AEL"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Geremi"
+    ],
+    "clubs": [
+      "راسينغ بافوسام",
+      "سيرو بورتينيو",
+      "غينتشلاربيرليغي",
+      "ريال مدريد",
+      "ميدلزبره",
+      "تشيلسي",
+      "نيوكاسل يونايتد",
+      "أنقرة غوجو",
+      "لاريسا"
+    ]
+  },
+  {
+    "name": "إيمانويل بيتي",
+    "page": "Emmanuel Petit",
+    "points": 600,
+    "clubsEnglish": [
+      "Monaco",
+      "Arsenal",
+      "Barcelona",
+      "Chelsea"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Emmanuel_Petit"
+    ],
+    "clubs": [
+      "موناكو",
+      "أرسنال",
+      "برشلونة",
+      "تشيلسي"
+    ]
+  },
+  {
+    "name": "لورين إيتامي",
+    "page": "Lauren (Cameroonian footballer)",
+    "points": 600,
+    "clubsEnglish": [
+      "Utrera",
+      "Levante",
+      "Mallorca",
+      "Arsenal",
+      "Portsmouth",
+      "Córdoba"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Lauren_(Cameroonian_footballer)"
+    ],
+    "clubs": [
+      "أوتريرا",
+      "ليفانتي",
+      "مايوركا",
+      "أرسنال",
+      "بورتسموث",
+      "قرطبة"
+    ]
+  },
+  {
+    "name": "فريدريك كانوتيه",
+    "page": "Frédéric Kanouté",
+    "points": 600,
+    "clubsEnglish": [
+      "Lyon",
+      "West Ham United",
+      "Tottenham Hotspur",
+      "Sevilla",
+      "Beijing Guoan"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Fr%C3%A9d%C3%A9ric_Kanout%C3%A9"
+    ],
+    "clubs": [
+      "ليون",
+      "وست هام يونايتد",
+      "توتنهام هوتسبير",
+      "إشبيلية",
+      "بكين غوان"
+    ]
+  },
+  {
+    "name": "فريدي بوبيتش",
+    "page": "Fredi Bobic",
+    "points": 600,
+    "clubsEnglish": [
+      "TSF Ditzingen",
+      "Stuttgarter Kickers",
+      "VfB Stuttgart",
+      "Borussia Dortmund",
+      "Bolton Wanderers",
+      "Hannover 96",
+      "Hertha BSC",
+      "Rijeka"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Fredi_Bobic"
+    ],
+    "clubs": [
+      "ديتسينغن",
+      "شتوتغارتر كيكرز",
+      "شتوتغارت",
+      "بوروسيا دورتموند",
+      "بولتون واندررز",
+      "هانوفر 96",
+      "هيرتا برلين",
+      "رييكا"
+    ]
+  },
+  {
+    "name": "توني يبواه",
+    "page": "Tony Yeboah",
+    "points": 600,
+    "clubsEnglish": [
+      "Asante Kotoko",
+      "Cornerstone",
+      "Okwawu United",
+      "1. FC Saarbrücken",
+      "Eintracht Frankfurt",
+      "Leeds United",
+      "Hamburger SV",
+      "Al-Ittihad Doha"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Tony_Yeboah"
+    ],
+    "clubs": [
+      "أشانتي كوتوكو",
+      "كورنرستون",
+      "أوكواهو يونايتد",
+      "ساربروكن",
+      "آينتراخت فرانكفورت",
+      "ليدز يونايتد",
+      "هامبورغ",
+      "الاتحاد القطري (الغرافة)"
+    ]
+  },
+  {
+    "name": "أنتوني أنان",
+    "page": "Anthony Annan",
+    "points": 600,
+    "clubsEnglish": [
+      "Sekondi Hasaacas",
+      "Hearts of Oak",
+      "Start",
+      "Stabæk",
+      "Rosenborg",
+      "Schalke 04",
+      "Vitesse",
+      "Osasuna",
+      "Schalke 04",
+      "HJK",
+      "1860 Munich",
+      "Stabæk",
+      "HJK",
+      "Beitar Jerusalem",
+      "Inter Turku",
+      "TPS",
+      "DJK Arminia Lirich"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Anthony_Annan",
+      "https://www.fupa.net/player/anthony-annan-45506",
+      "https://www.arminia-lirich.de/wp-content/uploads/2015/08/Chronik_1920-2024b.pdf",
+      "https://schalke04.de/verein/tradition/alle-spiele-alle-tore/europapokal/champions-league-20132014/"
+    ],
+    "clubs": [
+      "سيكوندي هاساكاس",
+      "هارتس أوف أوك",
+      "ستارت",
+      "ستابيك",
+      "روزنبورغ",
+      "شالكه 04",
+      "فيتيسه",
+      "أوساسونا",
+      "شالكه 04",
+      "هلسنكي",
+      "ميونيخ 1860",
+      "ستابيك",
+      "هلسنكي",
+      "بيتار القدس",
+      "إنتر توركو",
+      "تي بي إس توركو",
+      "أرمينيا ليريش"
+    ]
+  },
+  {
+    "name": "ديريك بواتينغ",
+    "page": "Derek Boateng",
+    "points": 600,
+    "clubsEnglish": [
+      "Kalamata",
+      "Panathinaikos",
+      "OFI",
+      "AIK",
+      "Beitar Jerusalem",
+      "1. FC Köln",
+      "Getafe",
+      "Dnipro Dnipropetrovsk",
+      "Fulham",
+      "Eibar",
+      "Rayo OKC",
+      "OFI"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Derek_Boateng"
+    ],
+    "clubs": [
+      "كالاماتا",
+      "باناثينايكوس",
+      "أوفي كريت",
+      "أيك سولنا",
+      "بيتار القدس",
+      "كولن",
+      "خيتافي",
+      "دنيبرو",
+      "فولهام",
+      "إيبار",
+      "رايو أوكلاهوما سيتي",
+      "أوفي كريت"
+    ]
+  },
+  {
+    "name": "أسامواه جيان",
+    "page": "Asamoah Gyan",
+    "points": 600,
+    "clubsEnglish": [
+      "Liberty Professionals",
+      "Udinese",
+      "Modena",
+      "Udinese",
+      "Rennes",
+      "Sunderland",
+      "Al Ain",
+      "Shanghai SIPG",
+      "Shabab Al Ahli",
+      "Kayserispor",
+      "NorthEast United",
+      "Legon Cities"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Asamoah_Gyan"
+    ],
+    "clubs": [
+      "ليبرتي بروفيشنالز",
+      "أودينيزي",
+      "مودينا",
+      "أودينيزي",
+      "رين",
+      "سندرلاند",
+      "العين",
+      "شنغهاي بورت",
+      "شباب الأهلي",
+      "قيصري سبور",
+      "نورث إيست يونايتد",
+      "ليغون سيتيز"
+    ]
+  },
+  {
+    "name": "الحاج ضيوف",
+    "page": "El Hadji Diouf",
+    "points": 600,
+    "clubsEnglish": [
+      "Sochaux",
+      "Rennes",
+      "Lens",
+      "Liverpool",
+      "Bolton Wanderers",
+      "Sunderland",
+      "Blackburn Rovers",
+      "Rangers",
+      "Doncaster Rovers",
+      "Leeds United",
+      "Sabah"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/El_Hadji_Diouf"
+    ],
+    "clubs": [
+      "سوشو",
+      "رين",
+      "لانس",
+      "ليفربول",
+      "بولتون واندررز",
+      "سندرلاند",
+      "بلاكبيرن روفرز",
+      "رينجرز",
+      "دونكاستر روفرز",
+      "ليدز يونايتد",
+      "صباح الماليزي"
+    ]
+  },
+  {
+    "name": "بابا بوبا ديوب",
+    "page": "Papa Bouba Diop",
+    "points": 600,
+    "clubsEnglish": [
+      "ASC Diaraf",
+      "Vevey",
+      "Neuchâtel Xamax",
+      "Grasshoppers",
+      "Lens",
+      "Fulham",
+      "Portsmouth",
+      "AEK Athens",
+      "West Ham United",
+      "Birmingham City"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Papa_Bouba_Diop"
+    ],
+    "clubs": [
+      "دياراف",
+      "فيفي",
+      "نوشاتيل زاماكس",
+      "غراسهوبرز",
+      "لانس",
+      "فولهام",
+      "بورتسموث",
+      "أيك أثينا",
+      "وست هام يونايتد",
+      "برمنغهام سيتي"
+    ]
+  },
+  {
+    "name": "خليلو فاديغا",
+    "page": "Khalilou Fadiga",
+    "points": 600,
+    "clubsEnglish": [
+      "RFC Liège",
+      "Lommel",
+      "Club Brugge",
+      "Auxerre",
+      "Bolton Wanderers",
+      "Derby County",
+      "Bolton Wanderers",
+      "Coventry City",
+      "Gent",
+      "Germinal Beerschot"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Khalilou_Fadiga"
+    ],
+    "clubs": [
+      "آر إف سي لييج",
+      "لوميل",
+      "كلوب بروج",
+      "أوكسير",
+      "بولتون واندررز",
+      "ديربي كاونتي",
+      "بولتون واندررز",
+      "كوفنتري سيتي",
+      "غينت",
+      "جيرمينال بيرشوت"
+    ]
+  },
+  {
+    "name": "هنري كامارا",
+    "page": "Henri Camara",
+    "points": 600,
+    "clubsEnglish": [
+      "ASC Jaraaf",
+      "Neuchâtel Xamax",
+      "Grasshoppers",
+      "Sedan",
+      "Wolverhampton Wanderers",
+      "Celtic",
+      "Southampton",
+      "Wigan Athletic",
+      "West Ham United",
+      "Wigan Athletic",
+      "Stoke City",
+      "Sheffield United",
+      "Atromitos",
+      "Panetolikos",
+      "AEL Kalloni",
+      "Lamia",
+      "Panetolikos",
+      "Apollon Smyrnis",
+      "Ionikos",
+      "Fostiras"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Henri_Camara"
+    ],
+    "clubs": [
+      "دياراف",
+      "نوشاتيل زاماكس",
+      "غراسهوبرز",
+      "سيدان",
+      "وولفرهامبتون واندررز",
+      "سيلتيك",
+      "ساوثهامبتون",
+      "ويغان أتلتيك",
+      "وست هام يونايتد",
+      "ويغان أتلتيك",
+      "ستوك سيتي",
+      "شيفيلد يونايتد",
+      "أتروميتوس",
+      "بانيتوليكوس",
+      "كالوني",
+      "لاميا",
+      "بانيتوليكوس",
+      "أبولون سميرني",
+      "إيونيكوس",
+      "فوستيراس"
+    ]
+  },
+  {
+    "name": "ديومانسي كامارا",
+    "page": "Diomansy Kamara",
+    "points": 600,
+    "clubsEnglish": [
+      "Red Star",
+      "Catanzaro",
+      "Modena",
+      "Portsmouth",
+      "West Bromwich Albion",
+      "Fulham",
+      "Celtic",
+      "Fulham",
+      "Leicester City",
+      "Eskişehirspor",
+      "Catanzaro",
+      "NorthEast United"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Diomansy_Kamara"
+    ],
+    "clubs": [
+      "ريد ستار الفرنسي",
+      "كاتانزارو",
+      "مودينا",
+      "بورتسموث",
+      "وست بروميتش ألبيون",
+      "فولهام",
+      "سيلتيك",
+      "فولهام",
+      "ليستر سيتي",
+      "إسكي شهير سبور",
+      "كاتانزارو",
+      "نورث إيست يونايتد"
+    ]
+  },
+  {
+    "name": "سليمان كامارا",
+    "page": "Souleymane Camara",
+    "points": 600,
+    "clubsEnglish": [
+      "Monaco",
+      "Guingamp",
+      "Monaco",
+      "Nice",
+      "Montpellier"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Souleymane_Camara"
+    ],
+    "clubs": [
+      "موناكو",
+      "غانغان",
+      "موناكو",
+      "نيس",
+      "مونبلييه"
+    ]
+  },
+  {
+    "name": "مامادو نيانغ",
+    "page": "Mamadou Niang",
+    "points": 600,
+    "clubsEnglish": [
+      "Troyes",
+      "Metz",
+      "Strasbourg",
+      "Marseille",
+      "Fenerbahçe",
+      "Al Sadd",
+      "Beşiktaş",
+      "Al Sadd",
+      "Arles-Avignon"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Mamadou_Niang",
+      "https://www.ogol.com.br/jogador/mamadou-niang/3827"
+    ],
+    "clubs": [
+      "تروا",
+      "ميتز",
+      "ستراسبورغ",
+      "مارسيليا",
+      "فنربخشة",
+      "السد",
+      "بشكتاش",
+      "السد",
+      "آرل أفينيون"
+    ]
+  },
+  {
+    "name": "دامي ندوي",
+    "page": "Dame N'Doye",
+    "points": 600,
+    "clubsEnglish": [
+      "Jeanne d'Arc",
+      "Al-Sadd",
+      "Académica",
+      "Panathinaikos",
+      "OFI",
+      "Copenhagen",
+      "Lokomotiv Moscow",
+      "Hull City",
+      "Trabzonspor",
+      "Sunderland",
+      "Trabzonspor",
+      "Copenhagen"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Dame_N'Doye",
+      "https://www.oncloudseven.com/1001-dame-ndoye/"
+    ],
+    "clubs": [
+      "جان دارك",
+      "السد",
+      "أكاديميكا كويمبرا",
+      "باناثينايكوس",
+      "أوفي كريت",
+      "كوبنهاغن",
+      "لوكوموتيف موسكو",
+      "هال سيتي",
+      "طرابزون سبور",
+      "سندرلاند",
+      "طرابزون سبور",
+      "كوبنهاغن"
+    ]
+  },
+  {
+    "name": "موسى سو",
+    "page": "Moussa Sow",
+    "points": 600,
+    "clubsEnglish": [
+      "Rennes",
+      "Sedan",
+      "Rennes",
+      "Lille",
+      "Fenerbahçe",
+      "Shabab Al Ahli",
+      "Fenerbahçe",
+      "Shabab Al Ahli",
+      "Bursaspor",
+      "Gazişehir Gaziantep",
+      "Ümraniyespor"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Moussa_Sow"
+    ],
+    "clubs": [
+      "رين",
+      "سيدان",
+      "رين",
+      "ليل",
+      "فنربخشة",
+      "شباب الأهلي",
+      "فنربخشة",
+      "شباب الأهلي",
+      "بورصة سبور",
+      "غازي عنتاب",
+      "عمرانية سبور"
+    ]
+  },
+  {
+    "name": "إيمانويل أديبايور",
+    "page": "Emmanuel Adebayor",
+    "points": 600,
+    "clubsEnglish": [
+      "Metz",
+      "Monaco",
+      "Arsenal",
+      "Manchester City",
+      "Real Madrid",
+      "Tottenham Hotspur",
+      "Crystal Palace",
+      "İstanbul Başakşehir",
+      "Kayserispor",
+      "Olimpia"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Emmanuel_Adebayor",
+      "https://africacheck.org/fr/fact-checks/meta-programme-fact-checks/Sport-football-Togo-Emmanuel-Adebayor-retraite"
+    ],
+    "clubs": [
+      "ميتز",
+      "موناكو",
+      "أرسنال",
+      "مانشستر سيتي",
+      "ريال مدريد",
+      "توتنهام هوتسبير",
+      "كريستال بالاس",
+      "إسطنبول باشاك شهير",
+      "قيصري سبور",
+      "أوليمبيا أسونسيون"
+    ]
+  },
+  {
+    "name": "محمد زيدان",
+    "page": "Mohamed Zidan",
+    "points": 600,
+    "clubsEnglish": [
+      "AB",
+      "Midtjylland",
+      "Werder Bremen",
+      "Mainz 05",
+      "Werder Bremen",
+      "Mainz 05",
+      "Hamburger SV",
+      "Borussia Dortmund",
+      "Mainz 05",
+      "Baniyas",
+      "El Entag El Harby"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Mohamed_Zidan"
+    ],
+    "clubs": [
+      "أكاديميسك بولدكلوب",
+      "ميتييلاند",
+      "فيردر بريمن",
+      "ماينتس 05",
+      "فيردر بريمن",
+      "ماينتس 05",
+      "هامبورغ",
+      "بوروسيا دورتموند",
+      "ماينتس 05",
+      "بني ياس",
+      "الإنتاج الحربي"
+    ]
+  },
+  {
+    "name": "ميدو",
+    "page": "Mido (footballer)",
+    "points": 600,
+    "clubsEnglish": [
+      "Zamalek",
+      "Gent",
+      "Ajax",
+      "Celta Vigo",
+      "Marseille",
+      "Roma",
+      "Tottenham Hotspur",
+      "Middlesbrough",
+      "Wigan Athletic",
+      "Zamalek",
+      "West Ham United",
+      "Ajax",
+      "Zamalek",
+      "Barnsley"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Mido_(footballer)"
+    ],
+    "clubs": [
+      "الزمالك",
+      "غينت",
+      "أياكس",
+      "سيلتا فيغو",
+      "مارسيليا",
+      "روما",
+      "توتنهام هوتسبير",
+      "ميدلزبره",
+      "ويغان أتلتيك",
+      "الزمالك",
+      "وست هام يونايتد",
+      "أياكس",
+      "الزمالك",
+      "بارنسلي"
+    ]
+  },
+  {
+    "name": "حسام حسن",
+    "page": "Hossam Hassan",
+    "points": 600,
+    "clubsEnglish": [
+      "Al Ahly",
+      "PAOK",
+      "Neuchâtel Xamax",
+      "Al Ahly",
+      "Al Ain",
+      "Zamalek",
+      "Al Masry",
+      "Tersana",
+      "Al Ittihad Alexandria"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Hossam_Hassan"
+    ],
+    "clubs": [
+      "الأهلي المصري",
+      "باوك",
+      "نوشاتيل زاماكس",
+      "الأهلي المصري",
+      "العين",
+      "الزمالك",
+      "المصري البورسعيدي",
+      "الترسانة",
+      "الاتحاد السكندري"
+    ]
+  },
+  {
+    "name": "أحمد حسن",
+    "page": "Ahmed Hassan (footballer, born 1975)",
+    "points": 600,
+    "clubsEnglish": [
+      "Aswan",
+      "Ismaily",
+      "Kocaelispor",
+      "Denizlispor",
+      "Gençlerbirliği",
+      "Beşiktaş",
+      "Anderlecht",
+      "Al Ahly",
+      "Zamalek"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Ahmed_Hassan_(footballer%2C_born_1975)"
+    ],
+    "clubs": [
+      "أسوان",
+      "الإسماعيلي",
+      "كوجالي سبور",
+      "دنيزلي سبور",
+      "غينتشلاربيرليغي",
+      "بشكتاش",
+      "أندرلخت",
+      "الأهلي المصري",
+      "الزمالك"
+    ]
+  },
+  {
+    "name": "هاني رمزي",
+    "page": "Hany Ramzy",
+    "points": 600,
+    "clubsEnglish": [
+      "Al Ahly",
+      "Neuchâtel Xamax",
+      "Werder Bremen",
+      "Kaiserslautern",
+      "1. FC Saarbrücken"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Hany_Ramzy"
+    ],
+    "clubs": [
+      "الأهلي المصري",
+      "نوشاتيل زاماكس",
+      "فيردر بريمن",
+      "كايزرسلاوترن",
+      "ساربروكن"
+    ]
+  },
+  {
+    "name": "رابح ماجر",
+    "page": "Rabah Madjer",
+    "points": 600,
+    "clubsEnglish": [
+      "NA Hussein Dey",
+      "Racing Paris",
+      "Tours",
+      "Porto",
+      "Valencia",
+      "Porto",
+      "Qatar SC"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Rabah_Madjer"
+    ],
+    "clubs": [
+      "نصر حسين داي",
+      "راسينغ باريس",
+      "تور",
+      "بورتو",
+      "فالنسيا",
+      "بورتو",
+      "قطر"
+    ]
+  },
+  {
+    "name": "لخضر بلومي",
+    "page": "Lakhdar Belloumi",
+    "points": 600,
+    "clubsEnglish": [
+      "OS Mascara",
+      "SKAF El-Khemis",
+      "GC Mascara",
+      "MC Oran",
+      "MC Alger",
+      "GC Mascara",
+      "MC Oran",
+      "Al-Arabi SC",
+      "MC Oran",
+      "GC Mascara",
+      "USM Bel Abbès",
+      "GC Mascara",
+      "MC Oran",
+      "GC Mascara",
+      "MC Oran",
+      "GC Mascara",
+      "ASM Oran",
+      "GC Mascara"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Lakhdar_Belloumi"
+    ],
+    "clubs": [
+      "أولمبي معسكر",
+      "صفاء خميس مليانة",
+      "غالي معسكر",
+      "مولودية وهران",
+      "مولودية الجزائر",
+      "غالي معسكر",
+      "مولودية وهران",
+      "العربي القطري",
+      "مولودية وهران",
+      "غالي معسكر",
+      "اتحاد بلعباس",
+      "غالي معسكر",
+      "مولودية وهران",
+      "غالي معسكر",
+      "مولودية وهران",
+      "غالي معسكر",
+      "جمعية وهران",
+      "غالي معسكر"
+    ]
+  },
+  {
+    "name": "مصطفى حجي",
+    "page": "Mustapha Hadji",
+    "points": 600,
+    "clubsEnglish": [
+      "Nancy",
+      "Sporting CP",
+      "Deportivo La Coruña",
+      "Coventry City",
+      "Aston Villa",
+      "Espanyol",
+      "Emirates Club",
+      "Saarbrücken",
+      "Fola Esch"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Mustapha_Hadji"
+    ],
+    "clubs": [
+      "نانسي",
+      "سبورتنغ لشبونة",
+      "ديبورتيفو لاكورونيا",
+      "كوفنتري سيتي",
+      "أستون فيلا",
+      "إسبانيول",
+      "الإمارات",
+      "ساربروكن",
+      "فولا إيش"
+    ]
+  },
+  {
+    "name": "يوسف حجي",
+    "page": "Youssouf Hadji",
+    "points": 600,
+    "clubsEnglish": [
+      "Nancy",
+      "Bastia",
+      "Rennes",
+      "Nancy",
+      "Rennes",
+      "Al-Arabi",
+      "Elazığspor",
+      "Nancy"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Youssouf_Hadji"
+    ],
+    "clubs": [
+      "نانسي",
+      "باستيا",
+      "رين",
+      "نانسي",
+      "رين",
+      "العربي القطري",
+      "إلازيغ سبور",
+      "نانسي"
+    ]
+  },
+  {
+    "name": "مروان الشماخ",
+    "page": "Marouane Chamakh",
+    "points": 600,
+    "clubsEnglish": [
+      "Bordeaux",
+      "Arsenal",
+      "West Ham United",
+      "Crystal Palace",
+      "Cardiff City"
+    ],
+    "reviewedAt": "2026-10-23",
+    "sources": [
+      "https://en.wikipedia.org/wiki/Marouane_Chamakh"
+    ],
+    "clubs": [
+      "بوردو",
+      "أرسنال",
+      "وست هام يونايتد",
+      "كريستال بالاس",
+      "كارديف سيتي"
+    ]
+  }
+]

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -243,6 +242,12 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
     if (nextValue && !await _checkChallengeKey()) return;
     if (!mounted || context.read<AppState>().user?.uid != userId) return;
     try {
+      if (nextValue) {
+        await context
+            .read<NativeBridgeService>()
+            .syncQuestionHistory(roomId: room.id);
+        if (!mounted || context.read<AppState>().user?.uid != userId) return;
+      }
       await context.read<RoomService>().setPlayerReady(
             roomId: widget.roomId,
             userId: userId,
@@ -267,12 +272,20 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _starting = true);
 
-    List<int>? questionIds;
-    if (room.mode == 'elimination' || room.mode == 'survival') {
-      questionIds = await _generateShuffledQuestionIds();
-    }
-
     try {
+      await context
+          .read<NativeBridgeService>()
+          .syncQuestionHistory(roomId: room.id);
+      if (!mounted || context.read<AppState>().user?.uid != userId) return;
+      List<int>? questionIds;
+      if (room.mode == 'elimination' || room.mode == 'survival') {
+        questionIds =
+            await context.read<NativeBridgeService>().reserveRoomQuestionIds(
+                  roomId: room.id,
+                  matchMode: room.mode,
+                  roundNumber: room.mode == 'survival' ? 1 : room.roundNumber,
+                );
+      }
       await roomService.startRoom(
         roomId: widget.roomId,
         userId: userId,
@@ -326,19 +339,6 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
       );
     } finally {
       if (mounted) setState(() => _starting = false);
-    }
-  }
-
-  /// Loads questions.json, shuffles the indices, and returns the first 80.
-  Future<List<int>> _generateShuffledQuestionIds() async {
-    try {
-      final jsonStr = await rootBundle.loadString('assets/questions.json');
-      final list = jsonDecode(jsonStr) as List;
-      final indices = List.generate(list.length, (i) => i);
-      indices.shuffle(math.Random());
-      return indices.take(80).toList();
-    } catch (_) {
-      return List.generate(80, (i) => i);
     }
   }
 

@@ -31,6 +31,8 @@ class _Wallet extends ChangeNotifier implements AppState {
   String? unavailableMessage;
   int loadRequests = 0;
   @override
+  get currentUser => null;
+  @override
   int get coins => 10000;
   @override
   int get gems => 100;
@@ -69,6 +71,17 @@ class _Billing extends InAppPurchaseService {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  test('wallet reports remaining server ad allowance without negative values',
+      () {
+    final wallet = EconomyWallet.fromMap({
+      'adRewardCounts': {'keys': 1, 'hearts': 2, 'tickets': 3},
+      'adRewardLimits': {'keys': 2, 'hearts': 2, 'tickets': 2},
+    });
+    expect(wallet.remainingAdRewards('keys'), 1);
+    expect(wallet.remainingAdRewards('hearts'), 0);
+    expect(wallet.remainingAdRewards('tickets'), 0);
+    expect(wallet.remainingAdRewards('unknown'), 0);
+  });
   test('economy failures expose the player message without platform details',
       () async {
     const channel = MethodChannel('millionaire/native');
@@ -104,6 +117,29 @@ void main() {
             home: const ResourceShopScreen())));
     await tester.pumpAndSettle();
   }
+
+  testWidgets('exhausted resource ads are disabled before the player watches',
+      (tester) async {
+    final wallet = _Wallet()
+      ..economyWallet = EconomyWallet.fromMap({
+        'adRewardCounts': {'keys': 2, 'hearts': 2, 'tickets': 2},
+        'adRewardLimits': {'keys': 2, 'hearts': 2, 'tickets': 2},
+      });
+    final billing = _Billing();
+    await mount(tester, wallet, billing, const Size(360, 640));
+    final adButton = find.byKey(const ValueKey('resource-ad-keys_1'));
+    await tester.scrollUntilVisible(adButton, 200,
+        scrollable: find.byType(Scrollable).first);
+    expect(tester.widget<FilledButton>(adButton).onPressed, isNull);
+    expect(
+        find.descendant(
+            of: adButton, matching: find.text('اكتملت إعلانات اليوم')),
+        findsOneWidget);
+    expect(wallet.actions, isEmpty);
+    await tester.pumpWidget(const SizedBox.shrink());
+    wallet.dispose();
+    billing.dispose();
+  });
 
   testWidgets(
       'missing wallet service shows unknown balances and separate Play price retry',

@@ -11,6 +11,26 @@ class EconomyOperationException implements Exception {
 }
 
 class NativeBridgeService {
+  Future<List<Map<String, dynamic>>> getRecoverableOnlineMatches() async {
+    final raw =
+        await _channel.invokeMethod<String>('getRecoverableOnlineMatches');
+    if (raw == null || raw.isEmpty) return const [];
+    final decoded = jsonDecode(raw);
+    if (decoded is! List) return const [];
+    return decoded
+        .whereType<Map>()
+        .map((value) => Map<String, dynamic>.from(value))
+        .toList();
+  }
+
+  Future<void> resumeOnlineMatch(String id) async {
+    await _channel.invokeMethod<bool>('resumeOnlineMatch', {'id': id});
+  }
+
+  Future<void> dismissOnlineMatchRecovery(String id) async {
+    await _channel.invokeMethod<void>('dismissOnlineMatchRecovery', {'id': id});
+  }
+
   Future<Map<String, dynamic>> friendStakes(Map<String, dynamic> data) async {
     try {
       return await _channel.invokeMapMethod<String, dynamic>(
@@ -118,6 +138,39 @@ class NativeBridgeService {
 
   Future<void> launchLegacyGame() async {
     await _channel.invokeMethod('launchOriginal');
+  }
+
+  Future<void> syncQuestionHistory({String roomId = ''}) async {
+    if (!supportsAnimatedCharacters) return;
+    try {
+      await _channel
+          .invokeMethod<bool>('syncQuestionHistory', {'roomId': roomId});
+    } on PlatformException catch (error) {
+      throw EconomyOperationException(
+          error.message ?? 'تعذر مزامنة سجل الأسئلة. حاول مجددًا.');
+    }
+  }
+
+  Future<List<int>> reserveRoomQuestionIds({
+    required String roomId,
+    required String matchMode,
+    required int roundNumber,
+  }) async {
+    List<int>? ids;
+    try {
+      ids = await _channel.invokeListMethod<int>('reserveRoomQuestions', {
+        'roomId': roomId,
+        'matchMode': matchMode,
+        'roundNumber': roundNumber,
+      });
+    } on PlatformException catch (error) {
+      throw EconomyOperationException(
+          error.message ?? 'تعذر تجهيز أسئلة جديدة للغرفة. حاول مجددًا.');
+    }
+    if (ids == null || ids.isEmpty) {
+      throw const EconomyOperationException('تعذر تجهيز أسئلة جديدة للغرفة.');
+    }
+    return ids;
   }
 
   Future<String?> consumeLaunchAction() async {
@@ -243,6 +296,7 @@ class NativeBridgeService {
     String bossBotName = '',
     int bossBotIntelligence = 0,
     String campaignMode = 'classic',
+    String campaignEntry = 'stage',
     String winCondition = 'completeQuestions',
     int lives = 0,
     int maxWrongAnswers = 0,
@@ -274,6 +328,7 @@ class NativeBridgeService {
       'campaignId': campaignId,
       'stageId': stageId,
       'stageType': stageType,
+      'campaignEntry': campaignEntry,
       'campaignMode': campaignMode,
       'winCondition': winCondition,
       'questionIds': questionIds,

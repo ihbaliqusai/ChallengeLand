@@ -29,9 +29,11 @@ final class GameCampaignResultStore {
             payload.put("completedAtMs", System.currentTimeMillis());
             payload.put("stageType", activity.campaignStageType);
             boolean boardBoss = activity.campaignBoard && "boss".equals(activity.boardCampaignKind);
-            boolean bossDefeated = boardBoss ? completed
-                    : activity.campaignBossBattle && activity.isCampaignBossDefeated();
-            boolean effectiveCompleted = activity.campaignBossBattle && !activity.campaignBoard ? bossDefeated : completed;
+            boolean backgroundLimit = "background_limit".equals(activity.campaignFailureReason);
+            boolean bossDefeated = !backgroundLimit && (boardBoss ? completed
+                    : activity.campaignBossBattle && activity.isCampaignBossDefeated());
+            boolean effectiveCompleted = !backgroundLimit && (activity.campaignBossBattle
+                    && !activity.campaignBoard ? bossDefeated : completed);
             GameEconomy.finish(activity, effectiveCompleted);
             if (!"question_pool_unavailable".equals(activity.campaignFailureReason)) {
                 PlayerStats.recordGameEnd(activity, effectiveCompleted, money);

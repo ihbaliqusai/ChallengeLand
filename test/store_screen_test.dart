@@ -131,6 +131,8 @@ class _StoreAppState extends ChangeNotifier implements AppState {
   @override
   get user => null;
   @override
+  get currentUser => null;
+  @override
   Map<String, int> get todayReward => const {'coins': 200, 'gems': 1};
   @override
   GameCharacter get selectedCharacter => CharacterCatalog.byIndex(1);
@@ -663,6 +665,8 @@ void main() {
     expect(find.text('Day 3 of your streak'), findsOneWidget);
     expect(find.text('200 coins'), findsOneWidget);
     expect(find.text('3 of 5 watches left today'), findsOneWidget);
+    expect(find.text('50 coins'), findsOneWidget);
+    expect(find.text('0 gems'), findsOneWidget);
     expect(find.text('Download & earn 80 gems'), findsOneWidget);
     expect(find.text('Reward claimed ✓'), findsNothing);
     app.claimedDaily = true;
@@ -1502,6 +1506,21 @@ void main() {
         app.economyActions.where((a) => a['action'] == 'adReward'), isNotEmpty);
     expect(calls.where((call) => call.method == 'launchBilling'), isEmpty);
 
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets(
+      'resource ads show the exhausted server allowance without watching',
+      (tester) async {
+    app.economyWallet = EconomyWallet.fromMap({
+      'adRewardCounts': {'keys': 2, 'hearts': 2, 'tickets': 2},
+      'adRewardLimits': {'keys': 2, 'hearts': 2, 'tickets': 2},
+    });
+    await mount(tester, const Size(800, 800));
+    expect(find.text('Free Ad'), findsNothing);
+    expect(find.text('Daily ad limit reached'), findsNWidgets(3));
+    expect((ads as _StoreAds).actionAdRequests, 0);
+    expect(app.economyActions, isEmpty);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 

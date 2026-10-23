@@ -141,6 +141,30 @@ class MainActivity : FlutterActivity() {
                     "preloadLocalQuestions" -> {
                         LocalQuestions.preload(applicationContext) { result.success(true) }
                     }
+                    "syncQuestionHistory" -> {
+                        val historyRoomId = call.argument<String>("roomId") ?: ""
+                        if (historyRoomId.isEmpty()) QuestionHistory.prepare(applicationContext, "", "",
+                            { result.success(true) }, { error -> result.error("QUESTION_HISTORY_FAILED", error.message, null) })
+                        else QuestionHistory.registerRoom(applicationContext, historyRoomId,
+                            { result.success(true) }, { error -> result.error("QUESTION_HISTORY_FAILED", error.message, null) })
+                    }
+                    "reserveRoomQuestions" -> {
+                        val historyRoomId = call.argument<String>("roomId") ?: ""
+                        val historyMode = call.argument<String>("matchMode") ?: ""
+                        val historyRound = call.argument<Int>("roundNumber") ?: 1
+                        val historyGameId = "$historyRoomId|$historyMode|r$historyRound"
+                        QuestionHistory.allocateClassic(applicationContext, historyGameId, historyRoomId,
+                            { selected ->
+                                val positions = LocalQuestions.loadAll(applicationContext).mapIndexed { index, question ->
+                                    QuestionIdentity.key(question) to index
+                                }.toMap()
+                                val ids = selected.map { positions[QuestionIdentity.key(it)] }
+                                if (ids.any { it == null }) result.error("QUESTION_BANK_MISMATCH",
+                                    "حدّث التطبيق للحصول على أحدث بنك أسئلة.", null)
+                                else result.success(ids)
+                            },
+                            { error -> result.error("QUESTION_HISTORY_FAILED", error.message, null) })
+                    }
                     "launchOriginal" -> {
                         startActivity(Intent(this, LegacyMainActivity::class.java))
                         result.success(true)
@@ -192,6 +216,25 @@ class MainActivity : FlutterActivity() {
                         }
                         startActivity(intent)
                         result.success(true)
+                    }
+                    "getRecoverableOnlineMatches" -> {
+                        result.success(OnlineMatchRecovery.pending(this).toString())
+                    }
+                    "resumeOnlineMatch" -> {
+                        try {
+                            val recoveryId = call.argument<String>("id").orEmpty()
+                            if (!recoveryId.startsWith("bot:") && !Data.isNetworkAvailable(this)) {
+                                throw IllegalStateException("تحقق من الاتصال ثم أعد المحاولة.")
+                            }
+                            OnlineMatchRecovery.resume(this, recoveryId)
+                            result.success(true)
+                        } catch (error: Exception) {
+                            result.error("ONLINE_MATCH_RECOVERY_FAILED", error.message, null)
+                        }
+                    }
+                    "dismissOnlineMatchRecovery" -> {
+                        OnlineMatchRecovery.dismiss(this, call.argument<String>("id").orEmpty())
+                        result.success(null)
                     }
                     "launchRandomMatch" -> {
                         PlayerProgress.recordRandomMatchPlayed(this)
@@ -463,6 +506,7 @@ class MainActivity : FlutterActivity() {
                                 putExtra("mode", "campaign")
                                 putExtra("campaignId", stringArg(call.argument<Any>("campaignId"), "main_campaign"))
                                 putExtra("stageId", stageId)
+                                putExtra("campaignEntry", stringArg(call.argument<Any>("campaignEntry"), "stage"))
                                 putExtra("stageType", stringArg(call.argument<Any>("stageType"), "classic"))
                                 putExtra("campaignMode", campaignMode)
                                 putExtra("winCondition", winCondition)

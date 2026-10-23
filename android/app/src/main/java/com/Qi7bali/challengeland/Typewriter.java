@@ -9,6 +9,7 @@ public class Typewriter extends androidx.appcompat.widget.AppCompatTextView {
     private CharSequence mText;
     private int mIndex;
     private long mDelay = 500; //Default 500ms delay
+    private Runnable onTextComplete;
 
 
     public Typewriter(Context context) {
@@ -23,23 +24,49 @@ public class Typewriter extends androidx.appcompat.widget.AppCompatTextView {
     private Runnable characterAdder = new Runnable() {
         @Override
         public void run() {
-            setText(mText.subSequence(0, mIndex++));
-            if(mIndex <= mText.length()) {
+            mIndex = Character.offsetByCodePoints(mText, mIndex, 1);
+            setText(mText.subSequence(0, mIndex));
+            if (mIndex < mText.length()) {
                 mHandler.postDelayed(characterAdder, mDelay);
+            } else if (onTextComplete != null) {
+                Runnable completed = onTextComplete;
+                onTextComplete = null;
+                completed.run();
             }
         }
     };
 
     public void animateText(CharSequence text) {
-        mText = text;
+        animateText(text, null);
+    }
+
+    public void animateText(CharSequence text, Runnable completed) {
+        stopAnimation();
+        mText = text == null ? "" : text;
         mIndex = 0;
+        onTextComplete = completed;
 
         setText("");
-        mHandler.removeCallbacks(characterAdder);
-        mHandler.postDelayed(characterAdder, mDelay);
+        if (mText.length() == 0) {
+            onTextComplete = null;
+            if (completed != null) completed.run();
+        } else {
+            mHandler.postDelayed(characterAdder, mDelay);
+        }
     }
 
     public void setCharacterDelay(long millis) {
-        mDelay = millis;
+        mDelay = Math.max(1, millis);
+    }
+
+    public void stopAnimation() {
+        mHandler.removeCallbacks(characterAdder);
+        onTextComplete = null;
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        stopAnimation();
+        super.onDetachedFromWindow();
     }
 }

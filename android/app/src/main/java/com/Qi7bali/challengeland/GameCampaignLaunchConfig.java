@@ -16,6 +16,7 @@ final class GameCampaignLaunchConfig {
         activity.campaignStartedAtMs = System.currentTimeMillis();
         activity.campaignId = activity.safeIntentString("campaignId", "main_campaign");
         activity.campaignStageId = activity.safeIntentString("stageId", "");
+        activity.campaignEntry = activity.safeIntentString("campaignEntry", "stage");
         activity.campaignStageType = activity.safeIntentString("stageType", "classic");
         activity.campaignStageMode = activity.normalizeCampaignMode(activity.safeIntentString("campaignMode", activity.campaignStageType));
         activity.campaignWinCondition = activity.safeIntentString("winCondition", activity.defaultCampaignWinCondition(activity.campaignStageMode));

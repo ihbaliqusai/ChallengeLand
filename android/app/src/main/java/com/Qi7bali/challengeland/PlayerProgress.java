@@ -1084,31 +1084,31 @@ public class PlayerProgress {
                 return new AchievementReward(450, 250);
 
             case ACH_CAMPAIGN_STAGE_5:
-                return new AchievementReward(150, 80);
+                return new AchievementReward(50, 80);
             case ACH_CAMPAIGN_STAGE_20:
-                return new AchievementReward(350, 180);
+                return new AchievementReward(100, 180);
             case ACH_CAMPAIGN_STAGE_50:
-                return new AchievementReward(700, 350);
+                return new AchievementReward(180, 350);
             case ACH_CAMPAIGN_STARS_30:
-                return new AchievementReward(250, 120);
+                return new AchievementReward(80, 120);
             case ACH_CAMPAIGN_STARS_100:
-                return new AchievementReward(500, 260);
+                return new AchievementReward(150, 260);
             case ACH_CAMPAIGN_STARS_200:
-                return new AchievementReward(850, 450);
+                return new AchievementReward(250, 450);
             case ACH_CAMPAIGN_BLITZ_3:
             case ACH_CAMPAIGN_SURVIVAL_3:
             case ACH_CAMPAIGN_RIVAL_3:
             case ACH_CAMPAIGN_SERIES_3:
             case ACH_CAMPAIGN_TEAM_3:
-                return new AchievementReward(180, 100);
+                return new AchievementReward(80, 100);
             case ACH_CAMPAIGN_NO_HELP_5:
-                return new AchievementReward(380, 200);
+                return new AchievementReward(100, 200);
             case ACH_CAMPAIGN_BOSS_1:
-                return new AchievementReward(300, 150);
+                return new AchievementReward(100, 150);
             case ACH_CAMPAIGN_BOSS_5:
-                return new AchievementReward(650, 350);
+                return new AchievementReward(200, 350);
             case ACH_CAMPAIGN_PERFECT_10:
-                return new AchievementReward(750, 400);
+                return new AchievementReward(250, 400);
 
             // New Achievements
             case ACH_LOCAL_TEAMS:

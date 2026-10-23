@@ -20,6 +20,42 @@ void main() {
   });
 
   group('Campaign result compatibility', () {
+    test('background disqualification prevents completion rewards even with a winning score',
+        () async {
+      final boss = stage.copyWith(
+        campaignMode: CampaignMode.bossBattle,
+        boardKind: 'boss',
+      );
+      final result = await service.submitStageResult(
+        uid: 'player',
+        stage: boss,
+        nativeResult: {
+          ..._boardResult(boss,
+              completed: true, score: boss.starRules.threeStarsMinScore),
+          'bossDefeated': true,
+          'failureReason': 'background_limit',
+        },
+      );
+      expect(result.attempt.completed, isFalse);
+      expect(result.newStars, 0);
+      expect(result.rewardGranted, isFalse);
+      expect(result.attempt.failureReason, 'background_limit');
+    });
+
+    test('resumed old stages use current currency without changing saved rules',
+        () async {
+      final old = stage.copyWith(
+          rewardCoins: 2500, rewardGems: 12, rewardEconomyVersion: 0);
+      final result = await service.submitStageResult(
+        uid: 'player',
+        stage: old,
+        nativeResult: _boardResult(old,
+            completed: true, score: old.starRules.threeStarsMinScore),
+      );
+      expect(result.rewardCoinsGranted, stage.rewardCoins);
+      expect(result.rewardGemsGranted, stage.rewardGems);
+      expect(result.newStars, 3);
+    });
     test('resumed board awards stars using its saved score thresholds',
         () async {
       final result = await service.submitStageResult(
@@ -369,6 +405,25 @@ void main() {
           hasLength(1));
       expect(
           await service.loadPendingRewardClaims(uid: 'player'), hasLength(1));
+    });
+
+    test('economy changes do not reduce a previously reserved currency claim',
+        () async {
+      final previous = stage.copyWith(rewardCoins: 2500, rewardGems: 12);
+      final payload = <String, dynamic>{
+        ..._boardResult(previous,
+            completed: true, score: previous.starRules.threeStarsMinScore),
+        'attemptId': 'previous_economy_claim',
+      };
+      final reserved = await service.submitStageResult(
+          uid: 'player', stage: previous, nativeResult: payload);
+      final replay = await service.submitStageResult(
+          uid: 'player', stage: stage, nativeResult: payload);
+      expect(reserved.rewardCoinsGranted, 2500);
+      expect(replay.rewardCoinsGranted, 2500);
+      expect(replay.rewardGemsGranted, 12);
+      expect(replay.rewardClaimId, reserved.rewardClaimId);
+      expect(replay.updatedProgress.attempts, 1);
     });
 
     test('a paid native attempt cannot reserve a second reward', () async {

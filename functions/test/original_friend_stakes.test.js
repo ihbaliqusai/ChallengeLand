@@ -5,6 +5,8 @@ const assert = require("node:assert/strict");
 const { MemoryFirestore } = require("./memory-firestore");
 const { createFriendStakesService } = require("../src/friend_stakes");
 const { fresh, normalize } = require("../src/economy");
+const { createQuestionHistoryService } = require("../src/question_history");
+const { questionKey } = require("../src/question_identity");
 
 const bank = ["جغرافيا", "حيوانات", "أفلام عربية"].flatMap(category => Array.from({ length: 18 }, (_, i) => ({
   category, text: `${category}: سؤال أصلي ${i}`, level: [0, 4, 3, 1, 5, 7, 2, 6, 8][i % 9],
@@ -37,6 +39,96 @@ function setup(questionBank = bank) {
   };
   return { db, service, call, invite, accept, pick, start, sync, advance, begin, now: () => at };
 }
+
+test("background skip closes typed or revealed questions with no points and cannot affect another turn", async () => {
+  for (const reveal of [false, true]) {
+    const x = setup(), matchId = await x.accept();
+    await x.start(matchId);
+    await x.begin(matchId, 0, 0, 0);
+    if (reveal) await x.call("a", { action: "reveal", matchId, turn: 0, count: 1 });
+    await assert.rejects(x.call("b", { action: "skipAnswer", matchId, turn: 0 }), { code: "failed-precondition" });
+    const input = { action: "skipAnswer", matchId, turn: 0 };
+    const skipped = await x.call("a", input);
+    assert.equal(skipped.match.currentTurn, 1);
+    const turn = x.db.read(`friend_stake_matches/${matchId}`).turns.t0;
+    assert.equal(turn.done, true);
+    assert.equal(turn.skipped, true);
+    assert.equal(turn.skipReason, "background");
+    assert.equal(turn.correct, false);
+    assert.equal(turn.points, 0);
+    assert.equal(skipped.match.scores.a, 0);
+    await x.call("a", input); // A new operation ID after a lost response is still idempotent.
+    assert.equal((await x.sync("a", matchId)).match.currentTurn, 1);
+    x.advance(6000);
+    await x.begin(matchId, 1, 1, 0);
+    await x.call("a", input);
+    const current = (await x.sync("b", matchId)).match;
+    assert.equal(current.currentTurn, 1);
+    assert.equal(current.phase, "answering");
+    await assert.rejects(x.call("a", { action: "answer", matchId, turn: 0, answerText: "لندن" }), { code: "already-exists" });
+  }
+});
+
+test("a committed answer cannot be overwritten by a background skip", async () => {
+  const x = setup(), matchId = await x.accept();
+  await x.start(matchId);
+  await x.begin(matchId, 0, 0, 0);
+  await x.call("a", { action: "answer", matchId, turn: 0, answerText: "لندن" });
+  const before = x.db.read(`friend_stake_matches/${matchId}`).turns.t0;
+  await assert.rejects(x.call("a", { action: "skipAnswer", matchId, turn: 0 }), { code: "already-exists" });
+  assert.deepEqual(x.db.read(`friend_stake_matches/${matchId}`).turns.t0, before);
+});
+
+test("third background violation can forfeit the paid match and settles the opponent's pot once", async () => {
+  const x = setup(), matchId = await x.accept();
+  await x.start(matchId);
+  for (let turn = 0; turn < 4; turn++) {
+    x.advance(6000);
+    const uid = turn % 2 === 0 ? "a" : "b";
+    await x.begin(matchId, turn, turn % 2, Math.floor(turn / 2));
+    await x.call(uid, { action: "skipAnswer", matchId, turn });
+  }
+  x.advance(6000);
+  await x.begin(matchId, 4, 0, 2);
+  const input = { action: "forfeit", matchId, operationId: "third_background_violation" };
+  const result = await x.call("a", input);
+  assert.equal(result.match.status, "settled");
+  assert.equal(result.match.settlement.winnerId, "b");
+  assert.equal(x.db.read("users/a").coins, 2900);
+  assert.equal(x.db.read("users/b").coins, 3100);
+  await x.call("a", input);
+  assert.equal(x.db.read("users/b").coins, 3100);
+});
+
+test("paid replays and cross-mode history share lifetime exclusions for both friends", async () => {
+  const x = setup(), history = createQuestionHistoryService({ db: x.db });
+  await history.execute("b", { action: "prepare", keys: bank.slice(0, 3).map(questionKey) });
+  const firstId = await x.accept(); await x.start(firstId);
+  const first = Object.values(x.db.read(`friend_stake_matches/${firstId}`).cells).map(c => questionKey(c.question));
+  assert.ok(first.every(k => !bank.slice(0, 3).map(questionKey).includes(k)));
+  await x.call("a", { action: "forfeit", matchId: firstId });
+  x.advance(11000);
+  const nextId = await x.accept(); await x.start(nextId);
+  const next = Object.values(x.db.read(`friend_stake_matches/${nextId}`).cells).map(c => questionKey(c.question));
+  assert.ok(next.every(k => !first.includes(k)));
+  for (const uid of ["a", "b"]) {
+    const known = new Set((await history.execute(uid, { action: "prepare" })).keys);
+    assert.ok([...first, ...next].every(k => known.has(k)));
+  }
+});
+
+test("exhausted paid banks never recycle history or charge the second category admission", async () => {
+  const x = setup(), history = createQuestionHistoryService({ db: x.db });
+  await history.execute("a", { action: "prepare", keys: bank.map(questionKey) });
+  const matchId = await x.accept();
+  await x.pick("a", matchId, "جغرافيا");
+  await assert.rejects(x.pick("b", matchId, "حيوانات"), { code: "resource-exhausted" });
+  assert.equal(x.db.read("economy_accounts/b"), undefined);
+  assert.deepEqual(x.db.read(`friend_stake_matches/${matchId}`).cells, {});
+  await x.call("a", { action: "forfeit", matchId });
+  assert.equal(x.db.read("users/a").coins, 3000);
+  assert.equal(x.db.read("users/b").coins, 3000);
+});
 
 test("new invites require original-game consent on both clients before any escrow, with no automatic category selection", async () => {
   const x = setup();

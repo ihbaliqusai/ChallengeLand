@@ -4,6 +4,7 @@ const { CommerceError, sha256 } = require("./domain");
 const { normalize: categoryKey } = require("./economy");
 const { isCorrect } = require("./board_answer_matcher");
 const { tierForLevel: tier } = require("./question_tiers");
+const { questionKey } = require("./question_identity");
 
 const ROWS = 6, TURNS = 12, SELECT_MS = 30000, ANSWER_MS = 45000, PREPARE_MS = 60000, REVEAL_MS = 5000;
 const VALUES = [200, 400, 600];
@@ -14,7 +15,7 @@ const picker = m => m.currentTurn % 2 === 0 ? m.ownerId : m.joinerId;
 function prepareQuestion(q) {
   if (!q || typeof q.category !== "string" || typeof q.text !== "string" || !q.text.trim()
       || !Array.isArray(q.answers) || q.answers.length !== 4 || q.answers.some(a => typeof a !== "string" || !a.trim())) return null;
-  return { ...q, id: q.id || sha256(JSON.stringify([q.category, q.text, q.answers, q.img || ""])).slice(0, 24),
+  return { ...q, id: questionKey(q).slice(0, 24),
     level: String(q.level ?? "0"), img: typeof q.img === "string" ? q.img : "" };
 }
 
@@ -24,12 +25,12 @@ function resolveCategory(bank, value) {
 
 // Exactly the classic board's tier order, six rows per category and no repeated
 // question, including when both friends select the same category.
-function makeBoard(bank, categories, seed) {
-  const all = bank.map(prepareQuestion).filter(Boolean);
+function makeBoard(bank, categories, seed, excluded = new Set()) {
+  const all = bank.map(prepareQuestion).filter(Boolean).filter(q => !excluded.has(questionKey(q)));
   const used = new Set(), cells = {};
-  const choose = candidates => candidates.filter(q => !used.has(q.id))
+  const choose = candidates => candidates.filter(q => !used.has(questionKey(q)))
     .sort((a, b) => sha256(`${seed}|${a.id}`).localeCompare(sha256(`${seed}|${b.id}`)))[0];
-  for (let col = 0; col < 2; col++) for (let row = 0; row < ROWS; row++) {
+  for (let col = 0; col < categories.length; col++) for (let row = 0; row < ROWS; row++) {
     const target = row % 3, own = all.filter(q => categoryKey(q.category) === categoryKey(categories[col]));
     const tiers = [target];
     for (let d = 1; d < 3; d++) for (const t of [target - d, target + d]) if (t >= 0 && t < 3) tiers.push(t);
@@ -39,11 +40,11 @@ function makeBoard(bank, categories, seed) {
     if (!q) q = choose(fallback.filter(q => tier(q.level) === target));
     if (!q) for (let t = 0; t < 3; t++) { q = choose(fallback.filter(q => tier(q.level) === t)); if (q) break; }
     if (!q) q = choose(all);
-    if (!q) fail("unavailable", "أسئلة اللوحة غير متاحة. أعد المحاولة.");
-    used.add(q.id);
+    if (!q) fail("resource-exhausted", "لا توجد أسئلة جديدة كافية. اختر تصنيفات أخرى أو انتظر إضافة أسئلة جديدة.");
+    used.add(questionKey(q));
     const order = [0, 1, 2, 3].sort((a, b) => sha256(`${seed}|${q.id}|${a}`).localeCompare(sha256(`${seed}|${q.id}|${b}`)));
     cells[`${col}_${row}`] = { category: categories[col], points: VALUES[target], question: {
-      id: q.id, text: q.text, category: q.category, level: q.level, img: q.img,
+      id: q.id, text: q.text, category: q.category, level: q.level, img: q.img, clubPath: q.clubPath || [],
       answers: q.answers, options: order.map(i => q.answers[i]), correctOption: order.indexOf(0),
     } };
   }
@@ -54,7 +55,7 @@ function visibleQuestion(m, turn) {
   if (!turn) return undefined;
   const q = m.cells?.[`${turn.col}_${turn.row}`]?.question;
   if (!q) return undefined;
-  const result = { id: q.id, text: q.text, category: q.category, level: q.level, img: q.img };
+  const result = { id: q.id, text: q.text, category: q.category, level: q.level, img: q.img, clubPath: q.clubPath || [] };
   if (turn.revealCount > 0 || turn.done) result.options = q.options.map((text, index) => ({ index, text }));
   if (turn.revealCount > 1) result.hiddenIndices = turn.hiddenIndices || [];
   if (turn.done) Object.assign(result, { rightAnswer: q.answers[0], correctOptionIndex: q.correctOption });
@@ -117,7 +118,7 @@ function completeTurn(m, at, input, finish) {
     : turn.revealCount > 0 && !turn.hiddenIndices?.includes(input.optionIndex) && input.optionIndex === q.correctOption);
   const points = correct ? Math.floor(m.cells[`${turn.col}_${turn.row}`].points / (2 ** turn.revealCount)) : 0;
   Object.assign(turn, { done: true, correct, points, completedAtMillis: at,
-    ...(skipped ? { skipped: true, skipReason: "timeout" } : {
+    ...(skipped ? { skipped: true, skipReason: input.skipReason || "timeout" } : {
       answerSignature: sha256(JSON.stringify(typeof input.answerText === "string" ? { answerText: input.answerText } : { optionIndex: input.optionIndex })),
     }) });
   m.scores[turn.playerId] += points;
@@ -144,6 +145,12 @@ function reconcile(m, at, finish) {
 
 function apply(m, uid, input, at, finish) {
   const turn = m.turns[`t${input.turn ?? m.currentTurn}`];
+  // An explicit unanswered turn must work for both typed and revealed options.
+  // Retrying after a lost response must never close the following turn.
+  if (input.action === "skipAnswer" && turn?.done && turn.playerId === uid) {
+    if (turn.skipReason !== "background") fail("already-exists", "تم تثبيت إجابة هذا الدور.");
+    return;
+  }
   if (input.action === "answer" && turn?.done && turn.playerId === uid) {
     const sig = sha256(JSON.stringify(typeof input.answerText === "string" ? { answerText: input.answerText } : { optionIndex: input.optionIndex }));
     if (turn.answerSignature !== sig) fail("already-exists", "تم تثبيت إجابة هذا الدور.");
@@ -166,6 +173,9 @@ function apply(m, uid, input, at, finish) {
       turn.hiddenIndices = [0, 1, 2, 3].filter(i => i !== q.correctOption).slice(0, 2);
     }
     turn.revealCount = input.count;
+  } else if (input.action === "skipAnswer") {
+    if (m.phase !== "answering") fail("failed-precondition", "لم يبدأ وقت الإجابة بعد.");
+    completeTurn(m, at, { skipped: true, skipReason: "background" }, finish);
   } else if (input.action === "answer") {
     if (m.phase !== "answering") fail("failed-precondition", "لم يبدأ وقت الإجابة بعد.");
     if (typeof input.answerText === "string" ? turn.revealCount !== 0 : turn.revealCount === 0)

@@ -136,7 +136,7 @@ void main() {
     expect(service.canWatchAd, isFalse);
     expect(completed, isFalse);
     await event(id, 'onAdDismissedFullScreenContent');
-    expect(await result, {'coins': 100, 'gems': 5});
+    expect(await result, {'coins': 50, 'gems': 0});
   });
 
   testWidgets('closing an ad without earning does not award currency',

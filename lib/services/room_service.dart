@@ -96,6 +96,14 @@ class RoomService {
     });
   }
 
+  /// Recovery needs current membership and results; an empty offline cache is
+  /// insufficient evidence that the saved match has disappeared.
+  Future<Room?> getRoomForRecovery(String roomId) async {
+    final snapshot =
+        await _rooms.doc(roomId).get(const GetOptions(source: Source.server));
+    return snapshot.exists ? Room.fromSnapshot(snapshot) : null;
+  }
+
   Future<void> purgeStaleRooms({bool force = false}) async {
     final now = DateTime.now();
     if (!force &&

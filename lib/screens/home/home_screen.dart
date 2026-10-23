@@ -41,6 +41,7 @@ import '../../widgets/lobby_action_panel.dart';
 import '../../services/rate_game_service.dart';
 import '../../services/cross_promo_service.dart';
 import '../../widgets/adaptive_asset_image.dart';
+import '../../widgets/online_match_recovery_card.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -1016,6 +1017,11 @@ class _HomeLobbyLayout extends StatelessWidget {
                           builder: (_) => const CharacterSelectScreen(),
                         ),
                       ))),
+          Positioned(
+              bottom: portrait ? height - heroBottom : 12,
+              left: heroLeft,
+              width: heroWidth,
+              child: OnlineMatchRecoveryCard(userId: user?.uid ?? '')),
           Positioned(
               top: portrait ? headerHeight + 12 : 74,
               left: 12,

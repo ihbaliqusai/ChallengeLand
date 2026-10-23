@@ -36,6 +36,9 @@ public class WinnerActivity extends AppCompatActivity {
     String amount;
 
     private InterstitialAd mInterstitialAd;
+    private final Handler presenterHandler = new Handler();
+    private final PresenterDialogue presenterDialogue = new PresenterDialogue(
+            android.os.SystemClock::uptimeMillis, presenterHandler::postDelayed);
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -266,33 +269,37 @@ public class WinnerActivity extends AppCompatActivity {
     private void showDialog(final String message, final String tag, final int timeTalk, final int timeDialog, final int nextMouthId) {
         final RelativeLayout rlyDialog = findViewById(R.id.rlyDialog);
         final Typewriter txtDialog = findViewById(R.id.txtDialog);
-        final Handler handler = new Handler();
-        Runnable runnable = new Runnable() {
-            boolean firstRun = true;
-            @Override
-            public void run() {
-                if(firstRun) {
-                    firstRun=false;
-                    txtDialog.setCharacterDelay(18);
-                    txtDialog.animateText(message);
-                    rlyDialog.setVisibility(View.VISIBLE);
-                    Animations.dialogZoom(rlyDialog, 4, 150, 1.05f);
-                    handler.postDelayed(this, timeDialog);
-                } else {
-                    rlyDialog.setVisibility(View.INVISIBLE);
-                }
-
-            }
-        };
-        handler.postDelayed(runnable, 0);
+        presenterDialogue.show(message, timeDialog, true, () -> {
+            txtDialog.setCharacterDelay(PresenterDialogue.CHARACTER_DELAY_MS);
+            txtDialog.animateText(message, presenterDialogue::textCompleted);
+            rlyDialog.setVisibility(View.VISIBLE);
+            Animations.dialogZoom(rlyDialog, 4, 150, 1.05f);
+        }, () -> {
+            txtDialog.stopAnimation();
+            rlyDialog.setVisibility(View.INVISIBLE);
+        });
     }
 
 
     @Override
     protected void onPause() {
+        presenterDialogue.pause();
         animMoney=false;
         if (mpSound != null) mpSound.stop();
         super.onPause();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        presenterDialogue.resume();
+    }
+
+    @Override
+    protected void onDestroy() {
+        presenterDialogue.dispose();
+        presenterHandler.removeCallbacksAndMessages(null);
+        super.onDestroy();
     }
 
     @Override

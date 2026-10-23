@@ -21,10 +21,12 @@ class StageIntroScreen extends StatefulWidget {
     super.key,
     required this.stage,
     required this.progress,
+    this.continuingJourney = false,
   });
 
   final CampaignStage stage;
   final StageProgress progress;
+  final bool continuingJourney;
 
   @override
   State<StageIntroScreen> createState() => _StageIntroScreenState();
@@ -76,6 +78,7 @@ class _StageIntroScreenState extends State<StageIntroScreen>
     final handled =
         await CampaignResultHandler.consumeAndHandlePendingCampaignResult(
       context: context,
+      knownStage: widget.stage,
     );
     if (!mounted) return;
     if (handled && _launching) {
@@ -165,6 +168,11 @@ class _StageIntroScreenState extends State<StageIntroScreen>
       }
       final launchConfig = _modeEngine.buildLaunchConfig(stage);
       await nativeBridge.launchCampaignStage(
+        campaignEntry: widget.continuingJourney
+            ? 'next'
+            : widget.progress.attempts > 0
+                ? 'retry'
+                : 'stage',
         campaignId: launchConfig['campaignId'] as String? ?? stage.campaignId,
         stageId: launchConfig['stageId'] as String? ?? stage.id,
         stageType: launchConfig['stageType'] as String? ?? stage.type.value,

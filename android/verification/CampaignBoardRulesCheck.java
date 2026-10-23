@@ -16,7 +16,64 @@ public final class CampaignBoardRulesCheck {
         verifyCategoryAccess();
         verifyStageChallenges();
         verifyBossStyles();
+        verifyBossPacing();
+        verifyCampaignDialogue();
+        verifyStageBriefing();
         System.out.println("Campaign board regression checks passed");
+    }
+
+    private static void verifyStageBriefing() {
+        String standard = String.join("\n", CampaignBoardRules.briefingMessages(false, 6, 1,
+                "playerPick", 0, 0, 0, Arrays.asList("علوم"), "balanced", true, 1600, 2000));
+        if (!standard.contains("اختر فئة واحدة") || !standard.contains("6 أسئلة")
+                || !standard.contains("نصف النقاط") || !standard.contains("2000 لثلاث نجوم"))
+            throw new AssertionError("presenter must explain picks, scoring and stars");
+        if (standard.contains("ثانية") || standard.contains("أخطاء") || standard.contains("للفوز،"))
+            throw new AssertionError("disabled constraints must not be announced");
+        String challenge = String.join("\n", CampaignBoardRules.briefingMessages(true, 6, 3,
+                "worldThemed", 150, 2, 2, Arrays.asList("علوم", "تاريخ"), "speed", false, 1800, 2400));
+        for (String detail : Arrays.asList("سأختار لك 3 فئات", "150 ثانية", "2 أخطاء",
+                "الخطأ التالي", "2 فئات مختلفة", "علوم، تاريخ", "غير متاح", "30 ثانية")) {
+            if (!challenge.contains(detail)) throw new AssertionError("missing stage rule: " + detail);
+        }
+        String[] styles = {"specialist", "highValue", "mixed"};
+        String[] descriptions = {"دقة أعلى", "الأعلى قيمة", "متخصصين وسريعين"};
+        for (int i = 0; i < styles.length; i++) {
+            String boss = String.join("\n", CampaignBoardRules.briefingMessages(true, 6, 3,
+                    "random", 0, 0, 0, Arrays.asList(), styles[i], true, 0, 0));
+            if (!boss.contains(descriptions[i])) throw new AssertionError("missing boss style " + styles[i]);
+        }
+    }
+
+    private static void verifyBossPacing() {
+        java.util.Set<Integer> delays = new java.util.HashSet<>();
+        for (int seed = 0; seed < 200; seed++) {
+            int normal = CampaignBoardRules.bossThinkTimeMs("1", "سؤال قصير", "balanced", false, new java.util.Random(seed));
+            int speed = CampaignBoardRules.bossThinkTimeMs("1", "سؤال قصير", "speed", false, new java.util.Random(seed));
+            int expert = CampaignBoardRules.bossThinkTimeMs("1", "سؤال قصير", "specialist", true, new java.util.Random(seed));
+            int hard = CampaignBoardRules.bossThinkTimeMs("8", "سؤال أطول يحتاج إلى قراءة وتركيز", "balanced", false, new java.util.Random(seed));
+            int unknown = CampaignBoardRules.bossThinkTimeMs(null, null, "unknown", false, new java.util.Random(seed));
+            if (speed < 1800 || normal > 8000 || hard > 8000 || unknown < 1800)
+                throw new AssertionError("boss timing must leave reading time and stay bounded");
+            if (speed >= normal || expert >= normal || hard <= normal)
+                throw new AssertionError("style, specialty and question complexity must affect thinking time");
+            delays.add(normal);
+        }
+        if (delays.size() < 20) throw new AssertionError("bosses must not use a fixed response time");
+    }
+
+    private static void verifyCampaignDialogue() {
+        String first = CampaignBoardRules.openingMessage(1, false, 1200, "stage", false);
+        String next = CampaignBoardRules.openingMessage(2, false, 1400, "next", false);
+        String retry = CampaignBoardRules.openingMessage(2, false, 1400, "retry", false);
+        String boss = CampaignBoardRules.openingMessage(10, true, 0, "next", false);
+        String resume = CampaignBoardRules.openingMessage(10, true, 0, "next", true);
+        if (!first.contains("أهلاً") || !next.contains("المرحلة 2") || !next.contains("1400"))
+            throw new AssertionError("opening must identify the stage and its objective");
+        if (next.contains("أهلاً") || retry.contains("أهلاً") || !retry.contains("محاولة جديدة"))
+            throw new AssertionError("continuing and retrying must not restart the welcome");
+        if (!boss.contains("الزعماء") || !resume.contains("حيث توقفنا") || resume.contains("ننتقل"))
+            throw new AssertionError("boss and resume dialogue must match the current situation");
     }
 
     private static void verifyStageChallenges() {

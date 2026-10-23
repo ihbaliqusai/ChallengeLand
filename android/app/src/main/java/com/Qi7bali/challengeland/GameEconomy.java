@@ -151,6 +151,15 @@ public final class GameEconomy {
         long elapsed = android.os.SystemClock.elapsedRealtime() - p.getLong("anchorElapsed", 0);
         return p.getLong("anchorTime", System.currentTimeMillis()) + Math.max(0, elapsed);
     }
+    public static int remainingAdRewards(Context c, String resource) {
+        JSONObject s = state(c);
+        JSONObject limits = s.optJSONObject("adRewardLimits");
+        JSONObject counts = s.optJSONObject("adRewardCounts");
+        int limit = limits != null ? limits.optInt(resource, 0) : 2;
+        boolean reset = s.optLong("nextResetMillis", Long.MAX_VALUE) <= serverTime(c);
+        int used = reset || counts == null ? 0 : counts.optInt(resource, 0);
+        return Math.max(0, limit - used);
+    }
     public static boolean hasAccess(Context c, String category) {
         JSONObject s = state(c);
         String key = CategoryConfig.normalize(category);

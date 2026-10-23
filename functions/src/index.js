@@ -19,6 +19,7 @@ const { createPlayVerifier } = require("./play");
 const { createCommerceService } = require("./commerce");
 const { createEconomyService } = require("./economy");
 const { createFriendStakesService } = require("./friend_stakes");
+const { createQuestionHistoryService } = require("./question_history");
 
 initializeApp();
 setGlobalOptions({ region: "us-central1", maxInstances: 20, memory: "256MiB", timeoutSeconds: 60 });
@@ -80,6 +81,17 @@ exports.gameEconomy = onCall({ enforceAppCheck }, async request => {
 });
 
 const friendStakes = createFriendStakesService({ db: getFirestore() });
+const questionHistory = createQuestionHistoryService({ db: getFirestore(),
+  realtime: getDatabase(undefined, "https://challengeland-default-rtdb.firebaseio.com") });
+exports.questionHistory = onCall({ enforceAppCheck }, async request => {
+  const uid = requireAccount(request);
+  try { return await questionHistory.execute(uid, request.data || {}); }
+  catch (error) {
+    const code = error instanceof CommerceError ? error.code : "internal";
+    logger.warn("Question history operation failed", { uid, code });
+    throw new HttpsError(code, error instanceof CommerceError ? error.message : "تعذر مزامنة سجل الأسئلة. حاول مجددًا.");
+  }
+});
 exports.friendStakes = onCall({ enforceAppCheck }, async request => {
   const uid = requireAccount(request);
   try { return await friendStakes.execute(uid, request.data || {}); }

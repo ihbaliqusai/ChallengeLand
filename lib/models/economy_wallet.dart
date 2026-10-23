@@ -19,6 +19,8 @@ class EconomyWallet {
       this.owned = const [],
       this.rentals = const {},
       this.adPermits = const {},
+      this.adRewardCounts = const {},
+      this.adRewardLimits = const {'keys': 2, 'hearts': 2, 'tickets': 2},
       this.offers = const {},
       this.rentalPrices = const {}});
   final int dailyKeys,
@@ -37,9 +39,13 @@ class EconomyWallet {
   final List<Map<String, dynamic>> rewardLog;
   final List<String> owned;
   final Map<String, int> rentals, adPermits;
+  final Map<String, int> adRewardCounts, adRewardLimits;
   final Map<String, dynamic> offers, rentalPrices;
   int get totalKeys => dailyKeys + keys;
   int get totalHearts => dailyHearts + hearts;
+  int remainingAdRewards(String resource) =>
+      ((adRewardLimits[resource] ?? 0) - (adRewardCounts[resource] ?? 0))
+          .clamp(0, 2147483647);
   factory EconomyWallet.fromMap(Map<String, dynamic> map) {
     int count(String key) => (map[key] as num?)?.toInt() ?? 0;
     Map<String, int> ints(String key) => map[key] is Map
@@ -69,6 +75,10 @@ class EconomyWallet {
         owned: (map['owned'] as List? ?? []).whereType<String>().toList(),
         rentals: ints('rentals'),
         adPermits: ints('adPermits'),
+        adRewardCounts: ints('adRewardCounts'),
+        adRewardLimits: map['adRewardLimits'] is Map
+            ? ints('adRewardLimits')
+            : const {'keys': 2, 'hearts': 2, 'tickets': 2},
         offers: Map<String, dynamic>.from(map['offers'] as Map? ?? {}),
         rentalPrices:
             Map<String, dynamic>.from(map['rentalPrices'] as Map? ?? {}));

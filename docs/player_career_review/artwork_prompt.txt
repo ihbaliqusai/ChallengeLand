@@ -1,0 +1,4 @@
+Mode: built-in image_gen, precise-object-edit.
+Edit target: assets/categories/مسيرة لاعب.png
+Final files: assets/categories/مسيرة لاعب.png and android/app/src/main/assets/categories/مسيرة لاعب.png (512x512 PNG).
+Prompt: Replace the three shield/club-crest illustrations with a generic faceless football player in a plain unbranded kit, a chronological path with arrows and a football. No shields, club crests, logos, sponsors, flags or real player likeness. Preserve the mint background, dark teal title band, rounded shape, information i, illustration style, colors and exact Arabic title "مسيرة لاعب".

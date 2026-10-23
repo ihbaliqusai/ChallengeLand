@@ -46,13 +46,17 @@ public class LocalQuestions {
     }
 
     public static ArrayList<Question> load(Context context) {
+        return load(context, QuestionHistory.snapshot(context));
+    }
+
+    static ArrayList<Question> load(Context context, java.util.Set<String> excluded) {
         final ArrayList<Question> questions = new ArrayList<>();
         final ArrayList<Question> allQuestions0 = new ArrayList<>();
         final ArrayList<Question> allQuestions1 = new ArrayList<>();
         final ArrayList<Question> allQuestions2 = new ArrayList<>();
         final ArrayList<Question> allQuestions3 = new ArrayList<>();
         try {
-            for (Question q : loadAll(context)) {
+            for (Question q : QuestionSelection.unseen(loadAll(context), excluded, new Random())) {
                 if (isCategoryHidden(q.getCategory())) {
                     continue;
                 }
@@ -75,6 +79,9 @@ public class LocalQuestions {
             populate(questions, allQuestions1, 3);
             populate(questions, allQuestions2, 5);
             populate(questions, allQuestions3, 39);
+            // Never launch a shortened classic ladder after a difficulty band
+            // is depleted; that can make its fixed win conditions unreachable.
+            if (questions.size() < 50) questions.clear();
         } catch (Exception ignored) {
         }
         return questions;
@@ -120,6 +127,15 @@ public class LocalQuestions {
         q.setW3(item.optString("W3"));
         q.setLevel(item.optString("Level"));
         q.setImg(item.optString("Img", ""));
+        JSONArray clubPath = item.optJSONArray("ClubPath");
+        if (clubPath != null) {
+            ArrayList<String> clubs = new ArrayList<>();
+            for (int i = 0; i < clubPath.length(); i++) {
+                String club = clubPath.optString(i, "").trim();
+                if (!club.isEmpty()) clubs.add(club);
+            }
+            q.setClubPath(clubs);
+        }
         String category = item.optString("Category", FALLBACK_CATEGORY);
         if (category == null || category.trim().isEmpty()) {
             category = FALLBACK_CATEGORY;

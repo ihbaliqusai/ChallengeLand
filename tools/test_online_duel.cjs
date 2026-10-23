@@ -10,6 +10,10 @@ const command = name => jdk ? join(jdk, 'bin', name + (process.platform === 'win
 const native = join(root, 'android/app/src/main/java/com/Qi7bali/challengeland');
 execFileSync(command('javac'), ['-encoding', 'UTF-8', '-d', output,
   join(native, 'OnlineDuelState.java'), join(native, 'OnlineMatchmakingState.java'),
-  join(__dirname, 'online_duel/OnlineDuelStateTest.java')], { stdio: 'inherit' });
+  join(native, 'RoomBoardRecovery.java'),
+  join(__dirname, 'online_duel/OnlineDuelStateTest.java'),
+  join(__dirname, 'online_duel/RoomBoardRecoveryTest.java')], { stdio: 'inherit' });
 execFileSync(command('java'), ['-cp', output,
   'com.qi7bali.landchallengeonline.OnlineDuelStateTest'], { stdio: 'inherit' });
+execFileSync(command('java'), ['-cp', output,
+  'com.qi7bali.landchallengeonline.RoomBoardRecoveryTest'], { stdio: 'inherit' });

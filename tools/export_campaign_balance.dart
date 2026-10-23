@@ -19,12 +19,13 @@ void main() {
 من العالم الثالث: المرحلة التاسعة بلا كشف خيارات. من العالم السابع: تجمع الوقت وخطأين كحد أقصى والإجابة الصحيحة في ثلاث فئات. آخر ثلاثة زعماء يمزجون أساليب المنافسين.
 إعدادات السحابة القديمة تُحدّث آليًا عند القراءة؛ لتثبيت تصميم مخصص اضبط `boardDesignVersion: 2`.
 هذه موازنة حسابية تحتاج متابعة نتائج اللعب الفعلية لضبط صعوبة الأسئلة ومعدل النجاح.
+مكافآت النقود والجواهر أدناه هي سقف ثلاث نجوم لكل مرحلة طوال عمر الحساب، قبل مضاعفة الإعلان؛ تحسين النجوم يمنح الفرق فقط. تفاصيل تحصيل الموارد والإنفاق في [موازنة الاقتصاد](campaign_economy.md).
 
-| العالم | المرحلة | الفئات | الاختيار | الاختيارات | أقصى نقاط | هدف النجاح | نجمتان | ثلاث نجوم | القواعد |
-|---|---|---|---|---|---|---|---|---|---|
+| العالم | المرحلة | الفئات | الاختيار | الاختيارات | أقصى نقاط | هدف النجاح | نجمتان | ثلاث نجوم | نقود | جواهر | القواعد |
+|---|---|---|---|---|---|---|---|---|---|---|---|
 ''');
   final csv = StringBuffer(
-      'world,stage,categories,policy,picks,maximum,target,twoStars,threeStars,seconds,maxErrors,categoryWins,revealOptions,bossStyle\n');
+      'world,stage,categories,policy,picks,maximum,target,twoStars,threeStars,seconds,maxErrors,categoryWins,revealOptions,bossStyle,rewardCoins,rewardGems\n');
   for (final stage in CampaignDefaults.stages()) {
     final world = (stage.order - 1) ~/ 10 + 1;
     final columns =
@@ -43,10 +44,14 @@ void main() {
       if (stage.isBossStage) '${stage.botCount} زعماء: ${stage.bossStyle}',
     ];
     output.writeln(
-        '| $world | ${stage.order} | $columns | ${stage.categoryPolicy == 'playerPick' ? 'اللاعب' : 'الكمبيوتر'} | ${stage.boardSoloPicks} | $maximum | ${stage.boardTargetScore} | ${stage.starRules.twoStarsMinScore} | ${stage.starRules.threeStarsMinScore} | ${rules.isEmpty ? 'تحدي النقاط' : rules.join('؛ ')} |');
+        '| $world | ${stage.order} | $columns | ${stage.categoryPolicy == 'playerPick' ? 'اللاعب' : 'الكمبيوتر'} | ${stage.boardSoloPicks} | $maximum | ${stage.boardTargetScore} | ${stage.starRules.twoStarsMinScore} | ${stage.starRules.threeStarsMinScore} | ${stage.rewardCoins} | ${stage.rewardGems} | ${rules.isEmpty ? 'تحدي النقاط' : rules.join('؛ ')} |');
     csv.writeln(
-        '$world,${stage.order},$columns,${stage.categoryPolicy},${stage.boardSoloPicks},$maximum,${stage.boardTargetScore},${stage.starRules.twoStarsMinScore},${stage.starRules.threeStarsMinScore},${stage.timeLimitSeconds},${stage.maxWrongAnswers ?? 0},${stage.boardRequiredCategoryCount},${stage.boardAllowRevealOptions},${stage.bossStyle}');
+        '$world,${stage.order},$columns,${stage.categoryPolicy},${stage.boardSoloPicks},$maximum,${stage.boardTargetScore},${stage.starRules.twoStarsMinScore},${stage.starRules.threeStarsMinScore},${stage.timeLimitSeconds},${stage.maxWrongAnswers ?? 0},${stage.boardRequiredCategoryCount},${stage.boardAllowRevealOptions},${stage.bossStyle},${stage.rewardCoins},${stage.rewardGems}');
   }
+  final stages = CampaignDefaults.stages();
+  output.writeln('\nإجمالي المراحل بثلاث نجوم: '
+      '${stages.fold(0, (sum, stage) => sum + stage.rewardCoins)} عملة و'
+      '${stages.fold(0, (sum, stage) => sum + stage.rewardGems)} جوهرة.');
   Directory('docs').createSync(recursive: true);
   File('docs/campaign_balance.md').writeAsStringSync(output.toString());
   File('docs/campaign_balance.csv').writeAsStringSync(csv.toString());

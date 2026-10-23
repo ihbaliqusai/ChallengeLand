@@ -42,6 +42,75 @@ final class CampaignBoardRules {
         return Math.max(18, Math.min(97, chance));
     }
 
+    /** Leave time to read, with quicker specialists and occasional hesitation. */
+    static int bossThinkTimeMs(String level, String text, String style, boolean specialty, Random random) {
+        int rank = DIFFICULTY_ORDER.indexOf(level == null ? "" : level.trim());
+        int readingMs = Math.min(1600, (text == null ? 0 : text.length()) * 12);
+        int delay = 2200 + Math.max(0, rank) * 180 + readingMs + random.nextInt(1801);
+        if (random.nextInt(6) == 0) delay += 1200;
+        if ("speed".equals(style)) delay = delay * 3 / 4;
+        if ("specialist".equals(style) && specialty) delay -= 450;
+        return Math.max(1800, Math.min(8000, delay));
+    }
+
+    static String openingMessage(int order, boolean boss, int target, String entry, boolean resumed) {
+        String stage = "المرحلة " + Math.max(1, order);
+        if (resumed) return "نتابع من حيث توقفنا.. أكمل هذه المرحلة!";
+        String opening = "retry".equals(entry) ? "محاولة جديدة في " + stage + ".. "
+                : "next".equals(entry) ? "أحسنت! ننتقل إلى " + stage + ".. "
+                : order <= 1 ? "أهلاً بك في تحدي المراحل.. " : "نكمل الرحلة مع " + stage + ".. ";
+        return opening + (boss ? "تفوّق على الزعماء لفتح الطريق التالي!"
+                : target > 0 ? "هدفك " + target + " نقطة. مستعد؟" : "اجمع النجوم وافتح الطريق التالي!");
+    }
+
+    /** Short presenter lines, using the same effective rules as native play. */
+    static ArrayList<String> briefingMessages(boolean boss, int picks, int columns,
+            String categoryPolicy, int seconds, int maxWrong, int requiredCategories,
+            List<String> worldCategories, String bossStyle, boolean revealAllowed,
+            int twoStarScore, int threeStarScore) {
+        ArrayList<String> messages = new ArrayList<>();
+        String categories = columns == 1 ? "فئة واحدة" : columns == 2 ? "فئتين" : columns + " فئات";
+        messages.add(("playerPick".equals(categoryPolicy) ? "اختر " : "سأختار لك ") + categories
+                + "، ولديك " + Math.max(1, picks) + " أسئلة.");
+        messages.add(revealAllowed
+                ? "اكتب الإجابة للنقاط كاملة؛ كشف الخيارات يمنح نصف النقاط."
+                : "أجب بالكتابة؛ كشف خيارات الإجابة غير متاح في هذه المرحلة.");
+        if (seconds > 0) {
+            messages.add("لديك " + seconds + " ثانية لإنهاء اللوحة؛ الوقت يستمر عند المغادرة.");
+        }
+        if (maxWrong > 0) {
+            messages.add("المسموح " + maxWrong + " أخطاء؛ الخطأ التالي ينهي المحاولة.");
+        }
+        if (requiredCategories > 0) {
+            messages.add("للفوز، أجب صحيحًا في " + requiredCategories + " فئات مختلفة من فئات العالم.");
+            // Separate names into readable bubbles instead of shrinking a long list.
+            String names = "فئات العالم: ";
+            for (String category : worldCategories) {
+                if (names.length() + category.length() > 65) {
+                    messages.add(names);
+                    names = "";
+                }
+                names += (names.isEmpty() || names.endsWith(": ") ? "" : "، ") + category;
+            }
+            if (!names.equals("فئات العالم: ") && !names.isEmpty()) messages.add(names);
+        }
+        if (boss) {
+            if ("specialist".equals(bossStyle)) {
+                messages.add("الزعيم متخصص: يفضّل فئته ويجيب فيها بدقة أعلى.");
+            } else if ("speed".equals(bossStyle)) {
+                messages.add("الزعيم سريع؛ مهلة إجابتك عن كل سؤال 30 ثانية.");
+            } else if ("highValue".equals(bossStyle)) {
+                messages.add("احذر صيّاد النقاط؛ يفضّل الأسئلة الأعلى قيمة.");
+            } else if ("mixed".equals(bossStyle)) {
+                messages.add("تواجه زعماء متخصصين وسريعين وصيّادي نقاط معًا!");
+            }
+        }
+        if (twoStarScore > 0 && threeStarScore > 0) {
+            messages.add("بعد الفوز: " + twoStarScore + " نقطة لنجمتين، و" + threeStarScore + " لثلاث نجوم.");
+        }
+        return messages;
+    }
+
     /** Prefer the specialty column or the largest value; fall back when exhausted. */
     static int[] pickBossCell(List<int[]> remaining, String style, int specialtyColumn, Random random) {
         if (remaining.isEmpty()) return null;

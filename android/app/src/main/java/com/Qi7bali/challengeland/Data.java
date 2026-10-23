@@ -480,7 +480,6 @@ public class Data {
         final DatabaseReference gameRef = sessionId == null ? gamesRef().push() : gamesRef().child(sessionId);
         final String gameID = gameRef.getKey() == null ? String.valueOf(System.currentTimeMillis()) : gameRef.getKey();
 
-        ArrayList<Question> questions = loadSharedQuestions();
         HashMap<String, Object> payload = new HashMap<>();
         payload.put("meta/createdAt", ServerValue.TIMESTAMP);
         payload.put("meta/ownerId", myID);
@@ -501,17 +500,6 @@ public class Data {
         if (sessionId != null && opponentIds != null && opponentIds.size() == 1) {
             payload.put("board/ownerId", myID);
             payload.put("board/joinerId", opponentIds.get(0));
-        }
-
-        int index = 0;
-        for (Question question : questions) {
-            String key = String.format(Locale.US, "questions/q%02d", index++);
-            payload.put(key + "/Level", question.getLevel());
-            payload.put(key + "/Q", question.getQ());
-            payload.put(key + "/R", question.getR());
-            payload.put(key + "/W1", question.getW1());
-            payload.put(key + "/W2", question.getW2());
-            payload.put(key + "/W3", question.getW3());
         }
 
         if (sessionId != null) {
@@ -556,9 +544,7 @@ public class Data {
                     if (sessionId == null) requestsRef().child(opponentId).removeValue();
                 }
             }
-            if (listener != null) {
-                listener.onSuccess(gameID);
-            }
+            publishFreshQuestions(gameRef, "", listener);
         });
     }
 
@@ -606,18 +592,6 @@ public class Data {
                         opponentIds,
                         true
                 );
-                ArrayList<Question> questions = loadSharedQuestions();
-                int index = 0;
-                for (Question question : questions) {
-                    String key = String.format(Locale.US, "questions/q%02d", index++);
-                    payload.put(key + "/Level", question.getLevel());
-                    payload.put(key + "/Q", question.getQ());
-                    payload.put(key + "/R", question.getR());
-                    payload.put(key + "/W1", question.getW1());
-                    payload.put(key + "/W2", question.getW2());
-                    payload.put(key + "/W3", question.getW3());
-                }
-
                 gameRef.updateChildren(payload, new DatabaseReference.CompletionListener() {
                     @Override
                     public void onComplete(@Nullable DatabaseError error,
@@ -628,9 +602,8 @@ public class Data {
                             }
                             return;
                         }
-                        if (listener != null) {
-                            listener.onSuccess(gameID);
-                        }
+                        String roomId = gameID.contains("|") ? gameID.substring(0, gameID.indexOf('|')) : gameID;
+                        publishFreshQuestions(gameRef, roomId, listener);
                     }
                 });
             }
@@ -973,7 +946,8 @@ public class Data {
         ValueEventListener sessionListener = new ValueEventListener() {
             @Override public void onDataChange(DataSnapshot snapshot) {
                 if (!owner.equals(valueAsString(snapshot.child("meta").child("ownerId")))
-                        || !snapshot.child(me).exists() || !snapshot.child("questions").exists()) return;
+                        || !snapshot.child(me).exists()
+                        || !(snapshot.child("questions").exists() || snapshot.child("board").child("ownerId").exists())) return;
                 snapshot.getRef().removeEventListener(this);
                 listener.onSuccess(sessionId);
             }
@@ -1021,6 +995,18 @@ public class Data {
             question.setW1(valueAsString(child.child("W1")));
             question.setW2(valueAsString(child.child("W2")));
             question.setW3(valueAsString(child.child("W3")));
+            question.setCategory(valueAsString(child.child("Category")));
+            question.setImg(valueAsString(child.child("Img")));
+            Object clubs = child.child("ClubPath").getValue();
+            if (clubs instanceof java.util.List) {
+                ArrayList<String> clubPath = new ArrayList<>();
+                for (Object club : (java.util.List<?>) clubs) {
+                    if (club != null && !club.toString().trim().isEmpty()) {
+                        clubPath.add(club.toString().trim());
+                    }
+                }
+                question.setClubPath(clubPath);
+            }
             sorted.put(child.getKey() == null ? String.valueOf(sorted.size()) : child.getKey(), question);
         }
         result.addAll(sorted.values());
@@ -1039,13 +1025,26 @@ public class Data {
         return user;
     }
 
-    private static ArrayList<Question> loadSharedQuestions() {
-        try {
-            Context context = FirebaseApp.getInstance().getApplicationContext();
-            return LocalQuestions.load(context);
-        } catch (Exception e) {
-            return new ArrayList<>();
-        }
+    private static void publishFreshQuestions(DatabaseReference gameRef, String roomId, OnCreateGameIdListener listener) {
+        Context context = FirebaseApp.getInstance().getApplicationContext();
+        QuestionHistory.allocateClassic(context, gameRef.getKey(), roomId, questions -> {
+            HashMap<String, Object> payload = new HashMap<>();
+            int index = 0;
+            for (Question q : questions) {
+                String key = String.format(Locale.US, "questions/q%02d", index++);
+                payload.put(key + "/Level", q.getLevel()); payload.put(key + "/Q", q.getQ());
+                payload.put(key + "/R", q.getR()); payload.put(key + "/W1", q.getW1());
+                payload.put(key + "/W2", q.getW2()); payload.put(key + "/W3", q.getW3());
+                payload.put(key + "/Category", q.getCategory()); payload.put(key + "/Img", q.getImg());
+                payload.put(key + "/ClubPath", q.getClubPath());
+            }
+            gameRef.updateChildren(payload, (error, ref) -> {
+                if (listener != null) {
+                    if (error != null) listener.onFailed(error);
+                    else listener.onSuccess(gameRef.getKey());
+                }
+            });
+        }, error -> { if (listener != null) listener.onFailed(DatabaseError.fromException(error)); });
     }
 
     private static String getCurrentUserId() {

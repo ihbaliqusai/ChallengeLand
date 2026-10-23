@@ -6,6 +6,8 @@ const { CommerceError, sha256 } = require("./domain");
 const { refresh: refreshEconomy, normalize: categoryKey, canonical, free } = require("./economy");
 const originalBoard = require("./original_stake_board");
 const { tierForLevel } = require("./question_tiers");
+const { questionKey } = require("./question_identity");
+const { readHistory, writeHistory } = require("./question_history");
 
 const AMOUNTS = Object.freeze([50, 100, 250, 500, 1000, 2500, 5000]);
 const INVITE_MS = 30000;
@@ -32,9 +34,10 @@ function shuffled(values, draw) {
 }
 
 // Answers and unselected questions never enter a client-readable document.
-function makeBoard(bank, draw) {
+function makeBoard(bank, draw, excluded = new Set()) {
   const pools = new Map();
   for (const q of bank) {
+    if (excluded.has(questionKey(q))) continue;
     if (typeof q.category !== "string" || typeof q.text !== "string" || !q.text.trim()
         || !Array.isArray(q.answers) || q.answers.length !== 4
         || q.answers.some(a => typeof a !== "string" || !a.trim()) || new Set(q.answers).size !== 4) continue;
@@ -44,18 +47,18 @@ function makeBoard(bank, draw) {
   const categories = shuffled([...pools.keys()].filter(c => pools.get(c).length >= 3), draw).slice(0, 2);
   if (categories.length !== 2) fail("unavailable", "بنك أسئلة التحدي غير متاح الآن.");
   const cells = {};
+  const used = new Set();
   for (let col = 0; col < 2; col++) {
     const pool = shuffled(pools.get(categories[col]), draw);
-    const used = new Set();
     for (let row = 0; row < 3; row++) {
       // Prefer the existing bank's difficulty bands, then safely fill a sparse band.
-      const q = pool.find(q => !used.has(q.text) && tierForLevel(q.level) === row)
-        || pool.find(q => !used.has(q.text));
+      const q = pool.find(q => !used.has(questionKey(q)) && tierForLevel(q.level) === row)
+        || pool.find(q => !used.has(questionKey(q)));
       if (!q) fail("unavailable", "بنك أسئلة التحدي غير مكتمل.");
-      used.add(q.text);
+      used.add(questionKey(q));
       const order = shuffled([0, 1, 2, 3], draw);
       cells[`${col}_${row}`] = { category: categories[col], points: [200, 400, 600][row],
-        question: { id: sha256(q.text).slice(0, 24), text: q.text, options: order.map(i => q.answers[i]), correctOption: order.indexOf(0) } };
+        question: { id: questionKey(q).slice(0, 24), text: q.text, options: order.map(i => q.answers[i]), correctOption: order.indexOf(0) } };
     }
   }
   return { categories, cells };
@@ -177,6 +180,7 @@ function createFriendStakesService({ db, now = Date.now, draw = randomInt, quest
       start: ["action", "matchId", "operationId"],
       claim: ["action", "matchId", "turn", "col", "row", "operationId"],
       answer: ["action", "matchId", "turn", "optionIndex", "answerText", "operationId"],
+      skipAnswer: ["action", "matchId", "turn", "operationId"],
       pickCategory: ["action", "matchId", "category", "operationId"],
       beginAnswer: ["action", "matchId", "turn", "operationId"],
       reveal: ["action", "matchId", "turn", "count", "operationId"],
@@ -190,7 +194,7 @@ function createFriendStakesService({ db, now = Date.now, draw = randomInt, quest
     if (input.action === "respond" && (typeof input.challengeId !== "string" || !/^[A-Za-z0-9_-]{1,128}:[A-Za-z0-9_-]{1,128}$/.test(input.challengeId)
         || !["accepted", "declined", "cancelled"].includes(input.status))) fail("invalid-argument", "الدعوة غير صالحة.");
     if (!["invite", "respond"].includes(input.action) && !/^[a-f0-9]{48}$/.test(input.matchId || "")) fail("invalid-argument", "معرّف المباراة غير صالح.");
-    if (["claim", "answer", "beginAnswer", "reveal"].includes(input.action) && (!Number.isInteger(input.turn) || input.turn < 0 || input.turn > 11)) fail("invalid-argument", "الدور غير صالح.");
+    if (["claim", "answer", "skipAnswer", "beginAnswer", "reveal"].includes(input.action) && (!Number.isInteger(input.turn) || input.turn < 0 || input.turn > 11)) fail("invalid-argument", "الدور غير صالح.");
     if (input.action === "claim" && (!Number.isInteger(input.col) || input.col < 0 || input.col > 1 || !Number.isInteger(input.row) || input.row < 0 || input.row > 5))
       fail("invalid-argument", "الخانة غير صالحة.");
     if (input.action === "answer" && (Object.hasOwn(input, "answerText") === Object.hasOwn(input, "optionIndex")
@@ -227,7 +231,6 @@ function createFriendStakesService({ db, now = Date.now, draw = randomInt, quest
     if (input.action === "invite" && input.gameplayVersion !== 2 && !legacyInvitesEnabled)
       fail("failed-precondition", "حدّث التطبيق لبدء تحدي القطع بنظام اللعب الأصلي.");
     // Entropy is generated once outside Firestore's retry callback.
-    const prepared = input.action === "respond" && input.status === "accepted" && input.gameplayVersion !== 2 ? makeBoard(bank(), draw) : null;
     const originalSeed = input.action === "pickCategory" ? draw(2147483647) : 0;
     const receiptPath = `friend_stake_operations/${uid}/items/${sha256(input.operationId || "sync")}`;
     const signature = sha256(JSON.stringify(Object.fromEntries(Object.entries(input).filter(([k]) => k !== "operationId").sort(([a], [b]) => a.localeCompare(b)))));
@@ -276,6 +279,9 @@ function createFriendStakesService({ db, now = Date.now, draw = randomInt, quest
             fail("failed-precondition", "وصل رصيد أحد اللاعبين إلى الحد الأقصى.");
           const matchId = challenge.stakeMatchId;
           if (await read(tx, `friend_stake_matches/${matchId}`)) fail("already-exists", "تم قبول هذا التحدي مسبقًا.");
+          const histories = !original ? await readHistory(tx, db, [a, b]) : null;
+          const prepared = !original ? makeBoard(bank(), draw, new Set([...histories.values()].flatMap(s => [...s]))) : null;
+          if (prepared) writeHistory(tx, db, histories, Object.values(prepared.cells).map(c => questionKey(c.question)));
           const m = { matchId, challengeId: input.challengeId, members: [a, b], ownerId: a, joinerId: b,
             stakeCoins: amount, status: "waiting", ready: {},
             ...(original ? { protocolVersion: 2, picks: {}, categories: [], cells: {}, rows: 6 } : { ...prepared, rows: 3 }), currentTurn: 0,
@@ -325,6 +331,8 @@ function createFriendStakesService({ db, now = Date.now, draw = randomInt, quest
           ? await Promise.all(m.members.map(player => read(tx, `economy_accounts/${player}`))) : [];
         const categoryEntitlement = input.action === "pickCategory" && escrow.protocolVersion === 2
           ? await read(tx, `commerce_accounts/${uid}/entitlements/current`) : undefined;
+        const histories = input.action === "pickCategory" && escrow.protocolVersion === 2
+          ? await readHistory(tx, db, m.members) : null;
         if (escrow.status === "settled") {
           m.settlement = escrow.settlement;
           finish(m, escrow.finishReason, escrow.settlement.winnerId);
@@ -374,7 +382,9 @@ function createFriendStakesService({ db, now = Date.now, draw = randomInt, quest
               m.ready[uid] = true;
               escrow.categoryAdmissions = { ...(escrow.categoryAdmissions || {}), [uid]: { category, ticketCost, ad, day: s.day } };
               if (m.members.every(player => m.picks[player]?.category)) {
-                Object.assign(m, originalBoard.makeBoard(classicBank(), m.members.map(player => m.picks[player].category), originalSeed));
+                Object.assign(m, originalBoard.makeBoard(classicBank(), m.members.map(player => m.picks[player].category), originalSeed,
+                  new Set([...histories.values()].flatMap(s => [...s]))));
+                writeHistory(tx, db, histories, Object.values(m.cells).map(c => questionKey(c.question)));
                 m.status = "active";
                 m.phase = "selecting";
                 m.startedAtMillis = at;
@@ -385,7 +395,7 @@ function createFriendStakesService({ db, now = Date.now, draw = randomInt, quest
               save(tx, `economy_accounts/${uid}`, s);
               save(tx, `friend_stake_escrows/${m.matchId}`, escrow);
             }
-          } else if (["claim", "answer", "beginAnswer", "reveal"].includes(input.action)) {
+          } else if (["claim", "answer", "skipAnswer", "beginAnswer", "reveal"].includes(input.action)) {
             if (m.status !== "active") fail("failed-precondition", "لم تبدأ المباراة بعد.");
             if (m.protocolVersion === 2) originalBoard.apply(m, uid, input, at, finish);
             else {

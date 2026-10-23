@@ -46,6 +46,7 @@ const artworkSizes = <String, Size>{
   "assets/categories/مسلسل Friends.png": Size(352, 355),
   "assets/categories/مسلسلات أجنبية.png": Size(352, 355),
   "assets/categories/مسلسلات عربية.png": Size(352, 355),
+  "assets/categories/مسيرة لاعب.png": Size(512, 512),
   "assets/categories/معلومات عامة.png": Size(352, 311),
   "assets/categories/منوعات.png": Size(352, 311),
   "assets/categories/نباتات.png": Size(352, 311),

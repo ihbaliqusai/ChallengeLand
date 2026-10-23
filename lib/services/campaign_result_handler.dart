@@ -18,24 +18,27 @@ class CampaignResultHandler {
   CampaignResultHandler._();
 
   static bool _processing = false;
+  static Future<void>? _rewardRecovery;
+  static String? _recoveryUid;
+  static DateTime? _lastRecovery;
 
   static Future<bool> consumeAndHandlePendingCampaignResult({
     required BuildContext context,
+    CampaignStage? knownStage,
+    CampaignService? service,
   }) async {
     if (!_isCurrentRoute(context)) return false;
     if (_processing) return false;
     _processing = true;
     try {
       final nativeBridge = context.read<NativeBridgeService>();
-      final campaignService = CampaignService();
+      final campaignService = service ?? CampaignService();
       final appState = context.read<AppState>();
-      await _retryPendingRewardClaims(
-        appState: appState,
-        campaignService: campaignService,
-      );
-
       final payload = await nativeBridge.consumePendingCampaignStageResult();
-      if (payload == null) return false;
+      if (payload == null) {
+        _recoverRewardsInBackground(appState, campaignService);
+        return false;
+      }
       final owner = payload['accountUid']?.toString().trim() ?? '';
       final activeUid = appState.currentUser?.uid ?? 'guest_local';
       bool accountIsActive() =>
@@ -71,9 +74,15 @@ class CampaignResultHandler {
         return true;
       }
 
-      final stages = await campaignService.loadStages(campaignId: campaignId);
+      final stage = knownStage?.campaignId == campaignId &&
+              (knownStage?.id == stageId ||
+                  knownStage?.id ==
+                      stageId.replaceFirstMapped(
+                          RegExp(r'^stage_(\d{2})$'), (m) => 'stage_0${m[1]}'))
+          ? knownStage
+          : _findStage(await campaignService.loadStages(campaignId: campaignId),
+              stageId);
       if (!accountIsActive()) return false;
-      final stage = _findStage(stages, stageId);
       if (stage == null) {
         if (context.mounted) {
           _showSnack(context, 'تعذر العثور على بيانات المرحلة.');
@@ -91,11 +100,11 @@ class CampaignResultHandler {
           stage: stage,
           payload: payload,
         );
-        await _recordCampaignAchievementProgress(
+        unawaited(_recordCampaignAchievementProgress(
           nativeBridge: nativeBridge,
           result: preview,
           accountUid: activeUid,
-        );
+        ));
         if (!context.mounted) return true;
         unawaited(Navigator.of(context).pushReplacement(
           MaterialPageRoute<void>(
@@ -109,74 +118,42 @@ class CampaignResultHandler {
         return true;
       }
 
-      late final StageSubmissionResult result;
-      try {
-        result = await campaignService.submitStageResult(
-          uid: uid,
-          stage: stage,
-          nativeResult: payload,
-          displayName:
-              (user.displayName ?? user.email?.split('@').first ?? '').trim(),
-          photoUrl: user.photoURL,
-        );
-      } catch (error, stackTrace) {
-        if (!accountIsActive()) return true;
-        _debugSaveFailure(
-          error: error,
-          stackTrace: stackTrace,
-          campaignId: campaignId,
-          stageId: stageId,
-          uid: uid,
-          payload: payload,
-        );
-        if (!context.mounted) return true;
-        _showSnack(context, _saveFailureMessage(error));
-        final preview = _buildLocalPreview(
-          campaignService: campaignService,
-          stage: stage,
-          payload: payload,
-          saveFailed: true,
-        );
-        await _recordCampaignAchievementProgress(
-          nativeBridge: nativeBridge,
-          result: preview,
-          accountUid: activeUid,
-        );
-        if (!context.mounted) return true;
-        unawaited(Navigator.of(context).pushReplacement(
-          MaterialPageRoute<void>(
-            builder: (_) => StageResultScreen(
-              stage: stage,
-              submissionResult: preview,
-              rawNativeResult: payload,
-            ),
-          ),
-        ));
-        return true;
-      }
-
-      if (!accountIsActive()) return true;
-      final rewardApplied = await applySubmissionReward(
-        appState: appState,
+      // The native attempt already contains everything needed for the result.
+      // Render it immediately; cloud progress, wallet and achievements can finish
+      // while the player reads the result and watches the star animation.
+      final preview = _buildLocalPreview(
         campaignService: campaignService,
-        result: result,
+        stage: stage,
+        payload: payload,
+        saving: true,
       );
-
-      if (!accountIsActive()) return true;
-      await _recordCampaignAchievementProgress(
+      unawaited(_recordCampaignAchievementProgress(
         nativeBridge: nativeBridge,
-        result: result,
+        result: preview,
         accountUid: activeUid,
-      );
-
+      ));
       if (!context.mounted) return true;
+      final pendingSubmission = campaignService.submitStageResult(
+        uid: uid,
+        stage: stage,
+        nativeResult: payload,
+        displayName:
+            (user.displayName ?? user.email?.split('@').first ?? '').trim(),
+        photoUrl: user.photoURL,
+      );
+      // Attach immediately in case saving fails before the new route is built.
+      // The result screen still receives the same failure and offers a retry.
+      unawaited(pendingSubmission.then<void>((_) {},
+          onError: (Object error, StackTrace stack) {}));
       unawaited(Navigator.of(context).pushReplacement(
         MaterialPageRoute<void>(
           builder: (_) => StageResultScreen(
             stage: stage,
-            submissionResult: result,
+            submissionResult: preview,
             rawNativeResult: payload,
-            currencyRewardApplied: rewardApplied,
+            pendingSubmission: pendingSubmission,
+            submissionUid: uid,
+            campaignService: campaignService,
           ),
         ),
       ));
@@ -204,6 +181,26 @@ class CampaignResultHandler {
   static bool _isCurrentRoute(BuildContext context) {
     final route = ModalRoute.of(context);
     return route == null || route.isCurrent;
+  }
+
+  static void _recoverRewardsInBackground(
+      AppState appState, CampaignService campaignService) {
+    final uid = appState.currentUser?.uid;
+    if (uid == null || _rewardRecovery != null) return;
+    final now = DateTime.now();
+    if (_recoveryUid == uid &&
+        _lastRecovery != null &&
+        now.difference(_lastRecovery!) < const Duration(seconds: 30)) {
+      return;
+    }
+    _recoveryUid = uid;
+    _lastRecovery = now;
+    _rewardRecovery = _retryPendingRewardClaims(
+      appState: appState,
+      campaignService: campaignService,
+    ).catchError((Object error, StackTrace stack) {
+      if (kDebugMode) debugPrint('CAMPAIGN_REWARD_RECOVERY_FAILED $error');
+    }).whenComplete(() => _rewardRecovery = null);
   }
 
   static Future<bool> applySubmissionReward({
@@ -317,37 +314,6 @@ class CampaignResultHandler {
         payload.containsKey('correctAnswers') &&
         payload.containsKey('wrongAnswers') &&
         payload.containsKey('timeMs');
-  }
-
-  static void _debugSaveFailure({
-    required Object error,
-    required StackTrace stackTrace,
-    required String campaignId,
-    required String stageId,
-    required String uid,
-    required Map<String, dynamic> payload,
-  }) {
-    final firebaseDetails = error is FirebaseException
-        ? ' firebaseCode=${error.code} firebaseMessage=${error.message} '
-            'firebasePlugin=${error.plugin}'
-        : '';
-    debugPrint(
-      'CAMPAIGN_SAVE_FAILED\n'
-      'exceptionType=${error.runtimeType}$firebaseDetails\n'
-      'message=$error\n'
-      'uid=$uid\n'
-      'campaignId=$campaignId\n'
-      'stageId=$stageId\n'
-      'completed=${payload['completed']}\n'
-      'correctAnswers=${payload['correctAnswers']}\n'
-      'wrongAnswers=${payload['wrongAnswers']}\n'
-      'timeMs=${payload['timeMs']}\n'
-      'nativeResultKeys=${payload.keys.toList()}\n'
-      'nativeResult=$payload',
-    );
-    if (kDebugMode) {
-      debugPrintStack(stackTrace: stackTrace);
-    }
   }
 
   static Future<void> _retryPendingRewardClaims({
@@ -481,7 +447,7 @@ class CampaignResultHandler {
     required CampaignService campaignService,
     required CampaignStage stage,
     required Map<String, dynamic> payload,
-    bool saveFailed = false,
+    bool saving = false,
   }) {
     final campaignMode = campaignService.campaignModeForResult(
         stage: stage, nativeResult: payload);
@@ -617,8 +583,10 @@ class CampaignResultHandler {
       rewardCoinsGranted: 0,
       rewardGemsGranted: 0,
       rewardXpGranted: 0,
-      motivationalMessage: saveFailed
-          ? 'تعذر حفظ النتيجة، لكن هذه نتيجتك الحالية.'
+      motivationalMessage: saving
+          ? (completed
+              ? 'أحسنت! اكتملت المرحلة.'
+              : 'حاول مرة أخرى وحسّن نتيجتك.')
           : completed
               ? 'أحسنت! سجّل الدخول لحفظ هذا التقدم.'
               : 'كنت قريبًا جدًا، حاول مرة أخرى.',

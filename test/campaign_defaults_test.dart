@@ -174,6 +174,7 @@ void main() {
       final first = CampaignDefaults.stages().first;
       final old = first.toMap()
         ..remove('boardDesignVersion')
+        ..remove('rewardEconomyVersion')
         ..['boardSoloCols'] = 4
         ..['boardSoloPicks'] = 6
         ..['boardTargetScore'] = 520
@@ -193,9 +194,35 @@ void main() {
       expect(loaded.first.boardTargetScore, first.boardTargetScore);
       expect(loaded.first.boardDesignVersion, 2);
       expect(loaded.first.title, 'عنوان مخصص');
-      expect(loaded.first.rewardCoins, 999);
+      expect(loaded.first.rewardCoins, first.rewardCoins);
+      expect(loaded.first.rewardEconomyVersion,
+          CampaignDefaults.rewardEconomyVersion);
       expect(loaded[1].boardSoloCols, 3);
       expect(loaded[1].boardTargetScore, 1000);
+    });
+    test(
+        'economy upgrades independently of gameplay and preserves custom rewards',
+        () async {
+      final db = FakeFirebaseFirestore();
+      final stock = CampaignDefaults.stages();
+      await db.doc('campaigns/main_campaign/stages/${stock[0].id}').set(stock[0]
+          .copyWith(rewardCoins: 2500, rewardGems: 9, rewardEconomyVersion: 0)
+          .toMap());
+      await db
+          .doc('campaigns/main_campaign/stages/${stock[1].id}')
+          .set(stock[1].copyWith(rewardCoins: 90, rewardGems: 1).toMap());
+      final loaded = await CampaignService(firestore: db).loadStages();
+      expect(loaded[0].rewardCoins, stock[0].rewardCoins);
+      expect(loaded[0].rewardGems, 0);
+      expect(loaded[0].boardDesignVersion, stock[0].boardDesignVersion);
+      expect(loaded[1].rewardCoins, 90);
+      expect(loaded[1].rewardGems, 1);
+      final restored = CampaignStage.fromMap(loaded[1].toMap());
+      expect(
+          restored.rewardEconomyVersion, CampaignDefaults.rewardEconomyVersion);
+      final foreign = stock[0].copyWith(
+          campaignId: 'custom', rewardCoins: 999, rewardEconomyVersion: 0);
+      expect(CampaignDefaults.withCurrentEconomy(foreign).rewardCoins, 999);
     });
     test('remote stages override defaults without hiding missing defaults',
         () async {

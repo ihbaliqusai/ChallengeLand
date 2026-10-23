@@ -405,6 +405,7 @@ class CampaignStage {
     this.bossStyle = 'balanced',
     this.boardAllowRevealOptions = true,
     this.boardDesignVersion = 0,
+    this.rewardEconomyVersion = 0,
   })  : campaignMode = campaignMode ?? type._defaultCampaignMode,
         winCondition = winCondition ??
             (campaignMode == null
@@ -456,6 +457,7 @@ class CampaignStage {
   final String bossStyle; // balanced | specialist | speed | highValue
   final bool boardAllowRevealOptions;
   final int boardDesignVersion;
+  final int rewardEconomyVersion;
 
   String get boardCategorySelectionText {
     final count = isBossStage ? botCount + 1 : boardSoloCols;
@@ -593,6 +595,7 @@ class CampaignStage {
       boardAllowRevealOptions:
           _readBool(map['boardAllowRevealOptions'], defaultValue: true),
       boardDesignVersion: _readInt(map['boardDesignVersion']),
+      rewardEconomyVersion: _readInt(map['rewardEconomyVersion']),
       starRules: StageStarRules.fromMap(_readMap(map['starRules'])),
     );
   }
@@ -642,6 +645,7 @@ class CampaignStage {
         'bossStyle': bossStyle,
         'boardAllowRevealOptions': boardAllowRevealOptions,
         'boardDesignVersion': boardDesignVersion,
+        'rewardEconomyVersion': rewardEconomyVersion,
         'starRules': starRules.toMap(),
       };
 
@@ -690,6 +694,7 @@ class CampaignStage {
     String? bossStyle,
     bool? boardAllowRevealOptions,
     int? boardDesignVersion,
+    int? rewardEconomyVersion,
     StageStarRules? starRules,
   }) {
     final effectiveMode = campaignMode ?? this.campaignMode;
@@ -741,6 +746,7 @@ class CampaignStage {
       boardAllowRevealOptions:
           boardAllowRevealOptions ?? this.boardAllowRevealOptions,
       boardDesignVersion: boardDesignVersion ?? this.boardDesignVersion,
+      rewardEconomyVersion: rewardEconomyVersion ?? this.rewardEconomyVersion,
       starRules: starRules ?? this.starRules,
     );
   }

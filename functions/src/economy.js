@@ -2,10 +2,12 @@
 
 const { CommerceError, sha256 } = require("./domain");
 const DAY = 86400000;
+// Category trials share the ticket allowance: they cannot bypass the ad cap.
+const AD_REWARD_LIMITS = Object.freeze({ keys: 2, hearts: 2, tickets: 2 });
 const weekId = at => Math.floor((Math.floor(at / DAY) + 3) / 7); // Monday, UTC.
 const FREE = ["جغرافيا", "حيوانات", "دين واسلاميات", "عواصم", "دول", "اختراعات", "عملات", "لغة وادب"];
 const NO_ADS = ["أنمي", "مسلسل Friends", "مسلسلات أجنبية", "مسلسلات عربية", "أفلام أجنبية", "أفلام عربية", "سبيس تون"];
-const CATEGORIES = [...FREE, ...NO_ADS, "معلومات عامة", "تاريخ", "رياضة", "علوم وفضاء", "ألغاز", "أمثال", "تقنية", "جسم الإنسان", "نباتات", "لغات", "صحة", "طعام وشراب", "سياحة وسفر", "سيرة ذاتية", "قصص الأنبياء", "منوعات", "خمن الصورة", "خمن الأغنية", "خمن الأكلة", "خمن الاسم", "خمن المدينة او الدولة", "زووم", "ركز شوي", "وضح شوي", "سيارات", "كأس العالم", "فنون وسينما", "فيروز", "كلثوميات"];
+const CATEGORIES = [...FREE, ...NO_ADS, "معلومات عامة", "تاريخ", "رياضة", "لاعبين كرة قدم", "مسيرة لاعب", "علوم وفضاء", "ألغاز", "أمثال", "تقنية", "جسم الإنسان", "نباتات", "لغات", "صحة", "طعام وشراب", "سياحة وسفر", "سيرة ذاتية", "قصص الأنبياء", "منوعات", "خمن الصورة", "خمن الأغنية", "خمن الأكلة", "خمن الاسم", "خمن المدينة او الدولة", "زووم", "ركز شوي", "وضح شوي", "سيارات", "كأس العالم", "فنون وسينما", "فيروز", "كلثوميات"];
 function normalize(s) {
   const n = String(s || "").trim().replace(/[أإآ]/g, "ا").replace(/ة/g, "ه").replace(/ى/g, "ي").replace(/\s+/g, " ").toLowerCase();
   return ["الانمي", "الانيمي", "انيمي"].includes(n) ? "انمي" : n;
@@ -35,12 +37,13 @@ function fresh(at) {
     keys: 0, hearts: 0, tickets: 3, categoryVouchers: 0, rentalVouchers: 0, claimedVipExpiry: 0,
     welcomeGrantedAt: at, rewardLog: [{ id: "welcome", kind: "welcome", at, grants: { keys: 3, tickets: 3, hearts: 3 } }],
     owned: [], rentals: {}, adPermits: {}, milestones: [], streak: 0, lastLoginDay: -1,
-    week: weekId(at), weekDays: [], weekCorrect: 0, weekRewardClaimed: false, revision: 0, reservations: {} };
+    week: weekId(at), weekDays: [], weekCorrect: 0, weekRewardClaimed: false, revision: 0, reservations: {}, adRewardCounts: {} };
 }
 function refresh(data, at) {
   const s = { ...fresh(at), ...data, owned: [...(data?.owned || [])], rentals: { ...(data?.rentals || {}) }, adPermits: { ...(data?.adPermits || {}) }, milestones: [...(data?.milestones || [])], reservations: { ...(data?.reservations || {}) } };
   s.rewardLog = [...(data?.rewardLog || (!data ? s.rewardLog : []))];
   s.claimedVipExpiry = Number(data?.claimedVipExpiry || 0);
+  s.adRewardCounts = Object.fromEntries(Object.keys(AD_REWARD_LIMITS).map(resource => [resource, integer(data?.adRewardCounts?.[resource])]));
   // Existing accounts receive the introduction once, without overwriting banked purchases.
   // The initial three keys/hearts are the first day's free allowance, not a second grant.
   if (data && !data.welcomeGrantedAt) {
@@ -49,7 +52,7 @@ function refresh(data, at) {
     s.tickets = integer(data.tickets) + 3;
     recordReward(s, "welcome", "welcome", { keys: 3, tickets: 3, hearts: 3 }, at);
   }
-  if (s.day !== Math.floor(at / DAY)) Object.assign(s, { day: Math.floor(at / DAY), dailyKeys: 3, dailyHearts: 3 });
+  if (s.day !== Math.floor(at / DAY)) Object.assign(s, { day: Math.floor(at / DAY), dailyKeys: 3, dailyHearts: 3, adRewardCounts: {} });
   if (s.week !== weekId(at)) Object.assign(s, { week: weekId(at), weekDays: [], weekCorrect: 0, weekRewardClaimed: false });
   return s;
 }
@@ -70,27 +73,34 @@ function take(s, resource) {
   throw new CommerceError("resource-exhausted", resource === "keys" ? "نفدت المفاتيح. احصل على المزيد من المتجر." : "نفدت القلوب. انتظر التجديد أو احصل على قلوب إضافية.");
 }
 function streakReward(s, day) {
-  if (day === 7) { s.keys += 3; s.tickets += 2; }
-  if (day === 14) { s.keys += 3; s.hearts++; }
-  if (day === 21) s.keys += 4;
-  if (day === 30) { s.keys += 5; s.hearts += 2; s.tickets += 3; s.rentalVouchers++; }
+  if (day === 7) s.keys++;
+  if (day === 14) { s.hearts++; s.tickets++; }
+  if (day === 21) s.keys++;
+  if (day === 30) { s.keys += 2; s.hearts++; s.tickets++; }
 }
 function milestone(s, order) {
   const id = String(order);
   if (s.milestones.includes(id)) return;
   s.milestones.push(id);
-  if (order % 10 === 0) s.tickets++;
-  if (order === 10) s.keys += 2;
-  if (order === 25) { s.keys += 3; s.rentalVouchers++; }
-  if (order === 50 || order === 100) s.categoryVouchers++;
-  if (order === 75) { s.keys += 5; s.hearts += 2; }
+  if (order % 20 === 0) s.tickets++;
+  if (order === 10 || order === 25) s.keys++;
+  if (order === 50 || order === 75) { s.keys++; s.hearts++; }
+  if (order === 100) { s.keys += 2; s.rentalVouchers++; }
+}
+
+function takeAdAllowance(s, resource) {
+  const used = integer(s.adRewardCounts[resource]);
+  if (used >= AD_REWARD_LIMITS[resource]) {
+    throw new CommerceError("resource-exhausted", "اكتملت مكافآت إعلانات هذا المورد لليوم. تتجدد عند منتصف الليل UTC.");
+  }
+  s.adRewardCounts[resource] = used + 1;
 }
 
 function weeklyProgress(s, day, correct, at) {
   s.weekDays = [...new Set([...(s.weekDays || []), day])];
   s.weekCorrect = Math.min(100000, s.weekCorrect + correct);
   if (!s.weekRewardClaimed && s.weekDays.length >= 3 && s.weekCorrect >= 20) {
-    rewarded(s, `week_${s.week}`, "weekly", at, () => { s.keys += 2; s.tickets++; });
+    rewarded(s, `week_${s.week}`, "weekly", at, () => { s.keys++; s.tickets++; });
     s.weekRewardClaimed = true;
   }
 }
@@ -178,7 +188,10 @@ function createEconomyService({ db, now = Date.now }) {
         if (action === "ad") {
           if (!allowsAd(c)) throw new CommerceError("permission-denied", "هذا التصنيف لا يفتح بمشاهدة إعلان.");
           // A permit is category-specific and cannot be exchanged for a general ticket.
-          s.adPermits[key] = 1;
+          if (!access(c) && !s.adPermits[key]) {
+            takeAdAllowance(s, "tickets");
+            s.adPermits[key] = 1;
+          }
         } else if (action === "ownVoucher" || action === "own") {
           if (!permanentlyOwned(c) && e.allCategories !== true) {
             if (action === "ownVoucher") {
@@ -304,6 +317,7 @@ function createEconomyService({ db, now = Date.now }) {
         if (s[resource] + 1 > 2147483647) {
           throw new CommerceError("failed-precondition", "بلغ الرصيد الحد الأقصى.");
         }
+        takeAdAllowance(s, resource);
         s[resource] += 1;
         recordReward(s, `ad_${resource}_${at}`, "ad", { [resource]: 1 }, at);
       } else if (action === "claimVipBonus") {
@@ -344,6 +358,6 @@ function refund(s, session) {
   } else s[session.source]++;
 }
 function view(s, at) {
-  return { ...s, keysTotal: s.dailyKeys + s.keys, heartsTotal: s.dailyHearts + s.hearts, serverTimeMillis: at, nextResetMillis: (s.day + 1) * DAY, offers: OFFERS, rentalPrices: RENTALS };
+  return { ...s, keysTotal: s.dailyKeys + s.keys, heartsTotal: s.dailyHearts + s.hearts, serverTimeMillis: at, nextResetMillis: (s.day + 1) * DAY, offers: OFFERS, rentalPrices: RENTALS, adRewardLimits: AD_REWARD_LIMITS };
 }
-module.exports = { createEconomyService, refresh, fresh, normalize, canonical, free, allowsAd, OFFERS, RENTALS, milestone, streakReward };
+module.exports = { createEconomyService, refresh, fresh, normalize, canonical, free, allowsAd, OFFERS, RENTALS, AD_REWARD_LIMITS, milestone, streakReward };

@@ -653,8 +653,25 @@ class _StoreScreenState extends State<StoreScreen> {
     }
     setState(() => _busy = true);
     try {
+      final uid = app.currentUser?.uid;
+      await app.loadEconomy();
+      if (!mounted || app.currentUser?.uid != uid) return;
+      if (!app.economyLoaded || app.economyError != null) {
+        _snack(
+            _tr('تعذر تحميل رصيد الإعلانات. حاول مجدداً.',
+                'Could not load your ad allowance. Please try again.'),
+            error: true);
+        return;
+      }
+      if (app.economyWallet.remainingAdRewards('tickets') == 0) {
+        _snack(
+            _tr('اكتملت إعلانات التذاكر وتجربة التصنيفات لليوم.',
+                'Today\'s ticket and category trial ad limit has been reached.'),
+            error: true);
+        return;
+      }
       final watched = await context.read<AdService>().showActionRewardedAd();
-      if (!mounted) return;
+      if (!mounted || app.currentUser?.uid != uid) return;
       if (!watched) {
         _snack(
             _tr('الإعلان غير متاح أو لم تكتمل مشاهدته.',
@@ -2200,9 +2217,8 @@ class _StoreScreenState extends State<StoreScreen> {
                           ? _tr('المستوى ${character.unlock.value}',
                               'Level ${character.unlock.value}')
                           : '${_number(character.unlock.value)} ${character.unlock.kind == CharacterUnlockKind.coins ? _tr('نقود', 'coins') : _tr('جواهر', 'gems')}',
-                  onPressed: disabled
-                      ? null
-                      : () => _openCharacters(character.index),
+                  onPressed:
+                      disabled ? null : () => _openCharacters(character.index),
                 ),
               ),
           ],
@@ -2890,9 +2906,18 @@ class _StoreScreenState extends State<StoreScreen> {
                 !adReady &&
                 CategoryCatalog.allowsAd(category.name))
               TextButton.icon(
-                  onPressed: disabled ? null : () => _rentCategory(category),
+                  onPressed: disabled ||
+                          !app.economyLoaded ||
+                          app.economyError != null ||
+                          app.economyWallet.remainingAdRewards('tickets') == 0
+                      ? null
+                      : () => _rentCategory(category),
                   icon: const Icon(Icons.play_circle_outline_rounded, size: 17),
-                  label: Text(_tr('إعلان • مباراة واحدة', 'Ad • one match'),
+                  label: Text(
+                      app.economyWallet.remainingAdRewards('tickets') == 0
+                          ? _tr(
+                              'اكتملت إعلانات اليوم', 'Daily ad limit reached')
+                          : _tr('إعلان • مباراة واحدة', 'Ad • one match'),
                       style: const TextStyle(fontSize: 11)),
                   style: TextButton.styleFrom(
                       foregroundColor: _muted,
@@ -3052,6 +3077,20 @@ class _StoreScreenState extends State<StoreScreen> {
                                 _tr('${ads.watchesLeft} من ${AdService.maxDailyWatches} مشاهدات متبقية اليوم',
                                     '${ads.watchesLeft} of ${AdService.maxDailyWatches} watches left today'),
                                 size: 18)),
+                        GameStoreArtworkLabel(
+                            area: const Rect.fromLTRB(.145, .515, .352, .583),
+                            cleanStrip:
+                                const Rect.fromLTRB(.129, .515, .140, .583),
+                            child: _artworkText(
+                                '${_number(AdService.rewardGems)} ${_tr('جوهرة', 'gems')}',
+                                color: _cyan)),
+                        GameStoreArtworkLabel(
+                            area: const Rect.fromLTRB(.540, .515, .765, .583),
+                            cleanStrip:
+                                const Rect.fromLTRB(.523, .515, .533, .583),
+                            child: _artworkText(
+                                '${_number(AdService.rewardCoins)} ${_tr('نقود', 'coins')}',
+                                color: _gold)),
                       ])),
               if (promo != null)
                 SizedBox(
@@ -4120,8 +4159,25 @@ class _StoreScreenState extends State<StoreScreen> {
 
     setState(() => _busy = true);
     try {
+      final uid = app.currentUser?.uid;
+      await app.loadEconomy();
+      if (!mounted || app.currentUser?.uid != uid) return;
+      if (!app.economyLoaded || app.economyError != null) {
+        _snack(
+            _tr('تعذر تحميل رصيد الإعلانات. حاول مجدداً.',
+                'Could not load your ad allowance. Please try again.'),
+            error: true);
+        return;
+      }
+      if (app.economyWallet.remainingAdRewards(resourceKey) == 0) {
+        _snack(
+            _tr('اكتملت إعلانات هذا المورد لليوم.',
+                'Today\'s ad limit for this resource has been reached.'),
+            error: true);
+        return;
+      }
       final watched = await adService?.showActionRewardedAd() ?? false;
-      if (!mounted) return;
+      if (!mounted || app.currentUser?.uid != uid) return;
       if (!watched) {
         _snack(
           _tr('الإعلان غير متاح حالياً أو لم تكتمل مشاهدته.',
@@ -4144,13 +4200,13 @@ class _StoreScreenState extends State<StoreScreen> {
       }
     } catch (error) {
       if (mounted) {
-        final message = (error is EconomyOperationException &&
-                error.message.isNotEmpty)
-            ? error.message
-            : (error is StateError && error.message.isNotEmpty)
+        final message =
+            (error is EconomyOperationException && error.message.isNotEmpty)
                 ? error.message
-                : _tr('تعذر إضافة المكافأة. حاول مجدداً.',
-                    'Could not add reward. Try again.');
+                : (error is StateError && error.message.isNotEmpty)
+                    ? error.message
+                    : _tr('تعذر إضافة المكافأة. حاول مجدداً.',
+                        'Could not add reward. Try again.');
         _snack(message, error: true);
       }
     } finally {
@@ -4163,8 +4219,14 @@ class _StoreScreenState extends State<StoreScreen> {
     final details = iap.getProductDetails(product.id);
     final price = details?.price;
     final isAd = _isAdProduct(product.id);
+    final adExhausted = isAd &&
+        app.economyWallet.remainingAdRewards(_adResourceKey(product.id)) == 0;
     final canBuy = isAd
-        ? (!disabled && !_busy)
+        ? (!disabled &&
+            !_busy &&
+            app.economyLoaded &&
+            app.economyError == null &&
+            !adExhausted)
         : (!disabled &&
             !iap.isLoading &&
             app.isCommerceReady &&
@@ -4181,7 +4243,9 @@ class _StoreScreenState extends State<StoreScreen> {
     final aspectRatio = _resourceProductAspect(product.id);
     final buttonLabel = isAd ? _tr('إعلان مجاني', 'Free Ad') : price;
     final semanticPrice = isAd
-        ? _tr('إعلان مجاني', 'Free Ad')
+        ? adExhausted
+            ? _tr('اكتملت إعلانات اليوم', 'Daily ad limit reached')
+            : _tr('إعلان مجاني', 'Free Ad')
         : (canBuy ? price : _tr('غير متاح حالياً', 'Unavailable'));
 
     return Semantics(
@@ -4401,7 +4465,11 @@ class _StoreScreenState extends State<StoreScreen> {
                                   child: FittedBox(
                                     fit: BoxFit.scaleDown,
                                     child: Text(
-                                        _tr('غير متاح حالياً', 'Unavailable'),
+                                        adExhausted
+                                            ? _tr('اكتملت إعلانات اليوم',
+                                                'Daily ad limit reached')
+                                            : _tr('غير متاح حالياً',
+                                                'Unavailable'),
                                         style: const TextStyle(
                                             color: Colors.white70)),
                                   ),
@@ -4533,8 +4601,8 @@ class _StoreScreenState extends State<StoreScreen> {
             const SizedBox(height: 8),
             Text(
               _tr(
-                '• اليوم 7: 3 مفاتيح وتذكرتان\n• اليوم 14: 3 مفاتيح وقلب\n• اليوم 21: 4 مفاتيح\n• اليوم 30: 5 مفاتيح وقلبان و3 تذاكر وقسيمة استئجار أسبوعية',
-                '• Day 7: 3 keys + 2 tickets\n• Day 14: 3 keys + 1 heart\n• Day 21: 4 keys\n• Day 30: 5 keys + 2 hearts + 3 tickets + 1 rental voucher',
+                '• اليوم 7: مفتاح\n• اليوم 14: قلب وتذكرة\n• اليوم 21: مفتاح\n• اليوم 30: مفتاحان وقلب وتذكرة',
+                '• Day 7: 1 key\n• Day 14: 1 heart + 1 ticket\n• Day 21: 1 key\n• Day 30: 2 keys + 1 heart + 1 ticket',
               ),
               style: const TextStyle(color: _muted, fontSize: 11, height: 1.6),
             ),
@@ -4564,8 +4632,8 @@ class _StoreScreenState extends State<StoreScreen> {
             const SizedBox(height: 8),
             Text(
               _tr(
-                '• كل 10 مراحل: تذكرة تصنيف واحدة\n• المرحلة 10: مفتاحان إضافيان\n• المرحلة 25: 3 مفاتيح وقسيمة استئجار أسبوعية\n• المرحلة 50 و100: قسيمة امتلاك تصنيف دائم\n• المرحلة 75: 5 مفاتيح وقلبان إضافيان',
-                '• Every 10 stages: 1 category ticket\n• Stage 10: 2 extra keys\n• Stage 25: 3 keys + weekly rental voucher\n• Stage 50 & 100: Permanent category voucher\n• Stage 75: 5 keys + 2 hearts',
+                '• كل 20 مرحلة: تذكرة تصنيف واحدة\n• المرحلتان 10 و25: مفتاح لكل منهما\n• المرحلتان 50 و75: مفتاح وقلب لكل منهما\n• المرحلة 100: مفتاحان وقسيمة استئجار أسبوعية',
+                '• Every 20 stages: 1 category ticket\n• Stages 10 & 25: 1 key each\n• Stages 50 & 75: 1 key + 1 heart each\n• Stage 100: 2 keys + weekly rental voucher',
               ),
               style: const TextStyle(color: _muted, fontSize: 11, height: 1.6),
             ),

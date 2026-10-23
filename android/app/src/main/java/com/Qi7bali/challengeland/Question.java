@@ -2,13 +2,26 @@ package com.qi7bali.landchallengeonline;
 
 public class Question {
 
+    String contentKey;
+
     String Level, Q, R, W1, W2, W3, Category, Img;
+    java.util.ArrayList<String> ClubPath = new java.util.ArrayList<>();
+
+    public java.util.ArrayList<String> getClubPath() {
+        return ClubPath;
+    }
+
+    public void setClubPath(java.util.ArrayList<String> clubPath) {
+        contentKey = null;
+        ClubPath = clubPath == null ? new java.util.ArrayList<>() : clubPath;
+    }
 
     public String getImg() {
         return Img;
     }
 
     public void setImg(String img) {
+        contentKey = null;
         Img = img;
     }
 
@@ -33,6 +46,7 @@ public class Question {
     }
 
     public void setQ(String q) {
+        contentKey = null;
         Q = q;
     }
 
