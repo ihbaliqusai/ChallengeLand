@@ -1,250 +1,557 @@
-import '../core/utils/date_utils.dart';
-import 'player_role.dart';
-import 'room_player.dart';
-import 'team.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-class Room {
-  const Room({
-    required this.id,
-    required this.code,
-    required this.name,
-    required this.hostId,
-    required this.mode,
-    required this.gameType,
-    required this.questionCount,
-    required this.maxPlayers,
-    required this.roundDuration,
-    required this.totalRounds,
-    required this.currentRound,
-    required this.phase,
-    required this.status,
-    required this.players,
-    required this.teams,
-    this.currentDescriber,
-    this.currentTeamDescribingId,
-    this.gameSessionId,
-    this.createdAt,
-    this.updatedAt,
+class RoomBotProfile {
+  const RoomBotProfile({
+    required this.displayName,
+    required this.intelligence,
+    required this.avatarSeed,
+    required this.nativePhoto,
   });
 
-  // ── الهوية ──
-  final String id;
-  final String code;
-  final String name;
-  final String hostId;
+  final String displayName;
+  final int intelligence;
+  final int avatarSeed;
+  final String nativePhoto;
+}
 
-  // ── نوع اللعبة ──
-  final String mode; // للتوافق مع Firestore القديم
-  final GameType gameType; // النوع المنظّم للمنطق
+class RoomPlayer {
+  const RoomPlayer({
+    required this.score,
+    required this.ready,
+    this.answeredCount = 0,
+    this.completedAt,
+    this.eliminated = false,
+    this.currentAnswer,
+    this.lives = 0,
+    this.roundWins = 0,
+    this.teamId,
+    this.disconnected = false,
+    this.forfeited = false,
+    this.seatSourceId,
+  });
 
-  // ── إعدادات الجولات ──
-  final int questionCount;
-  final int maxPlayers;
-  final int roundDuration; // ثواني لكل جولة وصف (default 60)
-  final int totalRounds; // عدد جولات اللعبة (default 5)
-  final int currentRound; // الجولة الحالية (0 = لم تبدأ، 1..N)
+  final int score;
+  final bool ready;
+  final int answeredCount;
+  final DateTime? completedAt;
+  final bool eliminated;
+  final String? currentAnswer;
 
-  // ── حالة اللعبة ──
-  final GamePhase phase;
-  final String status; // 'waiting' | 'active' | 'finished'
+  /// survival: remaining lives (starts at 3, eliminated when 0).
+  final int lives;
 
-  // ── اللاعبون والفرق ──
-  final List<RoomPlayer> players;
-  final List<Team> teams;
+  /// series: rounds won so far in this series.
+  final int roundWins;
 
-  // ── الدور الحالي ──
-  final String? currentDescriber; // uid المُوصِف الحالي
-  final String? currentTeamDescribingId; // id الفريق الذي يصف الآن
+  /// team_battle: 'A' or 'B'.
+  final String? teamId;
 
-  final String? gameSessionId;
-  final DateTime? createdAt;
-  final DateTime? updatedAt;
+  /// true when the player left an active game — they keep their slot and can rejoin.
+  final bool disconnected;
 
-  // ===== Computed =====
+  /// Explicit withdrawal is permanent for this match; a disconnect is resumable.
+  final bool forfeited;
+  final String? seatSourceId;
 
-  bool get isFull => players.length >= maxPlayers;
-  bool get isWaiting => status == 'waiting';
-  bool get isActive => status == 'active';
-  bool get isFinished => status == 'finished';
-  bool get isInLobby => phase == GamePhase.lobby;
-  bool get isGameOver => phase == GamePhase.gameOver;
-  bool get isLastRound => currentRound >= totalRounds;
+  factory RoomPlayer.fromMap(
+    Map<String, dynamic> map, {
+    int defaultLives = 0,
+  }) =>
+      RoomPlayer(
+        score: (map['score'] as num?)?.toInt() ?? 0,
+        ready: map['ready'] == true,
+        answeredCount: (map['answeredCount'] as num?)?.toInt() ?? 0,
+        completedAt: _readDate(map['completedAt']),
+        eliminated: map['eliminated'] == true,
+        currentAnswer: map['currentAnswer'] as String?,
+        lives: _readLives(map, defaultLives: defaultLives),
+        roundWins: (map['roundWins'] as num?)?.toInt() ?? 0,
+        teamId: Room.normalizeTeamId(map['teamId'] as String?),
+        disconnected: map['disconnected'] == true,
+        forfeited: map['forfeited'] == true,
+        seatSourceId: map['seatSourceId'] as String?,
+      );
 
-  int get playerCount => players.length;
-  int get readyCount => players.where((p) => p.isReady).length;
-  bool get allReady => playerCount > 0 && readyCount == playerCount;
+  Map<String, dynamic> toMap() => <String, dynamic>{
+        'score': score,
+        'ready': ready,
+        'answeredCount': answeredCount,
+        if (completedAt != null)
+          'completedAt': Timestamp.fromDate(completedAt!),
+        if (eliminated) 'eliminated': eliminated,
+        if (currentAnswer != null) 'currentAnswer': currentAnswer,
+        if (lives > 0 || eliminated) 'lives': lives,
+        if (roundWins > 0) 'roundWins': roundWins,
+        if (teamId != null) 'teamId': Room.normalizeTeamId(teamId),
+        if (disconnected) 'disconnected': disconnected,
+        if (forfeited) 'forfeited': forfeited,
+        if (seatSourceId != null) 'seatSourceId': seatSourceId,
+      };
 
-  RoomPlayer? get host => players.cast<RoomPlayer?>().firstWhere(
-    (p) => p?.uid == hostId,
-    orElse: () => null,
-  );
-
-  RoomPlayer? get describerPlayer => currentDescriber == null
-      ? null
-      : players.cast<RoomPlayer?>().firstWhere(
-          (p) => p?.uid == currentDescriber,
-          orElse: () => null,
-        );
-
-  Team? get describingTeam => currentTeamDescribingId == null
-      ? null
-      : teams.cast<Team?>().firstWhere(
-          (t) => t?.id == currentTeamDescribingId,
-          orElse: () => null,
-        );
-
-  Team? get guessingTeam => currentTeamDescribingId == null || teams.length < 2
-      ? null
-      : teams.cast<Team?>().firstWhere(
-          (t) => t?.id != currentTeamDescribingId,
-          orElse: () => null,
-        );
-
-  // نسبة تقدم اللعبة (0.0 → 1.0)
-  double get progressFraction =>
-      totalRounds == 0 ? 0 : currentRound / totalRounds;
-
-  // ===== Serialization =====
-
-  factory Room.fromJson(Map<String, dynamic> json) => Room(
-    id: json['id']?.toString() ?? '',
-    code: json['code']?.toString() ?? '',
-    name: json['name']?.toString() ?? '',
-    hostId: json['hostId']?.toString() ?? '',
-    mode: json['mode']?.toString() ?? 'quick1v1',
-    gameType: GameTypeX.fromString(json['gameType']?.toString() ?? ''),
-    questionCount: (json['questionCount'] as num?)?.toInt() ?? 5,
-    maxPlayers: (json['maxPlayers'] as num?)?.toInt() ?? 2,
-    roundDuration: (json['roundDuration'] as num?)?.toInt() ?? 60,
-    totalRounds: (json['totalRounds'] as num?)?.toInt() ?? 5,
-    currentRound: (json['currentRound'] as num?)?.toInt() ?? 0,
-    phase: GamePhaseX.fromString(json['phase']?.toString() ?? 'lobby'),
-    status: json['status']?.toString() ?? 'waiting',
-    players: (json['players'] as List<dynamic>? ?? const [])
-        .whereType<Map<String, dynamic>>()
-        .map(RoomPlayer.fromJson)
-        .toList(growable: false),
-    teams: (json['teams'] as List<dynamic>? ?? const [])
-        .whereType<Map<String, dynamic>>()
-        .map(Team.fromJson)
-        .toList(growable: false),
-    currentDescriber: json['currentDescriber']?.toString(),
-    currentTeamDescribingId: json['currentTeamDescribingId']?.toString(),
-    gameSessionId: json['gameSessionId']?.toString(),
-    createdAt: ChallengeDateUtils.parse(json['createdAt']),
-    updatedAt: ChallengeDateUtils.parse(json['updatedAt']),
-  );
-
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'code': code,
-    'name': name,
-    'hostId': hostId,
-    'mode': mode,
-    'gameType': gameType.name,
-    'questionCount': questionCount,
-    'maxPlayers': maxPlayers,
-    'roundDuration': roundDuration,
-    'totalRounds': totalRounds,
-    'currentRound': currentRound,
-    'phase': phase.name,
-    'status': status,
-    'players': players.map((p) => p.toJson()).toList(),
-    'teams': teams.map((t) => t.toJson()).toList(),
-    'currentDescriber': currentDescriber,
-    'currentTeamDescribingId': currentTeamDescribingId,
-    'gameSessionId': gameSessionId,
-    'createdAt': createdAt?.toIso8601String(),
-    'updatedAt': updatedAt?.toIso8601String(),
-  };
-
-  Room copyWith({
-    String? id,
-    String? code,
-    String? name,
-    String? hostId,
-    String? mode,
-    GameType? gameType,
-    int? questionCount,
-    int? maxPlayers,
-    int? roundDuration,
-    int? totalRounds,
-    int? currentRound,
-    GamePhase? phase,
-    String? status,
-    List<RoomPlayer>? players,
-    List<Team>? teams,
-    String? currentDescriber,
-    String? currentTeamDescribingId,
-    String? gameSessionId,
-    DateTime? createdAt,
-    DateTime? updatedAt,
-    bool clearCurrentDescriber = false,
-    bool clearCurrentTeamDescribingId = false,
-    bool clearGameSessionId = false,
+  RoomPlayer copyWith({
+    int? score,
+    bool? ready,
+    int? answeredCount,
+    DateTime? completedAt,
+    bool? eliminated,
+    String? currentAnswer,
+    int? lives,
+    int? roundWins,
+    String? teamId,
+    bool? disconnected,
+    bool? forfeited,
+    String? seatSourceId,
   }) {
-    return Room(
-      id: id ?? this.id,
-      code: code ?? this.code,
-      name: name ?? this.name,
-      hostId: hostId ?? this.hostId,
-      mode: mode ?? this.mode,
-      gameType: gameType ?? this.gameType,
-      questionCount: questionCount ?? this.questionCount,
-      maxPlayers: maxPlayers ?? this.maxPlayers,
-      roundDuration: roundDuration ?? this.roundDuration,
-      totalRounds: totalRounds ?? this.totalRounds,
-      currentRound: currentRound ?? this.currentRound,
-      phase: phase ?? this.phase,
-      status: status ?? this.status,
-      players: players ?? this.players,
-      teams: teams ?? this.teams,
-      currentDescriber: clearCurrentDescriber
-          ? null
-          : currentDescriber ?? this.currentDescriber,
-      currentTeamDescribingId: clearCurrentTeamDescribingId
-          ? null
-          : currentTeamDescribingId ?? this.currentTeamDescribingId,
-      gameSessionId: clearGameSessionId
-          ? null
-          : gameSessionId ?? this.gameSessionId,
-      createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
+    return RoomPlayer(
+      score: score ?? this.score,
+      ready: ready ?? this.ready,
+      answeredCount: answeredCount ?? this.answeredCount,
+      completedAt: completedAt ?? this.completedAt,
+      eliminated: eliminated ?? this.eliminated,
+      currentAnswer: currentAnswer ?? this.currentAnswer,
+      lives: lives ?? this.lives,
+      roundWins: roundWins ?? this.roundWins,
+      teamId: Room.normalizeTeamId(teamId ?? this.teamId),
+      disconnected: disconnected ?? this.disconnected,
+      forfeited: forfeited ?? this.forfeited,
+      seatSourceId: seatSourceId ?? this.seatSourceId,
     );
   }
 
-  // ===== Factory helpers =====
+  static DateTime? _readDate(dynamic value) {
+    if (value == null) return null;
+    if (value is DateTime) return value;
+    if (value is Timestamp) return value.toDate();
+    return null;
+  }
 
-  static Room createNew({
-    required String id,
-    required String code,
-    required String name,
-    required String hostId,
-    required GameType gameType,
-    int roundDuration = 60,
-    int totalRounds = 5,
-    int questionCount = 10,
+  static int _readLives(
+    Map<String, dynamic> map, {
+    required int defaultLives,
   }) {
+    final rawLives = map['lives'];
+    if (rawLives is num) {
+      return rawLives.toInt();
+    }
+    if (map['eliminated'] == true) {
+      return 0;
+    }
+    return defaultLives;
+  }
+}
+
+class Room {
+  static const String modeBattle = 'battle';
+  static const String modeElimination = 'elimination';
+  static const String modeBlitz = 'blitz';
+  static const String modeSurvival = 'survival';
+  static const String modeSeries = 'series';
+  static const String modeTeamBattle = 'team_battle';
+  static const String teamA = 'A';
+  static const String teamB = 'B';
+  static const List<String> teamIds = <String>[teamA, teamB];
+
+  static const String phaseLobby = 'lobby';
+  static const String phasePlaying = 'playing';
+  static const String phasePlayingRound = 'playing_round';
+  static const String phaseRoundOver = 'round_over';
+  static const String phaseFinished = 'finished';
+
+  static const int initialSurvivalLives = 3;
+  static const String botIdPrefix = 'bot_room_';
+  static const List<RoomBotProfile> _botProfiles = <RoomBotProfile>[
+    // 1 — ذكر — العبقري الهادئ
+    RoomBotProfile(
+      displayName: 'طارق',
+      intelligence: 95,
+      avatarSeed: 0,
+      nativePhoto: 'drawable:avatar1',
+    ),
+    // 2 — أنثى — المغامرة
+    RoomBotProfile(
+      displayName: 'ليلى',
+      intelligence: 70,
+      avatarSeed: 1,
+      nativePhoto: 'drawable:avatar2',
+    ),
+    // 3 — أنثى — المترددة
+    RoomBotProfile(
+      displayName: 'هدى',
+      intelligence: 65,
+      avatarSeed: 2,
+      nativePhoto: 'drawable:avatar3',
+    ),
+    // 4 — ذكر — الخبير
+    RoomBotProfile(
+      displayName: 'عمر',
+      intelligence: 85,
+      avatarSeed: 3,
+      nativePhoto: 'drawable:avatar4',
+    ),
+    // 5 — أنثى — المحظوظة
+    RoomBotProfile(
+      displayName: 'منى',
+      intelligence: 50,
+      avatarSeed: 4,
+      nativePhoto: 'drawable:avatar5',
+    ),
+    // 6 — أنثى — المفكرة البطيئة
+    RoomBotProfile(
+      displayName: 'سارة',
+      intelligence: 80,
+      avatarSeed: 5,
+      nativePhoto: 'drawable:avatar6',
+    ),
+    // 7 — ذكر — المتسرع
+    RoomBotProfile(
+      displayName: 'علي',
+      intelligence: 60,
+      avatarSeed: 6,
+      nativePhoto: 'drawable:avatar7',
+    ),
+    // 8 — ذكر — العبقري الاجتماعي
+    RoomBotProfile(
+      displayName: 'فيصل',
+      intelligence: 90,
+      avatarSeed: 7,
+      nativePhoto: 'drawable:avatar8',
+    ),
+    // 9 — ذكر — المبتدئ
+    RoomBotProfile(
+      displayName: 'يوسف',
+      intelligence: 40,
+      avatarSeed: 8,
+      nativePhoto: 'drawable:avatar9',
+    ),
+    // 10 — أنثى — المخادعة
+    RoomBotProfile(
+      displayName: 'رنا',
+      intelligence: 75,
+      avatarSeed: 9,
+      nativePhoto: 'drawable:avatar10',
+    ),
+    // 11 — ذكر — الموسوعي
+    RoomBotProfile(
+      displayName: 'خالد',
+      intelligence: 92,
+      avatarSeed: 10,
+      nativePhoto: 'drawable:avatar11',
+    ),
+    // 12 — ذكر — الكلاسيكي
+    RoomBotProfile(
+      displayName: 'سالم',
+      intelligence: 78,
+      avatarSeed: 11,
+      nativePhoto: 'drawable:avatar12',
+    ),
+  ];
+
+  const Room({
+    required this.id,
+    required this.hostId,
+    required this.maxPlayers,
+    required this.started,
+    required this.players,
+    this.createdAt,
+    this.startedAt,
+    this.mode = 'battle',
+    this.phase = 'lobby',
+    this.currentQuestionIndex = 0,
+    this.questionStartedAt,
+    this.questionIds = const [],
+    this.winnerId,
+    this.winnerTeamId,
+    this.roundDurationSeconds = 0,
+    this.seriesTarget = 2,
+    this.roundNumber = 1,
+    this.isPrivate = false,
+    this.roomName,
+    this.economyMatchId = '',
+  });
+
+  final String id;
+  final String hostId;
+  final int maxPlayers;
+  final bool started;
+  final Map<String, RoomPlayer> players;
+  final DateTime? createdAt;
+  final DateTime? startedAt;
+
+  /// 'battle' | 'elimination' | 'blitz' | 'survival' | 'series' | 'team_battle'
+  final String mode;
+
+  /// battle/blitz/team_battle: 'lobby' | 'playing' | 'finished'
+  /// elimination/survival/series: 'lobby' | 'playing_round' | 'round_over' | 'finished'
+  final String phase;
+
+  final int currentQuestionIndex;
+  final DateTime? questionStartedAt;
+
+  /// Shuffled list of indices into questions.json, set when game starts (elimination/survival).
+  final List<int> questionIds;
+
+  /// UID of the winning player when phase == 'finished'. Null = draw / no winner.
+  final String? winnerId;
+
+  /// team_battle: 'A' or 'B' — winning team.
+  final String? winnerTeamId;
+
+  /// blitz: game duration in seconds (60 or 90). 0 = not applicable.
+  final int roundDurationSeconds;
+
+  /// series: number of round wins needed to win the series.
+  final int seriesTarget;
+
+  /// series/survival: current round number (1-indexed).
+  final int roundNumber;
+
+  /// When true, the room does not appear in the public rooms list.
+  final bool isPrivate;
+
+  /// Optional display name for the room (host-defined).
+  final String? roomName;
+  final String economyMatchId;
+
+  // ── Derived status ─────────────────────────────────────────────────────────
+
+  /// Canonical room status string used for UI and filtering.
+  /// Values: 'waiting' | 'playing' | 'full' | 'ended' | 'private'
+  String get roomStatus {
+    if (isPrivate) return 'private';
+    if (phase == phaseFinished) return 'ended';
+    if (!started) {
+      if (isFull) return 'full';
+      return 'waiting';
+    }
+    return 'playing';
+  }
+
+  /// True when the room is visible in the public lobby list.
+  bool get isPubliclyVisible =>
+      !isPrivate && phase != phaseFinished && hasActiveHumanPlayer;
+
+  static const List<int> allowedBlitzDurations = [60, 90, 120];
+
+  /// The UTC moment when the blitz game ends (startedAt + roundDurationSeconds).
+  DateTime? get blitzEndTime {
+    if (mode != modeBlitz) return null;
+    final start = startedAt;
+    if (start == null || roundDurationSeconds <= 0) return null;
+    return start.add(Duration(seconds: roundDurationSeconds));
+  }
+
+  /// Client-side estimate: true when the blitz timer has elapsed.
+  bool get isBlitzExpired {
+    final end = blitzEndTime;
+    if (end == null) return false;
+    return DateTime.now().isAfter(end);
+  }
+
+  /// Seconds remaining in the blitz game; 0 when expired or not applicable.
+  int get blitzSecondsRemaining {
+    final end = blitzEndTime;
+    if (end == null) return 0;
+    final secs = end.difference(DateTime.now()).inSeconds;
+    return secs < 0 ? 0 : secs;
+  }
+
+  factory Room.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> snapshot) {
+    final data = snapshot.data() ?? const <String, dynamic>{};
+    final mode = (data['mode'] ?? modeBattle).toString();
+    final started = data['started'] == true;
+    final playersRaw = data['players'];
+    final parsedPlayers = <String, RoomPlayer>{};
+
+    if (playersRaw is Map<String, dynamic>) {
+      for (final entry in playersRaw.entries) {
+        final rawPlayer = entry.value;
+        if (rawPlayer is Map<String, dynamic>) {
+          parsedPlayers[entry.key] = RoomPlayer.fromMap(
+            rawPlayer,
+            defaultLives: _defaultLivesForPlayer(
+              rawPlayer,
+              mode: mode,
+              started: started,
+            ),
+          );
+        } else if (rawPlayer is Map) {
+          final normalizedPlayer = rawPlayer.map(
+            (key, value) => MapEntry(key.toString(), value),
+          );
+          parsedPlayers[entry.key] = RoomPlayer.fromMap(
+            normalizedPlayer,
+            defaultLives: _defaultLivesForPlayer(
+              normalizedPlayer,
+              mode: mode,
+              started: started,
+            ),
+          );
+        }
+      }
+    }
+
     return Room(
-      id: id,
-      code: code,
-      name: name,
-      hostId: hostId,
-      mode: gameType.name,
-      gameType: gameType,
-      questionCount: questionCount,
-      maxPlayers: gameType.maxPlayers,
-      roundDuration: roundDuration,
-      totalRounds: totalRounds,
-      currentRound: 0,
-      phase: GamePhase.lobby,
-      status: 'waiting',
-      players: const [],
-      teams: gameType.isTeamMode
-          ? [Team.fromPreset(0), Team.fromPreset(1)]
-          : const [],
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
+      id: snapshot.id,
+      hostId: (data['hostId'] ?? '').toString(),
+      maxPlayers: (data['maxPlayers'] as num?)?.toInt() ?? 4,
+      started: started,
+      players: parsedPlayers,
+      createdAt: _readDate(data['createdAt']),
+      startedAt: _readDate(data['startedAt']),
+      mode: mode,
+      phase: (data['phase'] ?? phaseLobby).toString(),
+      currentQuestionIndex:
+          (data['currentQuestionIndex'] as num?)?.toInt() ?? 0,
+      questionStartedAt: _readDate(data['questionStartedAt']),
+      questionIds: _readIntList(data['questionIds']),
+      winnerId: data['winnerId'] as String?,
+      winnerTeamId: data['winnerTeamId'] as String?,
+      roundDurationSeconds:
+          (data['roundDurationSeconds'] as num?)?.toInt() ?? 0,
+      seriesTarget: (data['seriesTarget'] as num?)?.toInt() ?? 2,
+      roundNumber: (data['roundNumber'] as num?)?.toInt() ?? 1,
+      isPrivate: data['isPrivate'] == true,
+      roomName: data['roomName'] as String?,
+      economyMatchId: data['economyMatchId'] as String? ?? '',
     );
+  }
+
+  int get playerCount => players.length;
+
+  bool get isFull => playerCount >= maxPlayers;
+
+  bool containsPlayer(String userId) => players.containsKey(userId);
+
+  List<String> get playerIds => players.keys.toList(growable: false);
+
+  bool get hasActiveHumanPlayer => players.entries.any(
+        (e) => !isBotUserId(e.key) && !e.value.disconnected,
+      );
+
+  bool get isRoundBasedMode =>
+      mode == modeElimination || mode == modeSurvival || mode == modeSeries;
+
+  bool get isDirectScoreMode =>
+      mode == modeBattle || mode == modeBlitz || mode == modeTeamBattle;
+
+  bool get isTeamBattle => mode == modeTeamBattle;
+
+  int get aliveCount => players.values.where((p) => !p.eliminated).length;
+
+  int get survivalAliveCount =>
+      players.values.where((p) => !p.eliminated && p.lives > 0).length;
+
+  static bool isBotUserId(String userId) => userId.startsWith(botIdPrefix);
+
+  int get teamBattleTeamCapacity =>
+      maxPlayers >= 2 && maxPlayers.isEven ? maxPlayers ~/ 2 : 0;
+
+  int teamSize(String teamId) => players.values
+      .where((player) => player.teamId == normalizeTeamId(teamId))
+      .length;
+
+  int teamScore(String teamId) => players.values
+      .where((player) => player.teamId == normalizeTeamId(teamId))
+      .fold(0, (totalScore, player) => totalScore + player.score);
+
+  Map<String, int> get teamSizes => <String, int>{
+        teamA: teamSize(teamA),
+        teamB: teamSize(teamB),
+      };
+
+  Map<String, int> get teamScores => <String, int>{
+        teamA: teamScore(teamA),
+        teamB: teamScore(teamB),
+      };
+
+  List<MapEntry<String, RoomPlayer>> teamEntries(String teamId) =>
+      players.entries
+          .where((entry) => entry.value.teamId == normalizeTeamId(teamId))
+          .toList(growable: false);
+
+  String? get teamBattleBalanceIssue {
+    if (!isTeamBattle) return null;
+    if (maxPlayers < 2) {
+      return 'تتطلب مواجهة الفرق مقعدين على الأقل.';
+    }
+    if (maxPlayers.isOdd) {
+      return 'تتطلب مواجهة الفرق عددًا زوجيًا من المقاعد.';
+    }
+    if (playerCount > maxPlayers) {
+      return 'عدد اللاعبين أكبر من المقاعد المتاحة في الغرفة.';
+    }
+    final capacity = teamBattleTeamCapacity;
+    for (final player in players.values) {
+      if (!teamIds.contains(player.teamId)) {
+        return 'يجب تعيين كل لاعب إلى الفريق أ أو الفريق ب.';
+      }
+    }
+    if (teamSize(teamA) > capacity || teamSize(teamB) > capacity) {
+      return 'أحد الفريقين يضم لاعبين أكثر من المسموح لهذه الغرفة.';
+    }
+    return null;
+  }
+
+  bool get canStartTeamBattleFromLobby => teamBattleBalanceIssue == null;
+
+  bool get isTeamBattleDraw =>
+      isTeamBattle &&
+      phase == phaseFinished &&
+      winnerTeamId == null &&
+      teamScore(teamA) == teamScore(teamB);
+
+  static RoomBotProfile botProfile(String userId) {
+    final seed = _stableHash(userId);
+    return _botProfiles[seed % _botProfiles.length];
+  }
+
+  static String? normalizeTeamId(String? value) {
+    final normalized = value?.trim().toUpperCase();
+    if (normalized == teamA || normalized == teamB) {
+      return normalized;
+    }
+    return null;
+  }
+
+  static String botDisplayName(String userId) {
+    if (!isBotUserId(userId)) return userId;
+    return botProfile(userId).displayName;
+  }
+
+  static DateTime? _readDate(dynamic value) {
+    if (value == null) return null;
+    if (value is DateTime) return value;
+    if (value is Timestamp) return value.toDate();
+    return null;
+  }
+
+  static List<int> _readIntList(dynamic value) {
+    if (value == null) return const [];
+    if (value is List) {
+      return value.map((e) => (e as num).toInt()).toList();
+    }
+    return const [];
+  }
+
+  static int _stableHash(String value) {
+    var hash = 5381;
+    for (final unit in value.codeUnits) {
+      hash = ((hash << 5) + hash) ^ unit;
+    }
+    return hash & 0x7fffffff;
+  }
+
+  static int _defaultLivesForPlayer(
+    Map<String, dynamic> playerMap, {
+    required String mode,
+    required bool started,
+  }) {
+    if (mode != modeSurvival || !started) {
+      return 0;
+    }
+    if (playerMap.containsKey('lives') || playerMap['eliminated'] == true) {
+      return 0;
+    }
+    return initialSurvivalLives;
   }
 }

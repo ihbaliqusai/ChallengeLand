@@ -1,107 +1,722 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() {
       return request.auth != null;
     }
 
+    // Lifetime history is merged and reserved transactionally by questionHistory.
+    match /question_history/{uid}/{document=**} {
+      allow read, write: if false;
+    }
+    match /question_history_sessions/{sessionId} {
+      allow read, write: if false;
+    }
+    match /question_history_rooms/{roomId} {
+      allow read, write: if false;
+    }
+    match /question_history_ready/{roomId} {
+      allow read, write: if false;
+    }
+
+    match /economy_accounts/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow write: if false;
+      match /operations/{operationId} {
+        allow read: if signedIn() && request.auth.uid == uid;
+        allow write: if false;
+      }
+    }
+
     function isOwner(uid) {
       return signedIn() && request.auth.uid == uid;
     }
 
+    // Paid grants and rights have a separate server-only authority. Client
+    // snapshots under /users must never be accepted as proof of payment.
+    match /commerce_accounts/{uid} {
+      allow read: if isOwner(uid);
+      allow create, update, delete: if false;
+
+      match /transactions/{deliveryId} {
+        allow read: if isOwner(uid);
+        allow create, update, delete: if false;
+      }
+
+      match /entitlements/{entitlementId} {
+        allow read: if isOwner(uid);
+        allow create, update, delete: if false;
+      }
+    }
+
+    // Tokens are credentials used only by the backend verifier and RTDN worker.
+    match /commerce_purchase_tokens/{deliveryId} {
+      allow read, write: if false;
+    }
+
+    function nonnegativeInteger(value) {
+      return value is int && value >= 0 && value <= 2147483647;
+    }
+
+    function publicProfileFieldsAreSafe() {
+      let data = request.resource.data;
+      return data.keys().hasOnly([
+        'uid',
+        'username',
+        'photoUrl',
+        'friendCode',
+        'createdAt',
+        'lastSeenAt',
+        'xp',
+        'gamesPlayed',
+        'wins',
+        'losses',
+        'draws',
+        'abandoned',
+        'correctAnswers',
+        'wrongAnswers',
+        'totalEarnings',
+        'onlineWins',
+        'trophiesEarned',
+        'trophiesLost',
+        'blitzFinishes',
+        'eliminationWins',
+        'survivalWins',
+        'seriesWins',
+        'teamBattleWins',
+        'localTeamsPlayed',
+        'offlineBoardPlayed',
+        'offlineBoardWins',
+        'friendMatchesPlayed',
+        'randomMatchesPlayed',
+        'bestStreak',
+        'bestWinStreak',
+        'highestMoney',
+        'bestTrophies',
+        'trophies',
+        'winStreak',
+        'lastPrize',
+        'level',
+        'totalAnswered',
+        'accuracy',
+        'winPercent',
+        'progressionVersion',
+        'totalMatches',
+        'totalScore',
+        'rating'
+      ]) &&
+        data.uid is string &&
+        data.get('username', '') is string &&
+        (data.get('photoUrl', null) == null || data.photoUrl is string) &&
+        data.get('friendCode', '') is string &&
+        (data.get('createdAt', null) == null || data.createdAt is timestamp) &&
+        (data.get('lastSeenAt', null) == null || data.lastSeenAt is timestamp) &&
+        nonnegativeInteger(data.get('xp', 0)) &&
+        nonnegativeInteger(data.get('gamesPlayed', 0)) &&
+        nonnegativeInteger(data.get('wins', 0)) &&
+        nonnegativeInteger(data.get('losses', 0)) &&
+        nonnegativeInteger(data.get('draws', 0)) &&
+        nonnegativeInteger(data.get('abandoned', 0)) &&
+        nonnegativeInteger(data.get('correctAnswers', 0)) &&
+        nonnegativeInteger(data.get('wrongAnswers', 0)) &&
+        nonnegativeInteger(data.get('totalEarnings', 0)) &&
+        nonnegativeInteger(data.get('onlineWins', 0)) &&
+        nonnegativeInteger(data.get('trophiesEarned', 0)) &&
+        nonnegativeInteger(data.get('trophiesLost', 0)) &&
+        nonnegativeInteger(data.get('blitzFinishes', 0)) &&
+        nonnegativeInteger(data.get('eliminationWins', 0)) &&
+        nonnegativeInteger(data.get('survivalWins', 0)) &&
+        nonnegativeInteger(data.get('seriesWins', 0)) &&
+        nonnegativeInteger(data.get('teamBattleWins', 0)) &&
+        nonnegativeInteger(data.get('localTeamsPlayed', 0)) &&
+        nonnegativeInteger(data.get('offlineBoardPlayed', 0)) &&
+        nonnegativeInteger(data.get('offlineBoardWins', 0)) &&
+        nonnegativeInteger(data.get('friendMatchesPlayed', 0)) &&
+        nonnegativeInteger(data.get('randomMatchesPlayed', 0)) &&
+        nonnegativeInteger(data.get('bestStreak', 0)) &&
+        nonnegativeInteger(data.get('bestWinStreak', 0)) &&
+        nonnegativeInteger(data.get('highestMoney', 0)) &&
+        nonnegativeInteger(data.get('bestTrophies', 0)) &&
+        nonnegativeInteger(data.get('trophies', 0)) &&
+        nonnegativeInteger(data.get('winStreak', 0)) &&
+        nonnegativeInteger(data.get('lastPrize', 0)) &&
+        nonnegativeInteger(data.get('level', 0)) &&
+        nonnegativeInteger(data.get('totalAnswered', 0)) &&
+        nonnegativeInteger(data.get('accuracy', 0)) &&
+        nonnegativeInteger(data.get('winPercent', 0)) &&
+        nonnegativeInteger(data.get('progressionVersion', 0)) &&
+        nonnegativeInteger(data.get('totalMatches', 0)) &&
+        nonnegativeInteger(data.get('totalScore', 0)) &&
+        nonnegativeInteger(data.get('rating', 0)) &&
+        data.get('level', 1) >= 1 &&
+        data.get('accuracy', 0) <= 100 &&
+        data.get('winPercent', 0) <= 100;
+    }
+
+    // Integer arithmetic retains its type; a float in any group makes its sum
+    // a float. Checking the sum once plus each sign keeps all 72 counters
+    // validated within Firestore's 1000-expression budget. Contributions are
+    // cumulative int64 checkpoints; displayed account totals use int32 bounds.
+    function validContributionGroup0(counters) {
+      let value0 = counters.get('xp', 0);
+      let value1 = counters.get('gamesPlayed', 0);
+      let value2 = counters.get('wins', 0);
+      let value3 = counters.get('losses', 0);
+      let value4 = counters.get('draws', 0);
+      let value5 = counters.get('abandoned', 0);
+      let value6 = counters.get('correctAnswers', 0);
+      let value7 = counters.get('wrongAnswers', 0);
+      let value8 = counters.get('totalEarnings', 0);
+      let value9 = counters.get('onlineWins', 0);
+      return (value0 + value1 + value2 + value3 + value4 + value5 + value6 + value7 + value8 + value9) is int &&
+        value0 >= 0 && value1 >= 0 && value2 >= 0 && value3 >= 0 && value4 >= 0 && value5 >= 0 && value6 >= 0 && value7 >= 0 && value8 >= 0 && value9 >= 0;
+    }
+
+    function validContributionGroup1(counters) {
+      let value0 = counters.get('trophiesEarned', 0);
+      let value1 = counters.get('trophiesLost', 0);
+      let value2 = counters.get('blitzFinishes', 0);
+      let value3 = counters.get('eliminationWins', 0);
+      let value4 = counters.get('survivalWins', 0);
+      let value5 = counters.get('seriesWins', 0);
+      let value6 = counters.get('teamBattleWins', 0);
+      let value7 = counters.get('localTeamsPlayed', 0);
+      let value8 = counters.get('offlineBoardPlayed', 0);
+      let value9 = counters.get('offlineBoardWins', 0);
+      return (value0 + value1 + value2 + value3 + value4 + value5 + value6 + value7 + value8 + value9) is int &&
+        value0 >= 0 && value1 >= 0 && value2 >= 0 && value3 >= 0 && value4 >= 0 && value5 >= 0 && value6 >= 0 && value7 >= 0 && value8 >= 0 && value9 >= 0;
+    }
+
+    function validContributionGroup2(counters) {
+      let value0 = counters.get('friendMatchesPlayed', 0);
+      let value1 = counters.get('randomMatchesPlayed', 0);
+      let value2 = counters.get('mode_campaign_games', 0);
+      let value3 = counters.get('mode_campaign_wins', 0);
+      let value4 = counters.get('mode_campaign_losses', 0);
+      let value5 = counters.get('mode_campaign_draws', 0);
+      let value6 = counters.get('mode_campaign_abandoned', 0);
+      let value7 = counters.get('mode_offline_games', 0);
+      let value8 = counters.get('mode_offline_wins', 0);
+      let value9 = counters.get('mode_offline_losses', 0);
+      return (value0 + value1 + value2 + value3 + value4 + value5 + value6 + value7 + value8 + value9) is int &&
+        value0 >= 0 && value1 >= 0 && value2 >= 0 && value3 >= 0 && value4 >= 0 && value5 >= 0 && value6 >= 0 && value7 >= 0 && value8 >= 0 && value9 >= 0;
+    }
+
+    function validContributionGroup3(counters) {
+      let value0 = counters.get('mode_offline_draws', 0);
+      let value1 = counters.get('mode_offline_abandoned', 0);
+      let value2 = counters.get('mode_local_teams_games', 0);
+      let value3 = counters.get('mode_local_teams_wins', 0);
+      let value4 = counters.get('mode_local_teams_losses', 0);
+      let value5 = counters.get('mode_local_teams_draws', 0);
+      let value6 = counters.get('mode_local_teams_abandoned', 0);
+      let value7 = counters.get('mode_board_games', 0);
+      let value8 = counters.get('mode_board_wins', 0);
+      let value9 = counters.get('mode_board_losses', 0);
+      return (value0 + value1 + value2 + value3 + value4 + value5 + value6 + value7 + value8 + value9) is int &&
+        value0 >= 0 && value1 >= 0 && value2 >= 0 && value3 >= 0 && value4 >= 0 && value5 >= 0 && value6 >= 0 && value7 >= 0 && value8 >= 0 && value9 >= 0;
+    }
+
+    function validContributionGroup4(counters) {
+      let value0 = counters.get('mode_board_draws', 0);
+      let value1 = counters.get('mode_board_abandoned', 0);
+      let value2 = counters.get('mode_battle_games', 0);
+      let value3 = counters.get('mode_battle_wins', 0);
+      let value4 = counters.get('mode_battle_losses', 0);
+      let value5 = counters.get('mode_battle_draws', 0);
+      let value6 = counters.get('mode_battle_abandoned', 0);
+      let value7 = counters.get('mode_team_battle_games', 0);
+      let value8 = counters.get('mode_team_battle_wins', 0);
+      let value9 = counters.get('mode_team_battle_losses', 0);
+      return (value0 + value1 + value2 + value3 + value4 + value5 + value6 + value7 + value8 + value9) is int &&
+        value0 >= 0 && value1 >= 0 && value2 >= 0 && value3 >= 0 && value4 >= 0 && value5 >= 0 && value6 >= 0 && value7 >= 0 && value8 >= 0 && value9 >= 0;
+    }
+
+    function validContributionGroup5(counters) {
+      let value0 = counters.get('mode_team_battle_draws', 0);
+      let value1 = counters.get('mode_team_battle_abandoned', 0);
+      let value2 = counters.get('mode_blitz_games', 0);
+      let value3 = counters.get('mode_blitz_wins', 0);
+      let value4 = counters.get('mode_blitz_losses', 0);
+      let value5 = counters.get('mode_blitz_draws', 0);
+      let value6 = counters.get('mode_blitz_abandoned', 0);
+      let value7 = counters.get('mode_elimination_games', 0);
+      let value8 = counters.get('mode_elimination_wins', 0);
+      let value9 = counters.get('mode_elimination_losses', 0);
+      return (value0 + value1 + value2 + value3 + value4 + value5 + value6 + value7 + value8 + value9) is int &&
+        value0 >= 0 && value1 >= 0 && value2 >= 0 && value3 >= 0 && value4 >= 0 && value5 >= 0 && value6 >= 0 && value7 >= 0 && value8 >= 0 && value9 >= 0;
+    }
+
+    function validContributionGroup6(counters) {
+      let value0 = counters.get('mode_elimination_draws', 0);
+      let value1 = counters.get('mode_elimination_abandoned', 0);
+      let value2 = counters.get('mode_survival_games', 0);
+      let value3 = counters.get('mode_survival_wins', 0);
+      let value4 = counters.get('mode_survival_losses', 0);
+      let value5 = counters.get('mode_survival_draws', 0);
+      let value6 = counters.get('mode_survival_abandoned', 0);
+      let value7 = counters.get('mode_series_games', 0);
+      let value8 = counters.get('mode_series_wins', 0);
+      let value9 = counters.get('mode_series_losses', 0);
+      return (value0 + value1 + value2 + value3 + value4 + value5 + value6 + value7 + value8 + value9) is int &&
+        value0 >= 0 && value1 >= 0 && value2 >= 0 && value3 >= 0 && value4 >= 0 && value5 >= 0 && value6 >= 0 && value7 >= 0 && value8 >= 0 && value9 >= 0;
+    }
+
+    function validContributionGroup7(counters) {
+      let value0 = counters.get('mode_series_draws', 0);
+      let value1 = counters.get('mode_series_abandoned', 0);
+      return (value0 + value1) is int &&
+        value0 >= 0 && value1 >= 0;
+    }
+
+    function progressionCheckpointFieldsAreSafe() {
+      let data = request.resource.data;
+      let counters = data.contributions;
+      return data.keys().hasOnly(['contributions', 'updatedAt', 'version']) &&
+        data.version == 2 && data.updatedAt is timestamp &&
+        counters is map &&
+        // Only canonical counters are copied by ProgressionService. Unknown
+        // private keys never enter the separately whitelisted public profile.
+        counters.keys().size() <= 73 &&
+        validContributionGroup0(counters) &&
+        validContributionGroup1(counters) &&
+        validContributionGroup2(counters) &&
+        validContributionGroup3(counters) &&
+        validContributionGroup4(counters) &&
+        validContributionGroup5(counters) &&
+        validContributionGroup6(counters) &&
+        validContributionGroup7(counters) &&
+        counters.get('trophies', 0) is int &&
+        counters.get('trophies', 0) >= -2147483647 &&
+        counters.get('trophies', 0) <= 2147483647;
+    }
+
+    function campaignLeaderboardFieldsAreSafe(uid) {
+      return request.resource.data.keys().hasOnly([
+        'uid',
+        'displayName',
+        'photoUrl',
+        'campaignId',
+        'stageId',
+        'score',
+        'stars',
+        'money',
+        'correctAnswers',
+        'timeMs',
+        'usedLifelines',
+        'assisted',
+        'updatedAt'
+      ]) &&
+      request.resource.data.uid == uid &&
+      request.resource.data.uid is string &&
+      request.resource.data.displayName is string &&
+      request.resource.data.campaignId is string &&
+      request.resource.data.stageId is string &&
+      request.resource.data.score is int &&
+      request.resource.data.score >= 0 &&
+      request.resource.data.stars is int &&
+      request.resource.data.stars >= 0 &&
+      request.resource.data.stars <= 3 &&
+      request.resource.data.money is int &&
+      request.resource.data.money >= 0 &&
+      request.resource.data.correctAnswers is int &&
+      request.resource.data.correctAnswers >= 0 &&
+      request.resource.data.timeMs is int &&
+      request.resource.data.timeMs >= 0 &&
+      request.resource.data.usedLifelines is int &&
+      request.resource.data.usedLifelines >= 0 &&
+      request.resource.data.assisted is bool &&
+      (!request.resource.data.keys().hasAny(['photoUrl']) ||
+        request.resource.data.photoUrl == null ||
+        request.resource.data.photoUrl is string) &&
+      (!request.resource.data.keys().hasAny(['updatedAt']) ||
+        request.resource.data.updatedAt is timestamp);
+    }
+
+    function campaignRewardClaimFieldsAreSafe(uid) {
+      return request.resource.data.keys().hasOnly([
+        'uid',
+        'campaignId',
+        'stageId',
+        'previousStars',
+        'newStars',
+        'coins',
+        'gems',
+        'xp',
+        'status',
+        'createdAt',
+        'claimedAt',
+        'updatedAt',
+        'attemptId',
+        'currencyClaimed',
+        'xpClaimed',
+        'retryCount'
+      ]) &&
+      request.resource.data.uid == uid &&
+      request.resource.data.uid is string &&
+      request.resource.data.campaignId is string &&
+      request.resource.data.stageId is string &&
+      request.resource.data.previousStars is int &&
+      request.resource.data.previousStars >= 0 &&
+      request.resource.data.previousStars <= 3 &&
+      request.resource.data.newStars is int &&
+      request.resource.data.newStars >= 0 &&
+      request.resource.data.newStars <= 3 &&
+      request.resource.data.coins is int &&
+      request.resource.data.coins >= 0 &&
+      request.resource.data.gems is int &&
+      request.resource.data.gems >= 0 &&
+      request.resource.data.xp is int &&
+      request.resource.data.xp >= 0 &&
+      request.resource.data.status in ['pending', 'claimed', 'failed'] &&
+      request.resource.data.attemptId is string &&
+      request.resource.data.currencyClaimed is bool &&
+      request.resource.data.xpClaimed is bool &&
+      request.resource.data.retryCount is int &&
+      request.resource.data.retryCount >= 0 &&
+      (!request.resource.data.keys().hasAny(['createdAt']) ||
+        request.resource.data.createdAt is timestamp) &&
+      (!request.resource.data.keys().hasAny(['updatedAt']) ||
+        request.resource.data.updatedAt is timestamp) &&
+      (!request.resource.data.keys().hasAny(['claimedAt']) ||
+        request.resource.data.claimedAt == null ||
+        request.resource.data.claimedAt is timestamp);
+    }
+
+    function roomCoreUnchanged() {
+      // isPrivate / roomName / createdAt are optional on a room doc (public, unnamed
+      // rooms omit them). Use safe .get(...) access so a missing field does not raise
+      // an evaluation error (which would wrongly deny a legitimate join/update).
+      return request.resource.data.hostId == resource.data.hostId &&
+        request.resource.data.mode == resource.data.mode &&
+        request.resource.data.maxPlayers == resource.data.maxPlayers &&
+        request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null) &&
+        request.resource.data.get('isPrivate', false) == resource.data.get('isPrivate', false) &&
+        request.resource.data.get('roomName', '') == resource.data.get('roomName', '');
+    }
+
     match /users/{uid} {
-      allow read, create, update: if isOwner(uid);
-      allow delete: if false;
+      allow read: if isOwner(uid);
+      // The existing game economy retains its own reward paths. A held friend
+      // stake cannot be overwritten by a stale client wallet snapshot, and its
+      // revision/lock markers are exclusively owned by the settlement server.
+      allow create: if isOwner(uid) &&
+        request.resource.data.get('friendStakeRevision', 0) == 0 &&
+        request.resource.data.get('friendStakeMatchId', '') == '';
+      allow update: if isOwner(uid) &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['friendStakeRevision', 'friendStakeMatchId']) &&
+        (resource.data.get('friendStakeMatchId', '') == '' ||
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['coins']));
+      allow delete: if isOwner(uid) && resource.data.get('friendStakeMatchId', '') == '';
+
+      match /progressionDevices/{deviceId} {
+        allow read, delete: if isOwner(uid);
+        allow create, update: if isOwner(uid) &&
+          progressionCheckpointFieldsAreSafe();
+      }
+
+      match /friends/{friendUid} {
+        allow read, create, update, delete: if isOwner(uid);
+      }
+
+      match /match_history/{matchId} {
+        allow read, create, update, delete: if isOwner(uid);
+      }
+
+      match /campaignProgress/{stageId} {
+        allow read, create, update: if isOwner(uid);
+        allow delete: if false;
+      }
+
+      match /campaignAttempts/{attemptId} {
+        allow read: if isOwner(uid);
+        allow create: if isOwner(uid) &&
+          request.resource.data.uid == uid;
+        allow update, delete: if false;
+      }
+
+      match /campaignRewardClaims/{claimId} {
+        allow read: if isOwner(uid);
+        allow create, update: if isOwner(uid) &&
+          campaignRewardClaimFieldsAreSafe(uid);
+        allow delete: if false;
+      }
+    }
+
+    match /campaigns/{campaignId} {
+      allow read: if true;
+      // TODO: Seed campaign definitions through an admin backend or custom claim.
+      allow create, update, delete: if false;
+
+      match /stages/{stageId} {
+        allow read: if true;
+        // TODO: Seed campaign stages through an admin backend or custom claim.
+        allow create, update, delete: if false;
+      }
+    }
+
+    // Social v1: mutual consent, server deadlines, rate limits and a two-player
+    // reservation committed in the same transaction as challenge acceptance.
+    function socialPair(id, a, b) {
+      return a is string && b is string && a.matches('^[A-Za-z0-9_-]{1,128}$') &&
+        b.matches('^[A-Za-z0-9_-]{1,128}$') && a != b &&
+        id == (a < b ? a + ':' + b : b + ':' + a);
+    }
+    function socialMember(data) {
+      return socialSignedIn() && request.auth.uid in data.members;
+    }
+    function socialSignedIn() {
+      return signedIn() && (!('firebase' in request.auth.token) ||
+        request.auth.token.firebase.sign_in_provider != 'anonymous');
+    }
+    function socialOwner(uid) {
+      return socialSignedIn() && request.auth.uid == uid;
+    }
+    function socialUnblocked(a, b) {
+      return !exists(/databases/$(database)/documents/social_blocks/$(a + ':' + b)) &&
+        !exists(/databases/$(database)/documents/social_blocks/$(b + ':' + a));
+    }
+    function socialFriends(a, b) {
+      let id = a < b ? a + ':' + b : b + ':' + a;
+      return exists(/databases/$(database)/documents/social_links/$(id)) &&
+        get(/databases/$(database)/documents/social_links/$(id)).data.status == 'accepted';
+    }
+    function socialAvailable(uid) {
+      let p = get(/databases/$(database)/documents/player_presence/$(uid)).data;
+      return p.state == 'available' && p.heartbeatAt > request.time - duration.value(75, 's');
+    }
+    function socialFree(uid) {
+      return !exists(/databases/$(database)/documents/social_reservations/$(uid)) ||
+        get(/databases/$(database)/documents/social_reservations/$(uid)).data.expiresAt <= request.time;
+    }
+    function socialPolicy(a, b) {
+      return !exists(/databases/$(database)/documents/social_settings/$(b)) ||
+        get(/databases/$(database)/documents/social_settings/$(b)).data.allowChallenges == 'everyone' ||
+        (get(/databases/$(database)/documents/social_settings/$(b)).data.allowChallenges == 'friends' && socialFriends(a, b));
+    }
+    function socialRate(field) {
+      let path = /databases/$(database)/documents/social_limits/$(request.auth.uid);
+      return getAfter(path).data[field] == request.time &&
+        (!exists(path) || !(field in get(path).data) ||
+          get(path).data[field] <= request.time - duration.value(10, 's'));
+    }
+    function socialEnvelope(id, challenge) {
+      let d = request.resource.data;
+      return socialSignedIn() && socialPair(id, d.fromUid, d.toUid) &&
+        d.members is list && d.members.size() == 2 && d.fromUid in d.members && d.toUid in d.members &&
+        d.fromUid == request.auth.uid && d.status == 'pending' &&
+        d.createdAt == request.time && d.updatedAt == request.time && d.expiresAt is timestamp &&
+        d.keys().hasAll(['members', 'fromUid', 'toUid', 'status', 'createdAt', 'updatedAt', 'expiresAt']) &&
+        d.keys().hasOnly(challenge ? ['members', 'fromUid', 'toUid', 'status', 'createdAt', 'updatedAt', 'expiresAt', 'mode'] :
+          ['members', 'fromUid', 'toUid', 'status', 'createdAt', 'updatedAt', 'expiresAt']) &&
+        socialUnblocked(d.fromUid, d.toUid) &&
+        (challenge ? (d.mode == 'duel' && d.expiresAt > request.time + duration.value(20, 's') &&
+            d.expiresAt <= request.time + duration.value(40, 's') &&
+            socialAvailable(d.fromUid) && socialAvailable(d.toUid) &&
+            socialFree(d.toUid) && socialPolicy(d.fromUid, d.toUid) &&
+            socialRate('challengeSentAt')) :
+          (d.expiresAt > request.time + duration.value(6, 'd') &&
+            d.expiresAt <= request.time + duration.value(7, 'd') + duration.value(10, 's') && socialRate('friendSentAt')));
+    }
+    function socialTransition(challenge) {
+      let old = resource.data;
+      let d = request.resource.data;
+      return socialMember(old) && d.updatedAt == request.time &&
+        d.diff(old).affectedKeys().hasOnly(challenge ? ['status', 'updatedAt', 'acceptedAt'] : ['status', 'updatedAt']) &&
+        ((old.status == 'pending' && old.expiresAt > request.time &&
+          ((d.status == 'cancelled' && old.fromUid == request.auth.uid) ||
+           (d.status == 'declined' && old.toUid == request.auth.uid) ||
+           (d.status == 'accepted' && old.toUid == request.auth.uid && socialUnblocked(old.fromUid, old.toUid) &&
+             (!challenge || socialAcceptance(old, d))))) ||
+          (!challenge && old.status == 'accepted' && d.status == 'removed'));
+    }
+    function socialAcceptance(old, d) {
+      let a = getAfter(/databases/$(database)/documents/social_reservations/$(old.fromUid)).data;
+      let b = getAfter(/databases/$(database)/documents/social_reservations/$(old.toUid)).data;
+      return d.acceptedAt == request.time && a.acceptedAt == request.time && b.acceptedAt == request.time &&
+        socialPair(a.challengeId, old.fromUid, old.toUid) && a.challengeId == b.challengeId &&
+        socialAvailable(old.fromUid) && socialAvailable(old.toUid) && socialPolicy(old.fromUid, old.toUid);
+    }
+    match /player_presence/{uid} {
+      allow get: if socialSignedIn() && (!exists(/databases/$(database)/documents/player_presence/$(uid)) ||
+        socialOwner(uid) || resource.data.discoverable == true ||
+          (socialFriends(uid, request.auth.uid) && socialUnblocked(uid, request.auth.uid)));
+      allow list: if socialSignedIn() && resource.data.discoverable == true;
+      allow create, update: if socialOwner(uid) && request.resource.data.keys().hasOnly(['uid', 'heartbeatAt', 'state', 'discoverable']) &&
+        request.resource.data.uid == uid && request.resource.data.heartbeatAt == request.time &&
+        request.resource.data.state in ['available', 'in_match', 'away'] && request.resource.data.discoverable is bool &&
+        (!exists(/databases/$(database)/documents/social_settings/$(uid)) ? request.resource.data.discoverable == true :
+          request.resource.data.discoverable == get(/databases/$(database)/documents/social_settings/$(uid)).data.discoverable);
+      allow delete: if socialOwner(uid);
+    }
+    match /social_settings/{uid} {
+      allow read: if socialSignedIn();
+      allow create, update: if socialOwner(uid) && request.resource.data.keys().hasOnly(['discoverable', 'allowChallenges']) &&
+        request.resource.data.discoverable is bool && request.resource.data.allowChallenges in ['everyone', 'friends', 'none'];
+      allow delete: if socialOwner(uid);
+    }
+    match /social_blocks/{id} {
+      allow get: if socialSignedIn() &&
+        (id.matches('^' + request.auth.uid + ':[A-Za-z0-9_-]{1,128}$') ||
+          id.matches('^[A-Za-z0-9_-]{1,128}:' + request.auth.uid + '$'));
+      allow list: if socialSignedIn() && resource.data.ownerUid == request.auth.uid;
+      allow create: if socialSignedIn() && request.resource.data.ownerUid == request.auth.uid &&
+        request.resource.data.targetUid is string && request.resource.data.targetUid != request.auth.uid &&
+        id == request.auth.uid + ':' + request.resource.data.targetUid &&
+        request.resource.data.keys().hasOnly(['ownerUid', 'targetUid', 'createdAt']) && request.resource.data.createdAt == request.time;
+      allow update: if false;
+      allow delete: if socialSignedIn() && resource.data.ownerUid == request.auth.uid;
+    }
+    match /social_limits/{uid} {
+      allow read: if socialOwner(uid);
+      allow delete: if socialOwner(uid) && !existsAfter(/databases/$(database)/documents/users/$(uid));
+      allow create, update: if socialOwner(uid) && request.resource.data.keys().hasOnly(['friendSentAt', 'challengeSentAt']) &&
+        request.resource.data.diff(resource == null ? {} : resource.data).affectedKeys().hasOnly(['friendSentAt', 'challengeSentAt']) &&
+        (!('friendSentAt' in request.resource.data) || request.resource.data.friendSentAt == request.time ||
+          (resource != null && request.resource.data.friendSentAt == resource.data.friendSentAt)) &&
+        (!('challengeSentAt' in request.resource.data) || request.resource.data.challengeSentAt == request.time ||
+          (resource != null && request.resource.data.challengeSentAt == resource.data.challengeSentAt)) &&
+        (resource == null || request.resource.data.keys().hasAll(resource.data.keys()));
+    }
+    match /social_links/{id} {
+      allow get: if socialSignedIn() && (!exists(/databases/$(database)/documents/social_links/$(id)) || socialMember(resource.data));
+      allow list, delete: if socialMember(resource.data);
+      allow create: if socialEnvelope(id, false);
+      allow update: if socialTransition(false) || (resource.data.status != 'accepted' &&
+        (resource.data.status != 'pending' || resource.data.expiresAt <= request.time) &&
+        resource.data.updatedAt <= request.time - duration.value(30, 's') && socialEnvelope(id, false));
+    }
+    match /social_challenges/{id} {
+      allow get: if socialSignedIn() && (!exists(/databases/$(database)/documents/social_challenges/$(id)) || socialMember(resource.data));
+      allow list: if socialMember(resource.data);
+      allow delete: if socialMember(resource.data) && resource.data.get('serverStake', false) == false;
+      allow create: if socialEnvelope(id, true);
+      allow update: if (resource.data.get('serverStake', false) == false && socialTransition(true)) ||
+        (socialChallengeEnded(resource.data) &&
+          (resource.data.status != 'pending' || resource.data.expiresAt <= request.time) &&
+          resource.data.updatedAt <= request.time - duration.value(30, 's') && socialEnvelope(id, true));
+    }
+    function socialChallengeEnded(d) {
+      let matchPath = /databases/$(database)/documents/friend_stake_views/$(d.get('stakeMatchId', '_'));
+      return d.get('serverStake', false) == false ||
+        (d.status != 'accepted' && (d.status != 'pending' || d.expiresAt <= request.time)) ||
+        (d.status == 'accepted' && exists(matchPath) && get(matchPath).data.status == 'settled');
+    }
+    match /social_reservations/{uid} {
+      allow get: if socialSignedIn();
+      allow delete: if socialOwner(uid) &&
+        resource.data.get('serverStake', false) == false &&
+        (!exists(/databases/$(database)/documents/social_reservations/$(uid)) ||
+          resource.data.expiresAt <= request.time ||
+          !existsAfter(/databases/$(database)/documents/users/$(uid)) ||
+          (get(/databases/$(database)/documents/player_presence/$(uid)).data.state in ['in_match', 'away'] &&
+            getAfter(/databases/$(database)/documents/player_presence/$(uid)).data.state == 'available'));
+      allow create, update: if socialSignedIn() && socialFree(uid) &&
+        (!exists(/databases/$(database)/documents/social_reservations/$(uid)) || resource.data.get('serverStake', false) == false || resource.data.get('settled', false) == true) &&
+        request.resource.data.keys().hasOnly(['challengeId', 'acceptedAt', 'expiresAt']) &&
+        request.resource.data.acceptedAt == request.time && request.resource.data.expiresAt is timestamp &&
+        request.resource.data.expiresAt > request.time + duration.value(110, 's') &&
+        request.resource.data.expiresAt <= request.time + duration.value(130, 's') &&
+        socialReservationFor(uid, request.resource.data.challengeId);
+    }
+    function socialReservationFor(uid, id) {
+      let d = getAfter(/databases/$(database)/documents/social_challenges/$(id)).data;
+      return d.get('serverStake', false) == false && d.status == 'accepted' && d.acceptedAt == request.time &&
+        request.auth.uid == d.toUid && uid in d.members;
+    }
+
+    // Paid friend games have a separate server authority. No RTDB board,
+    // client score, invitation mutation or report can settle a pot.
+    match /friend_stake_matches/{matchId} {
+      allow read, write: if false;
+    }
+    match /friend_stake_escrows/{matchId} {
+      allow read, write: if false;
+    }
+    match /friend_stake_views/{matchId} {
+      allow read: if socialSignedIn() && request.auth.uid in resource.data.members;
+      allow write: if false;
+    }
+    match /friend_stake_locks/{uid} {
+      allow read: if socialOwner(uid);
+      allow write: if false;
+    }
+    match /friend_stake_operations/{uid}/items/{operationId} {
+      allow read, write: if false;
     }
 
     match /public_profiles/{uid} {
-      allow read: if true;
-      allow create, update: if isOwner(uid);
-      allow delete: if false;
+      allow read: if signedIn();
+      allow create, update: if isOwner(uid) &&
+        request.resource.data.uid == uid &&
+        publicProfileFieldsAreSafe();
+      allow delete: if isOwner(uid);
     }
 
-    match /categories/{categoryId} {
-      allow read: if signedIn();
-      allow write: if false;
+    match /matchmaking_queue/{uid} {
+      allow read, create, update, delete: if isOwner(uid);
     }
 
-    match /questions/{questionId} {
-      allow read: if signedIn();
-      allow write: if false;
+    match /invitations/{invitationId} {
+      allow read: if signedIn() && (
+        resource.data.toUid == request.auth.uid ||
+        resource.data.fromUid == request.auth.uid
+      );
+      allow create: if signedIn() && request.resource.data.fromUid == request.auth.uid;
+      allow update: if signedIn() && (
+        resource.data.toUid == request.auth.uid ||
+        resource.data.fromUid == request.auth.uid
+      );
+      allow delete: if signedIn() && (
+        resource.data.toUid == request.auth.uid ||
+        resource.data.fromUid == request.auth.uid
+      );
+    }
+
+    match /matches/{matchId} {
+      allow read, create, update: if signedIn();
     }
 
     match /rooms/{roomId} {
       allow read: if signedIn();
-      allow create: if signedIn() && request.resource.data.hostId == request.auth.uid;
-      allow update: if signedIn()
-        && (
-          resource.data.hostId == request.auth.uid
-          || request.resource.data.players.hasAny([request.auth.uid])
-        );
+
+      allow create: if signedIn() &&
+        request.resource.data.hostId == request.auth.uid &&
+        request.resource.data.players[request.auth.uid] != null;
+
+      allow update: if signedIn() && (
+        // 1. Host can make any update (start, kick, score, etc.).
+        resource.data.hostId == request.auth.uid ||
+
+        // 2. Existing player can update gameplay fields, but not core room identity.
+        (
+          resource.data.players[request.auth.uid] != null &&
+          roomCoreUnchanged()
+        ) ||
+
+        // 3. Any signed-in user may join (lobby or bot-slot replacement) as long
+        //    as they are present in the resulting players map and do not change
+        //    core room identity (host, mode, maxPlayers).
+        (
+          request.resource.data.players[request.auth.uid] != null &&
+          roomCoreUnchanged()
+        )
+      );
+
       allow delete: if signedIn() && resource.data.hostId == request.auth.uid;
-
-      match /players/{uid} {
-        allow read: if signedIn();
-        allow create, update: if isOwner(uid) || get(/databases/$(database)/documents/rooms/$(roomId)).data.hostId == request.auth.uid;
-        allow delete: if isOwner(uid) || get(/databases/$(database)/documents/rooms/$(roomId)).data.hostId == request.auth.uid;
-      }
     }
 
-    match /game_sessions/{sessionId} {
-      allow read: if signedIn() && request.auth.uid in resource.data.playerIds;
-      allow create: if signedIn();
-      allow update: if signedIn() && request.auth.uid in resource.data.playerIds;
-      allow delete: if false;
-
-      match /answers/{answerId} {
-        allow read: if signedIn();
-        allow create: if signedIn()
-          && request.resource.data.uid == request.auth.uid;
-        allow update, delete: if false;
-      }
-    }
-
-    match /matchmaking_queue/{uid} {
-      allow read: if signedIn();
-      allow create, update, delete: if isOwner(uid);
-    }
-
-    match /daily_challenges/{dateKey} {
-      allow read: if signedIn();
-      allow write: if false;
-    }
-
-    match /daily_scores/{scoreId} {
-      allow read: if signedIn();
-      allow create, update: if signedIn()
-        && request.resource.data.uid == request.auth.uid;
-      allow delete: if false;
-    }
-
-    match /leaderboards/{period}/entries/{uid} {
+    match /stageLeaderboards/{leaderboardId} {
       allow read: if true;
-      allow create, update: if isOwner(uid);
-      allow delete: if false;
-    }
+      allow create, update, delete: if false;
 
-    match /friend_requests/{requestId} {
-      allow read: if signedIn()
-        && (resource.data.fromUid == request.auth.uid || resource.data.toUid == request.auth.uid);
-      allow create: if signedIn() && request.resource.data.fromUid == request.auth.uid;
-      allow update: if signedIn() && resource.data.toUid == request.auth.uid;
-      allow delete: if false;
-    }
-
-    match /friends/{uid}/items/{friendUid} {
-      allow read, create, update, delete: if isOwner(uid);
-    }
-
-    match /match_history/{historyId} {
-      allow read: if signedIn() && resource.data.uid == request.auth.uid;
-      allow create: if signedIn()
-        && request.resource.data.uid == request.auth.uid;
-      allow update, delete: if false;
+      match /scores/{uid} {
+        allow read: if true;
+        // TODO: Move campaign anti-cheat and score verification to Cloud Functions.
+        allow create, update: if isOwner(uid) &&
+          campaignLeaderboardFieldsAreSafe(uid);
+        allow delete: if false;
+      }
     }
   }
 }

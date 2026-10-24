@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "699855440455",
+    "firebase_url": "https://challengeland-default-rtdb.firebaseio.com",
+    "project_id": "challengeland",
+    "storage_bucket": "challengeland.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:699855440455:android:5f6c45c65a9f644b003f62",
+        "android_client_info": {
+          "package_name": "com.qi7bali.landchallengeonline"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "699855440455-362q19lvk0req397bpb7958g4ajheopu.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.qi7bali.landchallengeonline",
+            "certificate_hash": "5e9ae2420edfe842487f4fc3da164ac11f672e83"
+          }
+        },
+        {
+          "client_id": "699855440455-tgmhgv9j3f0vc88n539iv221m23in33i.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDTrjbMXzLDHheBDGZorLvLbtlfpQYzqq0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "699855440455-tgmhgv9j3f0vc88n539iv221m23in33i.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
