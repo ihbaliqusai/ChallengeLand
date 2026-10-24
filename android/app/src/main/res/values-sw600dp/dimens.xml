@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 7-inch tablets / large landscape screens. -->
+    <dimen name="qa_h_margin">96dp</dimen>
+    <dimen name="qa_top_margin">72dp</dimen>
+</resources>

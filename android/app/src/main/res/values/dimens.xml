@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Responsive metrics for the landscape game screen (activity_game.xml).
+      Defaults target phones (smallest width ~360-440dp in landscape); the
+      values-sw600dp / values-sw720dp variants widen the side gutters so the
+      question + answers panel does not over-stretch on tablets.
+    -->
+    <dimen name="qa_h_margin">24dp</dimen>
+    <dimen name="qa_top_margin">64dp</dimen>
+</resources>

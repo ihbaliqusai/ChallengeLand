@@ -1,0 +1,302 @@
+{
+  "reviewed": 822,
+  "total": 4469,
+  "remaining": 3647,
+  "batches": [
+    {
+      "file": "science/category_03_0000.jsonl",
+      "category": "صحة",
+      "count": 70
+    },
+    {
+      "file": "science/category_03_0070.jsonl",
+      "category": "صحة",
+      "count": 70
+    },
+    {
+      "file": "science/category_03_0140.jsonl",
+      "category": "صحة",
+      "count": 70
+    },
+    {
+      "file": "science/category_03_0210.jsonl",
+      "category": "صحة",
+      "count": 70
+    },
+    {
+      "file": "science/category_03_0280.jsonl",
+      "category": "صحة",
+      "count": 44
+    },
+    {
+      "file": "science/category_04_0000.jsonl",
+      "category": "نباتات",
+      "count": 70
+    },
+    {
+      "file": "science/category_04_0070.jsonl",
+      "category": "نباتات",
+      "count": 70
+    },
+    {
+      "file": "science/category_04_0140.jsonl",
+      "category": "نباتات",
+      "count": 70
+    },
+    {
+      "file": "science/category_04_0210.jsonl",
+      "category": "نباتات",
+      "count": 70
+    },
+    {
+      "file": "science/category_04_0280.jsonl",
+      "category": "نباتات",
+      "count": 11
+    },
+    {
+      "file": "science/category_05_0000.jsonl",
+      "category": "طعام وشراب",
+      "count": 70
+    },
+    {
+      "file": "science/category_05_0070.jsonl",
+      "category": "طعام وشراب",
+      "count": 70
+    },
+    {
+      "file": "science/category_05_0140.jsonl",
+      "category": "طعام وشراب",
+      "count": 70
+    },
+    {
+      "file": "science/category_05_0210.jsonl",
+      "category": "طعام وشراب",
+      "count": 70
+    },
+    {
+      "file": "science/category_05_0280.jsonl",
+      "category": "طعام وشراب",
+      "count": 40
+    },
+    {
+      "file": "science/category_06_0000.jsonl",
+      "category": "تقنية",
+      "count": 70
+    },
+    {
+      "file": "science/category_06_0070.jsonl",
+      "category": "تقنية",
+      "count": 70
+    },
+    {
+      "file": "science/category_06_0140.jsonl",
+      "category": "تقنية",
+      "count": 70
+    },
+    {
+      "file": "science/category_06_0210.jsonl",
+      "category": "تقنية",
+      "count": 70
+    },
+    {
+      "file": "science/category_06_0280.jsonl",
+      "category": "تقنية",
+      "count": 70
+    },
+    {
+      "file": "science/category_06_0350.jsonl",
+      "category": "تقنية",
+      "count": 11
+    },
+    {
+      "file": "science/category_07_0000.jsonl",
+      "category": "اختراعات",
+      "count": 70
+    },
+    {
+      "file": "science/category_07_0070.jsonl",
+      "category": "اختراعات",
+      "count": 70
+    },
+    {
+      "file": "science/category_07_0140.jsonl",
+      "category": "اختراعات",
+      "count": 70
+    },
+    {
+      "file": "science/category_07_0210.jsonl",
+      "category": "اختراعات",
+      "count": 70
+    },
+    {
+      "file": "science/category_07_0280.jsonl",
+      "category": "اختراعات",
+      "count": 3
+    },
+    {
+      "file": "science/category_08_0000.jsonl",
+      "category": "سيارات",
+      "count": 70
+    },
+    {
+      "file": "science/category_08_0070.jsonl",
+      "category": "سيارات",
+      "count": 70
+    },
+    {
+      "file": "science/category_08_0140.jsonl",
+      "category": "سيارات",
+      "count": 70
+    },
+    {
+      "file": "science/category_08_0210.jsonl",
+      "category": "سيارات",
+      "count": 70
+    },
+    {
+      "file": "science/category_08_0280.jsonl",
+      "category": "سيارات",
+      "count": 19
+    },
+    {
+      "file": "science/category_09_0000.jsonl",
+      "category": "معلومات عامة",
+      "count": 70
+    },
+    {
+      "file": "science/category_09_0070.jsonl",
+      "category": "معلومات عامة",
+      "count": 70
+    },
+    {
+      "file": "science/category_09_0140.jsonl",
+      "category": "معلومات عامة",
+      "count": 70
+    },
+    {
+      "file": "science/category_09_0210.jsonl",
+      "category": "معلومات عامة",
+      "count": 70
+    },
+    {
+      "file": "science/category_09_0280.jsonl",
+      "category": "معلومات عامة",
+      "count": 19
+    },
+    {
+      "file": "science/category_10_0000.jsonl",
+      "category": "منوعات",
+      "count": 70
+    },
+    {
+      "file": "science/category_10_0070.jsonl",
+      "category": "منوعات",
+      "count": 70
+    },
+    {
+      "file": "science/category_10_0140.jsonl",
+      "category": "منوعات",
+      "count": 70
+    },
+    {
+      "file": "science/category_10_0210.jsonl",
+      "category": "منوعات",
+      "count": 70
+    },
+    {
+      "file": "science/category_10_0280.jsonl",
+      "category": "منوعات",
+      "count": 1
+    },
+    {
+      "file": "science/category_11_0000.jsonl",
+      "category": "لغة وادب",
+      "count": 70
+    },
+    {
+      "file": "science/category_11_0070.jsonl",
+      "category": "لغة وادب",
+      "count": 70
+    },
+    {
+      "file": "science/category_11_0140.jsonl",
+      "category": "لغة وادب",
+      "count": 70
+    },
+    {
+      "file": "science/category_11_0210.jsonl",
+      "category": "لغة وادب",
+      "count": 70
+    },
+    {
+      "file": "science/category_11_0280.jsonl",
+      "category": "لغة وادب",
+      "count": 70
+    },
+    {
+      "file": "science/category_11_0350.jsonl",
+      "category": "لغة وادب",
+      "count": 70
+    },
+    {
+      "file": "science/category_11_0420.jsonl",
+      "category": "لغة وادب",
+      "count": 70
+    },
+    {
+      "file": "science/category_11_0490.jsonl",
+      "category": "لغة وادب",
+      "count": 70
+    },
+    {
+      "file": "science/category_11_0560.jsonl",
+      "category": "لغة وادب",
+      "count": 70
+    },
+    {
+      "file": "science/category_11_0630.jsonl",
+      "category": "لغة وادب",
+      "count": 70
+    },
+    {
+      "file": "science/category_11_0700.jsonl",
+      "category": "لغة وادب",
+      "count": 70
+    },
+    {
+      "file": "science/category_11_0770.jsonl",
+      "category": "لغة وادب",
+      "count": 70
+    },
+    {
+      "file": "science/category_11_0840.jsonl",
+      "category": "لغة وادب",
+      "count": 49
+    },
+    {
+      "file": "science/category_12_0000.jsonl",
+      "category": "لغات",
+      "count": 70
+    },
+    {
+      "file": "science/category_12_0070.jsonl",
+      "category": "لغات",
+      "count": 70
+    },
+    {
+      "file": "science/category_12_0140.jsonl",
+      "category": "لغات",
+      "count": 70
+    },
+    {
+      "file": "science/category_12_0210.jsonl",
+      "category": "لغات",
+      "count": 70
+    },
+    {
+      "file": "science/category_12_0280.jsonl",
+      "category": "لغات",
+      "count": 20
+    }
+  ]
+}

@@ -1,0 +1,1802 @@
+[
+  {
+    "Level": "0",
+    "Q": "في مسلسل Breaking Bad، ما اسم مدرس الكيمياء بطل المسلسل الذي تحول لتجارة الميث؟",
+    "R": "Walter White",
+    "W1": "Jesse Pinkman",
+    "W2": "Hank Schrader",
+    "W3": "Saul Goodman",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "0",
+    "Q": "في مسلسل Breaking Bad، ما اللقب والاسم الحركي السري الذي اتخذه والتر وايت في عالم الجريمة؟",
+    "R": "Heisenberg",
+    "W1": "Gus Fring",
+    "W2": "Tuco",
+    "W3": "Krazy-8",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "0",
+    "Q": "في مسلسل Game of Thrones، ما اسم العرش الملكي الحاكم في كينغز لاندينغ المتنازع عليه؟",
+    "R": "The Iron Throne",
+    "W1": "The Golden Throne",
+    "W2": "The Dragon Throne",
+    "W3": "The High Seat",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "0",
+    "Q": "في مسلسل Game of Thrones، ما اسم الفتى حارس الشمال العائد وابن نيد ستارك المزعوم؟",
+    "R": "Jon Snow",
+    "W1": "Robb Stark",
+    "W2": "Bran Stark",
+    "W3": "Theon Greyjoy",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "0",
+    "Q": "في مسلسل Friends، ما اسم المقهى النيويوركي الشهير ملتقى الأصدقاء الستة الدائم؟",
+    "R": "Central Perk",
+    "W1": "Monk Diner",
+    "W2": "Cafe Nervosa",
+    "W3": "MacLaren Pub",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "0",
+    "Q": "في مسلسل Prison Break، ما هي الطريقة العبقرية التي هرب بها مايكل سكوفيلد مخطط السجن؟",
+    "R": "Tattooed on his Body",
+    "W1": "Hidden in a Bible",
+    "W2": "Drawn on Paper Sheets",
+    "W3": "Memorized in Code",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "0",
+    "Q": "في مسلسل Peaky Blinders، ما اسم زعيم عائلة شيلبي وعصابة بيرمنغهام الأسطوري؟",
+    "R": "Thomas Shelby",
+    "W1": "Arthur Shelby",
+    "W2": "John Shelby",
+    "W3": "Michael Gray",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "0",
+    "Q": "في مسلسل The Office، ما هي السلعة الأساسية التي تنتجها وتبيعها شركة دندر ميفلين؟",
+    "R": "Paper Products",
+    "W1": "Office Furniture",
+    "W2": "Computer Software",
+    "W3": "Printing Machines",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "0",
+    "Q": "في مسلسل Stranger Things، ما اسم الفتاة الصغيرة ذات القوى الذهنية الخارقة الخاربة للأشياء؟",
+    "R": "Eleven",
+    "W1": "Max Mayfield",
+    "W2": "Nancy Wheeler",
+    "W3": "Robin Buckley",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "0",
+    "Q": "في مسلسل The Sopranos، ما اسم زعيم المافيا الإيطالية في نيوجيرسي الذي يراجع طبيبة نفسية؟",
+    "R": "Tony Soprano",
+    "W1": "Christopher Moltisanti",
+    "W2": "Paulie Gualtieri",
+    "W3": "Silvio Dante",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "0",
+    "Q": "في مسلسل Sherlock، ما هو العنوان السكني الشهير في لندن للمحقق العبقري شيرلوك هولمز؟",
+    "R": "221B Baker Street",
+    "W1": "10 Downing Street",
+    "W2": "4 Privet Drive",
+    "W3": "350 Fifth Avenue",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "0",
+    "Q": "في مسلسل Money Heist، ما هو اللقب التخطيطي للعقل المدبر لعملية اقتحام دار سك العملة؟",
+    "R": "The Professor",
+    "W1": "Berlin",
+    "W2": "Tokyo",
+    "W3": "Nairobi",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "0",
+    "Q": "في مسلسل Squid Game، ما هي الدولة الآسيوية التي تدور فيها أحداث مسابقة ألعاب البقاء القاتلة؟",
+    "R": "South Korea",
+    "W1": "Japan",
+    "W2": "China",
+    "W3": "Singapore",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "0",
+    "Q": "في مسلسل The Walking Dead، ما هو لقب الكائنات الموتى الأحياء المتجولين المهاجمين للبشر؟",
+    "R": "Walkers",
+    "W1": "Clickers",
+    "W2": "Runners",
+    "W3": "Infected",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "0",
+    "Q": "في مسلسل Vikings، ما اسم المحارب المزارع الأسطوري بطل الغزوات الإسكندنافية في إنجلترا؟",
+    "R": "Ragnar Lothbrok",
+    "W1": "Rollo",
+    "W2": "Bjorn Ironside",
+    "W3": "Ivar the Boneless",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "0",
+    "Q": "في مسلسل Lost، ما هي وسيلة السفر التي تحطمت وألقت بركابها على الجزيرة الغامضة؟",
+    "R": "Oceanic Flight 815",
+    "W1": "Pan Am Flight 103",
+    "W2": "Air France Flight 447",
+    "W3": "Malaysia Flight 370",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "0",
+    "Q": "في مسلسل Dexter، ما هي المهنة النهارية التي يعمل بها دكستر مورغان في شرطة ميامي؟",
+    "R": "Blood Spatter Analyst",
+    "W1": "Homicide Detective",
+    "W2": "Forensic Pathologist",
+    "W3": "Crime Scene Ballistics",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "0",
+    "Q": "في مسلسل House of the Dragon، ما اسم العائلة الملكية الحاكمة المالكة للتنانين المتناحرة؟",
+    "R": "House Targaryen",
+    "W1": "House Hightower",
+    "W2": "House Velaryon",
+    "W3": "House Lannister",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "0",
+    "Q": "في مسلسل Chernobyl، في أي دولة سوفياتية سابقة وقعت كارثة المفاعل النووي المنفجر عام 1986؟",
+    "R": "Ukraine",
+    "W1": "Belarus",
+    "W2": "Russia",
+    "W3": "Kazakhstan",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "0",
+    "Q": "في مسلسل The Crown، عن أي ملكة بريطانية تاريخية تدور أحداث مواسم المسلسل الملحمية؟",
+    "R": "Queen Elizabeth II",
+    "W1": "Queen Victoria",
+    "W2": "Queen Mary",
+    "W3": "Queen Anne",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "1",
+    "Q": "في مسلسل Better Call Saul، ما هو الاسم الحقيقي للمحامي المحتال قبل أن يتخذ اسم شاول غودمان؟",
+    "R": "Jimmy McGill",
+    "W1": "Chuck McGill",
+    "W2": "Howard Hamlin",
+    "W3": "Kim Wexler",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "1",
+    "Q": "في مسلسل Breaking Bad، ما اسم مطعم الدجاج المقلي الذي يستخدمه غاس فرينغ كواجهة لغسيل الأموال؟",
+    "R": "Los Pollos Hermanos",
+    "W1": "Taco Cabeza",
+    "W2": "El Pollo Loco",
+    "W3": "Twisters Burgers",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "1",
+    "Q": "في مسلسل Game of Thrones، ما هي الكلمات والشعار الرسمي لعائلة ستارك حكام الشمال؟",
+    "R": "Winter Is Coming",
+    "W1": "Hear Me Roar",
+    "W2": "Fire and Blood",
+    "W3": "Ours Is the Fury",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "1",
+    "Q": "في مسلسل Game of Thrones، كم عدد التنانين التي فقست وربتها دينيريس تارجارين؟",
+    "R": "Three Dragons",
+    "W1": "Two Dragons",
+    "W2": "Four Dragons",
+    "W3": "Five Dragons",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "1",
+    "Q": "في مسلسل Peaky Blinders، ما هي الشفرات الحادة المخبأة التي اشتهرت بها قبعات عصابة شيلبي؟",
+    "R": "Razor Blades",
+    "W1": "Steel Spikes",
+    "W2": "Iron Needles",
+    "W3": "Copper Coins",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "1",
+    "Q": "في مسلسل The Office، ما اسم المدير الإقليمي غريب الأطوار لفرع سكرانتون؟",
+    "R": "Michael Scott",
+    "W1": "Dwight Schrute",
+    "W2": "Jim Halpert",
+    "W3": "Andy Bernard",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "1",
+    "Q": "في مسلسل The Office، ما اسم مزرعة الشمندر التي يمتلكها ويديرها دوايت شروت؟",
+    "R": "Schrute Farms",
+    "W1": "Beet Valley",
+    "W2": "Penn Acre",
+    "W3": "Green Pastures",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "1",
+    "Q": "في مسلسل Stranger Things، ما اسم البعد المظلم الموازي المرعب الذي يهدد بلدة هوكينز؟",
+    "R": "The Upside Down",
+    "W1": "The Netherworld",
+    "W2": "The Shadow Realm",
+    "W3": "The Dark Void",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "1",
+    "Q": "في مسلسل The Sopranos، ما هي العيادة المتخصصة التي تتردد عليها الدكتورة جينيفر ميلفي؟",
+    "R": "Psychiatry Office",
+    "W1": "Dental Surgery",
+    "W2": "Cardiology Clinic",
+    "W3": "Physical Therapy",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "1",
+    "Q": "في مسلسل Sherlock، ما اسم الطبيب العسكري السابق وشريك شيرلوك الوفي في حل القضايا؟",
+    "R": "Dr. John Watson",
+    "W1": "Dr. Gregory House",
+    "W2": "Mycroft Holmes",
+    "W3": "Inspector Lestrade",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "1",
+    "Q": "في مسلسل Sherlock، من هو العدو العبقري اللدود الملقب باستشاري الجريمة الأول؟",
+    "R": "Jim Moriarty",
+    "W1": "Charles Magnussen",
+    "W2": "Culverton Smith",
+    "W3": "Eurus Holmes",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "1",
+    "Q": "في مسلسل Dark، في أي بلدة ألمانية صغيرة محاطة بالغابات تدور ألغاز السفر عبر الزمن؟",
+    "R": "Winden",
+    "W1": "Heidelberg",
+    "W2": "Freiburg",
+    "W3": "Rothenburg",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "1",
+    "Q": "في مسلسل Dark، كم سنة يقفز بها نفق الكهف الزمني بين الماضي والحاضر والمستقبل؟",
+    "R": "33 Years",
+    "W1": "25 Years",
+    "W2": "50 Years",
+    "W3": "12 Years",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "1",
+    "Q": "في مسلسل Narcos، من هو بارون الكوكايين الكولومبي الشهير محور أحداث الموسمين الأولين؟",
+    "R": "Pablo Escobar",
+    "W1": "Gilberto Rodriguez",
+    "W2": "Pacho Herrera",
+    "W3": "Chepe Santacruz",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "1",
+    "Q": "في مسلسل Succession، ما اسم إمبراطورية الإعلام والترفيه العالمية التي يملكها لوغان روي؟",
+    "R": "Waystar Royco",
+    "W1": "Pierce Media Group",
+    "W2": "GoJo Technologies",
+    "W3": "Vaulter Digital",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "1",
+    "Q": "في مسلسل The Boys، ما اسم البطل الخارق الشرير المتعجرف قائد فريق السبعة؟",
+    "R": "Homelander",
+    "W1": "Black Noir",
+    "W2": "A-Train",
+    "W3": "The Deep",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "1",
+    "Q": "في مسلسل The Boys، ما اسم المركب الكيميائي السري الذي يمنح الأبطال قواهم الخارقة؟",
+    "R": "Compound V",
+    "W1": "Serum X",
+    "W2": "Formula 9",
+    "W3": "Element Zero",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "1",
+    "Q": "في مسلسل The Mandalorian، ما اسم المخلوق الفضائي الصغير الأخضر المحبوب الملقب بـ Baby Yoda؟",
+    "R": "Grogu",
+    "W1": "Din Djarin",
+    "W2": "Bo-Katan",
+    "W3": "Greef Karga",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "1",
+    "Q": "في مسلسل Severance، ما اسم الشركة الغامضة التي تفصل ذكريات الموظفين بين العمل والمنزل؟",
+    "R": "Lumon Industries",
+    "W1": "Initech",
+    "W2": "Cyberdyne",
+    "W3": "Tyrell Corp",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "1",
+    "Q": "في مسلسل The Last of Us، ما نوع الفطر الطفيلي الخطير المسبب لوباء انهيار الحضارة البشرية؟",
+    "R": "Cordyceps Fungus",
+    "W1": "Black Mold",
+    "W2": "Amanita Spores",
+    "W3": "Ergot Blight",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "1",
+    "Q": "في مسلسل The Last of Us، ما اسم الفتاة المحصنة بيولوجيا ضد العدوى التي يحميها جويل؟",
+    "R": "Ellie",
+    "W1": "Tess",
+    "W2": "Riley",
+    "W3": "Marlene",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "1",
+    "Q": "في مسلسل House of Cards، ما اسم السياسي الديمقراطي الطموح الذي سعى للرئاسة بالمكائد؟",
+    "R": "Frank Underwood",
+    "W1": "Doug Stamper",
+    "W2": "Garrett Walker",
+    "W3": "Peter Russo",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "1",
+    "Q": "في مسلسل Mad Men، في أي قطاع مهني في شارع ماديسون بنيويورك يعمل دون دريبر؟",
+    "R": "Advertising Agency",
+    "W1": "Stock Brokerage",
+    "W2": "Publishing House",
+    "W3": "Fashion Design",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "1",
+    "Q": "في مسلسل Suits، ما هي الميزة الذهنية الخارقة التي يمتلكها مايك روس وتساعده في القانون؟",
+    "R": "Photographic Memory",
+    "W1": "Speed Reading",
+    "W2": "Lie Detection",
+    "W3": "Lip Reading",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "1",
+    "Q": "في مسلسل Suits، ما اسم المحامي الأسطوري الأنيق شريك مايك في مكتب بيرسون هاردمان؟",
+    "R": "Harvey Specter",
+    "W1": "Louis Litt",
+    "W2": "Robert Zane",
+    "W3": "Daniel Hardman",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "1",
+    "Q": "في مسلسل Fleabag، ما هو الرمز الديني الذي نشأت بين فيليباغ وبينه قصة حب معقدة في الموسم الثاني؟",
+    "R": "The Priest",
+    "W1": "The Bishop",
+    "W2": "The Deacon",
+    "W3": "The Monk",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "1",
+    "Q": "في مسلسل Ted Lasso، ما هو نادي كرة القدم الإنجليزي الذي تولى تيد لاسو تدريبه؟",
+    "R": "AFC Richmond",
+    "W1": "West Ham United",
+    "W2": "Manchester City",
+    "W3": "Chelsea FC",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "1",
+    "Q": "في مسلسل True Detective، ما اسم المحقق الفلسفي الكئيب بطل الموسم الأول رفقة مارتي هارت؟",
+    "R": "Rust Cohle",
+    "W1": "Ray Velcoro",
+    "W2": "Wayne Hays",
+    "W3": "Hank Prior",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "1",
+    "Q": "في مسلسل Fargo، في أي ولاية أمريكية شمالية شديدة البرودة تدور معظم أحداث المسلسل؟",
+    "R": "Minnesota",
+    "W1": "Montana",
+    "W2": "Wisconsin",
+    "W3": "North Dakota",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "1",
+    "Q": "في مسلسل Mindhunter، في أي وكالة أمنية فيدرالية تأسست وحدة العلوم السلوكية للتحقيق؟",
+    "R": "FBI",
+    "W1": "CIA",
+    "W2": "DEA",
+    "W3": "ATF",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "1",
+    "Q": "في مسلسل The Wire، في أي مدينة أمريكية تقع أحداث صراع المخدرات والشرطة والسياسة؟",
+    "R": "Baltimore",
+    "W1": "Philadelphia",
+    "W2": "Detroit",
+    "W3": "Chicago",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "1",
+    "Q": "في مسلسل Westworld، ما هي طبيعة الحديقة الترفيهية الفاخرة التي يزورها الأثرياء؟",
+    "R": "Wild West Android Park",
+    "W1": "Medieval Fantasy Realm",
+    "W2": "Future Space Station",
+    "W3": "Roman Empire Arena",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "1",
+    "Q": "في مسلسل Dexter، ما هو اللقب الذي أطلقه دكستر على دافعه الداخلي المظلم للقتل؟",
+    "R": "Dark Passenger",
+    "W1": "Shadow Demon",
+    "W2": "Grim Reaper",
+    "W3": "Silent Hunter",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "1",
+    "Q": "في مسلسل Black Mirror، ما اسم الحلقة الشهيرة التي تدور حول نظام تقييم اجتماعي رقمي بالنقاط؟",
+    "R": "Nosedive",
+    "W1": "San Junipero",
+    "W2": "White Bear",
+    "W3": "USS Callister",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "1",
+    "Q": "في مسلسل Lost، ما اسم المنظمة العلمية الغامضة صاحبة المحطات الميدانية في الجزيرة؟",
+    "R": "DHARMA Initiative",
+    "W1": "Widmore Corp",
+    "W2": "Oceanic Global",
+    "W3": "Aperture Science",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "1",
+    "Q": "في مسلسل Prison Break، ما اسم السجن الفيدرالي في إلينوي الذي سُجن فيه لينكولن باروز؟",
+    "R": "Fox River State",
+    "W1": "Sona Federal",
+    "W2": "Ogygia Prison",
+    "W3": "Miami Metro Jail",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "1",
+    "Q": "في مسلسل Vikings، ما اسم المحاربة الشجاعة والزوجة الأولى للأسطورة راغنار لوثبروك؟",
+    "R": "Lagertha",
+    "W1": "Aslaug",
+    "W2": "Torvi",
+    "W3": "Helga",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "1",
+    "Q": "في مسلسل The Walking Dead، ما هو السلاح المفضل للمحارب داريل ديكسون في صيد الزومبي؟",
+    "R": "Crossbow",
+    "W1": "Samurai Katana",
+    "W2": "Revolver Pistol",
+    "W3": "Baseball Bat",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "1",
+    "Q": "في مسلسل House of the Dragon، ما اسم التنين الهائل الضخم الذي ركبته إيموند تارغارين؟",
+    "R": "Vhagar",
+    "W1": "Caraxes",
+    "W2": "Syrax",
+    "W3": "Sunfyre",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "1",
+    "Q": "في مسلسل Friends، ما هي المهنة الأكاديمية التي يعمل بها روس غيلر؟",
+    "R": "Paleontologist",
+    "W1": "Archaeologist",
+    "W2": "Geologist",
+    "W3": "Anthropologist",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "1",
+    "Q": "في مسلسل Friends، ما هي العبارة الشهيرة التي يغازل بها جوي تريبياني الفتيات؟",
+    "R": "How you doin",
+    "W1": "We were on a break",
+    "W2": "Could I be more",
+    "W3": "Pivot pivot pivot",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "1",
+    "Q": "في مسلسل Downton Abbey، ما اسم العائلة الأرستقراطية الإنجليزية المالكة لقصر داونتون؟",
+    "R": "Crawley Family",
+    "W1": "Bridgerton Family",
+    "W2": "Shelby Family",
+    "W3": "Darcy Family",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "1",
+    "Q": "في مسلسل Homeland، ما اسم ضابطة المخابرات المركزية المصابة باضطراب ثنائي القطب؟",
+    "R": "Carrie Mathison",
+    "W1": "Saul Berenson",
+    "W2": "Nicholas Brody",
+    "W3": "Peter Quinn",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "1",
+    "Q": "في مسلسل House M.D.، ما هو الاختصاص الطبي الدقيق للعبقري غريغوري هاوس؟",
+    "R": "Diagnostician",
+    "W1": "Neurosurgeon",
+    "W2": "Cardiologist",
+    "W3": "Oncologist",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "1",
+    "Q": "في مسلسل House M.D.، ما هو الدواء المسكن للآلام الذي أدمن هاوس على تناوله باستمرار؟",
+    "R": "Vicodin",
+    "W1": "Oxycodone",
+    "W2": "Morphine",
+    "W3": "Codeine",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "1",
+    "Q": "في مسلسل Brooklyn Nine-Nine، ما اسم المحقق العبقري الطفولي بطل قسم الشرطة في نيويورك؟",
+    "R": "Jake Peralta",
+    "W1": "Charles Boyle",
+    "W2": "Terry Jeffords",
+    "W3": "Raymond Holt",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "1",
+    "Q": "في مسلسل How I Met Your Mother، ما هو الشيء الأصفر المميز المرتبط بهوية الأم المستقبلية؟",
+    "R": "Yellow Umbrella",
+    "W1": "Yellow Scarf",
+    "W2": "Yellow Raincoat",
+    "W3": "Yellow Guitar",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "1",
+    "Q": "في مسلسل The White Lotus، في أي جزيرة سياحية أمريكية دارت أحداث الموسم الأول من الفندق؟",
+    "R": "Hawaii",
+    "W1": "Sicily",
+    "W2": "Thailand",
+    "W3": "Bermuda",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "1",
+    "Q": "في مسلسل Yellowjackets، ما هي الرياضة التي كان يمارسها فريق الفتيات قبل تحطم طائرتهن؟",
+    "R": "High School Soccer",
+    "W1": "Field Hockey",
+    "W2": "Volleyball",
+    "W3": "Cross Country",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "1",
+    "Q": "في مسلسل Chernobyl، ما اسم العالم الفيزيائي السوفياتي الذي قاد لجنة التحقيق في الكارثة؟",
+    "R": "Valery Legasov",
+    "W1": "Boris Shcherbina",
+    "W2": "Anatoly Dyatlov",
+    "W3": "Viktor Bryukhanov",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "2",
+    "Q": "في مسلسل Breaking Bad، ما اسم وكيل مكافحة المخدرات عديل والتر وايت؟",
+    "R": "Hank Schrader",
+    "W1": "Steven Gomez",
+    "W2": "George Merkert",
+    "W3": "Tim Roberts",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "2",
+    "Q": "في مسلسل Better Call Saul، ما اسم شقيق جيمي المحامي اللامع المصاب بحساسية الكهرومغناطيسية؟",
+    "R": "Chuck McGill",
+    "W1": "Howard Hamlin",
+    "W2": "Cliff Main",
+    "W3": "Rich Schweikart",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "2",
+    "Q": "في مسلسل Game of Thrones، ما هو السلاح المعدني الأسطوري القادر على قتل السائرين البيض؟",
+    "R": "Valyrian Steel",
+    "W1": "Dragon Glass",
+    "W2": "Cast Iron",
+    "W3": "Mithril",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "2",
+    "Q": "في مسلسل Game of Thrones، ما اسم الذئب الرهيب الوفي لجون سنو ذو الفراء الأبيض والعيون الحمراء؟",
+    "R": "Ghost",
+    "W1": "Nymeria",
+    "W2": "Grey Wind",
+    "W3": "Summer",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "2",
+    "Q": "في مسلسل Peaky Blinders، ما اسم الحانة الشهيرة التي تمتلكها وتديرها عائلة شيلبي في الحي؟",
+    "R": "The Garrison Pub",
+    "W1": "The Black Dog",
+    "W2": "The Red Lion",
+    "W3": "The Royal Oak",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "2",
+    "Q": "في مسلسل Stranger Things، ما اسم وحش الموسم الأول الشبيه بالزهرة القادم من العالم الموازي؟",
+    "R": "Demogorgon",
+    "W1": "Mind Flayer",
+    "W2": "Vecna",
+    "W3": "Demodog",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "2",
+    "Q": "في مسلسل The Sopranos، ما اسم نادي التجريد الذي يديره سيلفيو دانتي وملتقى رجال توني؟",
+    "R": "Bada Bing",
+    "W1": "Satriale Pork Store",
+    "W2": "Nuovo Vesuvio",
+    "W3": "The Green Grove",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "2",
+    "Q": "في مسلسل Dark، ما اسم الجهاز النحاسي المعقد آلة الزمن المحمولة داخل صندوق جلدي؟",
+    "R": "Apparatus Clockwork",
+    "W1": "TARDIS Device",
+    "W2": "Chronos Key",
+    "W3": "Quantum Sphere",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "2",
+    "Q": "في مسلسل Narcos، ما اسم السجن الفاخر المشيد ذاتيا الذي سجن فيه بابلو إسكوبار نفسه؟",
+    "R": "La Catedral",
+    "W1": "Carandiru",
+    "W2": "Palmasola",
+    "W3": "El Buen Pastor",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "2",
+    "Q": "في مسلسل Succession، من هو الابن الأكبر للوغان روي من زواجه الأول البعيد عن إدارة الشركة؟",
+    "R": "Connor Roy",
+    "W1": "Kendall Roy",
+    "W2": "Roman Roy",
+    "W3": "Shiv Roy",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "2",
+    "Q": "في مسلسل The Boys، ما اسم زعيم فريق الفتيان المعادي للأبطال ذو اللهجة البريطانية القاسية؟",
+    "R": "Billy Butcher",
+    "W1": "Hughie Campbell",
+    "W2": "Mother Milk",
+    "W3": "Frenchie",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "2",
+    "Q": "في مسلسل The Mandalorian، ما هو المعدن الفضائي النادر المقاوم لليزر صانع دروع الماندالوريين؟",
+    "R": "Beskar Steel",
+    "W1": "Cortosis Ore",
+    "W2": "Durasteel",
+    "W3": "Kyber Crystal",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "2",
+    "Q": "في مسلسل Severance، في أي قسم تخصصي داخل شركة لومون يعمل مارك سكاوت؟",
+    "R": "Macrodata Refinement",
+    "W1": "Optics and Design",
+    "W2": "Disposal and Salvage",
+    "W3": "Human Resources",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "2",
+    "Q": "في مسلسل Suits، ما هي الجامعة القانونية النخبوية الوحيدة التي تشترط شركة هارفي التخرج منها؟",
+    "R": "Harvard Law School",
+    "W1": "Yale Law School",
+    "W2": "Columbia Law School",
+    "W3": "Stanford Law School",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "2",
+    "Q": "في مسلسل Ted Lasso، ما هي الكلمة المفتاحية الإيجابية المعلقة باللون الأصفر فوق باب مكتب تيد؟",
+    "R": "Believe",
+    "W1": "Courage",
+    "W2": "Together",
+    "W3": "Victory",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "2",
+    "Q": "في مسلسل The Wire، ما اسم تاجر المخدرات المستقل اللص الذي يستهدف عصابات الشوارع فقط؟",
+    "R": "Omar Little",
+    "W1": "Stringer Bell",
+    "W2": "Avon Barksdale",
+    "W3": "Marlo Stanfield",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "2",
+    "Q": "في مسلسل Westworld، ما اسم أول مضيفة روبوتية بدأت تعي حقيقة استغلال البشر وتبدأ التمرد؟",
+    "R": "Dolores Abernathy",
+    "W1": "Maeve Millay",
+    "W2": "Clementine Pennyfeather",
+    "W3": "Armistice",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "2",
+    "Q": "في مسلسل Dexter، ما هي القاعدة الأخلاقية الصارمة الأولى التي وضعها له والده بالتبني هاري؟",
+    "R": "Never Get Caught",
+    "W1": "Only Kill Bad Guys",
+    "W2": "Never Leave Blood",
+    "W3": "Always Hide Bodies",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "2",
+    "Q": "في مسلسل Lost، ما اسم الطبيب الجراح الذي تولى قيادة الناجين في الجزيرة؟",
+    "R": "Jack Shephard",
+    "W1": "John Locke",
+    "W2": "James Sawyer",
+    "W3": "Sayid Jarrah",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "2",
+    "Q": "في مسلسل Vikings، ما اسم الراهب الإنجليزي الأسير الذي صادقه راغنار وتعلم منه اللغة المسيحية؟",
+    "R": "Athelstan",
+    "W1": "Ecbert",
+    "W2": "Aethelwulf",
+    "W3": "Heahmund",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "4",
+    "Q": "في مسلسل Breaking Bad، ما هي النبتة السامة التي استعملها والتر لتسميم الطفل بروك لاتهام غاس؟",
+    "R": "Lily of the Valley",
+    "W1": "Nightshade Berries",
+    "W2": "Oleander Leaves",
+    "W3": "Castor Ricin Bean",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "4",
+    "Q": "في مسلسل Breaking Bad، في أي مغسلة سيارات استثمر والتر وايت وسكاي لغسيل أموال المخدرات؟",
+    "R": "A1A Carwash",
+    "W1": "Oasis Carwash",
+    "W2": "Desert Cleaners",
+    "W3": "Rio Grande Auto",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "4",
+    "Q": "في مسلسل Better Call Saul، ما اسم المحامي الشريك في HHM الذي انتحر بعد تدمير جيمي وكيم لسمعته؟",
+    "R": "Howard Hamlin",
+    "W1": "Chuck McGill",
+    "W2": "Cliff Main",
+    "W3": "Bill Oakley",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "4",
+    "Q": "في مسلسل Better Call Saul، أين دُفنت جثة هوارد هاملين جنبا إلى جنب مع غريمه لالو سالامانكا؟",
+    "R": "Under the Superlab Floor",
+    "W1": "In the Desert Dunes",
+    "W2": "Inside the Chicken Vat",
+    "W3": "Under the Carwash Concrete",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "4",
+    "Q": "في مسلسل Game of Thrones، ما اسم الحفل الدموي الخائن الذي قُتل فيه روب ستارك ووالدته كاتلين؟",
+    "R": "The Red Wedding",
+    "W1": "The Purple Wedding",
+    "W2": "The Tourney of Harrenhal",
+    "W3": "The Battle of Blackwater",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "4",
+    "Q": "في مسلسل Game of Thrones، من هو السير الشجاع الذي فجر رأس الأمير أوبيرين مارتيل في المحاكمة بالنزال؟",
+    "R": "Gregor Clegane The Mountain",
+    "W1": "Sandor Clegane The Hound",
+    "W2": "Jaime Lannister",
+    "W3": "Bronn of the Blackwater",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "4",
+    "Q": "في مسلسل Peaky Blinders، من هو السياسي الفاشي البريطاني الذي خطط توماس شيلبي لاغتياله وفشل؟",
+    "R": "Oswald Mosley",
+    "W1": "Winston Churchill",
+    "W2": "Chester Campbell",
+    "W3": "Alfie Solomons",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "4",
+    "Q": "في مسلسل Peaky Blinders، ما اسم زعيم عصابة اليهود في كامدن تاون الذي جسده توم هاردي؟",
+    "R": "Alfie Solomons",
+    "W1": "Darby Sabini",
+    "W2": "Luca Changretta",
+    "W3": "Billy Kimber",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "4",
+    "Q": "في مسلسل The Office، ما اسم الفيلم السينمائي الهزلي المنزلي الذي كتبه وأخرجه مايكل سكوت؟",
+    "R": "Threat Level Midnight",
+    "W1": "Agent Michael Scarn",
+    "W2": "Scranton Strangler Story",
+    "W3": "Golden Ticket Quest",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "4",
+    "Q": "في مسلسل Stranger Things، ما اسم المختبر الفيدرالي في هوكينز المسؤول عن فتح البوابة للعالم السفلي؟",
+    "R": "Hawkins National Laboratory",
+    "W1": "Oak Ridge Laboratory",
+    "W2": "Los Alamos Facility",
+    "W3": "Starcourt Research",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "4",
+    "Q": "في مسلسل The Sopranos، ما اسم ابن أخ توني المدمن الذي خنقه توني بيده بعد حادث سيارة مميت؟",
+    "R": "Christopher Moltisanti",
+    "W1": "Anthony Junior",
+    "W2": "Jackie Aprile Jr",
+    "W3": "Brendan Filone",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "4",
+    "Q": "في مسلسل Sherlock، ما هي التقنية العقلية الخيالية التي يستحضر فيها شيرلوك الذكريات والبيانات؟",
+    "R": "Mind Palace",
+    "W1": "Memory Matrix",
+    "W2": "Thought Web",
+    "W3": "Logic Chamber",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "4",
+    "Q": "في مسلسل Dark، ما هو الاسم المستعار الحركي لجوناس في شيخوخته وزعيم منظمة سيك موندوس؟",
+    "R": "Adam",
+    "W1": "Noah",
+    "W2": "Eva",
+    "W3": "Bartosz",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "4",
+    "Q": "في مسلسل Narcos، من هما عميلا مكافحة المخدرات الأمريكيان اللذان قادا تتبع إسكوبار في كولومبيا؟",
+    "R": "Steve Murphy and Javier Pena",
+    "W1": "Hank Schrader and Gomez",
+    "W2": "Holden Ford and Bill Tench",
+    "W3": "Rust Cohle and Marty Hart",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "4",
+    "Q": "في مسلسل Succession، في أي موقع سياحي ريفي جرت حادثة غرق النادل الشاب التي تورط فيها كيندال؟",
+    "R": "English Countryside Lake",
+    "W1": "Lake Como Villa",
+    "W2": "Hudson River Marina",
+    "W3": "Long Island Sound",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "4",
+    "Q": "في مسلسل The Boys، ما اسم الناشطة النازية الخارقة المنضمة للسبعة التي كانت عشيقة هوملاندر؟",
+    "R": "Stormfront",
+    "W1": "Queen Maeve",
+    "W2": "Starlight",
+    "W3": "Crimson Countess",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "4",
+    "Q": "في مسلسل The Mandalorian، من هو موف الإمبراطورية المارق الذي استولى على سيف دارك سيبر الأسود؟",
+    "R": "Moff Gideon",
+    "W1": "Grand Admiral Thrawn",
+    "W2": "General Hux",
+    "W3": "Captain Pellaeon",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "4",
+    "Q": "في مسلسل Severance، ما هي العقوبة النفسية المهينة التي يخضع لها الموظف داخل غرفة الاستراحة؟",
+    "R": "Repeating an Apology Statement",
+    "W1": "Standing in Complete Darkness",
+    "W2": "Writing Codes for 24 Hours",
+    "W3": "Watching Static Television",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "4",
+    "Q": "في مسلسل The Last of Us، ما هي الميليشيا الثورية المسلحة التي قادتها مارلين لمحاربة فيدرا؟",
+    "R": "The Fireflies",
+    "W1": "The Wolves",
+    "W2": "The Seraphites",
+    "W3": "The Hunters",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "4",
+    "Q": "في مسلسل House of Cards، كيف تخلص فرانك أندروود من النائب بيتر روسو داخل سيارته المغلقة؟",
+    "R": "Carbon Monoxide Poisoning",
+    "W1": "Staged Gunshot Wound",
+    "W2": "Injected Heart Stopper",
+    "W3": "Cutting Brake Lines",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "4",
+    "Q": "في مسلسل Suits، ما اسم السكرتيرة الذكية مديرة المكتب التي يعتمد عليها هارفي في كل أسراره؟",
+    "R": "Donna Paulsen",
+    "W1": "Rachel Zane",
+    "W2": "Jessica Pearson",
+    "W3": "Katrina Bennett",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "4",
+    "Q": "في مسلسل True Detective، ما هو اللقب الغامض المظلم للقاتل المتسلسل وملك الكارنوسا في لويزيانا؟",
+    "R": "The Yellow King",
+    "W1": "The Swamp Monster",
+    "W2": "The Bayou Butcher",
+    "W3": "The Red Dragon",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "4",
+    "Q": "في مسلسل Fargo، ما اسم القاتل المأجور السيكوباتي الذي جسده بيلي بوب ثورنتون في الموسم الأول؟",
+    "R": "Lorne Malvo",
+    "W1": "Lester Nygaard",
+    "W2": "Gus Grimly",
+    "W3": "Hanzee Dent",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "4",
+    "Q": "في مسلسل Mindhunter، من هو القاتل المتسلسل الضخم المحتجز بكاليفورنيا الذي أجرى معه فورد مقابلات مطولة؟",
+    "R": "Ed Kemper",
+    "W1": "Charles Manson",
+    "W2": "David Berkowitz",
+    "W3": "Ted Bundy",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "4",
+    "Q": "في مسلسل The Wire، ما هو اسم المفتش والملازم النزيه الذي قاد وحدة التنصت والتحري السري؟",
+    "R": "Lieutenant Cedric Daniels",
+    "W1": "Jimmy McNulty",
+    "W2": "Bunk Moreland",
+    "W3": "Lester Freamon",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "4",
+    "Q": "في مسلسل Westworld، ما اسم العازف والمصمم العبقري الشريك المؤسس للحديقة الذي قتله فورد؟",
+    "R": "Arnold Weber",
+    "W1": "Robert Ford",
+    "W2": "Bernard Lowe",
+    "W3": "William",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "4",
+    "Q": "في مسلسل Dexter، ما اسم القاتل المتسلسل في الموسم الرابع الملقب بـ Trinity Killer؟",
+    "R": "Arthur Mitchell",
+    "W1": "Brian Moser",
+    "W2": "Miguel Prado",
+    "W3": "Travis Marshall",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "4",
+    "Q": "في مسلسل Vikings، كيف كان الإعدام الطقسي المروع المعروف بـ Blood Eagle الذي نفذه راغنار ضد يارل بورغ؟",
+    "R": "Carving Ribs Like Wings",
+    "W1": "Drowning in a Sacred Well",
+    "W2": "Hanging from an Ash Tree",
+    "W3": "Burning in a Longship",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "4",
+    "Q": "في مسلسل The Walking Dead، ما اسم مضرب البيسبول المغطى بالأسلاك الشائكة لنيغان؟",
+    "R": "Lucille",
+    "W1": "Beast",
+    "W2": "Widowmaker",
+    "W3": "Viper",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "4",
+    "Q": "في مسلسل House of the Dragon، ما اسم التنين الفضي الشرس للأمير دايمون تارغارين؟",
+    "R": "Caraxes",
+    "W1": "Syrax",
+    "W2": "Vhagar",
+    "W3": "Meleys",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "5",
+    "Q": "في مسلسل Breaking Bad، ما اسم الصحراء والموقع الذي دفن فيه والتر براميل أمواله وقُتل فيه هانك؟",
+    "R": "To'hajiilee",
+    "W1": "Sandia Peak",
+    "W2": "Jemez Springs",
+    "W3": "White Sands",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "5",
+    "Q": "في مسلسل Better Call Saul، ما هي العقوبة بالسجن التي قبل بها جيمي طواعية بعد اعترافه الكامل بالجرائم؟",
+    "R": "Eighty-six Years",
+    "W1": "Seven Years",
+    "W2": "Twenty Years",
+    "W3": "Life without Parole",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "5",
+    "Q": "في مسلسل Game of Thrones، من هو الطفل المشلول الذي انتهى به المطاف ملكا على الممالك الست؟",
+    "R": "Bran the Broken",
+    "W1": "Jon Snow",
+    "W2": "Tyrion Lannister",
+    "W3": "Gendry Baratheon",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "5",
+    "Q": "في مسلسل Peaky Blinders، كيف قُتلت غريس شيلبي زوجة تومي خلال حفل عائلي خيري؟",
+    "R": "Assassination Bullet for Tommy",
+    "W1": "Poisoned Wine Glass",
+    "W2": "Car Bomb Explosion",
+    "W3": "Stabbed by Changretta Men",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "5",
+    "Q": "في مسلسل The Sopranos، ما هي شاشة العرض والأغنية في المشهد الختامي المبتور فجأة للمسلسل؟",
+    "R": "Don't Stop Believin' Cut to Black",
+    "W1": "My Way by Frank Sinatra",
+    "W2": "Hotel California Fade Out",
+    "W3": "Stairway to Heaven Credits",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "5",
+    "Q": "في مسلسل Dark، ما هو أصل العقدة الزمنية الحقيقي الذي كشفته كلوديا تيدمان لمنع وجود العالمين؟",
+    "R": "H.G. Tannhaus Origin World Machine",
+    "W1": "Nuclear Power Plant Meltdown",
+    "W2": "Jonas and Martha Paradox Child",
+    "W3": "Sic Mundus Time Tunnel Creation",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "5",
+    "Q": "في مسلسل Succession، من هو الشخص غير المتوقع الذي نُصب رئيسا تنفيذيا لشركة وايستار بعد استحواذ غوجو؟",
+    "R": "Tom Wambsgans",
+    "W1": "Kendall Roy",
+    "W2": "Roman Roy",
+    "W3": "Greg Hirsch",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "5",
+    "Q": "في مسلسل The Boys، ما هي الحقيقة الصادمة عن ابن هوملاندر الصغير ريان ووالدته بيكا بوتشر؟",
+    "R": "Ryan was raised in secret compound",
+    "W1": "Ryan was adopted by Stan Edgar",
+    "W2": "Ryan was clone created in lab",
+    "W3": "Ryan possessed no superpowers",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "5",
+    "Q": "في مسلسل Severance، ما هو الاكتشاف المروع الذي أدركه مارك سكاوت عن هوية مساعدة لومون كيسي؟",
+    "R": "She is his deceased wife Gemma",
+    "W1": "She is an undercover journalist",
+    "W2": "She is daughter of CEO Egan",
+    "W3": "She is an artificial android",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "5",
+    "Q": "في مسلسل The Last of Us، ماذا فعل جويل في مستشفى الفايرفلايز في سولت ليك لإنقاذ حياة إيلي؟",
+    "R": "Killed Doctors and Marlene to Save Her",
+    "W1": "Agreed to the brain surgery cure",
+    "W2": "Traded her for vaccine supplies",
+    "W3": "Escaped peacefully during the night",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "5",
+    "Q": "في مسلسل House of Cards، من هو الصحفي القديم المحقق الذي رماه فرانك تحت عجلات قطار المترو؟",
+    "R": "Zoe Barnes",
+    "W1": "Lucas Goodwin",
+    "W2": "Janine Skorsky",
+    "W3": "Tom Hammerschmidt",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "5",
+    "Q": "في مسلسل True Detective، ما هو الاسم الحقيقي للقاتل ذي الندبات على وجهه إيرول تشايلدرس؟",
+    "R": "Errol Childress",
+    "W1": "Reggie Ledoux",
+    "W2": "Billy Lee Tuttle",
+    "W3": "Dewall Ledoux",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "5",
+    "Q": "في مسلسل Fargo، كيف قُتلت نائبة الشرطة الشابة مولي سولفرسون تقريبا في عاصفة الثلج؟",
+    "R": "Accidentally shot by Officer Gus",
+    "W1": "Ambushed by Malvo in snow",
+    "W2": "Car struck by semi-trailer",
+    "W3": "Frozen in blizzard drift",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "5",
+    "Q": "في مسلسل Mindhunter، ما اسم القاتل المتسلسل المكنى بـ BTK الذي تظهر لقطاته في بداية الحلقات؟",
+    "R": "Dennis Rader",
+    "W1": "Gary Ridgway",
+    "W2": "Richard Ramirez",
+    "W3": "Arthur Shawcross",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "5",
+    "Q": "في مسلسل The Wire، ما هي الوسيلة المشفرة والتقنية السرية التي استعملتها عصابة باركسديل للتواصل؟",
+    "R": "Pager codes on payphones",
+    "W1": "Burner mobile text messages",
+    "W2": "Handwritten drop notes",
+    "W3": "Two-way radio channels",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "5",
+    "Q": "في مسلسل Westworld، ما هي الحقيقة الصادمة عن الرجل ذي القبعة السوداء The Man in Black؟",
+    "R": "He is older version of William",
+    "W1": "He is Arnold surviving brother",
+    "W2": "He is undercover robot host",
+    "W3": "He is park chief programmer",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "5",
+    "Q": "في مسلسل Dexter، كيف كانت النهاية الصادمة لزوجة دكستر ريتا في نهاية الموسم الرابع؟",
+    "R": "Found murdered by Trinity in bathtub",
+    "W1": "Left him and took children abroad",
+    "W2": "Discovered his secret and called police",
+    "W3": "Died in fatal freeway car collision",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "5",
+    "Q": "في مسلسل Lost، ما اسم الكيان الشرير الخارق القادر على التحول إلى دخان أسود كثيف؟",
+    "R": "The Man in Black",
+    "W1": "Jacob",
+    "W2": "Richard Alpert",
+    "W3": "Charles Widmore",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "5",
+    "Q": "في مسلسل Vikings، كيف كانت النهاية المروعة للأسطورة راغنار لوثبروك على يد الملك إيلا؟",
+    "R": "Thrown into a pit of venomous snakes",
+    "W1": "Decapitated before Wessex army",
+    "W2": "Executed by blood eagle ritual",
+    "W3": "Burned at stake in courtyard",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "5",
+    "Q": "في مسلسل Chernobyl، ما هي المادة الكيميائية الخطيرة التي سكبها الطيارون لإخماد حريق المفاعل؟",
+    "R": "Boron and Sand",
+    "W1": "Heavy Water and Foam",
+    "W2": "Liquid Nitrogen and Lead",
+    "W3": "Concrete Slurry Mix",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "6",
+    "Q": "في مسلسل Breaking Bad، ما اسم حلقة الموسم الخامس الشهيرة الحاصلة على تقييم 10/10 في IMDb؟",
+    "R": "Ozymandias",
+    "W1": "Felina",
+    "W2": "Face Off",
+    "W3": "Fly",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "6",
+    "Q": "في مسلسل Breaking Bad، كيف قضى والتر وايت على غاس فرينغ ومساعده تايروس في دار الرعاية؟",
+    "R": "Pipe bomb attached to Hector bell",
+    "W1": "Cyanide dropped into hospital IV",
+    "W2": "Sniper rifle shot from rooftop",
+    "W3": "Car explosion outside clinic",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "6",
+    "Q": "في مسلسل Better Call Saul، ما اسم المحامي الفاسد الذي انتحل شخصيته جيمي لتدبير المكيدة للوسيط كليف؟",
+    "R": "Howard Hamlin Double",
+    "W1": "Judge Casimiro Imposter",
+    "W2": "Ernesto Substitute",
+    "W3": "Bill Oakley Clone",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "6",
+    "Q": "في مسلسل Game of Thrones، ما هي الكلمات التي قالها جايمي لانيستر لروز بولتون قبل مغادرة هارنهال؟",
+    "R": "The Lannisters send their regards",
+    "W1": "Tell Robb Stark winter has come",
+    "W2": "A Lannister always pays his debts",
+    "W3": "Remember who holds the gold",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "6",
+    "Q": "في مسلسل Game of Thrones، من هو القاتل الحقيقي الحاسم الذي طعن ملك الليل وقتله بخنجر الفاليري؟",
+    "R": "Arya Stark",
+    "W1": "Jon Snow",
+    "W2": "Theon Greyjoy",
+    "W3": "Bran Stark",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "6",
+    "Q": "في مسلسل Peaky Blinders، ما اسم الغجرية العجوز عرافة العائلة الحكيمة عمة تومي شيلبي؟",
+    "R": "Polly Gray",
+    "W1": "Ada Thorne",
+    "W2": "Lizzie Stark",
+    "W3": "Esme Shelby",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "6",
+    "Q": "في مسلسل The Office، ما هو المقلب الشهير الذي نفذه جيم ضد دوايت ووضع فيه أدواته داخل حلوى الجيلي؟",
+    "R": "Stapler in Jell-O",
+    "W1": "Desk covered in wrapping paper",
+    "W2": "Wallet frozen in ice block",
+    "W3": "Computer keys switched",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "6",
+    "Q": "في مسلسل Stranger Things، ما اسم الأغنية الثمانينية الشهيرة لكيت بوش التي أنقذت ماكس من فك فيكنا؟",
+    "R": "Running Up That Hill",
+    "W1": "Should I Stay or Should I Go",
+    "W2": "Every Breath You Take",
+    "W3": "Never Ending Story",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "6",
+    "Q": "في مسلسل The Sopranos، ما اسم الحصان السباق المحبوب لتوني الذي أشعل مقتله غضبه ضد رالف؟",
+    "R": "Pie-O-My",
+    "W1": "Secretariat",
+    "W2": "Sea Star",
+    "W3": "Thunderbolt",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "6",
+    "Q": "في مسلسل Sherlock، ما اسم السجن الجزيري شديد التحصين البحري الذي حُبست فيه يوروس هولمز؟",
+    "R": "Sherrinford",
+    "W1": "Dartmoor",
+    "W2": "Azkaban",
+    "W3": "Broadmoor",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "6",
+    "Q": "في مسلسل Dark، ما هو التاريخ واليوم الدقيق الذي انتحر فيه ميكائيل كانوالد وبدأت به القصة؟",
+    "R": "June 21 2019",
+    "W1": "November 4 2019",
+    "W2": "November 12 1986",
+    "W3": "June 27 2020",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "6",
+    "Q": "في مسلسل Succession، في أي دولة نرويجية جرت رحلة التفاوض الشاقة مع لوكاس ماتسون على قمة الجبل؟",
+    "R": "Norway",
+    "W1": "Sweden",
+    "W2": "Finland",
+    "W3": "Iceland",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "6",
+    "Q": "في مسلسل The Boys، ما هو الضعف الجسدي القاتل الشنيع للبطل الشفاف ترانسلوسنت الذي استغله الفتيان؟",
+    "R": "Internal organs vulnerable to explosives",
+    "W1": "Extreme allergy to high pitch sound",
+    "W2": "Suffocation by poisonous carbon gas",
+    "W3": "Electrocution in saltwater pool",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "6",
+    "Q": "في مسلسل Severance، ما هو اسم الطقس الغريب والمكافأة الموسيقية الراقصة التي نالها ديلان؟",
+    "R": "Music Dance Experience",
+    "W1": "Waffle Party Ritual",
+    "W2": "Egg Bar Social",
+    "W3": "Melon Buffet Celebration",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "6",
+    "Q": "في مسلسل The Last of Us، ما اسم المدينة والكميونة الآمنة التي أسسها تومي شقيق جويل في وايومنغ؟",
+    "R": "Jackson",
+    "W1": "Boulder",
+    "W2": "Cody",
+    "W3": "Casper",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "6",
+    "Q": "في مسلسل House of Cards، ما هو اسم القصر الرئاسي والمزرعة التي تفاوض فيها أندروود مع الرئيس الروسي بيتروف؟",
+    "R": "Camp David",
+    "W1": "Blair House",
+    "W2": "Walker Retreat",
+    "W3": "Oatlands Estate",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "6",
+    "Q": "في مسلسل Suits، ما هي المخاطرة القضائية التي أقدم عليها مايك روس لإنقاذ زملائه في القضية الفيدرالية؟",
+    "R": "Pleading guilty and taking two-year prison",
+    "W1": "Fleeing to London under false identity",
+    "W2": "Turning state witness against Harvey",
+    "W3": "Paying ten-million dollar restitution",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "6",
+    "Q": "في مسلسل True Detective، ما هي التماثيل والأشكال الخشبية الهندسية الغريبة التي كان القاتل يعلقها بالأشجار؟",
+    "R": "Devil Nests Twig Sculptures",
+    "W1": "Dreamcatcher Weaves",
+    "W2": "Antler Crown Totems",
+    "W3": "Bone Needle Chimes",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "6",
+    "Q": "في مسلسل The Wire، ما هي المهنة الجديدة المصلحة التي اتجه إليها الملاكم الشاب كات أوتيس بعد خروجه من السجن؟",
+    "R": "Opening a Youth Boxing Gym",
+    "W1": "Working as City Council Driver",
+    "W2": "Teaching at Baltimore High School",
+    "W3": "Managing West Side Grocery Store",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "6",
+    "Q": "في مسلسل Chernobyl، ما اسم المهندس الشاب الذي ضغط زر الطوارئ القاتل AZ-5 متسببا في الانفجار؟",
+    "R": "Leonid Toptunov",
+    "W1": "Aleksandr Akimov",
+    "W2": "Anatoly Dyatlov",
+    "W3": "Boris Stolyarchuk",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "7",
+    "Q": "في مسلسل Breaking Bad، ما هي الأبيات الشعرية للشاعر بيرسي شيلي التي ألهمت عنوان حلقة Ozymandias؟",
+    "R": "Look on my Works ye Mighty and despair",
+    "W1": "Rage rage against the dying of the light",
+    "W2": "Two roads diverged in a yellow wood",
+    "W3": "Do not go gentle into that good night",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "7",
+    "Q": "في مسلسل Better Call Saul، ما هو الاسم المستعار والوظيفة التي عمل بها جيمي في ولاية نبراسكا بعد اختفائه؟",
+    "R": "Gene Takavic at Cinnabon",
+    "W1": "Viktor St Clair at Bakery",
+    "W2": "Charlie Hustle at Mall",
+    "W3": "James Morgan at Diner",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "7",
+    "Q": "في مسلسل Game of Thrones، ما هو السم النادر النفاذ الذي استعملته أولينا تيريل لقتل الملك جوفري؟",
+    "R": "The Strangler",
+    "W1": "Tears of Lys",
+    "W2": "Manticore Venom",
+    "W3": "Widow Blood",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "7",
+    "Q": "في مسلسل Peaky Blinders، ما هو المرض العضال الكاذب الذي شخصه الطبيب المرتشي لتومي لدفعه للانتحار؟",
+    "R": "Tuberculoma of Brain",
+    "W1": "Terminal Lung Cancer",
+    "W2": "Severe Arsenic Decay",
+    "W3": "Amyotrophic Sclerosis",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "7",
+    "Q": "في مسلسل The Sopranos، ما هو الاسم الكودي الفيدرالي للتحقيق الموسع ضد عائلة دي ميو الإجرامية؟",
+    "R": "Operation Big Pussy",
+    "W1": "Ironclad Taskforce",
+    "W2": "Garden State Probe",
+    "W3": "North Jersey Sweep",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "7",
+    "Q": "في مسلسل Dark، ما هو الاسم الحقيقي للطفل الذي تبنته إنيس كانوالد في عام 1986 وهو في الحقيقة ميكل نيلسن؟",
+    "R": "Michael Kahnwald",
+    "W1": "Daniel Kahnwald",
+    "W2": "Sebastian Doppler",
+    "W3": "Peter Doppler",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "7",
+    "Q": "في مسلسل Succession، ما اسم التحالف الإعلامي الأسري المقترح الذي فشل بين الإخوة الثلاثة كيندال وشيف ورومان؟",
+    "R": "The Hundred Media",
+    "W1": "Roy Media Nexus",
+    "W2": "Waystar New Wave",
+    "W3": "Apex Global News",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "7",
+    "Q": "في مسلسل The Boys، ما هو السلاح الحي السوفياتي القديم الذي عثر عليه الفتيان في منشأة روسية مجمدة؟",
+    "R": "Soldier Boy",
+    "W1": "Stormfront",
+    "W2": "Gunpowder",
+    "W3": "Mindstorm",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "7",
+    "Q": "في مسلسل Severance، ما هو البروتوكول الطارئ الذي فعله ديلان في غرفة الأمن لإيقاظ وعي الموظفين بالخارج؟",
+    "R": "Overtime Contingency",
+    "W1": "Clean Slate Protocol",
+    "W2": "Branch Transfer Rule",
+    "W3": "Elephant Memory Cycle",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "7",
+    "Q": "في مسلسل The Last of Us، ما هي الأغنية التي عزفها بيل وفرانك على البيانو في الحلقة الثالثة الاستثنائية؟",
+    "R": "Long Long Time by Linda Ronstadt",
+    "W1": "Take on Me by A-ha",
+    "W2": "Future Days by Pearl Jam",
+    "W3": "Alone and Forsaken by Hank Williams",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "7",
+    "Q": "في مسلسل House of Cards، ما هو الرمز الذي نقشه فرانك أندروود بخاتمه الرئاسي على مكتب البيت الأبيض البيضاوي؟",
+    "R": "Double Knock with Class Ring",
+    "W1": "Carving initial F on wood",
+    "W2": "Placing Confederate civil medal",
+    "W3": "Tapping silver pocket watch",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "7",
+    "Q": "في مسلسل True Detective، ما اسم المعبد والمجمع الحجري المهجور المظلم الذي احتجز فيه القاتل ضحاياه؟",
+    "R": "Carcosa Ruins",
+    "W1": "Blackwood Manor",
+    "W2": "Pelican Island Vault",
+    "W3": "St Charles Chapel",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "7",
+    "Q": "في مسلسل Fargo، ما اسم المنظمة الإجرامية العائلية في كانساس سيتي التي اصطدم بها آل غيرهاردت في الموسم الثاني؟",
+    "R": "Kansas City Syndicate",
+    "W1": "Chicago Outfit",
+    "W2": "Detroit Mafia Clan",
+    "W3": "Minneapolis Mob",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "7",
+    "Q": "في مسلسل The Wire، ما هو اسم الحي السكني التجريبي الذي خصصه الرائد باني كولفين لبيع المخدرات دون ملاحقة؟",
+    "R": "Hamsterdam",
+    "W1": "Free Zone West",
+    "W2": "New Haven Project",
+    "W3": "Plexiglass Square",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "7",
+    "Q": "في مسلسل Westworld، ما هي المقطوعة الموسيقية التي كانت تعزفها آلة البيانو الآلية كل صباح في حانة ماريبوسا؟",
+    "R": "Black Hole Sun on Player Piano",
+    "W1": "Paint It Black by Rolling Stones",
+    "W2": "No Surprises by Radiohead",
+    "W3": "A Forest by The Cure",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "7",
+    "Q": "في مسلسل Dexter، ما هي العينة التذكارية الدموية التي يحتفظ بها دكستر من كل ضحية في صندوقه الخشبي؟",
+    "R": "Blood Drop on Glass Slide",
+    "W1": "Lock of Hair in Envelope",
+    "W2": "Personal Driving License",
+    "W3": "Fingerprint on White Card",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "7",
+    "Q": "في مسلسل Lost، ما اسم السفينة الشراعية الإنجليزية التي تحطمت في قلب الجزيرة في القرن التاسع عشر؟",
+    "R": "The Black Rock",
+    "W1": "The Mary Celeste",
+    "W2": "The Flying Dutchman",
+    "W3": "The HMS Beagle",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "7",
+    "Q": "في مسلسل Vikings، ما اسم الفيلسوف الإسكندنافي العبقري صانع السفن وصديق راغنار الروحي المقرب؟",
+    "R": "Floki the Boatbuilder",
+    "W1": "Torstein",
+    "W2": "One-Eye",
+    "W3": "Arne",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "7",
+    "Q": "في مسلسل Chernobyl، ما هي العبارة الختامية الحارقة التي نطق بها فاليري ليغاسوف في أشرطة تسجيله؟",
+    "R": "What is the cost of lies",
+    "W1": "Truth will outlast reactors",
+    "W2": "Science has no borders",
+    "W3": "Remember the brave miners",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "7",
+    "Q": "في مسلسل Downton Abbey، ما هو الحادث المأساوي الفاجع الذي أودى بحياة ماثيو كراولي بعد ولادة طفله؟",
+    "R": "Automobile Crash in Countryside",
+    "W1": "Fatal Pneumonia Infection",
+    "W2": "War Wound Complications",
+    "W3": "Hunting Rifle Accident",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "8",
+    "Q": "في مسلسل Breaking Bad، ما هي الأغنية الختامية التي عزفت مع اللحظات الأخيرة لوالتر وايت في مختبر الميث؟",
+    "R": "Baby Blue by Badfinger",
+    "W1": "Crystal Blue Persuasion",
+    "W2": "Horse with No Name",
+    "W3": "Pick Yourself Up",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "8",
+    "Q": "في مسلسل Better Call Saul، ما هي الإشارة الصامتة الوداعية المؤثرة بين جيمي وكيم عبر سلك فناء السجن؟",
+    "R": "Finger Guns Gesture",
+    "W1": "Tipping imaginary hat",
+    "W2": "Holding up scales sign",
+    "W3": "Touching wedding ring",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "8",
+    "Q": "في مسلسل Game of Thrones، ماذا فعل دروغون بالعرش الحديدي بعد أن طعن جون سنو دينيريس تارجارين؟",
+    "R": "Melted the Iron Throne with Fire",
+    "W1": "Threw the throne into the sea",
+    "W2": "Smashed it with his giant tail",
+    "W3": "Carried the throne across narrow sea",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "8",
+    "Q": "في مسلسل Peaky Blinders، كيف علم تومي شيلبي أن مرضه بتدرن الدماغ كان خدعة طبية مدبرة؟",
+    "R": "Seeing picture of doctor with Mosley",
+    "W1": "Finding poison vials in cabinet",
+    "W2": "Confession from nurse in church",
+    "W3": "Second opinion from London hospital",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "8",
+    "Q": "في مسلسل The Sopranos، ما هو الاسم التجاري للمطعم الصغير في نيوجيرسي الذي جلس فيه توني وعائلته في المشهد الأخير؟",
+    "R": "Holsten's Ice Cream Parlor",
+    "W1": "Vesuvio Ristorante",
+    "W2": "Satriale Deli",
+    "W3": "Louie Restaurant",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "8",
+    "Q": "في مسلسل Dark، ماذا حدث لجوناس ومارثا في المشهد الختامي بعد نجاحهما في منع حادث تانهوس بالعالم الأصلي؟",
+    "R": "Dissolving into golden sparkling dust",
+    "W1": "Waking up in hospital beds peacefully",
+    "W2": "Transported to modern Berlin metropolis",
+    "W3": "Erased and reborn as twin children",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "8",
+    "Q": "في مسلسل Succession، ما هو التصويت العائلي الصادم الذي حسم بيع الشركة وحطم حلم كيندال روي؟",
+    "R": "Shiv voting in favor of GoJo deal",
+    "W1": "Roman voting against his brother",
+    "W2": "Frank abstaining from the ballot",
+    "W3": "Connor selling his board share",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "8",
+    "Q": "في مسلسل The Boys، ما هي الكارثة الصادمة التي نفذها هوملاندر في ختام الموسم الثالث أمام الجماهير؟",
+    "R": "Laser-blasting a protester and cheered",
+    "W1": "Destroying the Vought Tower completely",
+    "W2": "Killing the Vice President on stage",
+    "W3": "Declaring military rule across America",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "8",
+    "Q": "في مسلسل Severance، ما هي الجملة الصادمة التي صرخت بها هيلي بعد كشف هوية والدها في المؤتمر؟",
+    "R": "We are prisoners down there",
+    "W1": "Lumon is killing employees",
+    "W2": "The severance chip is poison",
+    "W3": "Egan family built a slave ring",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "8",
+    "Q": "في مسلسل The Last of Us، ما هي الكذبة الحاسمة التي أقسم بها جويل لإيلي في المشهد الأخير على التل؟",
+    "R": "That there were dozens of immune people",
+    "W1": "That the Fireflies abandoned the cure",
+    "W2": "That raiders attacked the hospital",
+    "W3": "That the lab exploded in an accident",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "8",
+    "Q": "في مسلسل House of Cards، ما هي الكلمات الأخيرة لكلير أندروود بعد طعن دوغ ستامبر في المكتب البيضاوي؟",
+    "R": "There no more pain",
+    "W1": "The president has spoken",
+    "W2": "Frank is finally gone",
+    "W3": "America belongs to me",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "8",
+    "Q": "في مسلسل True Detective، ما هي العبارة الفلسفية المتفائلة النادرة التي قالها روست لمارتي عن النجوم في السماء؟",
+    "R": "The light is winning",
+    "W1": "Time is a flat circle",
+    "W2": "Darkness will fade away",
+    "W3": "We found our peace",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "8",
+    "Q": "في مسلسل Fargo، كيف كانت النهاية الحتمية للقاتل لورن مالفو على يد الشرطي البسيط غاس غريملي؟",
+    "R": "Shot dead on sofa after leg trapped",
+    "W1": "Drowned in frozen lake under ice",
+    "W2": "Killed in FBI standoff crossfire",
+    "W3": "Crushed by runaway timber truck",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "8",
+    "Q": "في مسلسل The Wire، ما هي الدورة الاجتماعية الحتمية التي عبر عنها المشهد الختامي لدوق ومايكل؟",
+    "R": "Dukie became Bubbles, Michael became Omar",
+    "W1": "Both joined the Baltimore police academy",
+    "W2": "Both escaped to Philadelphia together",
+    "W3": "Both took over Barksdale drug empire",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "8",
+    "Q": "في مسلسل Westworld، ما هي المتاهة الحقيقية التي صممها أرنولد واكتشفتها دولوريس في النهاية؟",
+    "R": "The inward journey to consciousness",
+    "W1": "A physical maze under church graveyard",
+    "W2": "A secret tunnel out of the park",
+    "W3": "A code to override all human commands",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "8",
+    "Q": "في مسلسل Dexter، ما هي المهنة والهوية الجديدة المعزولة التي عاش بها دكستر بعد تزييف موته في الإعصار؟",
+    "R": "Lumberjack in Oregon Wilderness",
+    "W1": "Fisherman in Alaska Port",
+    "W2": "Truck Driver in Texas Plains",
+    "W3": "Mechanic in Nevada Desert",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "8",
+    "Q": "في مسلسل Lost، ما هو المكان الروحي الأخير الذي اجتمع فيه الناجون قبل عبورهم المشترك في الختام؟",
+    "R": "A nondenominational stone church",
+    "W1": "The beach camp by the ocean",
+    "W2": "The bamboo forest clearing",
+    "W3": "The Swan hatch computer room",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "8",
+    "Q": "في مسلسل Vikings، ما هي الكلمات النبوية الأخيرة لراغنار لوثبروك عن انتقام أبنائه العظيم؟",
+    "R": "How the little piggies will grunt",
+    "W1": "Odin awaits me in Valhalla hall",
+    "W2": "England will burn from shore to shore",
+    "W3": "My sons will sail further than Rome",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "8",
+    "Q": "في مسلسل Chernobyl، ما هي العبارة المحفورة على النصب التذكاري للغواصين ورجال الإطفاء الأبطال؟",
+    "R": "To those who saved the world",
+    "W1": "Glory to the Soviet workers",
+    "W2": "In memory of nuclear pioneers",
+    "W3": "Eternal peace to fallen comrades",
+    "Category": "قصة مسلسل اجنبي"
+  },
+  {
+    "Level": "8",
+    "Q": "في مسلسل Suits، ما هي الأغنية والمشهد الأخير لهارفي ودونا وهما يستعدان للرحيل إلى شيكاغو وسياتل؟",
+    "R": "Viva La Vida by Coldplay",
+    "W1": "Greenback Boogie by Irma Thomas",
+    "W2": "Way Down We Go by Kaleo",
+    "W3": "You Can't Always Get What You Want",
+    "Category": "قصة مسلسل اجنبي"
+  }
+]

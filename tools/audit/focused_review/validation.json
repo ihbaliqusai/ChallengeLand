@@ -1,0 +1,45 @@
+{
+  "date": "2026-10-21",
+  "scope": {
+    "reviewed": 215,
+    "changed": 212,
+    "long": 123,
+    "reveals": 77,
+    "images": 15,
+    "replaced": 45,
+    "levelsChanged": 8,
+    "unchanged": [
+      15412,
+      15419,
+      15422
+    ],
+    "longestTargetAnswer": 30,
+    "countBefore": 15427,
+    "countAfter": 15427
+  },
+  "questions": 15427,
+  "schemaErrors": 0,
+  "generatedBanksMatch": true,
+  "longAnswersRemaining": 0,
+  "flaggedAnswerRevealsRemaining": 0,
+  "imagesVisuallyReviewed": 15,
+  "untouchedRecordsPreserved": true,
+  "checks": {
+    "server": {
+      "passed": 99,
+      "failed": 0
+    },
+    "campaignAndCategories": {
+      "passed": 16,
+      "failed": 0
+    },
+    "androidAnswerParityCases": 61726,
+    "androidDebugBuild": "passed",
+    "apkQuestionBankSha256": "82FDD4134E215615D48B4558D0541D71D7B81DB378657D2568C44E9C53B7993B",
+    "apkBankMatchesCurrentSource": true
+  },
+  "remainingHeuristicFlags": {
+    "potential_option_dependence": 1
+  },
+  "limits": "Scoped editorial review. Sources include official references and secondary episode transcripts/fan encyclopedias. Not a new fact-check of all remaining bank content."
+}

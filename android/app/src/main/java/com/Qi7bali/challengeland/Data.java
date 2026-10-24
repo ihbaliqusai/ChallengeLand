@@ -1,0 +1,1111 @@
+package com.qi7bali.landchallengeonline;
+
+import android.content.Context;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
+import android.widget.ImageView;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
+import com.google.firebase.FirebaseApp;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.MutableData;
+import com.google.firebase.database.Query;
+import com.google.firebase.database.ServerValue;
+import com.google.firebase.database.Transaction;
+import com.google.firebase.database.ValueEventListener;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
+import java.util.TreeMap;
+
+public class Data {
+
+    boolean listenOpponentAnswer = false;
+    boolean listenGameID = false;
+    int numQuestion;
+    String opponentAcceptingID;
+
+    private static final String GUEST_ID = "guest_local";
+
+    public static boolean isNetworkAvailable(Context con) {
+        try {
+            ConnectivityManager cm = (ConnectivityManager) con.getSystemService(Context.CONNECTIVITY_SERVICE);
+            NetworkInfo networkInfo = cm != null ? cm.getActiveNetworkInfo() : null;
+            return networkInfo != null && networkInfo.isConnected();
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    public void setOpponentAcceptingID(String opponentAcceptingID) {
+        this.opponentAcceptingID = opponentAcceptingID;
+    }
+
+    public static String buildFriendCode(String userID) {
+        if (userID == null) {
+            return "";
+        }
+        String normalized = userID.replaceAll("[^A-Za-z0-9]", "").toUpperCase(Locale.US);
+        if (normalized.isEmpty()) {
+            return "";
+        }
+        return normalized.length() > 10 ? normalized.substring(0, 10) : normalized;
+    }
+
+    public static void syncUserProfile(String userID, String name, String photo, int level, int score) {
+        if (!isRealUser(userID)) {
+            return;
+        }
+        HashMap<String, Object> payload = new HashMap<>();
+        payload.put("Name", safeName(name));
+        payload.put("Photo", photo == null ? "" : photo);
+        payload.put("Level", Math.max(1, level));
+        payload.put("Score", Math.max(0, score));
+        payload.put("FriendCode", buildFriendCode(userID));
+        payload.put("UpdatedAt", ServerValue.TIMESTAMP);
+        usersRegisteredRef().child(userID).updateChildren(payload);
+    }
+
+    public static void setUserScore(String userID, int score) {
+        if (!isRealUser(userID)) {
+            return;
+        }
+        usersRegisteredRef().child(userID).child("Score").setValue(Math.max(0, score));
+    }
+
+    public static void setUserLevel(String userID, int level) {
+        if (!isRealUser(userID)) {
+            return;
+        }
+        usersRegisteredRef().child(userID).child("Level").setValue(Math.max(1, level));
+    }
+
+    public static void setUserActive(String userID) {
+        if (!isRealUser(userID)) {
+            return;
+        }
+        usersActiveRef().child(userID).setValue(true);
+    }
+
+    public static void setUserInactive(String userID) {
+        if (!isRealUser(userID)) {
+            return;
+        }
+        usersActiveRef().child(userID).setValue(false);
+    }
+
+    public static void removeTempGameID(final String gameID) {
+        if (gameID == null || gameID.trim().isEmpty()) {
+            return;
+        }
+        tempRef().orderByChild("gameID").equalTo(gameID).addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot snapshot) {
+                for (DataSnapshot child : snapshot.getChildren()) {
+                    child.getRef().removeValue();
+                }
+            }
+
+            @Override
+            public void onCancelled(DatabaseError error) {
+            }
+        });
+    }
+
+    public static void insertRequest(String userID) {
+        insertRequest(userID, "");
+    }
+
+    public static void insertRequest(String userID, @Nullable String targetId) {
+        if (!isRealUser(userID)) {
+            return;
+        }
+        HashMap<String, Object> payload = new HashMap<>();
+        payload.put("userId", userID);
+        payload.put("acceptedBy", "0");
+        payload.put("status", "waiting");
+        payload.put("targetId", targetId == null ? "" : targetId.trim());
+        payload.put("createdAt", ServerValue.TIMESTAMP);
+        requestsRef().child(userID).runTransaction(new Transaction.Handler() {
+            @Override public Transaction.Result doTransaction(MutableData data) {
+                if ("matched".equals(valueAsString(data.child("status").getValue()))) return Transaction.abort();
+                payload.put("searchId", valueAsString(data.child("searchId").getValue()));
+                payload.put("stakeCoins", data.child("stakeCoins").getValue() == null
+                        ? 0 : data.child("stakeCoins").getValue());
+                data.setValue(payload);
+                return Transaction.success(data);
+            }
+            @Override public void onComplete(DatabaseError error, boolean committed, DataSnapshot snapshot) {}
+        }, false);
+    }
+
+    public static void setFictitiousOpponent(String userID, String opponentID) {
+        if (gameExists(opponentID)) {
+            return;
+        }
+        tempRef().child(userID).child("fictitiousOpponent").setValue(opponentID);
+    }
+
+    public static void insertMyAnswer(int answer, String myID, String gameID) {
+        if (gameID == null || gameID.trim().isEmpty() || myID == null || myID.trim().isEmpty()) {
+            return;
+        }
+        gamesRef().child(gameID).child(myID).child("answer").setValue(answer);
+    }
+
+    public static void simulateFictitiousAnswer(int answer, String opponentID, String gameID) {
+        if (gameID == null || gameID.trim().isEmpty() || opponentID == null || opponentID.trim().isEmpty()) {
+            return;
+        }
+        gamesRef().child(gameID).child(opponentID).child("answer").setValue(answer);
+    }
+
+    public static void cancelRequest(String userID) {
+        if (!isRealUser(userID)) {
+            return;
+        }
+        withdrawDuelSearch(userID, new OnGetGameIdListener() {
+            @Override public void onSuccess(String opponent) {
+                if (opponent.isEmpty()) return;
+                new Data().getMatchedSession(userID, opponent, new OnGetGameIdListener() {
+                    @Override public void onSuccess(String sessionId) {
+                        if (sessionId.isEmpty()) return;
+                        gamesRef().child(sessionId).child("board").runTransaction(new Transaction.Handler() {
+                            @Override public Transaction.Result doTransaction(MutableData data) {
+                                Map<String, Object> board = OnlineDuelState.map(data.getValue());
+                                OnlineDuelState.forfeit(board, opponent);
+                                data.setValue(board);
+                                return Transaction.success(data);
+                            }
+                            @Override public void onComplete(DatabaseError error, boolean committed, DataSnapshot snapshot) {}
+                        }, false);
+                    }
+                    @Override public void onFailed(DatabaseError error) {}
+                });
+            }
+            @Override public void onFailed(DatabaseError error) {}
+        });
+    }
+
+    public static void resetDuelSearch(String userID, String target, Runnable ready,
+                                       java.util.function.Consumer<DatabaseError> failed) {
+        resetDuelSearch(userID, target, 0, ready, failed);
+    }
+
+    public static void resetDuelSearch(String userID, String target, int stakeCoins, Runnable ready,
+                                       java.util.function.Consumer<DatabaseError> failed) {
+        if (!isRealUser(userID)) {
+            failed.accept(DatabaseError.fromException(new IllegalStateException("Sign in before matchmaking")));
+            return;
+        }
+        HashMap<String, Object> request = new HashMap<>();
+        request.put("userId", userID);
+        request.put("status", "waiting");
+        request.put("acceptedBy", "0");
+        request.put("targetId", target);
+        request.put("stakeCoins", stakeCoins);
+        request.put("searchId", java.util.UUID.randomUUID().toString());
+        request.put("createdAt", ServerValue.TIMESTAMP);
+        requestsRef().child(userID).setValue(request, (error, ref) -> {
+            if (error == null) ready.run();
+            else failed.accept(error);
+        });
+    }
+
+    public static void withdrawDuelSearch(String userID, OnGetGameIdListener listener) {
+        if (!isRealUser(userID)) {
+            if (listener != null) listener.onFailed(DatabaseError.fromException(
+                    new IllegalStateException("Sign in before matchmaking")));
+            return;
+        }
+        requestsRef().child(userID).runTransaction(new Transaction.Handler() {
+            @Override public Transaction.Result doTransaction(MutableData data) {
+                if ("matched".equals(valueAsString(data.child("status").getValue()))) return Transaction.abort();
+                // A tombstone prevents an in-flight claim from recreating a cancelled seat.
+                data.child("status").setValue("cancelled");
+                return Transaction.success(data);
+            }
+            @Override public void onComplete(DatabaseError error, boolean committed, DataSnapshot snapshot) {
+                if (listener == null) return;
+                if (error != null) listener.onFailed(error);
+                else listener.onSuccess(committed || snapshot == null ? ""
+                        : valueAsString(snapshot.child("acceptedBy")));
+            }
+        }, false);
+    }
+
+    public static void refreshDuelSearch(String userID) {
+        requestsRef().child(userID).runTransaction(new Transaction.Handler() {
+            @Override public Transaction.Result doTransaction(MutableData data) {
+                if (!"waiting".equals(valueAsString(data.child("status").getValue()))) return Transaction.abort();
+                data.child("createdAt").setValue(ServerValue.TIMESTAMP);
+                return Transaction.success(data);
+            }
+            @Override public void onComplete(DatabaseError error, boolean committed, DataSnapshot snapshot) {}
+        }, false);
+    }
+
+    public static void acceptRequest(String userID, String opponentID) {
+        if (!isRealUser(userID) || !isRealUser(opponentID)) {
+            return;
+        }
+        requestsRef().child(opponentID).child("acceptedBy").setValue(userID);
+        requestsRef().child(opponentID).child("status").setValue("matched");
+    }
+
+    public static void setImageSource(Context context, ImageView img, String src) {
+        try {
+            if (src == null || src.trim().isEmpty()) {
+                img.setImageResource(R.drawable.user);
+            } else if (src.startsWith("drawable:")) {
+                String drawableName = src.substring("drawable:".length()).trim();
+                int drawableId = context.getResources().getIdentifier(
+                        drawableName,
+                        "drawable",
+                        context.getPackageName()
+                );
+                if (drawableId != 0) {
+                    img.setImageResource(drawableId);
+                } else {
+                    img.setImageResource(R.drawable.user);
+                }
+            } else {
+                PicassoClient.downloadImage(context, src, img, false);
+            }
+        } catch (Exception ignored) {
+            try {
+                img.setImageResource(R.drawable.user);
+            } catch (Exception ignored2) {
+            }
+        }
+    }
+
+    public static void setGamePlayerStatus(String gameID, String playerID, String status) {
+        if (gameID == null || gameID.trim().isEmpty() || playerID == null || playerID.trim().isEmpty()) {
+            return;
+        }
+        HashMap<String, Object> payload = new HashMap<>();
+        payload.put("status", status == null ? "" : status.trim());
+        payload.put("updatedAt", ServerValue.TIMESTAMP);
+        gamesRef().child(gameID).child(playerID).updateChildren(payload);
+    }
+
+    public static void initQuestionPlayer(String gameID, String playerID, int questionIndex) {
+        if (gameID == null || gameID.trim().isEmpty() || playerID == null || playerID.trim().isEmpty()) {
+            return;
+        }
+        HashMap<String, Object> payload = new HashMap<>();
+        payload.put("answer", 0);
+        payload.put("current", questionIndex);
+        gamesRef().child(gameID).child(playerID).updateChildren(payload);
+    }
+
+    public void getQuestions(final String gameID, final OnGetQuestionsListener listener) {
+        getGameQuestions(gameID, listener);
+    }
+
+    public void getGameQuestions(final String gameID, final OnGetQuestionsListener listener) {
+        gamesRef().child(gameID).child("questions").addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot snapshot) {
+                ArrayList<Question> questions = parseQuestions(snapshot);
+                if (listener != null) {
+                    listener.onSuccess(questions);
+                }
+            }
+
+            @Override
+            public void onCancelled(DatabaseError error) {
+                if (listener != null) {
+                    listener.onFailed(error);
+                }
+            }
+        });
+    }
+
+    public void getRandomRequest(final OnRandomRequestListener listener) {
+        getRandomRequest(getCurrentUserId(), listener);
+    }
+
+    public void getRandomRequest(String currentUserId, final OnRandomRequestListener listener) {
+        getRandomRequest(currentUserId, 0, listener);
+    }
+
+    public void getRandomRequest(String currentUserId, int stakeCoins, final OnRandomRequestListener listener) {
+        if (listener != null) {
+            listener.onStart();
+        }
+        if (currentUserId == null || currentUserId.trim().isEmpty()) {
+            currentUserId = getCurrentUserId();
+        }
+        if (!isRealUser(currentUserId)) {
+            if (listener != null) {
+                listener.onSuccess("null");
+            }
+            return;
+        }
+        final String effectiveUserId = currentUserId;
+        requestsRef().orderByChild("status").equalTo("waiting").addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot snapshot) {
+                final ArrayList<String> candidates = new ArrayList<>();
+                for (DataSnapshot child : snapshot.getChildren()) {
+                    String requesterId = child.getKey();
+                    if (requesterId == null || requesterId.equals(effectiveUserId)) {
+                        continue;
+                    }
+                    Long createdAt = child.child("createdAt").getValue(Long.class);
+                    if (createdAt == null || System.currentTimeMillis() - createdAt >= 120_000L) continue;
+                    Long candidateStake = child.child("stakeCoins").getValue(Long.class);
+                    if ((candidateStake == null ? 0 : candidateStake) != stakeCoins) continue;
+                    String status = valueAsString(child.child("status"));
+                    String acceptedBy = valueAsString(child.child("acceptedBy"));
+                    String targetId = valueAsString(child.child("targetId"));
+                    if (!status.isEmpty() && !"waiting".equals(status)) {
+                        continue;
+                    }
+                    if (!acceptedBy.isEmpty() && !"0".equals(acceptedBy)) {
+                        continue;
+                    }
+                    if (!targetId.isEmpty() && !targetId.equals(effectiveUserId)) {
+                        continue;
+                    }
+                    candidates.add(requesterId);
+                }
+                claimRequestCandidate(effectiveUserId, candidates, 0, listener);
+            }
+
+            @Override
+            public void onCancelled(DatabaseError error) {
+                if (listener != null) {
+                    listener.onFailed(error);
+                }
+            }
+        });
+    }
+
+    public Runnable getRequestResponse(String userID, final OnGetRequestResponseListener listener) {
+        if (listener != null) {
+            listener.onStart();
+        }
+        DatabaseReference responseRef = requestsRef().child(userID).child("acceptedBy");
+        ValueEventListener responseListener = new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot snapshot) {
+                String acceptedBy = valueAsString(snapshot);
+                if (listener != null) {
+                    listener.onSuccess(acceptedBy.isEmpty() ? "0" : acceptedBy);
+                }
+                if (!acceptedBy.isEmpty() && !"0".equals(acceptedBy)) {
+                    snapshot.getRef().removeEventListener(this);
+                }
+            }
+
+            @Override
+            public void onCancelled(DatabaseError error) {
+                if (listener != null) {
+                    listener.onFailed(error);
+                }
+            }
+        };
+        responseRef.addValueEventListener(responseListener);
+        return () -> responseRef.removeEventListener(responseListener);
+    }
+
+    public void getAnswer(String gameID, final String opponentID, final int expectedQuestionIndex, final OnGetAnswersListener listener) {
+        if (listener != null) {
+            listener.onStart();
+        }
+        gamesRef().child(gameID).child(opponentID).addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot snapshot) {
+                String status = valueAsString(snapshot.child("status"));
+                if ("left".equals(status)) {
+                    if (listener != null) {
+                        listener.onSuccess(-1L);
+                    }
+                    snapshot.getRef().removeEventListener(this);
+                    return;
+                }
+                int currentQuestionIndex = parseInt(snapshot.child("current").getValue(), -1);
+                Long answer = snapshot.child("answer").getValue(Long.class);
+                if (currentQuestionIndex != expectedQuestionIndex) {
+                    if (listener != null) {
+                        listener.onSuccess(0L);
+                    }
+                    return;
+                }
+                long safeAnswer = answer == null ? 0L : answer;
+                if (listener != null) {
+                    listener.onSuccess(safeAnswer);
+                }
+                if (safeAnswer > 0) {
+                    snapshot.getRef().removeEventListener(this);
+                }
+            }
+
+            @Override
+            public void onCancelled(DatabaseError error) {
+                if (listener != null) {
+                    listener.onFailed(error);
+                }
+            }
+        });
+    }
+
+    public void createGameID(final String myID, final String opponentID, final String opponentName,
+                             final OnCreateGameIdListener listener) {
+        ArrayList<String> opponentIds = new ArrayList<>();
+        if (opponentID != null && !opponentID.trim().isEmpty()) {
+            opponentIds.add(opponentID);
+        }
+        createGameID(myID, opponentIds, listener);
+    }
+
+    public void createGameID(final String myID, final ArrayList<String> opponentIds,
+                             final OnCreateGameIdListener listener) {
+        createGameIDWithSession(myID, opponentIds, null, listener);
+    }
+
+    public void createGameIDWithSession(final String myID, final ArrayList<String> opponentIds,
+                                       final String sessionId, final OnCreateGameIdListener listener) {
+        final DatabaseReference gameRef = sessionId == null ? gamesRef().push() : gamesRef().child(sessionId);
+        final String gameID = gameRef.getKey() == null ? String.valueOf(System.currentTimeMillis()) : gameRef.getKey();
+
+        HashMap<String, Object> payload = new HashMap<>();
+        payload.put("meta/createdAt", ServerValue.TIMESTAMP);
+        payload.put("meta/ownerId", myID);
+        payload.put("meta/playerCount", 1 + (opponentIds == null ? 0 : opponentIds.size()));
+        payload.put(myID + "/answer", 0);
+        payload.put(myID + "/current", 0);
+        if (opponentIds != null) {
+            for (String opponentId : opponentIds) {
+                if (opponentId == null || opponentId.trim().isEmpty()) {
+                    continue;
+                }
+                payload.put(opponentId + "/answer", 0);
+                payload.put(opponentId + "/current", 0);
+                payload.put(opponentId + "/status", "active");
+            }
+        }
+        payload.put(myID + "/status", "active");
+        if (sessionId != null && opponentIds != null && opponentIds.size() == 1) {
+            payload.put("board/ownerId", myID);
+            payload.put("board/joinerId", opponentIds.get(0));
+        }
+
+        if (sessionId != null) {
+            // Reopening a reserved duel must preserve its board, answers and
+            // both players' presence. Initialize an uncreated session atomically.
+            gameRef.runTransaction(new Transaction.Handler() {
+                @Override
+                public Transaction.Result doTransaction(MutableData data) {
+                    if (data.child("meta").child("ownerId").getValue() != null) {
+                        return Transaction.abort();
+                    }
+                    for (Map.Entry<String, Object> entry : payload.entrySet()) {
+                        data.child(entry.getKey()).setValue(entry.getValue());
+                    }
+                    return Transaction.success(data);
+                }
+
+                @Override
+                public void onComplete(DatabaseError error, boolean committed,
+                                       DataSnapshot snapshot) {
+                    if (listener == null) return;
+                    if (error != null) listener.onFailed(error);
+                    else listener.onSuccess(gameID);
+                }
+            }, false);
+            return;
+        }
+
+        gameRef.updateChildren(payload, (error, ref) -> {
+            if (error != null) {
+                if (listener != null) {
+                    listener.onFailed(error);
+                }
+                return;
+            }
+            if (sessionId == null) requestsRef().child(myID).removeValue();
+            if (opponentIds != null) {
+                for (String opponentId : opponentIds) {
+                    if (opponentId == null || opponentId.trim().isEmpty()) {
+                        continue;
+                    }
+                    if (sessionId == null) requestsRef().child(opponentId).removeValue();
+                }
+            }
+            publishFreshQuestions(gameRef, "", listener);
+        });
+    }
+
+    public void createRoomGameSession(final String gameID,
+                                      final String myID,
+                                      final ArrayList<String> opponentIds,
+                                      final OnCreateGameIdListener listener) {
+        if (gameID == null || gameID.trim().isEmpty()) {
+            if (listener != null) {
+                listener.onSuccess("");
+            }
+            return;
+        }
+
+        final DatabaseReference gameRef = gamesRef().child(gameID.trim());
+        gameRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot snapshot) {
+                if (snapshot.child("questions").exists()) {
+                    HashMap<String, Object> updates = buildRoomGamePlayerPayload(
+                            myID,
+                            opponentIds,
+                            false
+                    );
+                    gameRef.updateChildren(updates, new DatabaseReference.CompletionListener() {
+                        @Override
+                        public void onComplete(@Nullable DatabaseError error,
+                                               @NonNull DatabaseReference ref) {
+                            if (error != null) {
+                                if (listener != null) {
+                                    listener.onFailed(error);
+                                }
+                                return;
+                            }
+                            if (listener != null) {
+                                listener.onSuccess(gameID);
+                            }
+                        }
+                    });
+                    return;
+                }
+
+                HashMap<String, Object> payload = buildRoomGamePlayerPayload(
+                        myID,
+                        opponentIds,
+                        true
+                );
+                gameRef.updateChildren(payload, new DatabaseReference.CompletionListener() {
+                    @Override
+                    public void onComplete(@Nullable DatabaseError error,
+                                           @NonNull DatabaseReference ref) {
+                        if (error != null) {
+                            if (listener != null) {
+                                listener.onFailed(error);
+                            }
+                            return;
+                        }
+                        String roomId = gameID.contains("|") ? gameID.substring(0, gameID.indexOf('|')) : gameID;
+                        publishFreshQuestions(gameRef, roomId, listener);
+                    }
+                });
+            }
+
+            @Override
+            public void onCancelled(DatabaseError error) {
+                if (listener != null) {
+                    listener.onFailed(error);
+                }
+            }
+        });
+    }
+
+    public static void announceRoomSeatClaim(String roomId,
+                                             String matchMode,
+                                             int roomRoundNumber,
+                                             String seatId,
+                                             String userId,
+                                             String username,
+                                             String photoUrl,
+                                             String teamId,
+                                             int initialScore,
+                                             int initialRoundWins,
+                                             int initialLivesRemaining,
+                                             boolean initiallyEliminated) {
+        String safeRoomId = valueAsString(roomId);
+        String safeSeatId = valueAsString(seatId);
+        if (safeRoomId.isEmpty() || safeSeatId.isEmpty()) {
+            return;
+        }
+
+        String safeMode = valueAsString(matchMode);
+        if (safeMode.isEmpty()) {
+            safeMode = "battle";
+        }
+        int safeRoundNumber = Math.max(1, roomRoundNumber);
+        String gameID = safeRoomId + "|" + safeMode + "|r" + safeRoundNumber;
+
+        HashMap<String, Object> payload = new HashMap<>();
+        payload.put("userId", valueAsString(userId));
+        payload.put("name", safeName(username));
+        payload.put("photo", photoUrl == null ? "" : photoUrl.trim());
+        payload.put("level", 1);
+        payload.put("score", Math.max(0, initialScore));
+        payload.put("sets", Math.max(0, initialRoundWins));
+        payload.put("bot", false);
+        payload.put("intelligence", 0);
+        payload.put("teamId", teamId == null ? "" : teamId.trim());
+        payload.put("livesRemaining", Math.max(0, initialLivesRemaining));
+        payload.put("eliminated", initiallyEliminated);
+        payload.put("status", "active");
+        payload.put("resetSubmissionPending", true);
+        payload.put("updatedAt", ServerValue.TIMESTAMP);
+        payload.put("lastEventType", "player_replaced_bot");
+        payload.put("lastEventAt", ServerValue.TIMESTAMP);
+
+        gamesRef().child(gameID).child(safeSeatId).updateChildren(payload);
+    }
+
+    public void getGameID(String myID, final OnGetGameIdListener listener) {
+        tempRef().child(myID).child("gameID").addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot snapshot) {
+                String gameID = valueAsString(snapshot);
+                if (listener != null) {
+                    listener.onSuccess(gameID);
+                }
+                if (!gameID.isEmpty()) {
+                    snapshot.getRef().removeEventListener(this);
+                }
+            }
+
+            @Override
+            public void onCancelled(DatabaseError error) {
+                if (listener != null) {
+                    listener.onFailed(error);
+                }
+            }
+        });
+    }
+
+    public void getUserFromFirebase(final String userID, final OnGetUserInfoListener listener) {
+        if (listener != null) {
+            listener.onStart();
+        }
+        usersRegisteredRef().child(userID).addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot snapshot) {
+                if (listener == null) {
+                    return;
+                }
+                if (!snapshot.exists()) {
+                    listener.onSuccess(null);
+                    return;
+                }
+                listener.onSuccess(parseUser(snapshot, userID));
+            }
+
+            @Override
+            public void onCancelled(DatabaseError error) {
+                if (listener != null) {
+                    listener.onFailed(error);
+                }
+            }
+        });
+    }
+
+    public void readFirebaseData(Object reference, final OnReadFirebaseListener listener) {
+        if (listener != null) {
+            listener.onStart();
+        }
+        if (reference instanceof Query) {
+            ((Query) reference).addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override
+                public void onDataChange(DataSnapshot snapshot) {
+                    if (listener != null) {
+                        listener.onSuccess(snapshot);
+                    }
+                }
+
+                @Override
+                public void onCancelled(DatabaseError error) {
+                    if (listener != null) {
+                        listener.onFailed(error);
+                    }
+                }
+            });
+        } else if (reference instanceof DatabaseReference) {
+            ((DatabaseReference) reference).addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override
+                public void onDataChange(DataSnapshot snapshot) {
+                    if (listener != null) {
+                        listener.onSuccess(snapshot);
+                    }
+                }
+
+                @Override
+                public void onCancelled(DatabaseError error) {
+                    if (listener != null) {
+                        listener.onFailed(error);
+                    }
+                }
+            });
+        } else if (listener != null) {
+            listener.onFailed(null);
+        }
+    }
+
+    public void getFictitiousPlayer(final OnGetFictitiousListener listener) {
+        if (listener != null) {
+            listener.onStart();
+            User user = new User("fictitious");
+            user.setName("خصم افتراضي");
+            user.setPhoto("");
+            user.setLevel(1);
+            user.setScore(0);
+            listener.onSuccess(user);
+        }
+    }
+
+    public void getUserIdByFriendCode(String friendCode, final OnGetGameIdListener listener) {
+        final String rawFriendCode = friendCode == null ? "" : friendCode.trim();
+        String normalizedCode = normalizeFriendCode(rawFriendCode);
+        if (normalizedCode.isEmpty()) {
+            if (listener != null) {
+                listener.onSuccess("");
+            }
+            return;
+        }
+        usersRegisteredRef()
+                .orderByChild("FriendCode")
+                .equalTo(normalizedCode)
+                .limitToFirst(1)
+                .addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(DataSnapshot snapshot) {
+                        String foundUserId = "";
+                        for (DataSnapshot child : snapshot.getChildren()) {
+                            foundUserId = child.getKey();
+                            break;
+                        }
+                        if (foundUserId != null && !foundUserId.trim().isEmpty()) {
+                            if (listener != null) {
+                                listener.onSuccess(foundUserId);
+                            }
+                            return;
+                        }
+
+                        // Fallback: check if the code itself is a direct user ID
+                        usersRegisteredRef().child(rawFriendCode).addListenerForSingleValueEvent(new ValueEventListener() {
+                            @Override
+                            public void onDataChange(DataSnapshot directSnapshot) {
+                                if (directSnapshot.exists() && directSnapshot.getKey() != null) {
+                                    if (listener != null) {
+                                        listener.onSuccess(directSnapshot.getKey());
+                                    }
+                                } else {
+                                    if (listener != null) {
+                                        listener.onSuccess("");
+                                    }
+                                }
+                            }
+
+                            @Override
+                            public void onCancelled(DatabaseError error) {
+                                if (listener != null) {
+                                    listener.onSuccess("");
+                                }
+                            }
+                        });
+                    }
+
+                    @Override
+                    public void onCancelled(DatabaseError error) {
+                        if (listener != null) {
+                            listener.onFailed(error);
+                        }
+                    }
+                });
+    }
+
+    private static DatabaseReference rootRef() {
+        return FirebaseDatabase.getInstance().getReference();
+    }
+
+    private static HashMap<String, Object> buildRoomGamePlayerPayload(
+            String myID,
+            ArrayList<String> opponentIds,
+            boolean includeMeta
+    ) {
+        HashMap<String, Object> payload = new HashMap<>();
+        if (includeMeta) {
+            payload.put("meta/createdAt", ServerValue.TIMESTAMP);
+            payload.put("meta/ownerId", myID);
+            payload.put("meta/playerCount", 1 + (opponentIds == null ? 0 : opponentIds.size()));
+        }
+        payload.put(myID + "/answer", 0);
+        payload.put(myID + "/current", 0);
+        payload.put(myID + "/status", "active");
+        if (opponentIds != null) {
+            for (String opponentId : opponentIds) {
+                if (opponentId == null || opponentId.trim().isEmpty()) {
+                    continue;
+                }
+                payload.put(opponentId + "/answer", 0);
+                payload.put(opponentId + "/current", 0);
+                payload.put(opponentId + "/status", "active");
+            }
+        }
+        return payload;
+    }
+
+    private static DatabaseReference usersRegisteredRef() {
+        return rootRef().child("Users").child("Registered");
+    }
+
+    private static DatabaseReference usersActiveRef() {
+        return rootRef().child("Users").child("Active");
+    }
+
+    private static DatabaseReference requestsRef() {
+        // Do not pair protocol-v2 clients with releases using independent local turns.
+        return rootRef().child("DuelRequestsV2");
+    }
+
+    private static DatabaseReference tempRef() {
+        return rootRef().child("temp");
+    }
+
+    private static DatabaseReference gamesRef() {
+        return rootRef().child("Games");
+    }
+
+    public void claimFriendRequest(final String currentUserId,
+                                   final String targetUserId,
+                                   final OnRandomRequestListener listener) {
+        claimFriendRequest(currentUserId, targetUserId, listener, true);
+    }
+
+    public void claimFriendRequest(final String currentUserId,
+                                   final String targetUserId,
+                                   final OnRandomRequestListener listener,
+                                   final boolean notifyInvite) {
+        if (!isRealUser(currentUserId) || !isRealUser(targetUserId)) {
+            if (listener != null) {
+                listener.onSuccess("null");
+            }
+            return;
+        }
+
+        requestsRef().child(currentUserId).child("targetId").setValue(targetUserId, (error, ref) -> {
+            if (error != null) {
+                if (listener != null) listener.onFailed(error);
+            } else {
+                if (notifyInvite) requestsRef().child(currentUserId).child("searchId").get().addOnSuccessListener(snapshot ->
+                        DuelNotifications.sendInvite(targetUserId, valueAsString(snapshot)));
+                claimPair(currentUserId, targetUserId, listener);
+            }
+        });
+    }
+
+    private void claimPair(final String me, final String other, final OnRandomRequestListener listener) {
+        final String sessionId = gamesRef().push().getKey();
+        // Preload the whole transaction location; a partial query cache can start at null.
+        requestsRef().get().addOnSuccessListener(initial -> {
+        final String searchId = valueAsString(initial.child(me).child("searchId"));
+        final long now = System.currentTimeMillis();
+        requestsRef().runTransaction(new Transaction.Handler() {
+            @Override public Transaction.Result doTransaction(MutableData data) {
+                if (!searchId.equals(valueAsString(data.child(me).child("searchId").getValue())))
+                    return Transaction.abort();
+                Map<String, Object> queue = OnlineDuelState.map(data.getValue());
+                if (!OnlineMatchmakingState.claim(queue, me, other, sessionId, now)) return Transaction.abort();
+                data.setValue(queue);
+                return Transaction.success(data);
+            }
+            @Override public void onComplete(DatabaseError error, boolean committed, DataSnapshot snapshot) {
+                if (listener == null) return;
+                if (error != null) listener.onFailed(error);
+                else listener.onSuccess(committed ? other : "null");
+            }
+        }, false);
+        }).addOnFailureListener(error -> {
+            if (listener != null) listener.onFailed(DatabaseError.fromException(error));
+        });
+    }
+
+    public void getMatchedSession(String me, String other, OnGetGameIdListener listener) {
+        requestsRef().child(me).addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override public void onDataChange(DataSnapshot snapshot) {
+                String paired = valueAsString(snapshot.child("acceptedBy"));
+                listener.onSuccess(other.equals(paired) ? valueAsString(snapshot.child("sessionId")) : "");
+            }
+            @Override public void onCancelled(DatabaseError error) { listener.onFailed(error); }
+        });
+    }
+
+    public Runnable getDuelGameID(String me, String owner, String sessionId, OnGetGameIdListener listener) {
+        DatabaseReference sessionRef = gamesRef().child(sessionId);
+        ValueEventListener sessionListener = new ValueEventListener() {
+            @Override public void onDataChange(DataSnapshot snapshot) {
+                if (!owner.equals(valueAsString(snapshot.child("meta").child("ownerId")))
+                        || !snapshot.child(me).exists()
+                        || !(snapshot.child("questions").exists() || snapshot.child("board").child("ownerId").exists())) return;
+                snapshot.getRef().removeEventListener(this);
+                listener.onSuccess(sessionId);
+            }
+            @Override public void onCancelled(DatabaseError error) { listener.onFailed(error); }
+        };
+        sessionRef.addValueEventListener(sessionListener);
+        return () -> sessionRef.removeEventListener(sessionListener);
+    }
+
+    private void claimRequestCandidate(final String currentUserId,
+                                       final ArrayList<String> candidates,
+                                       final int index,
+                                       final OnRandomRequestListener listener) {
+        if (index >= candidates.size()) {
+            if (listener != null) {
+                listener.onSuccess("null");
+            }
+            return;
+        }
+
+        final String requesterId = candidates.get(index);
+        claimPair(currentUserId, requesterId, new OnRandomRequestListener() {
+            @Override public void onStart() {}
+            @Override public void onSuccess(String opponent) {
+                if ("null".equals(opponent)) claimRequestCandidate(currentUserId, candidates, index + 1, listener);
+                else if (listener != null) listener.onSuccess(opponent);
+            }
+            @Override public void onFailed(DatabaseError error) {
+                if (listener != null) listener.onFailed(error);
+            }
+        });
+    }
+
+    private static ArrayList<Question> parseQuestions(DataSnapshot snapshot) {
+        ArrayList<Question> result = new ArrayList<>();
+        if (snapshot == null || !snapshot.exists()) {
+            return result;
+        }
+        TreeMap<String, Question> sorted = new TreeMap<>();
+        for (DataSnapshot child : snapshot.getChildren()) {
+            Question question = new Question();
+            question.setLevel(valueAsString(child.child("Level")));
+            question.setQ(valueAsString(child.child("Q")));
+            question.setR(valueAsString(child.child("R")));
+            question.setW1(valueAsString(child.child("W1")));
+            question.setW2(valueAsString(child.child("W2")));
+            question.setW3(valueAsString(child.child("W3")));
+            question.setCategory(valueAsString(child.child("Category")));
+            question.setImg(valueAsString(child.child("Img")));
+            Object clubs = child.child("ClubPath").getValue();
+            if (clubs instanceof java.util.List) {
+                ArrayList<String> clubPath = new ArrayList<>();
+                for (Object club : (java.util.List<?>) clubs) {
+                    if (club != null && !club.toString().trim().isEmpty()) {
+                        clubPath.add(club.toString().trim());
+                    }
+                }
+                question.setClubPath(clubPath);
+            }
+            sorted.put(child.getKey() == null ? String.valueOf(sorted.size()) : child.getKey(), question);
+        }
+        result.addAll(sorted.values());
+        return result;
+    }
+
+    private static User parseUser(DataSnapshot snapshot, String userID) {
+        User user = new User(userID);
+        user.setName(valueAsString(snapshot.child("Name")));
+        user.setPhoto(valueAsString(snapshot.child("Photo")));
+        user.setLevel(parseInt(snapshot.child("Level").getValue(), 1));
+        user.setScore(parseInt(snapshot.child("Score").getValue(), 0));
+        if (user.getName() == null || user.getName().trim().isEmpty()) {
+            user.setName("لاعب");
+        }
+        return user;
+    }
+
+    private static void publishFreshQuestions(DatabaseReference gameRef, String roomId, OnCreateGameIdListener listener) {
+        Context context = FirebaseApp.getInstance().getApplicationContext();
+        QuestionHistory.allocateClassic(context, gameRef.getKey(), roomId, questions -> {
+            HashMap<String, Object> payload = new HashMap<>();
+            int index = 0;
+            for (Question q : questions) {
+                String key = String.format(Locale.US, "questions/q%02d", index++);
+                payload.put(key + "/Level", q.getLevel()); payload.put(key + "/Q", q.getQ());
+                payload.put(key + "/R", q.getR()); payload.put(key + "/W1", q.getW1());
+                payload.put(key + "/W2", q.getW2()); payload.put(key + "/W3", q.getW3());
+                payload.put(key + "/Category", q.getCategory()); payload.put(key + "/Img", q.getImg());
+                payload.put(key + "/ClubPath", q.getClubPath());
+            }
+            gameRef.updateChildren(payload, (error, ref) -> {
+                if (listener != null) {
+                    if (error != null) listener.onFailed(error);
+                    else listener.onSuccess(gameRef.getKey());
+                }
+            });
+        }, error -> { if (listener != null) listener.onFailed(DatabaseError.fromException(error)); });
+    }
+
+    private static String getCurrentUserId() {
+        try {
+            if (FirebaseAuth.getInstance().getCurrentUser() != null) {
+                return FirebaseAuth.getInstance().getCurrentUser().getUid();
+            }
+        } catch (Exception ignored) {
+        }
+        return "";
+    }
+
+    private static boolean isRealUser(String userID) {
+        return userID != null && !userID.trim().isEmpty() && !GUEST_ID.equals(userID);
+    }
+
+    private static String safeName(String name) {
+        String normalized = name == null ? "" : name.trim();
+        if (normalized.isEmpty()) {
+            return "لاعب";
+        }
+        if ("guest".equalsIgnoreCase(normalized) || "player".equalsIgnoreCase(normalized)) {
+            return "لاعب";
+        }
+        return normalized;
+    }
+
+    public static String normalizeFriendCode(String friendCode) {
+        if (friendCode == null) {
+            return "";
+        }
+        return friendCode.replaceAll("[^A-Za-z0-9]", "").toUpperCase(Locale.US);
+    }
+
+    private static boolean gameExists(String value) {
+        return value != null && !value.trim().isEmpty();
+    }
+
+    private static int parseInt(Object value, int fallback) {
+        if (value instanceof Number) {
+            return ((Number) value).intValue();
+        }
+        try {
+            return Integer.parseInt(String.valueOf(value));
+        } catch (Exception ignored) {
+            return fallback;
+        }
+    }
+
+    private static String valueAsString(DataSnapshot snapshot) {
+        if (snapshot == null) {
+            return "";
+        }
+        Object value = snapshot.getValue();
+        return value == null ? "" : String.valueOf(value).trim();
+    }
+
+    private static String valueAsString(Object value) {
+        return value == null ? "" : String.valueOf(value).trim();
+    }
+}
+
+
+

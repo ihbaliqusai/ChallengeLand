@@ -1,0 +1,206 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="16dp"
+        android:layout_gravity="center"
+        android:background="@drawable/bg_cross_promo_card"
+        android:orientation="vertical"
+        android:padding="18dp">
+
+        <!-- Header: Badge & Close Button -->
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentStart="true"
+                android:layout_centerVertical="true"
+                android:background="@drawable/btn_promo_gradient"
+                android:paddingHorizontal="12dp"
+                android:paddingVertical="4dp"
+                android:text="🎮 لعبة أونلاين مميزة نقترحها لك"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <ImageButton
+                android:id="@+id/btnCrossPromoClose"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:layout_alignParentEnd="true"
+                android:layout_centerVertical="true"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@android:drawable/ic_menu_close_clear_cancel"
+                android:contentDescription="إغلاق"
+                app:tint="#B0BEC5" />
+        </RelativeLayout>
+
+        <!-- Game Title, Logo, and Subtitle -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <!-- App Icon Frame with Image -->
+            <FrameLayout
+                android:layout_width="72dp"
+                android:layout_height="72dp"
+                android:background="@drawable/btn_promo_gradient"
+                android:padding="2dp">
+
+                <ImageView
+                    android:id="@+id/imgPromoLogo"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleType="centerCrop"
+                    android:src="@drawable/img_million_challenge_logo"
+                    android:contentDescription="شعار لعبة تحدي المليون" />
+            </FrameLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="14dp"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="تحدي المليون - أونلاين"
+                    android:textColor="#FFFFFF"
+                    android:textSize="19sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="المسابقات الثقافية الحية، تحدي الأصدقاء، وغرف الأونلاين"
+                    android:textColor="#94A3B8"
+                    android:textSize="11sp" />
+
+                <!-- Mini Stats Chips -->
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="#1E293B"
+                        android:paddingHorizontal="6dp"
+                        android:paddingVertical="2dp"
+                        android:text="★ 4.8 تقييم"
+                        android:textColor="#FBBF24"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:background="#1E293B"
+                        android:paddingHorizontal="6dp"
+                        android:paddingVertical="2dp"
+                        android:text="⚔️ 6 أوضاع لعب"
+                        android:textColor="#38BDF8"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Game Modes Section -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:background="#0A1128"
+            android:orientation="vertical"
+            android:padding="12dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🔥 أوضاع اللعب الممتعة:"
+                android:textColor="#FDE68A"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="• وضع البرق ⚡ - أجب بأسرع ما يمكن قبل نفاد الوقت"
+                android:textColor="#E2E8F0"
+                android:textSize="11.5sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="• وضع البقاء 💪 - استمر دون أخطاء أطول فترة ممكنة"
+                android:textColor="#E2E8F0"
+                android:textSize="11.5sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="• وضع المعركة ⚔️ - تنافس مباشرة مع لاعب آخر في الوقت الحقيقي"
+                android:textColor="#E2E8F0"
+                android:textSize="11.5sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="• وضع فريق المعركة 🤝 - تعاون مع فريقك لتحقيق الفوز"
+                android:textColor="#E2E8F0"
+                android:textSize="11.5sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="• وضع السلسلة 🔗 - تحديات متتالية تختبر صمودك"
+                android:textColor="#E2E8F0"
+                android:textSize="11.5sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="• وضع الإقصاء 🏆 - خطأ واحد يُخرجك من اللعبة"
+                android:textColor="#E2E8F0"
+                android:textSize="11.5sp" />
+        </LinearLayout>
+
+        <!-- CTA Button -->
+        <Button
+            android:id="@+id/btnCrossPromoAction"
+            android:layout_width="match_parent"
+            android:layout_height="50dp"
+            android:layout_marginTop="16dp"
+            android:background="@drawable/btn_promo_gradient"
+            android:text="تثبيت مجاناً من Google Play 🚀"
+            android:textColor="#FFFFFF"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+
+    </LinearLayout>
+</ScrollView>

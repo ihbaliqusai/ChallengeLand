@@ -1,0 +1,129 @@
+plugins {
+    id 'com.android.application'
+    id 'kotlin-android'
+    id 'dev.flutter.flutter-gradle-plugin'
+    id 'com.google.gms.google-services'
+}
+
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file('key.properties')
+
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
+}
+
+android {
+    namespace 'com.qi7bali.landchallengeonline'
+    compileSdk 36
+    ndkVersion flutter.ndkVersion
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+
+    androidResources {
+        // Preserve AAPT's default exclusions and keep Photoshop design sources
+        // out of APKs even if a source-sync tool copies them into assets again.
+        ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:<dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~:!*.psd'
+    }
+
+    defaultConfig {
+        applicationId 'com.qi7bali.landchallengeonline'
+        minSdkVersion 24
+        targetSdkVersion 36
+        versionCode flutter.versionCode
+        versionName flutter.versionName
+        multiDexEnabled true
+        testInstrumentationRunner 'android.test.InstrumentationTestRunner'
+    }
+
+    signingConfigs {
+        release {
+            if (keystorePropertiesFile.exists()) {
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+                storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null
+                storePassword keystoreProperties['storePassword']
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+flutter {
+    source '../..'
+}
+
+// Directory declarations can silently reintroduce an entire duplicate roster.
+// Fail before packaging rather than publishing two copies of shared resources.
+tasks.register('verifySharedAssetManifest') {
+    def workspace = rootProject.projectDir.parentFile
+    def manifestFile = new File(workspace, 'pubspec.yaml')
+    def routesFile = new File(workspace, 'tools/shared_assets.json')
+    inputs.files(manifestFile, routesFile)
+    doLast {
+        def routes = new groovy.json.JsonSlurper().parse(routesFile)
+        def declarations = (manifestFile.getText('UTF-8') =~ /(?m)^\s+-\s+(?:asset:\s+)?(assets\/[^\r\n]+)/)
+                .collect { it[1].trim() }
+        def duplicates = routes.keySet().findAll { asset ->
+            declarations.any { declaration ->
+                declaration == asset || (declaration.endsWith('/') &&
+                    asset.substring(0, asset.lastIndexOf('/') + 1) == declaration)
+            }
+        }
+        if (!duplicates.isEmpty()) {
+            throw new GradleException('Shared Android assets must not be bundled again in Flutter: ' +
+                duplicates.join(', ') + '. Run node tools/prepare_shared_assets.cjs --sync-manifest.')
+        }
+        routes.values().each { source ->
+            if (!new File(workspace, source).isFile()) {
+                throw new GradleException('Missing canonical shared asset: ' + source)
+            }
+        }
+        if (new File(workspace, 'android/app/src/main/assets/questions.json').exists()) {
+            throw new GradleException('Questions must be packaged only as Flutter assets/questions.json.')
+        }
+    }
+}
+tasks.named('preBuild').configure { dependsOn('verifySharedAssetManifest') }
+
+dependencies {
+    // Device layout checks use the Android SDK's test runner, without adding
+    // test libraries or activities to release builds.
+    androidTestCompileOnly files(
+        "${android.sdkDirectory}/platforms/${android.compileSdkVersion}/optional/android.test.runner.jar",
+        "${android.sdkDirectory}/platforms/${android.compileSdkVersion}/optional/android.test.base.jar"
+    )
+    implementation 'androidx.multidex:multidex:2.0.1'
+    implementation 'androidx.appcompat:appcompat:1.7.1'
+    implementation 'androidx.core:core-splashscreen:1.0.1'
+    implementation 'androidx.legacy:legacy-support-v4:1.0.0'
+    implementation 'androidx.constraintlayout:constraintlayout:2.0.1'
+    implementation platform('com.google.firebase:firebase-bom:34.4.0')
+    implementation 'com.google.firebase:firebase-analytics'
+    implementation 'com.google.firebase:firebase-database'
+    implementation 'com.google.firebase:firebase-auth'
+    implementation 'com.google.firebase:firebase-firestore'
+    implementation 'com.google.firebase:firebase-messaging'
+    implementation 'com.google.firebase:firebase-functions'
+    // Native LoginActivity and SettingsActivity use the legacy Google Sign-In API directly.
+    implementation 'com.google.android.gms:play-services-auth:21.0.0'
+    implementation 'com.github.HotBitmapGG:RingProgressBar:V1.2.2'
+    implementation 'com.squareup.picasso:picasso:2.5.2'
+    implementation 'de.hdodenhof:circleimageview:2.1.0'
+    implementation 'com.android.billingclient:billing:8.0.0'
+    implementation 'com.android.billingclient:billing-ktx:8.0.0'
+}

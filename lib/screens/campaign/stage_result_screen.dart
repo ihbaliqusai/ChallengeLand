@@ -1,0 +1,2009 @@
+import '../../widgets/game_notice.dart';
+import 'dart:async';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+
+import '../../core/app_state.dart';
+import '../../models/campaign_stage.dart';
+import '../../models/stage_attempt.dart';
+import '../../models/stage_progress.dart';
+import '../../services/ad_service.dart';
+import '../../services/campaign_mode_engine.dart';
+import '../../services/campaign_engagement_service.dart';
+import '../../services/campaign_currency_service.dart';
+import '../../services/campaign_result_handler.dart';
+import '../../services/campaign_service.dart';
+import '../../services/native_bridge_service.dart';
+import '../../services/rate_game_service.dart';
+import '../../widgets/currency_reward_overlay.dart';
+import 'campaign_map_screen.dart';
+import 'stage_play_screen.dart';
+import 'stage_leaderboard_screen.dart';
+import 'widgets/animated_result_stars.dart';
+import 'widgets/level_complete_background.dart';
+import 'widgets/result_bottom_actions.dart';
+import 'widgets/result_reward_panel.dart';
+import 'widgets/result_replay_goal_card.dart';
+import 'widgets/result_ribbon_header.dart';
+import 'widgets/result_score_counter.dart';
+import 'widgets/save_guest_progress_dialog.dart';
+import 'widgets/stage_victory_scene.dart';
+
+class StageResultScreen extends StatefulWidget {
+  const StageResultScreen({
+    super.key,
+    required this.stage,
+    required this.submissionResult,
+    this.rawNativeResult,
+    this.currencyRewardApplied = false,
+    this.pendingSubmission,
+    this.submissionUid,
+    this.campaignService,
+  });
+
+  final CampaignStage stage;
+  final StageSubmissionResult submissionResult;
+  final Map<String, dynamic>? rawNativeResult;
+  final bool currencyRewardApplied;
+  final Future<StageSubmissionResult>? pendingSubmission;
+  final String? submissionUid;
+  final CampaignService? campaignService;
+
+  @override
+  State<StageResultScreen> createState() => _StageResultScreenState();
+}
+
+class _StageResultScreenState extends State<StageResultScreen>
+    with WidgetsBindingObserver {
+  static const Duration _pendingResultRetryDelay = Duration(milliseconds: 350);
+  static const Duration _missingResultTimeout = Duration(seconds: 8);
+
+  bool _launchingStage = false;
+  bool _waitingForResult = false;
+  bool _returnedFromNative = false;
+  bool _pendingResultRetryScheduled = false;
+  DateTime? _missingResultSince;
+  bool _rewardDoubled = false;
+  bool _doublingReward = false;
+  bool _savingResult = false;
+  bool _showVictoryDetails = false;
+  bool _collectingRewards = false;
+  bool _rewardsCollected = false;
+  StageSubmissionResult? _savedSubmission;
+  bool _rewardApplied = false;
+  CampaignStage? _nextStage;
+  StageProgress? _nextProgress;
+  int _nextStarsNeeded = 0;
+
+  CampaignStage get stage => widget.stage;
+  StageSubmissionResult get submissionResult =>
+      _savedSubmission ?? widget.submissionResult;
+  Map<String, dynamic>? get rawNativeResult => widget.rawNativeResult;
+  bool get currencyRewardApplied =>
+      _rewardApplied || widget.currencyRewardApplied;
+  bool get _isUnsavedPreview {
+    return submissionResult.attempt.uid.isEmpty && rawNativeResult != null;
+  }
+
+  // تحدي المراحل board boss stages carry the neutral `classic` type/mode, so the
+  // legacy fields alone never flag them. `stage.isBossStage` catches every 10th
+  // (board) stage as well as any legacy single-boss stage.
+  bool get _isBossStage =>
+      stage.isBossStage ||
+      stage.campaignMode == CampaignMode.bossBattle ||
+      stage.type == CampaignStageType.boss;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    final pending = widget.pendingSubmission;
+    if (pending != null) {
+      _savingResult = true;
+      unawaited(_completeSubmission(pending, widget.submissionUid ?? ''));
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final completed = submissionResult.attempt.completed;
+      if (pending == null) unawaited(_recordDailyAttempt());
+      unawaited(_restoreDoubleReward());
+      if (!_isUnsavedPreview && submissionResult.updatedProgress.stars > 0) {
+        unawaited(_loadNextStage());
+      }
+      if (completed && (submissionResult.attempt.stars >= 3 || _isBossStage)) {
+        RateGameService.instance.recordCampaignVictory(
+          context,
+          stars: submissionResult.attempt.stars,
+          isBoss: _isBossStage,
+        );
+      }
+    });
+  }
+
+  Future<void> _completeSubmission(
+      Future<StageSubmissionResult> pending, String uid) async {
+    final appState = context.read<AppState>();
+    final campaignService = widget.campaignService ?? CampaignService();
+    final payload = rawNativeResult ?? const <String, dynamic>{};
+    try {
+      final result = await pending;
+      if (appState.currentUser?.uid != uid) return;
+      if (mounted) {
+        setState(() {
+          _savedSubmission = result;
+          _savingResult = false;
+        });
+        unawaited(_loadNextStage());
+        unawaited(_restoreDoubleReward());
+        unawaited(_recordDailyAttempt());
+      }
+      // Reward delivery also continues if the player has already left the screen.
+      final applied = await CampaignResultHandler.applySubmissionReward(
+        appState: appState,
+        campaignService: campaignService,
+        result: result,
+      );
+      if (mounted && appState.currentUser?.uid == uid) {
+        setState(() => _rewardApplied = applied);
+      }
+    } catch (error, stackTrace) {
+      if (mounted) {
+        _debugRetrySaveFailure(
+            error: error, stackTrace: stackTrace, uid: uid, payload: payload);
+      }
+      if (mounted && appState.currentUser?.uid == uid) {
+        GameNoticeMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_saveFailureMessage(error))),
+        );
+      }
+    } finally {
+      if (mounted && _savingResult) setState(() => _savingResult = false);
+    }
+  }
+
+  String get _doubleClaimId =>
+      'double:${submissionResult.rewardClaimId ?? submissionResult.attempt.attemptId}';
+
+  Future<void> _restoreDoubleReward() async {
+    final uid = submissionResult.attempt.uid;
+    if (uid.isEmpty) return;
+    try {
+      final doubled = await CampaignCurrencyService().hasClaimed(
+        uid: uid,
+        claimId: _doubleClaimId,
+      );
+      if (mounted && doubled) setState(() => _rewardDoubled = true);
+    } catch (_) {
+      // The same cloud receipt still protects payout when this read is offline.
+    }
+  }
+
+  Future<void> _recordDailyAttempt() async {
+    try {
+      await CampaignEngagementService().recordAttempt(
+        playerId: submissionResult.attempt.uid.isEmpty
+            ? 'guest'
+            : submissionResult.attempt.uid,
+        campaignId: stage.campaignId,
+        attempt: submissionResult.attempt,
+      );
+    } catch (_) {
+      // A local daily goal must never interrupt the stage result.
+    }
+  }
+
+  Future<void> _loadNextStage() async {
+    final uid = context.read<AppState>().currentUser?.uid;
+    if (uid == null || uid.isEmpty || uid != submissionResult.attempt.uid) {
+      return;
+    }
+    try {
+      final service = widget.campaignService ?? CampaignService();
+      final stagesFuture = service.loadStages(campaignId: stage.campaignId);
+      final progressFuture = service.loadUserProgress(
+        uid: uid,
+        campaignId: stage.campaignId,
+      );
+      final stages = await stagesFuture;
+      final progress = <String, StageProgress>{...await progressFuture};
+      if (!mounted) return;
+      progress[stage.id] = submissionResult.updatedProgress;
+      final candidates = stages
+          .where((item) => item.order > stage.order)
+          .toList()
+        ..sort((left, right) => left.order.compareTo(right.order));
+      if (candidates.isEmpty) return;
+      final next = candidates.first;
+      final resolved = service.resolveProgressForStages(
+        stages: stages,
+        savedProgress: progress,
+        debugUnlockAllCampaignStagesOverride: false,
+      );
+      final sortedStages = List<CampaignStage>.from(stages)
+        ..sort((left, right) => left.order.compareTo(right.order));
+      // Existing saves may keep their old stageId; the resolver preserves it.
+      final nextProgress =
+          resolved[sortedStages.indexWhere((item) => item.id == next.id)];
+      final earned = resolved.fold<int>(0, (total, item) => total + item.stars);
+      setState(() {
+        _nextStage = next;
+        _nextProgress = nextProgress;
+        _nextStarsNeeded = (next.unlockRequirementStars - earned).clamp(0, 300);
+      });
+    } catch (_) {
+      // The map remains available when the next stage cannot be loaded.
+    }
+  }
+
+  void _openNextStage() {
+    if (_isUnsavedPreview) {
+      _promptSaveBeforeExit(
+        context,
+        onProceedWithoutSave: () {
+          final navigator = Navigator.of(context);
+          navigator.popUntil((route) => route.isFirst);
+        },
+      );
+      return;
+    }
+    if (context.read<AppState>().currentUser?.uid !=
+        submissionResult.attempt.uid) {
+      _returnToMap();
+      return;
+    }
+    final next = _nextStage;
+    final progress = _nextProgress;
+    if (next == null ||
+        progress == null ||
+        progress.status == StageProgressStatus.locked) {
+      return;
+    }
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(
+        builder: (_) => StagePlayScreen(
+            stage: next, progress: progress, continuingJourney: true),
+      ),
+    );
+  }
+
+  void _returnToMap() {
+    if (_isUnsavedPreview && !_savingResult) {
+      _promptSaveBeforeExit(
+        context,
+        onProceedWithoutSave: () {
+          final navigator = Navigator.of(context);
+          navigator.popUntil((route) => route.isFirst);
+        },
+      );
+      return;
+    }
+    final navigator = Navigator.of(context);
+    final resultRoute = ModalRoute.of(context);
+    var foundMap = false;
+    var resultIsRoot = false;
+    navigator.popUntil((route) {
+      if (route.settings.name == CampaignMapScreen.routeName) {
+        foundMap = true;
+        return true;
+      }
+      if (route.isFirst) {
+        resultIsRoot = identical(route, resultRoute);
+        return true;
+      }
+      return false;
+    });
+    if (foundMap) return;
+    final mapRoute = MaterialPageRoute<void>(
+      settings: const RouteSettings(name: CampaignMapScreen.routeName),
+      builder: (_) => const CampaignMapScreen(),
+    );
+    if (resultIsRoot) {
+      navigator.pushReplacement(mapRoute);
+    } else {
+      navigator.push(mapRoute);
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      if (_launchingStage) {
+        _returnedFromNative = true;
+        if (!_waitingForResult && mounted) {
+          setState(() => _waitingForResult = true);
+        }
+      }
+      _consumePendingCampaignResult();
+    }
+  }
+
+  Future<void> _consumePendingCampaignResult() async {
+    if (!mounted) return;
+    final handled =
+        await CampaignResultHandler.consumeAndHandlePendingCampaignResult(
+      context: context,
+      knownStage: stage,
+    );
+    if (!mounted) return;
+    if (handled && _launchingStage) {
+      _resetPendingResultWait();
+      setState(() {
+        _launchingStage = false;
+        _waitingForResult = false;
+      });
+      return;
+    }
+    if (!handled && _launchingStage) {
+      if (_shouldStopWaitingForMissingResult()) {
+        _stopWaitingForMissingResult();
+        return;
+      }
+      _retryPendingResultSoon();
+    }
+  }
+
+  void _retryPendingResultSoon() {
+    if (_pendingResultRetryScheduled) return;
+    _pendingResultRetryScheduled = true;
+    Future<void>.delayed(_pendingResultRetryDelay, () {
+      _pendingResultRetryScheduled = false;
+      if (!mounted || !_launchingStage) return;
+      _consumePendingCampaignResult();
+    });
+  }
+
+  bool _shouldStopWaitingForMissingResult() {
+    if (!_returnedFromNative) return false;
+    final now = DateTime.now();
+    _missingResultSince ??= now;
+    return now.difference(_missingResultSince!) >= _missingResultTimeout;
+  }
+
+  void _stopWaitingForMissingResult() {
+    _resetPendingResultWait();
+    if (!mounted) return;
+    setState(() {
+      _launchingStage = false;
+      _waitingForResult = false;
+    });
+    GameNoticeMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          content: Text(
+            'لم تصل نتيجة المرحلة. حاول بدء المرحلة مرة أخرى.',
+            textAlign: TextAlign.right,
+            style: TextStyle(fontWeight: FontWeight.w800),
+          ),
+        ),
+      );
+  }
+
+  void _resetPendingResultWait() {
+    _returnedFromNative = false;
+    _pendingResultRetryScheduled = false;
+    _missingResultSince = null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final appState = context.watch<AppState>();
+    final attempt = submissionResult.attempt;
+    final completed = attempt.completed;
+    // Board boss stages encode the win in `completed` (you finished ahead of every
+    // boss on the board), not the legacy single-boss `bossDefeated` flag.
+    final bossDefeated = _isBossStage && (attempt.bossDefeated || completed);
+    final usedLifelines =
+        attempt.used5050 + attempt.usedAudience + attempt.usedCall;
+    final hasCoins = appState.currentUser != null;
+
+    if (completed && !_showVictoryDetails) {
+      final user = appState.currentUser;
+      final name =
+          (user?.displayName ?? user?.email?.split('@').first ?? '').trim();
+      return Directionality(
+        textDirection: TextDirection.rtl,
+        child: Scaffold(
+          body: Stack(
+            children: [
+              Positioned.fill(
+                child: StageVictoryScene(
+                  stage: stage,
+                  result: submissionResult,
+                  playerName: name.isEmpty ? 'بطل التحدي' : name,
+                  photoUrl: user?.photoURL,
+                  gameplayXp:
+                      (rawNativeResult?['gameplayXp'] as num?)?.toInt() ?? 0,
+                  saving: _savingResult || _collectingRewards,
+                  collected: _rewardsCollected,
+                  isDoubled: _rewardDoubled,
+                  onCollect: _collectVictoryRewards,
+                  onMap: _returnToMap,
+                  onRetry: () => _launchStageAgain(context),
+                  onDetails: () => setState(() => _showVictoryDetails = true),
+                  onRetrySave: _isUnsavedPreview &&
+                          !_savingResult &&
+                          user != null &&
+                          (widget.submissionUid == null ||
+                              user.uid == widget.submissionUid)
+                      ? () => _retrySave(context)
+                      : null,
+                  onNext: _nextStage != null &&
+                          _nextProgress?.status != StageProgressStatus.locked
+                      ? _openNextStage
+                      : null,
+                  nextLabel: _nextStage?.isBossStage == true
+                      ? 'التالي: مواجهة الزعيم'
+                      : 'المرحلة التالية',
+                ),
+              ),
+              if (_launchingStage)
+                Positioned.fill(
+                  child: _BlockingLoadingOverlay(
+                    message: _waitingForResult
+                        ? 'جارٍ استلام نتيجة المرحلة...'
+                        : 'جارٍ بدء المرحلة...',
+                  ),
+                ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        body: Stack(
+          children: [
+            const Positioned.fill(child: LevelCompleteBackground()),
+            SafeArea(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final contentWidth =
+                      (constraints.maxWidth - 32).clamp(0.0, 580.0);
+                  return Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                    child: Column(
+                      children: [
+                        _TopHud(
+                          coins: hasCoins ? appState.coins : null,
+                          onBack: _showVictoryDetails
+                              ? () =>
+                                  setState(() => _showVictoryDetails = false)
+                              : _returnToMap,
+                        ),
+                        Expanded(
+                          child: SingleChildScrollView(
+                            physics: const BouncingScrollPhysics(),
+                            child: Center(
+                              child: SizedBox(
+                                width: contentWidth,
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    ResultRibbonHeader(
+                                      child: AnimatedResultStars(
+                                        stars: attempt.stars,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    _ResultMessage(
+                                      completed: completed,
+                                      stage: stage,
+                                      attempt: attempt,
+                                      bossDefeated: bossDefeated,
+                                      message: _cleanMessage(
+                                        submissionResult.motivationalMessage,
+                                        completed: completed,
+                                        attempt: attempt,
+                                        bossStage: _isBossStage,
+                                        bossDefeated: bossDefeated,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    ResultScoreCounter(score: attempt.score),
+                                    const SizedBox(height: 12),
+                                    ResultReplayGoalCard(
+                                      stage: stage,
+                                      result: submissionResult,
+                                      unsaved: _isUnsavedPreview,
+                                    ),
+                                    if (_nextProgress?.status ==
+                                            StageProgressStatus.locked &&
+                                        _nextStarsNeeded > 0) ...[
+                                      const SizedBox(height: 10),
+                                      Text(
+                                        'اجمع $_nextStarsNeeded نجوم إضافية لفتح المرحلة التالية.',
+                                        textAlign: TextAlign.center,
+                                        style: const TextStyle(
+                                          color: Color(0xFFFFD66B),
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                    ],
+                                    if (_isUnsavedPreview &&
+                                        widget.submissionUid == null &&
+                                        appState.currentUser == null) ...[
+                                      const SizedBox(height: 10),
+                                      _GuestVictoryBanner(
+                                        stars: attempt.stars,
+                                        coins: submissionResult
+                                                    .rewardCoinsGranted >
+                                                0
+                                            ? submissionResult
+                                                .rewardCoinsGranted
+                                            : (attempt.score > 0 ? 500 : 100),
+                                        gems: submissionResult
+                                                    .rewardGemsGranted >
+                                                0
+                                            ? submissionResult.rewardGemsGranted
+                                            : 50,
+                                        score: attempt.score,
+                                        onClaim: () =>
+                                            _openSaveGuestProgressModal(
+                                                context),
+                                      ),
+                                    ],
+                                    const SizedBox(height: 12),
+                                    _StatsPanel(
+                                      correctAnswers: attempt.correctAnswers,
+                                      wrongAnswers: attempt.wrongAnswers,
+                                      timeMs: attempt.timeMs,
+                                      usedLifelines: usedLifelines,
+                                    ),
+                                    if (_hasModeDetails(attempt)) ...[
+                                      const SizedBox(height: 10),
+                                      _ModeDetailsPanel(
+                                        stage: stage,
+                                        attempt: attempt,
+                                      ),
+                                    ],
+                                    if (_isBossStage &&
+                                        (attempt.bossScore > 0 ||
+                                            attempt.bossCorrectAnswers >
+                                                0)) ...[
+                                      const SizedBox(height: 10),
+                                      _BossBattleResultPanel(
+                                        bossName: attempt.bossName,
+                                        playerCorrectAnswers:
+                                            attempt.correctAnswers,
+                                        bossCorrectAnswers:
+                                            attempt.bossCorrectAnswers,
+                                        playerScore: attempt.playerScore,
+                                        bossScore: attempt.bossScore,
+                                      ),
+                                    ],
+                                    const SizedBox(height: 10),
+                                    ResultRewardPanel(
+                                      result: submissionResult,
+                                      gameplayXp:
+                                          (rawNativeResult?['gameplayXp']
+                                                      as num?)
+                                                  ?.toInt() ??
+                                              0,
+                                      trophyDelta:
+                                          (rawNativeResult?['trophyDelta']
+                                                  as num?)
+                                              ?.toInt(),
+                                      currencyRewardApplied:
+                                          currencyRewardApplied,
+                                      saving: _savingResult,
+                                      onDoubleReward:
+                                          (submissionResult.rewardCoinsGranted >
+                                                      0 ||
+                                                  submissionResult
+                                                          .rewardGemsGranted >
+                                                      0)
+                                              ? _doubleReward
+                                              : null,
+                                      isDoubled: _rewardDoubled,
+                                      isDoubling: _doublingReward,
+                                    ),
+                                    const SizedBox(height: 6),
+                                    TextButton.icon(
+                                      onPressed: () =>
+                                          Navigator.of(context).push(
+                                        MaterialPageRoute<void>(
+                                          builder: (_) =>
+                                              StageLeaderboardScreen(
+                                            stage: stage,
+                                          ),
+                                        ),
+                                      ),
+                                      icon: const Icon(
+                                        Icons.leaderboard_rounded,
+                                      ),
+                                      label: const Text('عرض الترتيب'),
+                                      style: TextButton.styleFrom(
+                                        foregroundColor:
+                                            const Color(0xFFBDEBFF),
+                                        textStyle: const TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w900,
+                                        ),
+                                      ),
+                                    ),
+                                    if (_isUnsavedPreview &&
+                                        !_savingResult &&
+                                        (widget.submissionUid == null ||
+                                            appState.currentUser?.uid ==
+                                                widget.submissionUid)) ...[
+                                      const SizedBox(height: 6),
+                                      if (appState.currentUser != null)
+                                        TextButton.icon(
+                                          onPressed: () => _retrySave(context),
+                                          icon: const Icon(
+                                              Icons.cloud_upload_rounded),
+                                          label:
+                                              const Text('إعادة حفظ النتيجة'),
+                                        )
+                                      else
+                                        _ClaimGuestRewardsButton(
+                                          busy: _savingResult,
+                                          onPressed: () =>
+                                              _openSaveGuestProgressModal(
+                                                  context),
+                                        ),
+                                    ],
+                                    const SizedBox(height: 8),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        ResultBottomActions(
+                          launching: _launchingStage,
+                          onMap: _returnToMap,
+                          onRetry: () => _launchStageAgain(context),
+                          onNext: _nextStage != null &&
+                                  _nextProgress?.status !=
+                                      StageProgressStatus.locked
+                              ? _openNextStage
+                              : null,
+                          nextLabel: _nextStage?.isBossStage == true
+                              ? 'التالي: مواجهة الزعيم'
+                              : 'المرحلة التالية',
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+            if (_launchingStage)
+              Positioned.fill(
+                child: _BlockingLoadingOverlay(
+                  message: _waitingForResult
+                      ? 'جارٍ استلام نتيجة المرحلة...'
+                      : 'جارٍ بدء المرحلة...',
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _collectVictoryRewards() async {
+    if (_savingResult || _collectingRewards || _rewardsCollected) return;
+    final appState = context.read<AppState>();
+    if (appState.currentUser == null) {
+      _openSaveGuestProgressModal(context);
+      return;
+    }
+    if (_isUnsavedPreview) {
+      await _retrySave(context);
+      if (!mounted || _isUnsavedPreview) return;
+    }
+    if (appState.currentUser?.uid != submissionResult.attempt.uid) {
+      _returnToMap();
+      return;
+    }
+    setState(() => _collectingRewards = true);
+    try {
+      // Saving normally delivers this reward in the background. The same receipt
+      // makes collection safe if the player taps before that delivery finishes.
+      final applied = currencyRewardApplied ||
+          await CampaignResultHandler.applySubmissionReward(
+            appState: appState,
+            campaignService: widget.campaignService ?? CampaignService(),
+            result: submissionResult,
+          );
+      if (!mounted ||
+          appState.currentUser?.uid != submissionResult.attempt.uid) {
+        return;
+      }
+      if (!applied &&
+          (submissionResult.rewardCoinsGranted > 0 ||
+              submissionResult.rewardGemsGranted > 0)) {
+        GameNoticeMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('تعذرت إضافة المكافأة الآن. حاول مرة أخرى.'),
+        ));
+        return;
+      }
+      setState(() {
+        _rewardApplied = applied;
+        _rewardsCollected = true;
+      });
+      HapticFeedback.mediumImpact();
+      showCurrencyRewardOverlay(
+        context,
+        coins: submissionResult.rewardCoinsGranted * (_rewardDoubled ? 2 : 1),
+        gems: submissionResult.rewardGemsGranted * (_rewardDoubled ? 2 : 1),
+      );
+    } catch (_) {
+      if (mounted) {
+        GameNoticeMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('تعذر جمع المكافآت الآن. حاول مرة أخرى.'),
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _collectingRewards = false);
+    }
+  }
+
+  String _cleanMessage(
+    String message, {
+    required bool completed,
+    required StageAttempt attempt,
+    bool bossStage = false,
+    bool bossDefeated = false,
+  }) {
+    final mode = _modeForAttempt(attempt, stage);
+    if (bossStage || mode == CampaignMode.bossBattle) {
+      return bossDefeated
+          ? 'مواجهة رائعة، لقد فتحت الطريق التالي.'
+          : 'لم تهزم الزعيم بعد. حاول مرة أخرى.';
+    }
+    switch (mode) {
+      case CampaignMode.blitz:
+        if (!completed && attempt.failureReason == 'timeExpired') {
+          return 'انتهى الوقت قبل إكمال المرحلة.';
+        }
+        break;
+      case CampaignMode.elimination:
+        if (!completed) return 'تجاوزت حد الأخطاء المسموح.';
+        break;
+      case CampaignMode.survival:
+        if (!completed) return 'انتهت الأرواح قبل نهاية الأسئلة.';
+        break;
+      case CampaignMode.battle:
+        return completed
+            ? 'تفوقت على الخصم بالنقاط.'
+            : 'الخصم أنهى المواجهة متقدمًا.';
+      case CampaignMode.rival:
+        return completed
+            ? 'تجاوزت نتيجة الهدف.'
+            : 'اقتربت، لكن الهدف لم يتحقق.';
+      case CampaignMode.series:
+        return completed
+            ? 'حسمت السلسلة لصالحك.'
+            : 'السلسلة لم تكن لصالحك هذه المرة.';
+      case CampaignMode.teamBattle:
+        return completed
+            ? 'فريقك أنهى المواجهة متقدمًا.'
+            : 'فريق الخصم تفوق بالنقاط.';
+      case CampaignMode.classic:
+      case CampaignMode.noLifeline:
+      case CampaignMode.bossBattle:
+        break;
+    }
+    final trimmed = message.trim();
+    if (trimmed.isNotEmpty && !trimmed.contains('\u00D8')) return trimmed;
+    return completed
+        ? 'تم حفظ النتيجة واحتساب النجوم حسب قواعد المرحلة.'
+        : 'حاول مرة أخرى وأكمل شرط المرحلة لفتح الطريق التالي.';
+  }
+
+  bool _hasModeDetails(StageAttempt attempt) {
+    final mode = _modeForAttempt(attempt, stage);
+    return mode != CampaignMode.classic && mode != CampaignMode.noLifeline;
+  }
+
+  void _openSaveGuestProgressModal(BuildContext context) {
+    final payload = rawNativeResult;
+    if (payload == null) {
+      _retrySave(context);
+      return;
+    }
+
+    SaveGuestProgressDialog.show(
+      context,
+      stage: stage,
+      submissionResult: submissionResult,
+      rawNativeResult: payload,
+      onSaved: (savedResult, rewardApplied) {
+        if (!mounted) return;
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute<void>(
+            builder: (_) => StageResultScreen(
+              stage: stage,
+              submissionResult: savedResult,
+              rawNativeResult: payload,
+              currencyRewardApplied: rewardApplied,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _promptSaveBeforeExit(
+    BuildContext context, {
+    required VoidCallback onProceedWithoutSave,
+  }) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogCtx) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: GameAlertDialog(
+          backgroundColor: const Color(0xFF0F1A3C),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+            side: BorderSide(
+              color: const Color(0xFFFACC15).withValues(alpha: 0.4),
+              width: 1.5,
+            ),
+          ),
+          title: const Row(
+            children: [
+              Icon(Icons.stars_rounded, color: Color(0xFFFACC15), size: 26),
+              SizedBox(width: 8),
+              Text(
+                'حفظ الإنجاز والجوائز 🏆',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            'لديك ${submissionResult.attempt.stars} نجوم وجوائز قيّمة بانتظار إيداعها بحسابك.\nإذا غادرت الآن دون حفظ، قد تفقد ما حققته!',
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 14,
+              height: 1.45,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogCtx).pop();
+                onProceedWithoutSave();
+              },
+              child: const Text(
+                'متابعة دون حفظ',
+                style: TextStyle(
+                  color: Colors.white54,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            FilledButton.icon(
+              onPressed: () {
+                Navigator.of(dialogCtx).pop();
+                _openSaveGuestProgressModal(context);
+              },
+              icon: const Icon(Icons.cloud_upload_rounded, size: 18),
+              label: const Text('حفظ الجوائز الآن (موصى به)'),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFFACC15),
+                foregroundColor: const Color(0xFF1E1B4B),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                textStyle: const TextStyle(fontWeight: FontWeight.w900),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _retrySave(BuildContext context) async {
+    if (_savingResult) return;
+    final user = context.read<AppState>().currentUser;
+    final uid = user?.uid.trim() ?? '';
+    final payload = rawNativeResult;
+    final messenger = GameNoticeMessenger.of(context);
+    if (user == null || uid.isEmpty || payload == null) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('سجّل الدخول لحفظ تقدمك في تحدي المراحل.'),
+          ),
+        );
+      return;
+    }
+    setState(() => _savingResult = true);
+    await _completeSubmission(
+      (widget.campaignService ?? CampaignService()).submitStageResult(
+        uid: uid,
+        stage: stage,
+        nativeResult: payload,
+        displayName:
+            (user.displayName ?? user.email?.split('@').first ?? '').trim(),
+        photoUrl: user.photoURL,
+      ),
+      uid,
+    );
+  }
+
+  Future<void> _launchStageAgain(BuildContext context) async {
+    if (_launchingStage) return;
+    if (!_isUnsavedPreview &&
+        context.read<AppState>().currentUser?.uid !=
+            submissionResult.attempt.uid) {
+      _returnToMap();
+      return;
+    }
+    _resetPendingResultWait();
+    setState(() {
+      _launchingStage = true;
+      _waitingForResult = false;
+    });
+    final nativeBridge = context.read<NativeBridgeService>();
+    final messenger = GameNoticeMessenger.of(context);
+    try {
+      // The board loads its own question pool natively — no id selection needed.
+      const questionIds = <int>[];
+      final effectiveAllowedLevels = stage.allowedLevels
+          .where((level) => level.trim().isNotEmpty)
+          .toList(growable: false);
+      final launchConfig = const CampaignModeEngine().buildLaunchConfig(stage);
+      await nativeBridge.launchCampaignStage(
+        campaignEntry: 'retry',
+        campaignId: launchConfig['campaignId'] as String? ?? stage.campaignId,
+        stageId: launchConfig['stageId'] as String? ?? stage.id,
+        stageType: launchConfig['stageType'] as String? ?? stage.type.value,
+        campaignMode:
+            launchConfig['campaignMode'] as String? ?? stage.campaignMode.value,
+        winCondition:
+            launchConfig['winCondition'] as String? ?? stage.winCondition.value,
+        questionIds: questionIds,
+        allowedLevels: effectiveAllowedLevels,
+        questionCount:
+            launchConfig['questionCount'] as int? ?? stage.questionCount,
+        timeLimitSeconds:
+            launchConfig['timeLimitSeconds'] as int? ?? stage.timeLimitSeconds,
+        allow5050: launchConfig['allow5050'] as bool? ?? stage.allow5050,
+        allowAudience:
+            launchConfig['allowAudience'] as bool? ?? stage.allowAudience,
+        allowCall: launchConfig['allowCall'] as bool? ?? stage.allowCall,
+        bossBotName: launchConfig['bossBotName'] as String? ?? '',
+        bossBotIntelligence: launchConfig['bossBotIntelligence'] as int? ?? 0,
+        lives: launchConfig['lives'] as int? ?? 0,
+        maxWrongAnswers: launchConfig['maxWrongAnswers'] as int? ?? 0,
+        targetScore: launchConfig['targetScore'] as int? ?? 0,
+        opponentName: launchConfig['opponentName'] as String? ?? '',
+        opponentAccuracy: launchConfig['opponentAccuracy'] as int? ?? 0,
+        opponentStartScore: launchConfig['opponentStartScore'] as int? ?? 0,
+        seriesRounds: launchConfig['seriesRounds'] as int? ?? 0,
+        seriesWinsRequired: launchConfig['seriesWinsRequired'] as int? ?? 0,
+        teamAllyName: launchConfig['teamAllyName'] as String? ?? '',
+        teamEnemyName: launchConfig['teamEnemyName'] as String? ?? '',
+        campaignBoard: launchConfig['campaignBoard'] as bool? ?? true,
+        boardKind: launchConfig['boardKind'] as String? ?? 'solo',
+        boardTargetScore: launchConfig['boardTargetScore'] as int? ?? 0,
+        boardTwoStarScore: launchConfig['boardTwoStarScore'] as int? ??
+            stage.starRules.twoStarsMinScore,
+        boardThreeStarScore: launchConfig['boardThreeStarScore'] as int? ??
+            stage.starRules.threeStarsMinScore,
+        boardSoloPicks: launchConfig['boardSoloPicks'] as int? ?? 6,
+        boardSoloCols: launchConfig['boardSoloCols'] as int? ?? 4,
+        boardBotCount: launchConfig['boardBotCount'] as int? ?? 0,
+        boardBotIntelligence: launchConfig['boardBotIntelligence'] as int? ?? 0,
+        boardRequiredCategoryCount:
+            launchConfig['boardRequiredCategoryCount'] as int? ?? 0,
+        bossStyle: launchConfig['bossStyle'] as String? ?? 'balanced',
+        boardAllowRevealOptions:
+            launchConfig['boardAllowRevealOptions'] as bool? ?? true,
+        boardDesignVersion: launchConfig['boardDesignVersion'] as int? ?? 0,
+        categoryPolicy:
+            launchConfig['categoryPolicy'] as String? ?? 'playerPick',
+        worldCategories: (launchConfig['worldCategories'] as List<dynamic>? ??
+                const <dynamic>[])
+            .map((dynamic e) => e.toString())
+            .toList(growable: false),
+      );
+      if (mounted) setState(() => _waitingForResult = true);
+    } catch (_) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text(
+              'تعذر تحميل أسئلة مناسبة لهذه المرحلة.',
+              textAlign: TextAlign.right,
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
+        );
+      if (mounted) {
+        _resetPendingResultWait();
+        setState(() {
+          _launchingStage = false;
+          _waitingForResult = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _doubleReward() async {
+    if (_doublingReward || _rewardDoubled) return;
+    final coins = submissionResult.rewardCoinsGranted;
+    final gems = submissionResult.rewardGemsGranted;
+    if (coins <= 0 && gems <= 0) return;
+
+    final adService = context.read<AdService>();
+    final appState = context.read<AppState>();
+    final messenger = GameNoticeMessenger.of(context);
+    final rewardUid = submissionResult.attempt.uid;
+    if (rewardUid.isEmpty || appState.currentUser?.uid != rewardUid) {
+      _returnToMap();
+      return;
+    }
+    setState(() => _doublingReward = true);
+    try {
+      final watched = await adService.showActionRewardedAd();
+      if (!mounted) return;
+      if (appState.currentUser?.uid != rewardUid) {
+        _returnToMap();
+        return;
+      }
+      if (!watched) {
+        messenger
+          ..hideCurrentSnackBar()
+          ..showSnackBar(const SnackBar(
+            content: Text('لم يكتمل الإعلان. مكافأتك الأساسية محفوظة.'),
+          ));
+        return;
+      }
+      final success = await appState.grantCampaignCurrency(
+        coinsReward: coins,
+        gemsReward: gems,
+        claimId: _doubleClaimId,
+      );
+      if (!mounted) return;
+      if (success) {
+        setState(() => _rewardDoubled = true);
+        HapticFeedback.heavyImpact();
+        showCurrencyRewardOverlay(context, coins: coins, gems: gems);
+      } else {
+        messenger
+          ..hideCurrentSnackBar()
+          ..showSnackBar(const SnackBar(
+            content: Text('تعذرت إضافة المكافأة المضاعفة. حاول مرة أخرى.'),
+          ));
+      }
+    } catch (_) {
+      if (!mounted) return;
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(const SnackBar(
+          content: Text('تعذرت مضاعفة المكافأة الآن. حاول لاحقًا.'),
+        ));
+    } finally {
+      if (mounted) setState(() => _doublingReward = false);
+    }
+  }
+
+  String _saveFailureMessage(Object error) {
+    if (error is FirebaseException) {
+      switch (error.code) {
+        case 'permission-denied':
+          return 'تعذر حفظ تقدمك الآن. حاول مرة أخرى بعد قليل.';
+        case 'unavailable':
+        case 'deadline-exceeded':
+          return 'تعذر الاتصال. سيتم عرض نتيجتك الحالية فقط.';
+      }
+    }
+    if (error is ArgumentError) {
+      return 'سجّل الدخول لحفظ تقدمك في تحدي المراحل.';
+    }
+    return 'تعذر حفظ النتيجة الآن. سيتم عرض نتيجتك الحالية فقط.';
+  }
+
+  void _debugRetrySaveFailure({
+    required Object error,
+    required StackTrace stackTrace,
+    required String uid,
+    required Map<String, dynamic> payload,
+  }) {
+    final firebaseDetails = error is FirebaseException
+        ? ' firebaseCode=${error.code} firebaseMessage=${error.message} '
+            'firebasePlugin=${error.plugin}'
+        : '';
+    debugPrint(
+      'CAMPAIGN_SAVE_FAILED\n'
+      'exceptionType=${error.runtimeType}$firebaseDetails\n'
+      'message=$error\n'
+      'uid=$uid\n'
+      'campaignId=${payload['campaignId']}\n'
+      'stageId=${payload['stageId']}\n'
+      'completed=${payload['completed']}\n'
+      'correctAnswers=${payload['correctAnswers']}\n'
+      'wrongAnswers=${payload['wrongAnswers']}\n'
+      'timeMs=${payload['timeMs']}\n'
+      'nativeResultKeys=${payload.keys.toList()}\n'
+      'nativeResult=$payload',
+    );
+    if (kDebugMode) {
+      debugPrintStack(stackTrace: stackTrace);
+    }
+  }
+}
+
+class _TopHud extends StatelessWidget {
+  const _TopHud({
+    required this.coins,
+    required this.onBack,
+  });
+
+  final int? coins;
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        _HudButton(icon: Icons.arrow_forward_rounded, onPressed: onBack),
+        const Spacer(),
+        if (coins != null)
+          _CurrencyChip(
+            icon: Icons.monetization_on_rounded,
+            value: '$coins',
+          ),
+      ],
+    );
+  }
+}
+
+class _HudButton extends StatelessWidget {
+  const _HudButton({
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onPressed,
+        child: Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: const Color(0xFF06143D).withValues(alpha: 0.56),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
+          ),
+          child: Icon(icon, color: Colors.white, size: 22),
+        ),
+      ),
+    );
+  }
+}
+
+class _CurrencyChip extends StatelessWidget {
+  const _CurrencyChip({
+    required this.icon,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 34,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF06143D).withValues(alpha: 0.66),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.20)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: const Color(0xFFFFD84A), size: 19),
+          const SizedBox(width: 5),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 15,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ResultMessage extends StatelessWidget {
+  const _ResultMessage({
+    required this.completed,
+    required this.stage,
+    required this.attempt,
+    required this.bossDefeated,
+    required this.message,
+  });
+
+  final bool completed;
+  final CampaignStage stage;
+  final StageAttempt attempt;
+  final bool bossDefeated;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final mode = _modeForAttempt(attempt, stage);
+    // Board boss stages run as `classic` natively; theme their title explicitly.
+    final boardBoss = stage.isBossStage && mode == CampaignMode.classic;
+    final title = boardBoss
+        ? (completed ? 'تغلّبت على الزعماء' : 'لم تتغلّب على الزعماء')
+        : _resultTitle(
+            mode: mode,
+            completed: completed,
+            failureReason: attempt.failureReason,
+            bossDefeated: bossDefeated,
+          );
+    return Column(
+      children: [
+        Text(
+          title,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 30,
+            fontWeight: FontWeight.w900,
+            height: 1.05,
+            shadows: [
+              Shadow(
+                color: Color(0xAA000000),
+                blurRadius: 9,
+                offset: Offset(0, 3),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 5),
+        Text(
+          'مرحلة ${stage.order} • ${stage.title}',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: Color(0xFFBDEBFF),
+            fontSize: 16,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          message,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.82),
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+            height: 1.35,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ModeDetailsPanel extends StatelessWidget {
+  const _ModeDetailsPanel({
+    required this.stage,
+    required this.attempt,
+  });
+
+  final CampaignStage stage;
+  final StageAttempt attempt;
+
+  @override
+  Widget build(BuildContext context) {
+    final mode = _modeForAttempt(attempt, stage);
+    final chips = _chipsForMode(mode);
+    if (chips.isEmpty) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF061642).withValues(alpha: 0.78),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+      ),
+      child: GridView.count(
+        crossAxisCount: chips.length > 2 ? 3 : 2,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        childAspectRatio: 1.28,
+        mainAxisSpacing: 7,
+        crossAxisSpacing: 7,
+        children: chips,
+      ),
+    );
+  }
+
+  List<Widget> _chipsForMode(CampaignMode mode) {
+    switch (mode) {
+      case CampaignMode.blitz:
+        return <Widget>[
+          _StatChip(
+            icon: Icons.timer_rounded,
+            label: 'الوقت',
+            value: _formatTime(attempt.timeMs),
+            color: const Color(0xFF7DD3FC),
+          ),
+          _StatChip(
+            icon: Icons.flag_rounded,
+            label: 'الحالة',
+            value: attempt.failureReason == 'timeExpired' ? 'انتهى' : 'مكتمل',
+            color: const Color(0xFFFFD95A),
+          ),
+        ];
+      case CampaignMode.elimination:
+        return <Widget>[
+          _StatChip(
+            icon: Icons.close_rounded,
+            label: 'الأخطاء',
+            value: '${attempt.wrongAnswers}/$_effectiveMaxWrongAnswers',
+            color: const Color(0xFFFF6B7C),
+          ),
+          _StatChip(
+            icon: Icons.quiz_rounded,
+            label: 'المجاب',
+            value: '${attempt.correctAnswers + attempt.wrongAnswers}',
+            color: const Color(0xFF54F088),
+          ),
+        ];
+      case CampaignMode.survival:
+        return <Widget>[
+          _StatChip(
+            icon: Icons.favorite_rounded,
+            label: 'الأرواح',
+            value: '${attempt.livesRemaining}/$_effectiveLives',
+            color: const Color(0xFFFF6B7C),
+          ),
+        ];
+      case CampaignMode.battle:
+        return _scoreChips(
+          opponentName: attempt.opponentName ?? 'الخصم',
+          opponentScore: attempt.opponentScore,
+        );
+      case CampaignMode.rival:
+        return <Widget>[
+          _StatChip(
+            icon: Icons.person_rounded,
+            label: 'نقاطك',
+            value: '${attempt.playerScore}',
+            color: const Color(0xFF54F088),
+          ),
+          _StatChip(
+            icon: Icons.flag_rounded,
+            label: 'الهدف',
+            value: '$_effectiveTargetScore',
+            color: const Color(0xFFFFD95A),
+          ),
+        ];
+      case CampaignMode.bossBattle:
+        return _scoreChips(
+          opponentName: attempt.bossName ?? stage.bossBotName ?? 'الزعيم',
+          opponentScore: attempt.bossScore,
+        );
+      case CampaignMode.series:
+        return <Widget>[
+          _StatChip(
+            icon: Icons.emoji_events_rounded,
+            label: 'جولاتك',
+            value: '${attempt.playerSeriesWins}',
+            color: const Color(0xFF54F088),
+          ),
+          _StatChip(
+            icon: Icons.shield_rounded,
+            label: 'الخصم',
+            value: '${attempt.opponentSeriesWins}',
+            color: const Color(0xFFFFD95A),
+          ),
+          _StatChip(
+            icon: Icons.flag_rounded,
+            label: 'المطلوب',
+            value: '$_effectiveSeriesWinsRequired',
+            color: const Color(0xFF7DD3FC),
+          ),
+        ];
+      case CampaignMode.teamBattle:
+        return <Widget>[
+          _StatChip(
+            icon: Icons.groups_rounded,
+            label: 'فريقك',
+            value: '${attempt.teamScore}',
+            color: const Color(0xFF54F088),
+          ),
+          _StatChip(
+            icon: Icons.shield_rounded,
+            label: attempt.teamEnemyName ?? 'الخصم',
+            value: '${attempt.enemyTeamScore}',
+            color: const Color(0xFFFFD95A),
+          ),
+          _StatChip(
+            icon: Icons.person_add_rounded,
+            label: attempt.teamAllyName ?? 'الحليف',
+            value: '${attempt.allyScore}',
+            color: const Color(0xFF7DD3FC),
+          ),
+        ];
+      case CampaignMode.classic:
+      case CampaignMode.noLifeline:
+        return const <Widget>[];
+    }
+  }
+
+  List<Widget> _scoreChips({
+    required String opponentName,
+    required int opponentScore,
+  }) {
+    return <Widget>[
+      _StatChip(
+        icon: Icons.person_rounded,
+        label: 'نقاطك',
+        value: '${attempt.playerScore}',
+        color: const Color(0xFF54F088),
+      ),
+      _StatChip(
+        icon: Icons.shield_rounded,
+        label: opponentName,
+        value: '$opponentScore',
+        color: const Color(0xFFFFD95A),
+      ),
+    ];
+  }
+
+  int get _effectiveLives {
+    if (attempt.lives > 0) return attempt.lives;
+    return stage.lives ?? 3;
+  }
+
+  int get _effectiveMaxWrongAnswers {
+    if (attempt.maxWrongAnswers > 0) return attempt.maxWrongAnswers;
+    return stage.maxWrongAnswers ?? 1;
+  }
+
+  int get _effectiveTargetScore {
+    if (attempt.targetScore > 0) return attempt.targetScore;
+    return stage.targetScore ?? 700;
+  }
+
+  int get _effectiveSeriesWinsRequired {
+    if (attempt.seriesWinsRequired > 0) return attempt.seriesWinsRequired;
+    return stage.seriesWinsRequired ?? 2;
+  }
+}
+
+class _BossBattleResultPanel extends StatelessWidget {
+  const _BossBattleResultPanel({
+    required this.bossName,
+    required this.playerCorrectAnswers,
+    required this.bossCorrectAnswers,
+    required this.playerScore,
+    required this.bossScore,
+  });
+
+  final String? bossName;
+  final int playerCorrectAnswers;
+  final int bossCorrectAnswers;
+  final int playerScore;
+  final int bossScore;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF061642).withValues(alpha: 0.78),
+        borderRadius: BorderRadius.circular(18),
+        border:
+            Border.all(color: const Color(0xFFFFD95A).withValues(alpha: 0.24)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _BossScoreSide(
+              name: 'أنت',
+              correctAnswers: playerCorrectAnswers,
+              score: playerScore,
+              color: const Color(0xFF54F088),
+            ),
+          ),
+          Container(
+            width: 1,
+            height: 46,
+            color: Colors.white.withValues(alpha: 0.16),
+          ),
+          Expanded(
+            child: _BossScoreSide(
+              name: bossName?.trim().isNotEmpty == true
+                  ? bossName!.trim()
+                  : 'الزعيم',
+              correctAnswers: bossCorrectAnswers,
+              score: bossScore,
+              color: const Color(0xFFFFD95A),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BossScoreSide extends StatelessWidget {
+  const _BossScoreSide({
+    required this.name,
+    required this.correctAnswers,
+    required this.score,
+    required this.color,
+  });
+
+  final String name;
+  final int correctAnswers;
+  final int score;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: color,
+            fontSize: 15,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '$correctAnswers صحيح | $score نقطة',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _GuestVictoryBanner extends StatelessWidget {
+  const _GuestVictoryBanner({
+    required this.stars,
+    required this.coins,
+    required this.gems,
+    required this.score,
+    required this.onClaim,
+  });
+
+  final int stars;
+  final int coins;
+  final int gems;
+  final int score;
+  final VoidCallback onClaim;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onClaim,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [
+              Color(0xFF2E1903),
+              Color(0xFF0F183C),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: const Color(0xFFFACC15).withValues(alpha: 0.6),
+            width: 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFFF59E0B).withValues(alpha: 0.22),
+              blurRadius: 18,
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.military_tech_rounded,
+                    color: Color(0xFFFACC15), size: 22),
+                SizedBox(width: 6),
+                Text(
+                  '🎉 انتصار بطولي! غنائمك جاهزة للإيداع',
+                  style: TextStyle(
+                    color: Color(0xFFFFE082),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 5),
+            Text(
+              'احفظ إنجازك الآن بلمسة واحدة لتحصل على كل النجوم والعملات وتفتح المرحلة التالية!',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.8),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 12,
+              runSpacing: 4,
+              alignment: WrapAlignment.center,
+              children: [
+                _BannerChip(
+                  icon: Icons.star_rounded,
+                  label: '$stars نجوم',
+                  color: const Color(0xFFFFD700),
+                ),
+                _BannerChip(
+                  icon: Icons.monetization_on_rounded,
+                  label: '+$coins ذهب',
+                  color: const Color(0xFFFACC15),
+                ),
+                _BannerChip(
+                  icon: Icons.diamond_rounded,
+                  label: '+$gems جوهرة',
+                  color: const Color(0xFF38BDF8),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BannerChip extends StatelessWidget {
+  const _BannerChip({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, color: color, size: 15),
+        const SizedBox(width: 3),
+        Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _StatsPanel extends StatelessWidget {
+  const _StatsPanel({
+    required this.correctAnswers,
+    required this.wrongAnswers,
+    required this.timeMs,
+    required this.usedLifelines,
+  });
+
+  final int correctAnswers;
+  final int wrongAnswers;
+  final int timeMs;
+  final int usedLifelines;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF061642).withValues(alpha: 0.78),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.22),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final columns = constraints.maxWidth < 400 ||
+                  MediaQuery.textScalerOf(context).scale(14) > 18
+              ? 2
+              : 4;
+          final chips = <Widget>[
+            _StatChip(
+              icon: Icons.check_rounded,
+              label: 'صحيحة',
+              value: '$correctAnswers',
+              color: const Color(0xFF40F783),
+            ),
+            _StatChip(
+              icon: Icons.close_rounded,
+              label: 'خاطئة',
+              value: '$wrongAnswers',
+              color: const Color(0xFFFF6B7C),
+            ),
+            _StatChip(
+              icon: Icons.timer_rounded,
+              label: 'الوقت',
+              value: timeMs > 0 ? _formatTime(timeMs) : '—',
+              color: const Color(0xFF7DD3FC),
+            ),
+            _StatChip(
+              icon: Icons.track_changes_rounded,
+              label: 'الدقة',
+              value: correctAnswers + wrongAnswers > 0
+                  ? '${(100 * correctAnswers / (correctAnswers + wrongAnswers)).round()}%'
+                  : '—',
+              color: const Color(0xFFFFC857),
+            ),
+          ];
+          return Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final chip in chips)
+                SizedBox(
+                  width: (constraints.maxWidth - (columns - 1) * 8) / columns,
+                  child: chip,
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _StatChip extends StatelessWidget {
+  const _StatChip({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 7),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.11),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withValues(alpha: 0.24)),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 17,
+              fontWeight: FontWeight.w900,
+              height: 1,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.72),
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              height: 1,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ClaimGuestRewardsButton extends StatelessWidget {
+  const _ClaimGuestRewardsButton({
+    required this.onPressed,
+    this.busy = false,
+  });
+
+  final VoidCallback onPressed;
+  final bool busy;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: 52,
+      child: FilledButton.icon(
+        onPressed: busy ? null : onPressed,
+        icon: const Icon(Icons.stars_rounded, size: 22),
+        label: Text(
+          busy
+              ? 'جارٍ حفظ التقدم...'
+              : '✨ احفظ إنجازك وجوائزك الآن (تسجيل سريع)',
+        ),
+        style: FilledButton.styleFrom(
+          backgroundColor: const Color(0xFFFACC15),
+          foregroundColor: const Color(0xFF1E1B4B),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          textStyle: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w900,
+          ),
+          elevation: 6,
+          shadowColor: const Color(0xFFF59E0B).withValues(alpha: 0.5),
+        ),
+      ),
+    );
+  }
+}
+
+class _BlockingLoadingOverlay extends StatelessWidget {
+  const _BlockingLoadingOverlay({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFF020B2A).withValues(alpha: 0.82),
+      ),
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
+          decoration: BoxDecoration(
+            color: const Color(0xFF061642).withValues(alpha: 0.92),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(color: Color(0xFFFFD95A)),
+              const SizedBox(height: 14),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+String _formatTime(int timeMs) {
+  final seconds = (timeMs / 1000).round().clamp(0, 24 * 60 * 60);
+  final minutesPart = (seconds ~/ 60).toString().padLeft(2, '0');
+  final secondsPart = (seconds % 60).toString().padLeft(2, '0');
+  return '$minutesPart:$secondsPart';
+}
+
+CampaignMode _modeForAttempt(StageAttempt attempt, CampaignStage stage) {
+  return campaignModeFromString(
+    attempt.campaignMode.isNotEmpty ? attempt.campaignMode : null,
+    fallbackType: stage.type,
+  );
+}
+
+String _resultTitle({
+  required CampaignMode mode,
+  required bool completed,
+  required String failureReason,
+  required bool bossDefeated,
+}) {
+  if (!completed) {
+    if (failureReason == 'background_limit') {
+      return 'انتهت مشاركتك بسبب مغادرة اللعبة';
+    }
+    if (failureReason == 'timeExpired') return 'انتهى وقت المرحلة';
+    if (failureReason == 'eliminated') return 'تجاوزت عدد الأخطاء المسموح';
+    if (failureReason == 'required_categories_not_completed') {
+      return 'لم تكمل فئات العالم المطلوبة';
+    }
+  }
+  switch (mode) {
+    case CampaignMode.classic:
+    case CampaignMode.noLifeline:
+      return completed ? 'تم إنهاء المرحلة' : 'لم تكتمل المرحلة';
+    case CampaignMode.blitz:
+      if (!completed && failureReason == 'timeExpired') return 'انتهى الوقت';
+      return completed ? 'تم إنهاء المرحلة' : 'لم تكتمل المرحلة';
+    case CampaignMode.elimination:
+      return completed ? 'تم إنهاء المرحلة' : 'تم إقصاؤك';
+    case CampaignMode.survival:
+      return completed ? 'تم إنهاء المرحلة' : 'انتهت الأرواح';
+    case CampaignMode.battle:
+      return completed ? 'فزت بالمواجهة' : 'خسرت المواجهة';
+    case CampaignMode.rival:
+      return completed ? 'تجاوزت الهدف' : 'لم تصل إلى الهدف';
+    case CampaignMode.bossBattle:
+      return bossDefeated ? 'هزمت الزعيم' : 'خسرت أمام الزعيم';
+    case CampaignMode.series:
+      return completed ? 'فزت بالسلسلة' : 'خسرت السلسلة';
+    case CampaignMode.teamBattle:
+      return completed ? 'فاز فريقك' : 'خسر فريقك';
+  }
+}

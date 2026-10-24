@@ -1,0 +1,1226 @@
+package com.qi7bali.landchallengeonline;
+
+import android.content.Context;
+import android.content.SharedPreferences;
+
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
+import java.util.Map;
+
+public class PlayerProgress {
+    private static final String PREF = "PlayerProgress";
+    private static final int MATCH_COMPLETION_BONUS = 200;
+    private static final String KEY_ACHIEVEMENT_CLAIMS_MIGRATED = "achievementClaimsMigratedV1";
+    private static final String CLAIMED_PREFIX = "CLAIMED_";
+
+    public static final String ACH_FIRST_GAME = "ACH_FIRST_GAME";
+    public static final String ACH_FIRST_WIN = "ACH_FIRST_WIN";
+    public static final String ACH_FIRST_ONLINE = "ACH_FIRST_ONLINE";
+    public static final String ACH_BUY_POWERUP = "ACH_BUY_POWERUP";
+
+    public static final String ACH_LEVEL_5 = "ACH_LEVEL_5";
+    public static final String ACH_LEVEL_10 = "ACH_LEVEL_10";
+    public static final String ACH_LEVEL_20 = "ACH_LEVEL_20";
+    public static final String ACH_LEVEL_30 = "ACH_LEVEL_30";
+    public static final String ACH_LEVEL_45 = "ACH_LEVEL_45";
+    public static final String ACH_LEVEL_50 = "ACH_LEVEL_50";
+    public static final String ACH_LEVEL_60 = "ACH_LEVEL_60";
+
+    public static final String ACH_GAMES_10 = "ACH_GAMES_10";
+    public static final String ACH_GAMES_25 = "ACH_GAMES_25";
+    public static final String ACH_GAMES_50 = "ACH_GAMES_50";
+    public static final String ACH_GAMES_100 = "ACH_GAMES_100";
+    public static final String ACH_GAMES_250 = "ACH_GAMES_250";
+    public static final String ACH_GAMES_500 = "ACH_GAMES_500";
+
+    public static final String ACH_WIN_5 = "ACH_WIN_5";
+    public static final String ACH_WIN_10 = "ACH_WIN_10";
+    public static final String ACH_WIN_25 = "ACH_WIN_25";
+    public static final String ACH_WIN_50 = "ACH_WIN_50";
+    public static final String ACH_WIN_100 = "ACH_WIN_100";
+    public static final String ACH_WIN_250 = "ACH_WIN_250";
+
+    public static final String ACH_CORRECT_10 = "ACH_CORRECT_10";
+    public static final String ACH_CORRECT_50 = "ACH_CORRECT_50";
+    public static final String ACH_CORRECT_100 = "ACH_CORRECT_100";
+    public static final String ACH_CORRECT_500 = "ACH_CORRECT_500";
+    public static final String ACH_CORRECT_1000 = "ACH_CORRECT_1000";
+    public static final String ACH_CORRECT_2500 = "ACH_CORRECT_2500";
+    public static final String ACH_CORRECT_5000 = "ACH_CORRECT_5000";
+
+    public static final String ACH_ACCURACY_70 = "ACH_ACCURACY_70";
+    public static final String ACH_ACCURACY_80 = "ACH_ACCURACY_80";
+    public static final String ACH_ACCURACY_90 = "ACH_ACCURACY_90";
+
+    public static final String ACH_PRIZE_1000 = "ACH_PRIZE_1000";
+    public static final String ACH_PRIZE_32000 = "ACH_PRIZE_32000";
+    public static final String ACH_PRIZE_500000 = "ACH_PRIZE_500000";
+    public static final String ACH_PRIZE_1000000 = "ACH_PRIZE_1000000";
+
+    public static final String ACH_EARNINGS_100000 = "ACH_EARNINGS_100000";
+    public static final String ACH_EARNINGS_1000000 = "ACH_EARNINGS_1000000";
+    public static final String ACH_EARNINGS_10000000 = "ACH_EARNINGS_10000000";
+
+    public static final String ACH_STREAK_3 = "ACH_STREAK_3";
+    public static final String ACH_STREAK_5 = "ACH_STREAK_5";
+    public static final String ACH_STREAK_10 = "ACH_STREAK_10";
+    public static final String ACH_STREAK_15 = "ACH_STREAK_15";
+
+    public static final String ACH_WIN_STREAK_3 = "ACH_WIN_STREAK_3";
+    public static final String ACH_WIN_STREAK_5 = "ACH_WIN_STREAK_5";
+    public static final String ACH_WIN_STREAK_10 = "ACH_WIN_STREAK_10";
+
+    public static final String ACH_COINS_1000 = "ACH_COINS_1000";
+    public static final String ACH_COINS_5000 = "ACH_COINS_5000";
+    public static final String ACH_COINS_10000 = "ACH_COINS_10000";
+    public static final String ACH_COINS_50000 = "ACH_COINS_50000";
+    public static final String ACH_GEMS_50 = "ACH_GEMS_50";
+    public static final String ACH_GEMS_500 = "ACH_GEMS_500";
+    public static final String ACH_GEMS_1000 = "ACH_GEMS_1000";
+
+    public static final String ACH_INVENTORY_5 = "ACH_INVENTORY_5";
+    public static final String ACH_INVENTORY_15 = "ACH_INVENTORY_15";
+    public static final String ACH_INVENTORY_30 = "ACH_INVENTORY_30";
+
+    public static final String ACH_USE_5050 = "ACH_USE_5050";
+    public static final String ACH_USE_AUDIENCE = "ACH_USE_AUDIENCE";
+    public static final String ACH_USE_CALL = "ACH_USE_CALL";
+    public static final String ACH_USE_ALL_HELPS = "ACH_USE_ALL_HELPS";
+    public static final String ACH_PERFECT_GAME = "ACH_PERFECT_GAME";
+
+    public static final String ACH_ONLINE_WIN_5 = "ACH_ONLINE_WIN_5";
+    public static final String ACH_ONLINE_WIN_10 = "ACH_ONLINE_WIN_10";
+    public static final String ACH_ONLINE_WIN_25 = "ACH_ONLINE_WIN_25";
+    public static final String ACH_BLITZ_FINISH_5 = "ACH_BLITZ_FINISH_5";
+    public static final String ACH_BLITZ_FINISH_15 = "ACH_BLITZ_FINISH_15";
+    public static final String ACH_ELIMINATION_WIN_3 = "ACH_ELIMINATION_WIN_3";
+    public static final String ACH_ELIMINATION_WIN_10 = "ACH_ELIMINATION_WIN_10";
+    public static final String ACH_SURVIVAL_WIN_3 = "ACH_SURVIVAL_WIN_3";
+    public static final String ACH_SURVIVAL_WIN_10 = "ACH_SURVIVAL_WIN_10";
+    public static final String ACH_SERIES_WIN_3 = "ACH_SERIES_WIN_3";
+    public static final String ACH_SERIES_WIN_10 = "ACH_SERIES_WIN_10";
+    public static final String ACH_TEAM_BATTLE_WIN_5 = "ACH_TEAM_BATTLE_WIN_5";
+    public static final String ACH_TEAM_BATTLE_WIN_15 = "ACH_TEAM_BATTLE_WIN_15";
+
+    public static final String ACH_CAMPAIGN_STAGE_5 = "ACH_CAMPAIGN_STAGE_5";
+    public static final String ACH_CAMPAIGN_STAGE_20 = "ACH_CAMPAIGN_STAGE_20";
+    public static final String ACH_CAMPAIGN_STAGE_50 = "ACH_CAMPAIGN_STAGE_50";
+    public static final String ACH_CAMPAIGN_STARS_30 = "ACH_CAMPAIGN_STARS_30";
+    public static final String ACH_CAMPAIGN_STARS_100 = "ACH_CAMPAIGN_STARS_100";
+    public static final String ACH_CAMPAIGN_STARS_200 = "ACH_CAMPAIGN_STARS_200";
+    public static final String ACH_CAMPAIGN_BLITZ_3 = "ACH_CAMPAIGN_BLITZ_3";
+    public static final String ACH_CAMPAIGN_SURVIVAL_3 = "ACH_CAMPAIGN_SURVIVAL_3";
+    public static final String ACH_CAMPAIGN_RIVAL_3 = "ACH_CAMPAIGN_RIVAL_3";
+    public static final String ACH_CAMPAIGN_SERIES_3 = "ACH_CAMPAIGN_SERIES_3";
+    public static final String ACH_CAMPAIGN_TEAM_3 = "ACH_CAMPAIGN_TEAM_3";
+    public static final String ACH_CAMPAIGN_NO_HELP_5 = "ACH_CAMPAIGN_NO_HELP_5";
+    public static final String ACH_CAMPAIGN_BOSS_1 = "ACH_CAMPAIGN_BOSS_1";
+    public static final String ACH_CAMPAIGN_BOSS_5 = "ACH_CAMPAIGN_BOSS_5";
+    public static final String ACH_CAMPAIGN_PERFECT_10 = "ACH_CAMPAIGN_PERFECT_10";
+
+    // New Achievements for Modern Modes
+    public static final String ACH_LOCAL_TEAMS = "ACH_LOCAL_TEAMS";
+    public static final String ACH_LOCAL_TEAMS_5 = "ACH_LOCAL_TEAMS_5";
+    public static final String ACH_TV_CAST = "ACH_TV_CAST";
+    public static final String ACH_OFFLINE_BOARD = "ACH_OFFLINE_BOARD";
+    public static final String ACH_OFFLINE_BOARD_WIN = "ACH_OFFLINE_BOARD_WIN";
+    public static final String ACH_FRIEND_BATTLE = "ACH_FRIEND_BATTLE";
+    public static final String ACH_RANDOM_BATTLE_3 = "ACH_RANDOM_BATTLE_3";
+    public static final String ACH_CHARACTER_COLLECTOR = "ACH_CHARACTER_COLLECTOR";
+
+    public static final String ACH_ALL_DONE = "ACH_ALL_DONE";
+
+    private static final String[] ALL_ACHIEVEMENTS = {
+            ACH_FIRST_GAME, ACH_FIRST_WIN, ACH_FIRST_ONLINE, ACH_BUY_POWERUP,
+            ACH_LEVEL_5, ACH_LEVEL_10, ACH_LEVEL_20, ACH_LEVEL_30, ACH_LEVEL_45, ACH_LEVEL_60,
+            ACH_GAMES_10, ACH_GAMES_25, ACH_GAMES_50, ACH_GAMES_100, ACH_GAMES_250, ACH_GAMES_500,
+            ACH_WIN_5, ACH_WIN_10, ACH_WIN_25, ACH_WIN_50, ACH_WIN_100, ACH_WIN_250,
+            ACH_CORRECT_10, ACH_CORRECT_50, ACH_CORRECT_100, ACH_CORRECT_500,
+            ACH_CORRECT_1000, ACH_CORRECT_2500, ACH_CORRECT_5000,
+            ACH_ACCURACY_70, ACH_ACCURACY_80, ACH_ACCURACY_90,
+            ACH_PRIZE_1000, ACH_PRIZE_32000, ACH_PRIZE_500000, ACH_PRIZE_1000000,
+            ACH_EARNINGS_100000, ACH_EARNINGS_1000000, ACH_EARNINGS_10000000,
+            ACH_STREAK_3, ACH_STREAK_5, ACH_STREAK_10, ACH_STREAK_15,
+            ACH_WIN_STREAK_3, ACH_WIN_STREAK_5, ACH_WIN_STREAK_10,
+            ACH_COINS_1000, ACH_COINS_5000, ACH_COINS_10000, ACH_COINS_50000,
+            ACH_GEMS_50, ACH_GEMS_500, ACH_GEMS_1000,
+            ACH_INVENTORY_5, ACH_INVENTORY_15, ACH_INVENTORY_30,
+            ACH_USE_5050, ACH_USE_AUDIENCE, ACH_USE_CALL, ACH_USE_ALL_HELPS, ACH_PERFECT_GAME,
+            ACH_ONLINE_WIN_5, ACH_ONLINE_WIN_10, ACH_ONLINE_WIN_25,
+            ACH_BLITZ_FINISH_5, ACH_BLITZ_FINISH_15,
+            ACH_ELIMINATION_WIN_3, ACH_ELIMINATION_WIN_10,
+            ACH_SURVIVAL_WIN_3, ACH_SURVIVAL_WIN_10,
+            ACH_SERIES_WIN_3, ACH_SERIES_WIN_10,
+            ACH_TEAM_BATTLE_WIN_5, ACH_TEAM_BATTLE_WIN_15,
+            ACH_CAMPAIGN_STAGE_5, ACH_CAMPAIGN_STAGE_20, ACH_CAMPAIGN_STAGE_50,
+            ACH_CAMPAIGN_STARS_30, ACH_CAMPAIGN_STARS_100, ACH_CAMPAIGN_STARS_200,
+            ACH_CAMPAIGN_BLITZ_3, ACH_CAMPAIGN_SURVIVAL_3, ACH_CAMPAIGN_RIVAL_3,
+            ACH_CAMPAIGN_SERIES_3, ACH_CAMPAIGN_TEAM_3, ACH_CAMPAIGN_NO_HELP_5,
+            ACH_CAMPAIGN_BOSS_1, ACH_CAMPAIGN_BOSS_5, ACH_CAMPAIGN_PERFECT_10,
+            ACH_LOCAL_TEAMS, ACH_LOCAL_TEAMS_5, ACH_TV_CAST,
+            ACH_OFFLINE_BOARD, ACH_OFFLINE_BOARD_WIN,
+            ACH_FRIEND_BATTLE, ACH_RANDOM_BATTLE_3, ACH_CHARACTER_COLLECTOR
+    };
+
+    private static SharedPreferences prefs(Context c) {
+        return preferences(c);
+    }
+
+    public static SharedPreferences preferences(Context c) {
+        return ProgressionAccount.preferences(c);
+    }
+
+    public static void writeHydration(SharedPreferences.Editor editor, Map<String, Integer> values) {
+        for (String key : new String[]{"xp", "onlineWins", "blitzFinishes", "eliminationWins",
+                "survivalWins", "seriesWins", "teamBattleWins"}) {
+            if (values.containsKey(key)) editor.putInt(key, Math.max(0, values.get(key)));
+        }
+    }
+
+    public static synchronized void hydrateProgression(Context c, Map<String, Integer> values) {
+        SharedPreferences.Editor editor = prefs(c).edit();
+        writeHydration(editor, values);
+        ProgressionAccount.commitOrRollback(prefs(c), editor);
+    }
+
+    public static void setXp(Context c, int xp) {
+        SharedPreferences p = prefs(c);
+        ProgressionAccount.commitOrRollback(p, p.edit().putInt("xp", Math.max(0, xp)));
+        checkLevelAchievements(c);
+    }
+
+    public static void checkProgressionAchievements(Context c) {
+        checkLevelAchievements(c);
+        checkMilestoneAchievements(c);
+    }
+
+    public static String[] getAllAchievementKeys() {
+        String[] keys = new String[ALL_ACHIEVEMENTS.length + 1];
+        System.arraycopy(ALL_ACHIEVEMENTS, 0, keys, 0, ALL_ACHIEVEMENTS.length);
+        keys[ALL_ACHIEVEMENTS.length] = ACH_ALL_DONE;
+        return keys;
+    }
+
+    public static int getXp(Context c) { return prefs(c).getInt("xp", 0); }
+    public static int getCoins(Context c) { return prefs(c).getInt("coins", 0); }
+    public static int getGems(Context c) { return prefs(c).getInt("gems", 0); }
+    public static int getDailyClaimCount(Context c) { return prefs(c).getInt("dailyCount", 0); }
+    public static int getInventory5050(Context c) { return prefs(c).getInt("inv5050", 0); }
+    public static int getInventoryAudience(Context c) { return prefs(c).getInt("invAudience", 0); }
+    public static int getInventoryCall(Context c) { return prefs(c).getInt("invCall", 0); }
+    public static int getOnlineWins(Context c) { return prefs(c).getInt("onlineWins", 0); }
+    public static int getBlitzFinishes(Context c) { return prefs(c).getInt("blitzFinishes", 0); }
+    public static int getEliminationWins(Context c) { return prefs(c).getInt("eliminationWins", 0); }
+    public static int getSurvivalWins(Context c) { return prefs(c).getInt("survivalWins", 0); }
+    public static int getSeriesWins(Context c) { return prefs(c).getInt("seriesWins", 0); }
+    public static int getTeamBattleWins(Context c) { return prefs(c).getInt("teamBattleWins", 0); }
+    public static int getCampaignCompletedStages(Context c) { return prefs(c).getInt("campaignCompletedStages", 0); }
+    public static int getCampaignStars(Context c) { return prefs(c).getInt("campaignStars", 0); }
+    public static int getCampaignBlitzCompletions(Context c) { return prefs(c).getInt("campaignBlitzCompletions", 0); }
+    public static int getCampaignSurvivalCompletions(Context c) { return prefs(c).getInt("campaignSurvivalCompletions", 0); }
+    public static int getCampaignRivalCompletions(Context c) { return prefs(c).getInt("campaignRivalCompletions", 0); }
+    public static int getCampaignSeriesCompletions(Context c) { return prefs(c).getInt("campaignSeriesCompletions", 0); }
+    public static int getCampaignTeamCompletions(Context c) { return prefs(c).getInt("campaignTeamCompletions", 0); }
+    public static int getCampaignNoHelpCompletions(Context c) { return prefs(c).getInt("campaignNoHelpCompletions", 0); }
+    public static int getCampaignBossWins(Context c) { return prefs(c).getInt("campaignBossWins", 0); }
+    public static int getCampaignPerfectCompletions(Context c) { return prefs(c).getInt("campaignPerfectCompletions", 0); }
+    public static int getLocalTeamsPlayed(Context c) { return prefs(c).getInt("localTeamsPlayed", 0); }
+    public static int getOfflineBoardPlayed(Context c) { return prefs(c).getInt("offlineBoardPlayed", 0); }
+    public static int getOfflineBoardWins(Context c) { return prefs(c).getInt("offlineBoardWins", 0); }
+    public static int getTvCastCount(Context c) { return prefs(c).getInt("tvCastCount", 0); }
+    public static int getFriendMatchesPlayed(Context c) { return prefs(c).getInt("friendMatchesPlayed", 0); }
+    public static int getRandomMatchesPlayed(Context c) { return prefs(c).getInt("randomMatchesPlayed", 0); }
+
+    public static void recordLocalTeamsPlayed(Context c) {
+        incrementCounter(c, "localTeamsPlayed", 1);
+        checkMilestoneAchievements(c);
+    }
+
+    public static void recordOfflineBoardPlayed(Context c) {
+        incrementCounter(c, "offlineBoardPlayed", 1);
+        checkMilestoneAchievements(c);
+    }
+
+    public static void recordOfflineBoardWin(Context c) {
+        incrementCounter(c, "offlineBoardWins", 1);
+        checkMilestoneAchievements(c);
+    }
+
+    public static void recordTvCast(Context c) {
+        incrementCounter(c, "tvCastCount", 1);
+        checkMilestoneAchievements(c);
+    }
+
+    public static void recordFriendMatchPlayed(Context c) {
+        incrementCounter(c, "friendMatchesPlayed", 1);
+        checkMilestoneAchievements(c);
+    }
+
+    public static void recordRandomMatchPlayed(Context c) {
+        incrementCounter(c, "randomMatchesPlayed", 1);
+        checkMilestoneAchievements(c);
+    }
+
+    public static synchronized void addXp(Context c, int amount) {
+        if (amount <= 0) return;
+        SharedPreferences p = prefs(c);
+        int newXp = ProgressionRules.safeAdd(p.getInt("xp", 0), amount);
+        ProgressionAccount.commitOrRollback(p, p.edit().putInt("xp", newXp));
+        checkLevelAchievements(c);
+    }
+
+    public static synchronized void addCoins(Context c, int amount) {
+        if (amount == 0) return;
+        SharedPreferences p = prefs(c);
+        int newCoins = ProgressionRules.safeAdd(p.getInt("coins", 0), amount);
+        p.edit().putInt("coins", newCoins).apply();
+        checkCurrencyAchievements(c);
+    }
+
+    public static synchronized void setCurrency(Context c, int coins, int gems) {
+        prefs(c).edit()
+                .putInt("coins", Math.max(0, coins))
+                .putInt("gems", Math.max(0, gems))
+                .apply();
+        checkCurrencyAchievements(c);
+    }
+
+    /** A retried campaign payout commits its claim and both balances together. */
+    public static synchronized boolean grantCurrencyOnce(Context c, String claimId, int coins, int gems) {
+        if (claimId == null || claimId.trim().isEmpty()) {
+            addCoins(c, coins);
+            addGems(c, gems);
+            return true;
+        }
+        SharedPreferences p = prefs(c);
+        String claimKey = "currencyClaim:" + claimId.trim();
+        if (p.getBoolean(claimKey, false)) return false;
+        int previousCoins = getCoins(c);
+        int previousGems = getGems(c);
+        int nextCoins = (int) Math.max(0L, Math.min(Integer.MAX_VALUE, (long) previousCoins + coins));
+        int nextGems = (int) Math.max(0L, Math.min(Integer.MAX_VALUE, (long) previousGems + gems));
+        if (!p.edit().putInt("coins", nextCoins).putInt("gems", nextGems)
+                .putBoolean(claimKey, true).commit()) {
+            // SharedPreferences changes its memory cache even when the disk commit
+            // fails. Roll that cache back so a retry can deliver the same claim.
+            p.edit().putInt("coins", previousCoins).putInt("gems", previousGems).remove(claimKey).apply();
+            throw new IllegalStateException("Currency claim could not be saved");
+        }
+        checkCurrencyAchievements(c);
+        return true;
+    }
+
+    public static boolean spendCoins(Context c, int amount) {
+        if (amount <= 0 || getCoins(c) < amount) return false;
+        addCoins(c, -amount);
+        return true;
+    }
+
+    public static synchronized void addGems(Context c, int amount) {
+        if (amount == 0) return;
+        SharedPreferences p = prefs(c);
+        int newGems = ProgressionRules.safeAdd(p.getInt("gems", 0), amount);
+        p.edit().putInt("gems", newGems).apply();
+        checkCurrencyAchievements(c);
+    }
+
+    public static boolean spendGems(Context c, int amount) {
+        if (amount <= 0 || getGems(c) < amount) return false;
+        addGems(c, -amount);
+        return true;
+    }
+
+    public static int getLevel(Context c) {
+        int xp = getXp(c);
+        int lv = 1;
+        while (xp >= xpNeededForLevel(lv)) {
+            xp -= xpNeededForLevel(lv);
+            lv++;
+        }
+        return lv;
+    }
+
+    public static int getXpIntoLevel(Context c) {
+        int xp = getXp(c);
+        int lv = 1;
+        while (xp >= xpNeededForLevel(lv)) {
+            xp -= xpNeededForLevel(lv);
+            lv++;
+        }
+        return xp;
+    }
+
+    public static int getXpNeededForNextLevel(Context c) {
+        return xpNeededForLevel(getLevel(c));
+    }
+
+    public static String getRankTitle(int level) {
+        if (level >= 60) return "أسطورة المعرفة";
+        if (level >= 45) return "حكيم";
+        if (level >= 30) return "موسوعي";
+        if (level >= 20) return "باحث";
+        if (level >= 10) return "عارف";
+        if (level >= 5) return "متعلم";
+        return "مستكشف";
+    }
+
+    private static int xpNeededForLevel(int level) {
+        int safeLevel = Math.max(1, level);
+        if (safeLevel < 5) return 120 + (safeLevel - 1) * 40;
+        if (safeLevel < 10) return 320 + (safeLevel - 5) * 55;
+        if (safeLevel < 20) return 620 + (safeLevel - 10) * 80;
+        if (safeLevel < 30) return 1450 + (safeLevel - 20) * 130;
+        if (safeLevel < 45) return 2850 + (safeLevel - 30) * 210;
+        if (safeLevel < 60) return 6000 + (safeLevel - 45) * 360;
+        return 11500 + (safeLevel - 60) * 550;
+    }
+
+    public static void addInventory(Context c, String type, int amount) {
+        addInventoryInternal(c, type, amount, true);
+    }
+
+    public static void grantInventory(Context c, String type, int amount) {
+        addInventoryInternal(c, type, amount, false);
+    }
+
+    private static void addInventoryInternal(Context c, String type, int amount, boolean countsAsPurchase) {
+        String key = inventoryKey(type);
+        if (key == null || amount == 0) return;
+        SharedPreferences p = prefs(c);
+        int next = ProgressionRules.safeAdd(p.getInt(key, 0), amount);
+        p.edit().putInt(key, next).apply();
+        if (amount > 0 && countsAsPurchase) unlockAchievement(c, ACH_BUY_POWERUP);
+        checkInventoryAchievements(c);
+    }
+
+    public static boolean consumeInventory(Context c, String type) {
+        String key = inventoryKey(type);
+        if (key == null) return false;
+        SharedPreferences p = prefs(c);
+        int current = p.getInt(key, 0);
+        if (current <= 0) return false;
+        p.edit().putInt(key, current - 1).apply();
+        if ("5050".equals(type)) unlockAchievement(c, ACH_USE_5050);
+        if ("audience".equals(type)) unlockAchievement(c, ACH_USE_AUDIENCE);
+        if ("call".equals(type)) unlockAchievement(c, ACH_USE_CALL);
+        return true;
+    }
+
+    private static String inventoryKey(String type) {
+        if ("5050".equals(type)) return "inv5050";
+        if ("audience".equals(type)) return "invAudience";
+        if ("call".equals(type)) return "invCall";
+        return null;
+    }
+
+    public static boolean isAchievementUnlocked(Context c, String key) {
+        return prefs(c).getBoolean(key, false);
+    }
+
+    public static boolean isAchievementRewardClaimed(Context c, String key) {
+        migrateExistingAchievementClaims(c);
+        return prefs(c).getBoolean(claimKey(key), false);
+    }
+
+    public static int getUnclaimedAchievementCount(Context c) {
+        migrateExistingAchievementClaims(c);
+        int count = 0;
+        for (String key : getAllAchievementKeys()) {
+            if (isAchievementUnlocked(c, key) && !prefs(c).getBoolean(claimKey(key), false)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    public static synchronized ClaimRewardResult claimAchievementReward(Context c, String key) {
+        migrateExistingAchievementClaims(c);
+        if (key == null || key.trim().isEmpty()) {
+            return new ClaimRewardResult(false, 0, 0, getCoins(c), getGems(c), getXp(c));
+        }
+        String safeKey = key.trim();
+        SharedPreferences p = prefs(c);
+        if (!p.getBoolean(safeKey, false) || p.getBoolean(claimKey(safeKey), false)) {
+            return new ClaimRewardResult(false, 0, 0, getCoins(c), getGems(c), getXp(c));
+        }
+        AchievementReward reward = rewardForAchievement(safeKey);
+        ProgressionAccount.commitOrRollback(p, p.edit().putBoolean(claimKey(safeKey), true)
+                .putInt("coins", ProgressionRules.safeAdd(getCoins(c), reward.coins))
+                .putInt("xp", ProgressionRules.safeAdd(getXp(c), reward.xp)));
+        checkCurrencyAchievements(c);
+        checkLevelAchievements(c);
+        return new ClaimRewardResult(true, 1, reward.coins, reward.xp, getCoins(c), getGems(c), getXp(c));
+    }
+
+    public static synchronized ClaimRewardResult claimAllAchievementRewards(Context c) {
+        migrateExistingAchievementClaims(c);
+        int totalCoins = 0;
+        int totalXp = 0;
+        int count = 0;
+        SharedPreferences p = prefs(c);
+        SharedPreferences.Editor editor = p.edit();
+        for (String key : getAllAchievementKeys()) {
+            if (p.getBoolean(key, false) && !p.getBoolean(claimKey(key), false)) {
+                AchievementReward r = rewardForAchievement(key);
+                editor.putBoolean(claimKey(key), true);
+                totalCoins += r.coins;
+                totalXp += r.xp;
+                count++;
+            }
+        }
+        if (count > 0) {
+            ProgressionAccount.commitOrRollback(p, editor
+                    .putInt("coins", ProgressionRules.safeAdd(getCoins(c), totalCoins))
+                    .putInt("xp", ProgressionRules.safeAdd(getXp(c), totalXp)));
+            checkCurrencyAchievements(c);
+            checkLevelAchievements(c);
+        }
+        return new ClaimRewardResult(count > 0, count, totalCoins, totalXp, getCoins(c), getGems(c), getXp(c));
+    }
+
+    public static void unlockAchievement(Context c, String key) {
+        migrateExistingAchievementClaims(c);
+        SharedPreferences p = prefs(c);
+        if (!p.getBoolean(key, false)) {
+            p.edit().putBoolean(key, true).apply();
+        }
+    }
+
+    public static void checkAllDone(Context c) {
+        for (String key : ALL_ACHIEVEMENTS) {
+            if (!isAchievementUnlocked(c, key)) return;
+        }
+        unlockAchievement(c, ACH_ALL_DONE);
+    }
+
+    public static void checkMilestoneAchievements(Context c) {
+        migrateExistingAchievementClaims(c);
+        checkLevelAchievements(c);
+        checkCurrencyAchievements(c);
+        checkInventoryAchievements(c);
+
+        int games = PlayerStats.getGamesPlayed(c);
+        if (games >= 10) unlockAchievement(c, ACH_GAMES_10);
+        if (games >= 25) unlockAchievement(c, ACH_GAMES_25);
+        if (games >= 50) unlockAchievement(c, ACH_GAMES_50);
+        if (games >= 100) unlockAchievement(c, ACH_GAMES_100);
+        if (games >= 250) unlockAchievement(c, ACH_GAMES_250);
+        if (games >= 500) unlockAchievement(c, ACH_GAMES_500);
+
+        int wins = PlayerStats.getWins(c);
+        if (wins >= 5) unlockAchievement(c, ACH_WIN_5);
+        if (wins >= 10) unlockAchievement(c, ACH_WIN_10);
+        if (wins >= 25) unlockAchievement(c, ACH_WIN_25);
+        if (wins >= 50) unlockAchievement(c, ACH_WIN_50);
+        if (wins >= 100) unlockAchievement(c, ACH_WIN_100);
+        if (wins >= 250) unlockAchievement(c, ACH_WIN_250);
+
+        int correct = PlayerStats.getCorrectAnswers(c);
+        if (correct >= 10) unlockAchievement(c, ACH_CORRECT_10);
+        if (correct >= 50) unlockAchievement(c, ACH_CORRECT_50);
+        if (correct >= 100) unlockAchievement(c, ACH_CORRECT_100);
+        if (correct >= 500) unlockAchievement(c, ACH_CORRECT_500);
+        if (correct >= 1000) unlockAchievement(c, ACH_CORRECT_1000);
+        if (correct >= 2500) unlockAchievement(c, ACH_CORRECT_2500);
+        if (correct >= 5000) unlockAchievement(c, ACH_CORRECT_5000);
+
+        int totalAnswered = PlayerStats.getTotalAnswered(c);
+        int accuracy = totalAnswered == 0 ? 0 : Math.round((correct * 100f) / totalAnswered);
+        if (totalAnswered >= 50 && accuracy >= 70) unlockAchievement(c, ACH_ACCURACY_70);
+        if (totalAnswered >= 100 && accuracy >= 80) unlockAchievement(c, ACH_ACCURACY_80);
+        if (totalAnswered >= 250 && accuracy >= 90) unlockAchievement(c, ACH_ACCURACY_90);
+
+        int bestStreak = PlayerStats.getBestStreak(c);
+        if (bestStreak >= 3) unlockAchievement(c, ACH_STREAK_3);
+        if (bestStreak >= 5) unlockAchievement(c, ACH_STREAK_5);
+        if (bestStreak >= 10) unlockAchievement(c, ACH_STREAK_10);
+        if (bestStreak >= 15) unlockAchievement(c, ACH_STREAK_15);
+
+        int bestWinStreak = PlayerStats.getBestWinStreak(c);
+        if (bestWinStreak >= 3) unlockAchievement(c, ACH_WIN_STREAK_3);
+        if (bestWinStreak >= 5) unlockAchievement(c, ACH_WIN_STREAK_5);
+        if (bestWinStreak >= 10) unlockAchievement(c, ACH_WIN_STREAK_10);
+
+        int highest = PlayerStats.getHighestMoney(c);
+        if (highest >= 1000) unlockAchievement(c, ACH_PRIZE_1000);
+        if (highest >= 32000) unlockAchievement(c, ACH_PRIZE_32000);
+        if (highest >= 500000) unlockAchievement(c, ACH_PRIZE_500000);
+        if (highest >= 1000000) unlockAchievement(c, ACH_PRIZE_1000000);
+
+        long totalEarnings = PlayerStats.getTotalEarnings(c);
+        if (totalEarnings >= 100000L) unlockAchievement(c, ACH_EARNINGS_100000);
+        if (totalEarnings >= 1000000L) unlockAchievement(c, ACH_EARNINGS_1000000);
+        if (totalEarnings >= 10000000L) unlockAchievement(c, ACH_EARNINGS_10000000);
+
+        int onlineWins = getOnlineWins(c);
+        if (onlineWins >= 5) unlockAchievement(c, ACH_ONLINE_WIN_5);
+        if (onlineWins >= 10) unlockAchievement(c, ACH_ONLINE_WIN_10);
+        if (onlineWins >= 25) unlockAchievement(c, ACH_ONLINE_WIN_25);
+
+        int blitzFinishes = getBlitzFinishes(c);
+        if (blitzFinishes >= 5) unlockAchievement(c, ACH_BLITZ_FINISH_5);
+        if (blitzFinishes >= 15) unlockAchievement(c, ACH_BLITZ_FINISH_15);
+
+        int eliminationWins = getEliminationWins(c);
+        if (eliminationWins >= 3) unlockAchievement(c, ACH_ELIMINATION_WIN_3);
+        if (eliminationWins >= 10) unlockAchievement(c, ACH_ELIMINATION_WIN_10);
+
+        int survivalWins = getSurvivalWins(c);
+        if (survivalWins >= 3) unlockAchievement(c, ACH_SURVIVAL_WIN_3);
+        if (survivalWins >= 10) unlockAchievement(c, ACH_SURVIVAL_WIN_10);
+
+        int seriesWins = getSeriesWins(c);
+        if (seriesWins >= 3) unlockAchievement(c, ACH_SERIES_WIN_3);
+        if (seriesWins >= 10) unlockAchievement(c, ACH_SERIES_WIN_10);
+
+        int teamBattleWins = getTeamBattleWins(c);
+        if (teamBattleWins >= 5) unlockAchievement(c, ACH_TEAM_BATTLE_WIN_5);
+        if (teamBattleWins >= 15) unlockAchievement(c, ACH_TEAM_BATTLE_WIN_15);
+
+        // New Modes & Features Achievements
+        int localTeams = Math.max(getLocalTeamsPlayed(c), prefs(c).getInt("mode_local_teams_games", 0));
+        if (localTeams >= 1) unlockAchievement(c, ACH_LOCAL_TEAMS);
+        if (localTeams >= 5) unlockAchievement(c, ACH_LOCAL_TEAMS_5);
+
+        int offlineGames = Math.max(getOfflineBoardPlayed(c), prefs(c).getInt("mode_board_games", 0));
+        if (offlineGames >= 1) unlockAchievement(c, ACH_OFFLINE_BOARD);
+
+        int offlineWins = Math.max(getOfflineBoardWins(c), prefs(c).getInt("mode_board_wins", 0));
+        if (offlineWins >= 1) unlockAchievement(c, ACH_OFFLINE_BOARD_WIN);
+
+        if (getTvCastCount(c) >= 1) unlockAchievement(c, ACH_TV_CAST);
+        if (getFriendMatchesPlayed(c) >= 1) unlockAchievement(c, ACH_FRIEND_BATTLE);
+        if (getRandomMatchesPlayed(c) >= 3) unlockAchievement(c, ACH_RANDOM_BATTLE_3);
+
+        int charsCount = AppPrefs.getUnlockedCharacters(c).size();
+        if (charsCount >= 2) unlockAchievement(c, ACH_CHARACTER_COLLECTOR);
+
+        checkCampaignAchievements(c);
+        checkAllDone(c);
+    }
+
+    private static void checkCampaignAchievements(Context c) {
+        int completed = getCampaignCompletedStages(c);
+        if (completed >= 5) unlockAchievement(c, ACH_CAMPAIGN_STAGE_5);
+        if (completed >= 20) unlockAchievement(c, ACH_CAMPAIGN_STAGE_20);
+        if (completed >= 50) unlockAchievement(c, ACH_CAMPAIGN_STAGE_50);
+
+        int stars = getCampaignStars(c);
+        if (stars >= 30) unlockAchievement(c, ACH_CAMPAIGN_STARS_30);
+        if (stars >= 100) unlockAchievement(c, ACH_CAMPAIGN_STARS_100);
+        if (stars >= 200) unlockAchievement(c, ACH_CAMPAIGN_STARS_200);
+
+        if (getCampaignBlitzCompletions(c) >= 3) unlockAchievement(c, ACH_CAMPAIGN_BLITZ_3);
+        if (getCampaignSurvivalCompletions(c) >= 3) unlockAchievement(c, ACH_CAMPAIGN_SURVIVAL_3);
+        if (getCampaignRivalCompletions(c) >= 3) unlockAchievement(c, ACH_CAMPAIGN_RIVAL_3);
+        if (getCampaignSeriesCompletions(c) >= 3) unlockAchievement(c, ACH_CAMPAIGN_SERIES_3);
+        if (getCampaignTeamCompletions(c) >= 3) unlockAchievement(c, ACH_CAMPAIGN_TEAM_3);
+        if (getCampaignNoHelpCompletions(c) >= 5) unlockAchievement(c, ACH_CAMPAIGN_NO_HELP_5);
+
+        int bossWins = getCampaignBossWins(c);
+        if (bossWins >= 1) unlockAchievement(c, ACH_CAMPAIGN_BOSS_1);
+        if (bossWins >= 5) unlockAchievement(c, ACH_CAMPAIGN_BOSS_5);
+        if (getCampaignPerfectCompletions(c) >= 10) unlockAchievement(c, ACH_CAMPAIGN_PERFECT_10);
+    }
+
+    public static void onCampaignStageFinished(
+            Context c,
+            String campaignId,
+            String stageId,
+            String campaignMode,
+            boolean completed,
+            int stars,
+            boolean bossDefeated,
+            int usedLifelines
+    ) {
+        if (stageId == null || stageId.trim().isEmpty()) return;
+
+        SharedPreferences p = prefs(c);
+        String safeCampaignId = campaignId == null || campaignId.trim().isEmpty()
+                ? "main_campaign"
+                : campaignId.trim();
+        String safeStageId = stageId.trim();
+        String stageKey = safeCampaignId + ":" + safeStageId;
+        String completedKey = "campaignStageCompleted:" + stageKey;
+        String perfectKey = "campaignStagePerfect:" + stageKey;
+        String starsKey = "campaignStageStars:" + stageKey;
+
+        int safeStars = Math.max(0, Math.min(3, stars));
+        int previousStars = p.getInt(starsKey, 0);
+        SharedPreferences.Editor editor = p.edit();
+        if (safeStars > previousStars) {
+            editor.putInt(starsKey, safeStars);
+            editor.putInt("campaignStars", p.getInt("campaignStars", 0) + (safeStars - previousStars));
+        }
+
+        boolean firstCompletion = completed && !p.getBoolean(completedKey, false);
+        if (firstCompletion) {
+            editor.putBoolean(completedKey, true);
+            editor.putInt("campaignCompletedStages", p.getInt("campaignCompletedStages", 0) + 1);
+            String normalizedMode = normalizeCampaignMode(campaignMode);
+            if ("blitz".equals(normalizedMode)) {
+                editor.putInt("campaignBlitzCompletions", p.getInt("campaignBlitzCompletions", 0) + 1);
+            } else if ("survival".equals(normalizedMode)) {
+                editor.putInt("campaignSurvivalCompletions", p.getInt("campaignSurvivalCompletions", 0) + 1);
+            } else if ("rival".equals(normalizedMode) || "battle".equals(normalizedMode)) {
+                editor.putInt("campaignRivalCompletions", p.getInt("campaignRivalCompletions", 0) + 1);
+            } else if ("series".equals(normalizedMode)) {
+                editor.putInt("campaignSeriesCompletions", p.getInt("campaignSeriesCompletions", 0) + 1);
+            } else if ("teamBattle".equals(normalizedMode)) {
+                editor.putInt("campaignTeamCompletions", p.getInt("campaignTeamCompletions", 0) + 1);
+            } else if ("noLifeline".equals(normalizedMode)) {
+                editor.putInt("campaignNoHelpCompletions", p.getInt("campaignNoHelpCompletions", 0) + 1);
+            }
+
+            if ("bossBattle".equals(normalizedMode) || bossDefeated) {
+                editor.putInt("campaignBossWins", p.getInt("campaignBossWins", 0) + 1);
+            }
+        }
+        boolean firstPerfectCompletion = completed
+                && safeStars >= 3
+                && usedLifelines <= 0
+                && !p.getBoolean(perfectKey, false);
+        if (firstPerfectCompletion) {
+            editor.putBoolean(perfectKey, true);
+            editor.putInt("campaignPerfectCompletions", p.getInt("campaignPerfectCompletions", 0) + 1);
+        }
+        editor.apply();
+        checkCampaignAchievements(c);
+        checkAllDone(c);
+    }
+
+    private static String normalizeCampaignMode(String mode) {
+        if (mode == null) return "classic";
+        String normalized = mode.trim().replace("_", "").replace("-", "").toLowerCase(Locale.US);
+        if ("speed".equals(normalized) || "blitz".equals(normalized)) return "blitz";
+        if ("survival".equals(normalized)) return "survival";
+        if ("rival".equals(normalized)) return "rival";
+        if ("battle".equals(normalized)) return "battle";
+        if ("series".equals(normalized)) return "series";
+        if ("teambattle".equals(normalized)) return "teamBattle";
+        if ("nolifeline".equals(normalized)) return "noLifeline";
+        if ("bossbattle".equals(normalized) || "boss".equals(normalized)) return "bossBattle";
+        return "classic";
+    }
+
+    private static void checkLevelAchievements(Context c) {
+        int lv = getLevel(c);
+        if (lv >= 5) unlockAchievement(c, ACH_LEVEL_5);
+        if (lv >= 10) unlockAchievement(c, ACH_LEVEL_10);
+        if (lv >= 20) unlockAchievement(c, ACH_LEVEL_20);
+        if (lv >= 30) unlockAchievement(c, ACH_LEVEL_30);
+        if (lv >= 45) unlockAchievement(c, ACH_LEVEL_45);
+        if (lv >= 50) unlockAchievement(c, ACH_LEVEL_50);
+        if (lv >= 60) unlockAchievement(c, ACH_LEVEL_60);
+    }
+
+    private static void checkCurrencyAchievements(Context c) {
+        int coins = getCoins(c);
+        if (coins >= 1000) unlockAchievement(c, ACH_COINS_1000);
+        if (coins >= 5000) unlockAchievement(c, ACH_COINS_5000);
+        if (coins >= 10000) unlockAchievement(c, ACH_COINS_10000);
+        if (coins >= 50000) unlockAchievement(c, ACH_COINS_50000);
+
+        int gems = getGems(c);
+        if (gems >= 50) unlockAchievement(c, ACH_GEMS_50);
+        if (gems >= 500) unlockAchievement(c, ACH_GEMS_500);
+        if (gems >= 1000) unlockAchievement(c, ACH_GEMS_1000);
+    }
+
+    private static void checkInventoryAchievements(Context c) {
+        int total = getInventory5050(c) + getInventoryAudience(c) + getInventoryCall(c);
+        if (total >= 5) unlockAchievement(c, ACH_INVENTORY_5);
+        if (total >= 15) unlockAchievement(c, ACH_INVENTORY_15);
+        if (total >= 30) unlockAchievement(c, ACH_INVENTORY_30);
+    }
+
+    public static void onGameFinished(
+            Context c,
+            boolean won,
+            int prizeMoney,
+            int bestStreak,
+            boolean usedAllHelps
+    ) {
+        onGameFinished(c, won, prizeMoney, bestStreak, usedAllHelps, usedAllHelps);
+    }
+
+    public static void onGameFinished(
+            Context c,
+            boolean won,
+            int prizeMoney,
+            int bestStreak,
+            boolean usedAllHelps,
+            boolean usedAnyHelp
+    ) {
+        PlayerStats.recordGameEnd(c, won, prizeMoney);
+        if (NativeProgression.online(c)) {
+            onOnlineMatchFinished(c, won, 0, NativeProgression.mode(c), true, NativeProgression.matchId(c));
+            return;
+        }
+        if (!claimMatchRewards(c, isCoinStake(c) ? 0 : MATCH_COMPLETION_BONUS + Math.max(50, prizeMoney / 40))) return;
+        won = ProgressionRules.WIN.equals(PlayerStats.matchOutcome(c));
+        unlockAchievement(c, ACH_FIRST_GAME);
+        if (won) unlockAchievement(c, ACH_FIRST_WIN);
+
+        if (bestStreak >= 3) unlockAchievement(c, ACH_STREAK_3);
+        if (bestStreak >= 5) unlockAchievement(c, ACH_STREAK_5);
+        if (bestStreak >= 10) unlockAchievement(c, ACH_STREAK_10);
+        if (bestStreak >= 15) unlockAchievement(c, ACH_STREAK_15);
+
+        if (prizeMoney >= 1000) unlockAchievement(c, ACH_PRIZE_1000);
+        if (prizeMoney >= 32000) unlockAchievement(c, ACH_PRIZE_32000);
+        if (prizeMoney >= 500000) unlockAchievement(c, ACH_PRIZE_500000);
+        if (prizeMoney >= 1000000) unlockAchievement(c, ACH_PRIZE_1000000);
+
+        if (usedAllHelps) unlockAchievement(c, ACH_USE_ALL_HELPS);
+        if (won && !usedAnyHelp) unlockAchievement(c, ACH_PERFECT_GAME);
+
+        checkMilestoneAchievements(c);
+    }
+
+    public static void onOnlineMatchFinished(Context c, boolean won, int roundsWon) {
+        onOnlineMatchFinished(c, won, roundsWon, "battle", false, null);
+    }
+
+    public static void onOnlineMatchFinished(
+            Context c,
+            boolean won,
+            int roundsWon,
+            String matchMode,
+            boolean completedToEnd,
+            String completionKey
+    ) {
+        PlayerStats.recordGameEnd(c, won, 0);
+        if (!claimMatchRewards(c, completedToEnd && !isCoinStake(c) ? MATCH_COMPLETION_BONUS : 0)) return;
+        won = ProgressionRules.WIN.equals(PlayerStats.matchOutcome(c));
+        unlockAchievement(c, ACH_FIRST_GAME);
+        unlockAchievement(c, ACH_FIRST_ONLINE);
+        if (won) unlockAchievement(c, ACH_FIRST_WIN);
+
+        if (won) {
+            int onlineWins = getOnlineWins(c);
+            if (onlineWins >= 5) unlockAchievement(c, ACH_ONLINE_WIN_5);
+            if (onlineWins >= 10) unlockAchievement(c, ACH_ONLINE_WIN_10);
+            if (onlineWins >= 25) unlockAchievement(c, ACH_ONLINE_WIN_25);
+        }
+
+        final String normalizedMode = normalizeMode(matchMode);
+        if (completedToEnd && "blitz".equals(normalizedMode)) {
+            int blitzFinishes = getBlitzFinishes(c);
+            if (blitzFinishes >= 5) unlockAchievement(c, ACH_BLITZ_FINISH_5);
+            if (blitzFinishes >= 15) unlockAchievement(c, ACH_BLITZ_FINISH_15);
+        }
+
+        if (won) {
+            if ("elimination".equals(normalizedMode)) {
+                int total = getEliminationWins(c);
+                if (total >= 3) unlockAchievement(c, ACH_ELIMINATION_WIN_3);
+                if (total >= 10) unlockAchievement(c, ACH_ELIMINATION_WIN_10);
+            } else if ("survival".equals(normalizedMode)) {
+                int total = getSurvivalWins(c);
+                if (total >= 3) unlockAchievement(c, ACH_SURVIVAL_WIN_3);
+                if (total >= 10) unlockAchievement(c, ACH_SURVIVAL_WIN_10);
+            } else if ("series".equals(normalizedMode)) {
+                int total = getSeriesWins(c);
+                if (total >= 3) unlockAchievement(c, ACH_SERIES_WIN_3);
+                if (total >= 10) unlockAchievement(c, ACH_SERIES_WIN_10);
+            } else if ("team_battle".equals(normalizedMode)) {
+                int total = getTeamBattleWins(c);
+                if (total >= 5) unlockAchievement(c, ACH_TEAM_BATTLE_WIN_5);
+                if (total >= 15) unlockAchievement(c, ACH_TEAM_BATTLE_WIN_15);
+            }
+        }
+
+        checkMilestoneAchievements(c);
+    }
+
+    /** Restore account receipts monotonically; this method never awards currency or XP. */
+    public static synchronized boolean hydrateAchievementClaims(Context c, String uid,
+            java.util.List<String> unlocked, java.util.List<String> claimed) {
+        if (uid == null || !uid.equals(ProgressionAccount.uid(c))) return false;
+        migrateExistingAchievementClaims(c);
+        SharedPreferences p = prefs(c);
+        SharedPreferences.Editor editor = p.edit();
+        java.util.Set<String> valid = new java.util.HashSet<>(java.util.Arrays.asList(getAllAchievementKeys()));
+        for (String key : unlocked) {
+            if (valid.contains(key)) editor.putBoolean(key, true);
+        }
+        for (String key : claimed) {
+            if (valid.contains(key)) editor.putBoolean(key, true).putBoolean(claimKey(key), true);
+        }
+        ProgressionAccount.commitOrRollback(p, editor);
+        return true;
+    }
+
+    static boolean isCoinStake(Context c) {
+        if (!(c instanceof android.app.Activity)) return false;
+        android.content.Intent intent = ((android.app.Activity) c).getIntent();
+        String match = intent.getStringExtra("stakeMatchId");
+        return intent.getIntExtra("stakeCoins", 0) > 0 || (match != null && !match.isEmpty());
+    }
+
+    private static synchronized boolean claimMatchRewards(Context c, int coins) {
+        if (!NativeProgression.activeAccount(c)) return false;
+        String outcome = PlayerStats.matchOutcome(c);
+        if (outcome.isEmpty() || ProgressionRules.ABANDON.equals(outcome)) return false;
+        if (c instanceof android.app.Activity && !"campaign".equals(NativeProgression.mode(c))) {
+            GameEconomy.finish((android.app.Activity)c, ProgressionRules.WIN.equals(outcome));
+        }
+        SharedPreferences p = prefs(c);
+        String id = NativeProgression.matchId(c);
+        // No rewards for an empty lobby or an opponent leaving before gameplay.
+        if (p.getInt("session:" + id + ":correct", 0) + p.getInt("session:" + id + ":wrong", 0) == 0) return false;
+        String key = "completionReward:" + id;
+        if (p.getBoolean(key, false)) return false;
+        ProgressionAccount.commitOrRollback(p, p.edit().putBoolean(key, true)
+                .putInt("coins", ProgressionRules.safeAdd(p.getInt("coins", 0), Math.max(0, coins))));
+        return true;
+    }
+
+    private static int incrementCounter(Context c, String key, int amount) {
+        SharedPreferences p = prefs(c);
+        int next = ProgressionRules.safeAdd(p.getInt(key, 0), amount);
+        p.edit().putInt(key, next).apply();
+        return next;
+    }
+
+    private static void grantCompletedMatchBonus(Context c, String completionKey) {
+        if (completionKey != null && !completionKey.trim().isEmpty()) {
+            String normalizedKey = "bonusMatch:" + completionKey.trim();
+            SharedPreferences p = prefs(c);
+            if (p.getBoolean(normalizedKey, false)) {
+                return;
+            }
+            p.edit().putBoolean(normalizedKey, true).apply();
+        }
+        addCoins(c, MATCH_COMPLETION_BONUS);
+    }
+
+    private static String normalizeMode(String matchMode) {
+        if (matchMode == null) {
+            return "";
+        }
+        return matchMode.trim().toLowerCase(Locale.US);
+    }
+
+    public static boolean canClaimDailyReward(Context c) {
+        String today = new SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(new Date());
+        return !today.equals(prefs(c).getString("lastDailyDate", ""));
+    }
+
+    public static DailyReward claimDailyReward(Context c) {
+        SharedPreferences p = prefs(c);
+        String today = new SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(new Date());
+        String yesterday = p.getString("lastDailyDate", "");
+        int streak = p.getInt("dailyCount", 0);
+        if (!today.equals(yesterday)) {
+            streak += 1;
+        }
+        int coins = 500 + Math.min(streak, 7) * 50;
+        int gems = streak % 3 == 0 ? 2 : 1;
+        addCoins(c, coins);
+        addGems(c, gems);
+        p.edit().putString("lastDailyDate", today).putInt("dailyCount", streak).apply();
+        return new DailyReward(coins, gems, streak);
+    }
+
+    private static AchievementReward rewardForAchievement(String key) {
+        switch (key) {
+            case ACH_FIRST_GAME:
+                return new AchievementReward(50, 30);
+            case ACH_FIRST_WIN:
+            case ACH_FIRST_ONLINE:
+                return new AchievementReward(80, 50);
+            case ACH_BUY_POWERUP:
+                return new AchievementReward(60, 40);
+
+            case ACH_LEVEL_5:
+                return new AchievementReward(80, 50);
+            case ACH_LEVEL_10:
+                return new AchievementReward(120, 80);
+            case ACH_LEVEL_20:
+                return new AchievementReward(200, 120);
+            case ACH_LEVEL_30:
+                return new AchievementReward(300, 180);
+            case ACH_LEVEL_45:
+                return new AchievementReward(450, 250);
+            case ACH_LEVEL_50:
+                return new AchievementReward(500, 300);
+            case ACH_LEVEL_60:
+                return new AchievementReward(600, 400);
+
+            case ACH_GAMES_10:
+                return new AchievementReward(60, 40);
+            case ACH_GAMES_25:
+                return new AchievementReward(100, 60);
+            case ACH_GAMES_50:
+                return new AchievementReward(150, 90);
+            case ACH_GAMES_100:
+                return new AchievementReward(250, 140);
+            case ACH_GAMES_250:
+                return new AchievementReward(400, 220);
+            case ACH_GAMES_500:
+                return new AchievementReward(600, 350);
+
+            case ACH_WIN_5:
+                return new AchievementReward(80, 50);
+            case ACH_WIN_10:
+                return new AchievementReward(140, 80);
+            case ACH_WIN_25:
+                return new AchievementReward(220, 120);
+            case ACH_WIN_50:
+                return new AchievementReward(350, 180);
+            case ACH_WIN_100:
+                return new AchievementReward(500, 260);
+            case ACH_WIN_250:
+                return new AchievementReward(750, 400);
+
+            case ACH_CORRECT_10:
+                return new AchievementReward(50, 30);
+            case ACH_CORRECT_50:
+                return new AchievementReward(90, 50);
+            case ACH_CORRECT_100:
+                return new AchievementReward(150, 80);
+            case ACH_CORRECT_500:
+                return new AchievementReward(300, 150);
+            case ACH_CORRECT_1000:
+                return new AchievementReward(450, 250);
+            case ACH_CORRECT_2500:
+                return new AchievementReward(650, 350);
+            case ACH_CORRECT_5000:
+                return new AchievementReward(850, 500);
+
+            case ACH_ACCURACY_70:
+                return new AchievementReward(150, 80);
+            case ACH_ACCURACY_80:
+                return new AchievementReward(250, 140);
+            case ACH_ACCURACY_90:
+                return new AchievementReward(450, 250);
+
+            case ACH_PRIZE_1000:
+                return new AchievementReward(50, 30);
+            case ACH_PRIZE_32000:
+                return new AchievementReward(100, 60);
+            case ACH_PRIZE_500000:
+                return new AchievementReward(250, 140);
+            case ACH_PRIZE_1000000:
+                return new AchievementReward(500, 250);
+            case ACH_EARNINGS_100000:
+                return new AchievementReward(120, 70);
+            case ACH_EARNINGS_1000000:
+                return new AchievementReward(300, 160);
+            case ACH_EARNINGS_10000000:
+                return new AchievementReward(600, 350);
+
+            case ACH_STREAK_3:
+                return new AchievementReward(50, 30);
+            case ACH_STREAK_5:
+                return new AchievementReward(80, 50);
+            case ACH_STREAK_10:
+                return new AchievementReward(180, 100);
+            case ACH_STREAK_15:
+                return new AchievementReward(350, 180);
+            case ACH_WIN_STREAK_3:
+                return new AchievementReward(120, 70);
+            case ACH_WIN_STREAK_5:
+                return new AchievementReward(250, 140);
+            case ACH_WIN_STREAK_10:
+                return new AchievementReward(500, 250);
+
+            case ACH_COINS_1000:
+                return new AchievementReward(50, 30);
+            case ACH_COINS_5000:
+                return new AchievementReward(100, 60);
+            case ACH_COINS_10000:
+                return new AchievementReward(180, 100);
+            case ACH_COINS_50000:
+                return new AchievementReward(400, 200);
+            case ACH_GEMS_50:
+                return new AchievementReward(100, 60);
+            case ACH_GEMS_500:
+                return new AchievementReward(300, 160);
+            case ACH_GEMS_1000:
+                return new AchievementReward(500, 250);
+            case ACH_INVENTORY_5:
+                return new AchievementReward(70, 40);
+            case ACH_INVENTORY_15:
+                return new AchievementReward(150, 80);
+            case ACH_INVENTORY_30:
+                return new AchievementReward(280, 150);
+
+            case ACH_USE_5050:
+            case ACH_USE_AUDIENCE:
+            case ACH_USE_CALL:
+                return new AchievementReward(40, 25);
+            case ACH_USE_ALL_HELPS:
+                return new AchievementReward(150, 80);
+            case ACH_PERFECT_GAME:
+                return new AchievementReward(400, 200);
+
+            case ACH_ONLINE_WIN_5:
+                return new AchievementReward(120, 70);
+            case ACH_ONLINE_WIN_10:
+                return new AchievementReward(200, 110);
+            case ACH_ONLINE_WIN_25:
+                return new AchievementReward(400, 200);
+            case ACH_BLITZ_FINISH_5:
+                return new AchievementReward(140, 80);
+            case ACH_BLITZ_FINISH_15:
+                return new AchievementReward(300, 160);
+            case ACH_ELIMINATION_WIN_3:
+            case ACH_SURVIVAL_WIN_3:
+                return new AchievementReward(150, 80);
+            case ACH_ELIMINATION_WIN_10:
+            case ACH_SURVIVAL_WIN_10:
+                return new AchievementReward(380, 200);
+            case ACH_SERIES_WIN_3:
+                return new AchievementReward(160, 90);
+            case ACH_SERIES_WIN_10:
+                return new AchievementReward(420, 220);
+            case ACH_TEAM_BATTLE_WIN_5:
+                return new AchievementReward(180, 100);
+            case ACH_TEAM_BATTLE_WIN_15:
+                return new AchievementReward(450, 250);
+
+            case ACH_CAMPAIGN_STAGE_5:
+                return new AchievementReward(50, 80);
+            case ACH_CAMPAIGN_STAGE_20:
+                return new AchievementReward(100, 180);
+            case ACH_CAMPAIGN_STAGE_50:
+                return new AchievementReward(180, 350);
+            case ACH_CAMPAIGN_STARS_30:
+                return new AchievementReward(80, 120);
+            case ACH_CAMPAIGN_STARS_100:
+                return new AchievementReward(150, 260);
+            case ACH_CAMPAIGN_STARS_200:
+                return new AchievementReward(250, 450);
+            case ACH_CAMPAIGN_BLITZ_3:
+            case ACH_CAMPAIGN_SURVIVAL_3:
+            case ACH_CAMPAIGN_RIVAL_3:
+            case ACH_CAMPAIGN_SERIES_3:
+            case ACH_CAMPAIGN_TEAM_3:
+                return new AchievementReward(80, 100);
+            case ACH_CAMPAIGN_NO_HELP_5:
+                return new AchievementReward(100, 200);
+            case ACH_CAMPAIGN_BOSS_1:
+                return new AchievementReward(100, 150);
+            case ACH_CAMPAIGN_BOSS_5:
+                return new AchievementReward(200, 350);
+            case ACH_CAMPAIGN_PERFECT_10:
+                return new AchievementReward(250, 400);
+
+            // New Achievements
+            case ACH_LOCAL_TEAMS:
+                return new AchievementReward(100, 50);
+            case ACH_LOCAL_TEAMS_5:
+                return new AchievementReward(250, 120);
+            case ACH_TV_CAST:
+                return new AchievementReward(120, 60);
+            case ACH_OFFLINE_BOARD:
+                return new AchievementReward(100, 50);
+            case ACH_OFFLINE_BOARD_WIN:
+                return new AchievementReward(220, 110);
+            case ACH_FRIEND_BATTLE:
+                return new AchievementReward(120, 60);
+            case ACH_RANDOM_BATTLE_3:
+                return new AchievementReward(180, 90);
+            case ACH_CHARACTER_COLLECTOR:
+                return new AchievementReward(150, 70);
+
+            case ACH_ALL_DONE:
+                return new AchievementReward(1200, 600);
+            default:
+                return new AchievementReward(50, 30);
+        }
+    }
+
+    public static final int XP_ONLINE_WIN = 100;
+    public static final int XP_ONLINE_LOSS = 30;
+    public static final int XP_ONLINE_ROUND_WON = 15;
+    public static final int XP_OFFLINE_WIN = 80;
+    public static final int XP_OFFLINE_LOSS = 20;
+
+    public static void resetAll(Context c) {
+        prefs(c).edit().clear().apply();
+    }
+
+    private static void migrateExistingAchievementClaims(Context c) {
+        SharedPreferences p = prefs(c);
+        if (p.getBoolean(KEY_ACHIEVEMENT_CLAIMS_MIGRATED, false)) {
+            return;
+        }
+        SharedPreferences.Editor editor = p.edit();
+        for (String key : getAllAchievementKeys()) {
+            if (p.getBoolean(key, false)) {
+                editor.putBoolean(claimKey(key), true);
+            }
+        }
+        editor.putBoolean(KEY_ACHIEVEMENT_CLAIMS_MIGRATED, true).apply();
+    }
+
+    private static String claimKey(String key) {
+        return CLAIMED_PREFIX + key;
+    }
+
+    private static final class AchievementReward {
+        final int coins;
+        final int xp;
+
+        AchievementReward(int coins, int xp) {
+            this.coins = coins;
+            this.xp = xp;
+        }
+    }
+
+    public static class ClaimRewardResult {
+        public final boolean success;
+        public final int claimedCount;
+        public final int coins;
+        public final int xp;
+        public final int totalCoins;
+        public final int totalGems;
+        public final int totalXp;
+
+        public ClaimRewardResult(
+                boolean success,
+                int coins,
+                int xp,
+                int totalCoins,
+                int totalGems,
+                int totalXp
+        ) {
+            this(success, success ? 1 : 0, coins, xp, totalCoins, totalGems, totalXp);
+        }
+
+        public ClaimRewardResult(
+                boolean success,
+                int claimedCount,
+                int coins,
+                int xp,
+                int totalCoins,
+                int totalGems,
+                int totalXp
+        ) {
+            this.success = success;
+            this.claimedCount = claimedCount;
+            this.coins = coins;
+            this.xp = xp;
+            this.totalCoins = totalCoins;
+            this.totalGems = totalGems;
+            this.totalXp = totalXp;
+        }
+    }
+
+    public static class DailyReward {
+        public final int coins;
+        public final int gems;
+        public final int streak;
+
+        public DailyReward(int coins, int gems, int streak) {
+            this.coins = coins;
+            this.gems = gems;
+            this.streak = streak;
+        }
+    }
+}

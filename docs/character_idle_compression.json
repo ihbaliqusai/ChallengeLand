@@ -1,0 +1,188 @@
+{
+  "settings": {
+    "codec": "h264",
+    "profile": "Main",
+    "width": 540,
+    "height": 960,
+    "crf": 25,
+    "preset": "slow",
+    "pixelFormat": "yuv420p",
+    "audio": false
+  },
+  "clips": [
+    {
+      "character": "layan",
+      "nameAr": "ليان",
+      "source": "video_main1.mp4",
+      "output": "android/app/src/main/res/raw/video_layan.mp4",
+      "sourceBytes": 8630595,
+      "outputBytes": 298779,
+      "previousBytes": 321401,
+      "sourceSha256": "e5ebe16ad5cb885dfd4ab0dc6b24533c3a8914881ef4f25d870d632c6e13ab72",
+      "previousSha256": "e9ac1865830742695e1c09f87fd9b2e580e8eed3565560cabff9d8725525ee29",
+      "outputSha256": "e5e870126133f821eadf524d47d896d919684c5fc47478e59f26437e0e18ce6f",
+      "sourceFrames": 214,
+      "outputFrames": 214,
+      "sourceInfo": {
+        "video": "Stream #0:0(eng): Video: h264 (Main) (avc1 / 0x31637661), yuv420p, 720x1280 [SAR 1:1 DAR 9:16], 7410 kb/s, 24 fps, 24 tbr, 24k tbn, 48 tbc (default)",
+        "duration": "00:00:08.96",
+        "audio": true
+      },
+      "outputInfo": {
+        "video": "Stream #0:0(und): Video: h264 (Main) (avc1 / 0x31637661), yuv420p, 540x960 [SAR 1:1 DAR 9:16], 264 kb/s, 24 fps, 24 tbr, 12288 tbn, 48 tbc (default)",
+        "duration": "00:00:08.92",
+        "audio": false
+      }
+    },
+    {
+      "character": "rashid",
+      "nameAr": "راشد",
+      "source": "video_main2.mp4",
+      "output": "android/app/src/main/res/raw/video_rashid.mp4",
+      "sourceBytes": 8887529,
+      "outputBytes": 266363,
+      "previousBytes": 267833,
+      "sourceSha256": "ae743b046317f752b8b77dc1eef4c758c57969a58730671855f07fef4db22d37",
+      "previousSha256": "216cbb5a94f40112fb09738b6941043de2c5ee36e94f7762d1b774135fd929d2",
+      "outputSha256": "4137dbcd0947992e16b082d24baf4879157b3de7d752e40d90c195d8adff9335",
+      "sourceFrames": 224,
+      "outputFrames": 224,
+      "sourceInfo": {
+        "video": "Stream #0:0(eng): Video: h264 (Main) (avc1 / 0x31637661), yuv420p, 720x1280 [SAR 1:1 DAR 9:16], 7285 kb/s, 24 fps, 24 tbr, 24k tbn, 48 tbc (default)",
+        "duration": "00:00:09.39",
+        "audio": true
+      },
+      "outputInfo": {
+        "video": "Stream #0:0(und): Video: h264 (Main) (avc1 / 0x31637661), yuv420p, 540x960 [SAR 1:1 DAR 9:16], 225 kb/s, 24 fps, 24 tbr, 12288 tbn, 48 tbc (default)",
+        "duration": "00:00:09.33",
+        "audio": false
+      }
+    },
+    {
+      "character": "jana",
+      "nameAr": "جنى",
+      "source": "video_main4.mp4",
+      "output": "android/app/src/main/res/raw/video_jana.mp4",
+      "sourceBytes": 7755127,
+      "outputBytes": 222008,
+      "previousBytes": 249538,
+      "sourceSha256": "18334553daa89ea9379a56ba277c65efbba45df5bb7ab559569273b6cdd0819e",
+      "previousSha256": "5b2d73849d3498f2bac791395ab52c897c9f0aecc07d0f044b3d6d492622e26d",
+      "outputSha256": "9e92df3b2f9115acdaed18f7f9d3e54c303f4d4e54dbbaab3d478e2736f13944",
+      "sourceFrames": 200,
+      "outputFrames": 200,
+      "sourceInfo": {
+        "video": "Stream #0:0(eng): Video: h264 (Main) (avc1 / 0x31637661), yuv420p, 720x1280 [SAR 1:1 DAR 9:16], 7111 kb/s, 24 fps, 24 tbr, 24k tbn, 48 tbc (default)",
+        "duration": "00:00:08.38",
+        "audio": true
+      },
+      "outputInfo": {
+        "video": "Stream #0:0(und): Video: h264 (Main) (avc1 / 0x31637661), yuv420p, 540x960 [SAR 1:1 DAR 9:16], 210 kb/s, 24 fps, 24 tbr, 12288 tbn, 48 tbc (default)",
+        "duration": "00:00:08.33",
+        "audio": false
+      }
+    },
+    {
+      "character": "yazan",
+      "nameAr": "يزن",
+      "source": "video_main5.mp4",
+      "output": "android/app/src/main/res/raw/video_yazan.mp4",
+      "sourceBytes": 9190549,
+      "outputBytes": 307187,
+      "previousBytes": 307651,
+      "sourceSha256": "054b5c65a72d3c54ffa3bcfb28b9c5a6437e885c05762c2c58718f1492a30e0a",
+      "previousSha256": "d920c65ef88878a035d4d5f3e54dcaddb333d15013bff97c06e975e3a02f46d2",
+      "outputSha256": "c5fd3dcfc258e05ac870c5a3f28a2cd9993acfef2a1a71ccda380cd060755f51",
+      "sourceFrames": 225,
+      "outputFrames": 225,
+      "sourceInfo": {
+        "video": "Stream #0:0(eng): Video: h264 (Main) (avc1 / 0x31637661), yuv420p, 720x1280 [SAR 1:1 DAR 9:16], 7510 kb/s, 24 fps, 24 tbr, 24k tbn, 48 tbc (default)",
+        "duration": "00:00:09.43",
+        "audio": true
+      },
+      "outputInfo": {
+        "video": "Stream #0:0(und): Video: h264 (Main) (avc1 / 0x31637661), yuv420p, 540x960 [SAR 1:1 DAR 9:16], 259 kb/s, 24 fps, 24 tbr, 12288 tbn, 48 tbc (default)",
+        "duration": "00:00:09.38",
+        "audio": false
+      }
+    },
+    {
+      "character": "nour",
+      "nameAr": "ريناد",
+      "source": "video_main7.mp4",
+      "output": "android/app/src/main/res/raw/video_nour.mp4",
+      "sourceBytes": 9293450,
+      "outputBytes": 368879,
+      "previousBytes": 369777,
+      "sourceSha256": "2dcd6274980a6790ecf85e9ab990d526ae7d0d90e9444e3b0e67889780baaab9",
+      "previousSha256": "7a8ea9d32872c4ef7dc3a0b3e8cc423d698846b8ddd9e5c8d4e84c5515e5580c",
+      "outputSha256": "ecbd73f5544a4f18859ecb1259456da2c85c6ac209df79de91459d009fe1445e",
+      "sourceFrames": 227,
+      "outputFrames": 227,
+      "sourceInfo": {
+        "video": "Stream #0:0(eng): Video: h264 (Main) (avc1 / 0x31637661), yuv420p, 720x1280 [SAR 1:1 DAR 9:16], 7528 kb/s, 24 fps, 24 tbr, 24k tbn, 48 tbc (default)",
+        "duration": "00:00:09.49",
+        "audio": true
+      },
+      "outputInfo": {
+        "video": "Stream #0:0(und): Video: h264 (Main) (avc1 / 0x31637661), yuv420p, 540x960 [SAR 1:1 DAR 9:16], 308 kb/s, 24 fps, 24 tbr, 12288 tbn, 48 tbc (default)",
+        "duration": "00:00:09.46",
+        "audio": false
+      }
+    },
+    {
+      "character": "zaid",
+      "nameAr": "زيد",
+      "source": "video_main8.mp4",
+      "output": "android/app/src/main/res/raw/video_zaid.mp4",
+      "sourceBytes": 7685322,
+      "outputBytes": 185166,
+      "previousBytes": 204462,
+      "sourceSha256": "db95700589a4391b58d5599211c8e7b7d1a553be20cf479f2df388f84d1836e3",
+      "previousSha256": "6cf67deed6b471da2be7c5cef723916eca9d27e37f8d75457b3448589cd382a6",
+      "outputSha256": "d0966a31b639fcdf23e07dc519da572aeb467c4a6b38492eec59c87c7a630c21",
+      "sourceFrames": 200,
+      "outputFrames": 200,
+      "sourceInfo": {
+        "video": "Stream #0:0(eng): Video: h264 (Main) (avc1 / 0x31637661), yuv420p, 720x1280 [SAR 1:1 DAR 9:16], 7044 kb/s, 24 fps, 24 tbr, 24k tbn, 48 tbc (default)",
+        "duration": "00:00:08.38",
+        "audio": true
+      },
+      "outputInfo": {
+        "video": "Stream #0:0(und): Video: h264 (Main) (avc1 / 0x31637661), yuv420p, 540x960 [SAR 1:1 DAR 9:16], 174 kb/s, 24 fps, 24 tbr, 12288 tbn, 48 tbc (default)",
+        "duration": "00:00:08.33",
+        "audio": false
+      }
+    },
+    {
+      "character": "adam",
+      "nameAr": "آدم",
+      "source": "video_main12.mp4",
+      "output": "android/app/src/main/res/raw/video_adam.mp4",
+      "sourceBytes": 9347950,
+      "outputBytes": 241295,
+      "previousBytes": 240089,
+      "sourceSha256": "4b29b57cbf35199077d4ab51bbd6058f310bcfbdcf48ef8e30fa7a720a39e120",
+      "previousSha256": "e5e4b22cd018251d36bb3c243b5d8662ebc6bf329d42be08dae08ea4e67fac6a",
+      "outputSha256": "82011f61f33aeb4958573a6b9b10ae9af6101188ff02d87621153c5acc7ed31e",
+      "sourceFrames": 228,
+      "outputFrames": 228,
+      "sourceInfo": {
+        "video": "Stream #0:0(eng): Video: h264 (Main) (avc1 / 0x31637661), yuv420p, 720x1280 [SAR 1:1 DAR 9:16], 7540 kb/s, 24 fps, 24 tbr, 24k tbn, 48 tbc (default)",
+        "duration": "00:00:09.54",
+        "audio": true
+      },
+      "outputInfo": {
+        "video": "Stream #0:0(und): Video: h264 (Main) (avc1 / 0x31637661), yuv420p, 540x960 [SAR 1:1 DAR 9:16], 200 kb/s, 24 fps, 24 tbr, 12288 tbn, 48 tbc (default)",
+        "duration": "00:00:09.50",
+        "audio": false
+      }
+    }
+  ],
+  "unchangedCharacters": [
+    "salman"
+  ],
+  "sourceBytes": 60790522,
+  "outputBytes": 1889677,
+  "savedPercent": 96.89149403915302
+}

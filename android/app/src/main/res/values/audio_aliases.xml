@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Exact SHA-256 duplicates. Retain every public R.raw ID while packaging
+         one copy of each recording. No sound or playback call is changed. -->
+    <item type="raw" name="s_5000000">@raw/main_theme_0</item>
+    <item type="raw" name="s_250000">@raw/main_theme_1</item>
+    <item type="raw" name="s_32000">@raw/main_theme_3</item>
+    <item type="raw" name="main_theme_5">@raw/main_theme_4</item>
+</resources>

@@ -1,0 +1,31 @@
+{
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "commerce",
+      "ignore": ["node_modules", ".git", "*-debug.log", "test"]
+    }
+  ],
+  "database": {
+    "rules": "database.rules.json"
+  },
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "hosting": {
+    "public": "public",
+    "cleanUrls": true,
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "/play",
+        "destination": "/play/index.html"
+      }
+    ]
+  }
+}

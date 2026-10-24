@@ -1,0 +1,120 @@
+package com.qi7bali.landchallengeonline;
+
+import android.util.Log;
+
+import org.json.JSONObject;
+
+final class GameCampaignResultStore {
+    private final GameActivity activity;
+
+    GameCampaignResultStore(GameActivity activity) {
+        this.activity = activity;
+    }
+
+    void persistPendingStageResult(boolean completed, int money, int wrongAnswers) {
+        if (!activity.campaignMode || activity.campaignResultPersisted
+                || !NativeProgression.activeAccount(activity)) {
+            return;
+        }
+        activity.stopCampaignStageTimer();
+        try {
+            JSONObject payload = new JSONObject();
+            int targetCount = activity.getCampaignTargetQuestionCount();
+            int answeredCorrect = Math.max(0, Math.min(targetCount, activity.campaignCorrectAnswers));
+            payload.put("mode", "campaign");
+            payload.put("accountUid", ProgressionAccount.uid(activity));
+            payload.put("campaignId", activity.campaignId);
+            payload.put("stageId", activity.campaignStageId);
+            payload.put("attemptId", activity.campaignAttemptId);
+            payload.put("completedAtMs", System.currentTimeMillis());
+            payload.put("stageType", activity.campaignStageType);
+            boolean boardBoss = activity.campaignBoard && "boss".equals(activity.boardCampaignKind);
+            boolean backgroundLimit = "background_limit".equals(activity.campaignFailureReason);
+            boolean bossDefeated = !backgroundLimit && (boardBoss ? completed
+                    : activity.campaignBossBattle && activity.isCampaignBossDefeated());
+            boolean effectiveCompleted = !backgroundLimit && (activity.campaignBossBattle
+                    && !activity.campaignBoard ? bossDefeated : completed);
+            GameEconomy.finish(activity, effectiveCompleted);
+            if (!"question_pool_unavailable".equals(activity.campaignFailureReason)) {
+                PlayerStats.recordGameEnd(activity, effectiveCompleted, money);
+            }
+            int boardOpponentScore = 0;
+            if (boardBoss && activity.offlineContestants != null) {
+                for (int slot = 1; slot < activity.offlineContestants.contestantCount(); slot++) {
+                    boardOpponentScore = Math.max(boardOpponentScore, activity.offlineContestants.scoreForSlot(slot));
+                }
+            }
+            int playerScore = activity.getCampaignPlayerScore();
+            payload.put("completed", effectiveCompleted);
+            payload.put("gameplayXp", PlayerStats.matchXp(activity));
+            payload.put("trophyDelta", PlayerStats.matchTrophies(activity));
+            payload.put("score", playerScore);
+            payload.put("money", Math.max(0, money));
+            payload.put("correctAnswers", answeredCorrect);
+            payload.put("answeredQuestions", Math.max(0, activity.campaignAnsweredQuestions));
+            payload.put("wrongAnswers", Math.max(activity.campaignWrongAnswers, Math.max(0, wrongAnswers)));
+            payload.put("timeMs", Math.max(0L, System.currentTimeMillis() - activity.campaignStartedAtMs));
+            payload.put("used5050", Math.max(0, activity.campaignUsed5050));
+            payload.put("usedAudience", Math.max(0, activity.campaignUsedAudience));
+            payload.put("usedCall", Math.max(0, activity.campaignUsedCall));
+            payload.put("campaignMode", activity.campaignStageMode);
+            payload.put("winCondition", activity.campaignWinCondition);
+            // تحدي المراحل board stage: score-vs-target (solo) or beat-the-bots (boss).
+            payload.put("campaignBoard", activity.campaignBoard);
+            payload.put("boardKind", activity.boardCampaignKind);
+            payload.put("boardTargetScore", Math.max(0, activity.boardTargetScore));
+            payload.put("boardBotCount", Math.max(0, activity.boardBotCount));
+            payload.put("boardRequiredCategoryCount", activity.boardRequiredCategoryCount);
+            payload.put("boardCategoryWins", activity.getCampaignBoardCategoryWins());
+            payload.put("bossStyle", activity.boardBossStyle);
+            payload.put("boardDesignVersion", activity.boardDesignVersion);
+            payload.put("boardTwoStarScore", activity.boardTwoStarScore);
+            payload.put("boardThreeStarScore", activity.boardThreeStarScore);
+            payload.put("boardMaxScore", activity.getCampaignBoardMaximumScore());
+            payload.put("failureReason", effectiveCompleted ? "" : activity.safeString(activity.campaignFailureReason));
+            payload.put("lives", Math.max(0, activity.campaignLives));
+            payload.put("livesRemaining", Math.max(0, activity.campaignLivesRemaining));
+            payload.put("maxWrongAnswers", Math.max(0, activity.campaignMaxWrongAnswers));
+            payload.put("targetScore", Math.max(0, activity.campaignTargetScore));
+            payload.put("playerScore", Math.max(0, playerScore));
+            payload.put("opponentName", activity.safeString(activity.campaignOpponentName));
+            payload.put("opponentAccuracy", Math.max(0, activity.campaignOpponentAccuracy));
+            payload.put("opponentScore", boardBoss ? boardOpponentScore : Math.max(0, activity.campaignOpponentScore));
+            payload.put("opponentCorrectAnswers", Math.max(0, activity.campaignOpponentCorrectAnswers));
+            payload.put("opponentWrongAnswers", Math.max(0, activity.campaignOpponentWrongAnswers));
+            payload.put("bossName", activity.campaignBossOpponent != null ? activity.campaignBossOpponent.name : activity.safeString(activity.campaignBossBotName));
+            payload.put("bossDefeated", bossDefeated);
+            payload.put("bossBattleWon", bossDefeated);
+            payload.put("bossScore", boardBoss ? boardOpponentScore
+                    : activity.campaignBossOpponent != null ? Math.max(0, activity.campaignBossOpponent.gameScore) : 0);
+            payload.put("bossCorrectAnswers", activity.campaignBossOpponent != null ? Math.max(0, activity.campaignBossOpponent.totalCorrectAnswers) : 0);
+            payload.put("bossWrongAnswers", activity.campaignBossOpponent != null ? Math.max(0, targetCount - activity.campaignBossOpponent.totalCorrectAnswers) : 0);
+            payload.put("seriesRounds", Math.max(0, activity.campaignSeriesRounds));
+            payload.put("seriesWinsRequired", Math.max(0, activity.campaignSeriesWinsRequired));
+            payload.put("playerSeriesWins", Math.max(0, activity.campaignPlayerSeriesWins));
+            payload.put("opponentSeriesWins", Math.max(0, activity.campaignOpponentSeriesWins));
+            payload.put("teamAllyName", activity.safeString(activity.campaignTeamAllyName));
+            payload.put("teamEnemyName", activity.safeString(activity.campaignTeamEnemyName));
+            payload.put("allyScore", Math.max(0, activity.campaignAllyScore));
+            payload.put("teamScore", Math.max(0, activity.campaignTeamScore));
+            payload.put("enemyTeamScore", Math.max(0, activity.campaignEnemyTeamScore));
+            if (activity.campaignBossBattle && activity.campaignBossOpponent != null) {
+                payload.put("bossName", activity.campaignBossOpponent.name);
+                payload.put("bossIntelligence", activity.campaignBossOpponent.intelligence);
+                payload.put("bossDefeated", bossDefeated);
+                payload.put("bossBattleWon", bossDefeated);
+                payload.put("playerScore", Math.max(0, activity.gameScoreMe));
+                payload.put("bossScore", Math.max(0, activity.campaignBossOpponent.gameScore));
+                payload.put("bossCorrectAnswers", Math.max(0, activity.campaignBossOpponent.totalCorrectAnswers));
+                payload.put("bossWrongAnswers", Math.max(0, targetCount - activity.campaignBossOpponent.totalCorrectAnswers));
+            }
+            AppPrefs.setPendingCampaignStageResult(activity, payload.toString());
+            activity.campaignResultPersisted = true;
+            Log.d("CampaignStage", "CAMP_RESULT_SAVED stageId=" + activity.campaignStageId
+                    + " completed=" + effectiveCompleted
+                    + " correct=" + answeredCorrect
+                    + " wrong=" + Math.max(activity.campaignWrongAnswers, Math.max(0, wrongAnswers)));
+        } catch (Exception ignored) {
+        }
+    }
+}

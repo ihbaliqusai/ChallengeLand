@@ -1,0 +1,1854 @@
+const fs = require('fs');
+const path = require('path');
+
+const questions = [
+  // ==========================================
+  // LEVEL 0 (20 questions) - World-Famous Blockbusters
+  // ==========================================
+  {
+    Level: "0",
+    Q: "في فيلم Titanic، ما اسم البطل الشاب الفقير الذي وقع في حب روز؟",
+    R: "Jack Dawson",
+    W1: "Cal Hockley",
+    W2: "Tommy Ryan",
+    W3: "Fabrizio Rossi",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "0",
+    Q: "في فيلم The Dark Knight، من هو العدو الفوضوي الشرير الذي يرتدي ملابس المهرج؟",
+    R: "The Joker",
+    W1: "Two-Face",
+    W2: "Bane",
+    W3: "Scarecrow",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "0",
+    Q: "في فيلم The Godfather، ما اسم رب العائلة والزعيم الأكبر لعائلة كورليوني؟",
+    R: "Vito Corleone",
+    W1: "Sonny Corleone",
+    W2: "Fredo Corleone",
+    W3: "Tom Hagen",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "0",
+    Q: "في فيلم Inception، ما اسم اللص المحترف المتخصص في اختراق الأحلام؟",
+    R: "Dom Cobb",
+    W1: "Arthur",
+    W2: "Eames",
+    W3: "Robert Fischer",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "0",
+    Q: "في فيلم The Matrix، ما اسم البطل المختار الملقب بـ The One؟",
+    R: "Neo",
+    W1: "Morpheus",
+    W2: "Cypher",
+    W3: "Agent Smith",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "0",
+    Q: "في فيلم The Lion King، ما اسم الشبل الصغير الذي هرب بعد مقتل والده موفاسا؟",
+    R: "Simba",
+    W1: "Scar",
+    W2: "Timon",
+    W3: "Pumbaa",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "0",
+    Q: "في سلسلة Harry Potter، ما اسم المدرسة السحرية الشهيرة التي يدرس فيها هاري؟",
+    R: "Hogwarts",
+    W1: "Durmstrang",
+    W2: "Beauxbatons",
+    W3: "Ilvermorny",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "0",
+    Q: "في فيلم Forrest Gump، ما الرياضة السريعة التي برع فيها فورست ومثل بلاده فيها؟",
+    R: "Table Tennis",
+    W1: "Basketball",
+    W2: "Baseball",
+    W3: "Ice Hockey",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "0",
+    Q: "في فيلم Avatar، ما اسم الكوكب الساحر الموطن الأصلي لشعب النافي؟",
+    R: "Pandora",
+    W1: "Krypton",
+    W2: "Arrakis",
+    W3: "Tatooine",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "0",
+    Q: "في فيلم Gladiator، ما اسم الجنرال الروماني المحارب الذي تحول إلى مصارع؟",
+    R: "Maximus",
+    W1: "Commodus",
+    W2: "Proximo",
+    W3: "Lucilla",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "0",
+    Q: "في فيلم Toy Story، ما اسم لعبة راعي البقر المخلصة وقائد ألعاب آندي؟",
+    R: "Woody",
+    W1: "Buzz Lightyear",
+    W2: "Rex",
+    W3: "Slinky Dog",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "0",
+    Q: "في فيلم Finding Nemo، ما نوع السمكة الصغيرة البرتقالية بطلة الفيلم؟",
+    R: "Clownfish",
+    W1: "Blue Tang",
+    W2: "Pufferfish",
+    W3: "Angelfish",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "0",
+    Q: "في فيلم The Shawshank Redemption، ما اسم المحاسب السجين المظلوم العبقري؟",
+    R: "Andy Dufresne",
+    W1: "Ellis Boyd Redding",
+    W2: "Samuel Norton",
+    W3: "Byron Hadley",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "0",
+    Q: "في فيلم Jurassic Park، ما نوع الكائنات المنقرضة المستنسخة داخل الحديقة؟",
+    R: "Dinosaurs",
+    W1: "Mammoths",
+    W2: "Sabertooth Tigers",
+    W3: "Giant Insects",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "0",
+    Q: "في فيلم Interstellar، ما اسم رائد الفضاء والمهندس السابق قائد الرحلة؟",
+    R: "Cooper",
+    W1: "Brand",
+    W2: "Mann",
+    W3: "Romilly",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "0",
+    Q: "في فيلم Pirates of the Caribbean، ما اسم القبطان غريب الأطوار بطل السلسلة؟",
+    R: "Jack Sparrow",
+    W1: "Hector Barbossa",
+    W2: "Will Turner",
+    W3: "Davy Jones",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "0",
+    Q: "في فيلم Spider-Man، ما هو الاسم الحقيقي للشاب الذي لدغته العنكبوت المعدلة؟",
+    R: "Peter Parker",
+    W1: "Harry Osborn",
+    W2: "Miles Morales",
+    W3: "Norman Osborn",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "0",
+    Q: "في فيلم The Lord of the Rings، ما اسم الهوبيت المكلف بحمل الخاتم وإتلافه؟",
+    R: "Frodo Baggins",
+    W1: "Samwise Gamgee",
+    W2: "Peregrin Took",
+    W3: "Meriadoc Brandybuck",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "0",
+    Q: "في فيلم Star Wars، من هو الشرير الأيقوني ذو القناع الأسود ووالد لوك سكاي ووكر؟",
+    R: "Darth Vader",
+    W1: "Emperor Palpatine",
+    W2: "Grand Moff Tarkin",
+    W3: "Count Dooku",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "0",
+    Q: "في فيلم Iron Man، ما الاسم الحقيقي للملياردير والمخترع صانع الدرع الخارق؟",
+    R: "Tony Stark",
+    W1: "Bruce Banner",
+    W2: "Steve Rogers",
+    W3: "Stephen Strange",
+    Category: "قصة فيلم اجنبي"
+  },
+
+  // ==========================================
+  // LEVEL 1 (50 questions) - Famous Plots & Characters
+  // ==========================================
+  {
+    Level: "1",
+    Q: "في فيلم Fight Club، ما اسم الشخصية الغامضة الكاريزماتية صانعة الصابون؟",
+    R: "Tyler Durden",
+    W1: "Robert Paulson",
+    W2: "Angel Face",
+    W3: "Richard Chesler",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "1",
+    Q: "في فيلم Pulp Fiction، ما اسم القاتل المأجور الذي جسده جون ترافولتا؟",
+    R: "Vincent Vega",
+    W1: "Jules Winnfield",
+    W2: "Butch Coolidge",
+    W3: "Marsellus Wallace",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "1",
+    Q: "في فيلم The Silence of the Lambs، ما اسم الطبيب النفسي آكل لحوم البشر؟",
+    R: "Hannibal Lecter",
+    W1: "Buffalo Bill",
+    W2: "Jack Crawford",
+    W3: "Frederick Chilton",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "1",
+    Q: "في فيلم Back to the Future، ما اسم السيارة المعدلة المستخدمة كآلة للسفر عبر الزمن؟",
+    R: "DeLorean",
+    W1: "Mustang",
+    W2: "Corvette",
+    W3: "Camaro",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "1",
+    Q: "في فيلم The Truman Show، ما اسم المدينة والبيئة الزائفة التي عاش فيها ترومان دون علمه؟",
+    R: "Seahaven",
+    W1: "Pleasantville",
+    W2: "Riverdale",
+    W3: "Rockwell",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "1",
+    Q: "في فيلم Joker، ما هو الاسم الحقيقي للشخصية المضطربة قبل تحولها لجوكر؟",
+    R: "Arthur Fleck",
+    W1: "Jack Napier",
+    W2: "Murray Franklin",
+    W3: "Thomas Wayne",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "1",
+    Q: "في فيلم Oppenheimer، ما اسم المشروع العسكري السري لصناعة القنبلة الذرية؟",
+    R: "Manhattan Project",
+    W1: "Apollo Project",
+    W2: "Mercury Project",
+    W3: "Gemini Project",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "1",
+    Q: "في فيلم Dune، ما اسم الكوكب الصحراوي الغني بالتوابل موطن الديدان العملاقة؟",
+    R: "Arrakis",
+    W1: "Caladan",
+    W2: "Giedi Prime",
+    W3: "Salusa Secundus",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "1",
+    Q: "في فيلم Coco، إلى أي عالم خارق يسافر الفتى ميغيل في يوم الموتى؟",
+    R: "Land of the Dead",
+    W1: "Land of the Living",
+    W2: "Land of the Forgotten",
+    W3: "Land of the Spirits",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "1",
+    Q: "في فيلم Up، ما هي الوسيلة العجيبة التي رفع بها العجوز كارل منزله في الهواء؟",
+    R: "Helium Balloons",
+    W1: "Rocket Boosters",
+    W2: "Giant Propellers",
+    W3: "Hot Air Blimp",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "1",
+    Q: "في فيلم WALL-E، ما اسم الروبوت الأنثوي المتطور التي وقع والي في حبها؟",
+    R: "EVE",
+    W1: "AUTO",
+    W2: "M-O",
+    W3: "PR-T",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "1",
+    Q: "في فيلم Ratatouille، ما اسم الفأر الموهوب في فنون الطهي والطبخ الراقي؟",
+    R: "Remy",
+    W1: "Emile",
+    W2: "Linguini",
+    W3: "Gusteau",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "1",
+    Q: "في فيلم Monsters, Inc.، ما هي الطاقة التي تعتمد عليها مدينة الوحوش لإنارة مصانعها؟",
+    R: "Children Screams",
+    W1: "Water Currents",
+    W2: "Solar Radiation",
+    W3: "Wind Turbines",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "1",
+    Q: "في فيلم Goodfellas، من هو بطل الفيلم الشاب الذي تمنى منذ صغره أن يصبح رجل عصابة؟",
+    R: "Henry Hill",
+    W1: "Jimmy Conway",
+    W2: "Tommy DeVito",
+    W3: "Paul Cicero",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "1",
+    Q: "في فيلم Scarface، ما اسم اللاجئ الكوبي الطموح الذي بنى إمبراطورية كوكايين في ميامي؟",
+    R: "Tony Montana",
+    W1: "Manny Ribera",
+    W2: "Frank Lopez",
+    W3: "Alejandro Sosa",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "1",
+    Q: "في فيلم The Wolf of Wall Street، ما اسم وسيط الأسهم المالية المحتال بطل القصة؟",
+    R: "Jordan Belfort",
+    W1: "Donnie Azoff",
+    W2: "Mark Hanna",
+    W3: "Patrick Denham",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "1",
+    Q: "في فيلم Catch Me If You Can، ما هي الحيلة الأولى التي بدأ بها فرانك أباغنيل انتحال الصفة؟",
+    R: "Airline Pilot",
+    W1: "Medical Doctor",
+    W2: "Prosecutor Lawyer",
+    W3: "Bank Manager",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "1",
+    Q: "في فيلم Shutter Island، ما هي الجزيرة المعزولة التي يسافر إليها تيدي دانيلز للتحقيق؟",
+    R: "Ashecliffe Hospital",
+    W1: "Alcatraz Island",
+    W2: "Blackgate Island",
+    W3: "Rikers Island",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "1",
+    Q: "في فيلم The Prestige، ما هو الاختصاص التنافسي الشرس بين روبرت أنجير وألفريد بوردن؟",
+    R: "Stage Magic",
+    W1: "Clockmaking",
+    W2: "Gunsmithing",
+    W3: "Opera Singing",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "1",
+    Q: "في فيلم Memento، ما هي العاهة الدماغية التي يعاني منها ليونارد شيلبي؟",
+    R: "Short-term Memory Loss",
+    W1: "Complete Blindness",
+    W2: "Severe Hallucinations",
+    W3: "Chronic Insomnia",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "1",
+    Q: "في فيلم Se7en، ما هو النمط والدافع الديني الذي يعتمد عليه القاتل المتسلسل جون دو؟",
+    R: "Seven Deadly Sins",
+    W1: "Ten Commandments",
+    W2: "Four Horsemen",
+    W3: "Twelve Apostles",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "1",
+    Q: "في فيلم Whiplash، ما هي الآلة الموسيقية الإيقاعية التي يسعى أندرو نيمان لإتقانها باحتراف؟",
+    R: "Drums",
+    W1: "Trumpet",
+    W2: "Saxophone",
+    W3: "Piano",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "1",
+    Q: "في فيلم La La Land، ما هي المهنة الفنية التي يسعى سيباستيان لتحقيق حلمه فيها؟",
+    R: "Jazz Pianist",
+    W1: "Film Director",
+    W2: "Stage Actor",
+    W3: "Fashion Designer",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "1",
+    Q: "في فيلم Django Unchained، ما هي مهنة الدكتور كينغ شولتز التي تستر بها في البداية؟",
+    R: "Dentist",
+    W1: "Pharmacist",
+    W2: "Schoolteacher",
+    W3: "Blacksmith",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "1",
+    Q: "في فيلم The Departed، ما اسم زعيم العصابة الأيرلندية المتنفذ في بوسطن؟",
+    R: "Frank Costello",
+    W1: "Colin Sullivan",
+    W2: "Billy Costigan",
+    W3: "Oliver Queenan",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "1",
+    Q: "في فيلم Cast Away، ما اسم كرة الطائرة التي اتخذها تشاك نولاند صديقا له في الجزيرة؟",
+    R: "Wilson",
+    W1: "Spalding",
+    W2: "Molten",
+    W3: "Rawlings",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "1",
+    Q: "في فيلم A Beautiful Mind، ما هو التخصص العلمي الدقيق الذي نال عنه جون ناش جائزة نوبل؟",
+    R: "Game Theory",
+    W1: "Quantum Physics",
+    W2: "Molecular Biology",
+    W3: "Organic Chemistry",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "1",
+    Q: "في فيلم The Pianist، في أي عاصمة أوروبية محتلة عاش عازف البيانو فلاديسلاف شبيلمان؟",
+    R: "Warsaw",
+    W1: "Prague",
+    W2: "Budapest",
+    W3: "Vienna",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "1",
+    Q: "في فيلم Life Is Beautiful، ما اسم اللعبة الخيالية الوهمية التي اخترعها غيدو لحماية طفله؟",
+    R: "Trophy Tank Game",
+    W1: "Secret Spy Mission",
+    W2: "Treasure Hunt Race",
+    W3: "Magic Castle Quest",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "1",
+    Q: "في فيلم Parasite، ما اسم العائلة الغنية التي احتالت عليها أسرة كيم للعمل في قصرها؟",
+    R: "Park Family",
+    W1: "Lee Family",
+    W2: "Choi Family",
+    W3: "Kang Family",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "1",
+    Q: "في فيلم Mad Max: Fury Road، ما اسم القائدة المتمردة الشجاعة ذات الذراع الميكانيكية؟",
+    R: "Imperator Furiosa",
+    W1: "The Dag",
+    W2: "Cheedo the Fragile",
+    W3: "Toast the Knowing",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "1",
+    Q: "في فيلم Top Gun: Maverick، ما هو اللقب والنداء الجوي الأسطوري للطيار بيت ميتشيل؟",
+    R: "Maverick",
+    W1: "Rooster",
+    W2: "Iceman",
+    W3: "Hangman",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "1",
+    Q: "في فيلم Blade Runner، ما اسم المحقق المكلف بمطاردة الآليين المتطابقين مع البشر؟",
+    R: "Rick Deckard",
+    W1: "Roy Batty",
+    W2: "Eldon Tyrell",
+    W3: "Gaff",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "1",
+    Q: "في فيلم Alien، ما اسم الضابطة البطلة والناجية الوحيدة على متن سفينة نوسترومو؟",
+    R: "Ellen Ripley",
+    W1: "Joan Lambert",
+    W2: "Arthur Dallas",
+    W3: "Gilbert Kane",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "1",
+    Q: "في فيلم Terminator 2، ما هو الطراز المتطور المعدني السائل للروبوت القاتل المرسل من المستقبل؟",
+    R: "T-1000",
+    W1: "T-800",
+    W2: "T-X",
+    W3: "T-3000",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "1",
+    Q: "في فيلم Braveheart، ما اسم الثائر الوطني الاسكتلندي قائد المقاومة ضد الاحتلال الإنجليزي؟",
+    R: "William Wallace",
+    W1: "Robert the Bruce",
+    W2: "Edward Longshanks",
+    W3: "Andrew Moray",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "1",
+    Q: "في فيلم Saving Private Ryan، في أي شاطئ فرنسي دموي جرى الإنزال العسكري في يوم النصر؟",
+    R: "Omaha Beach",
+    W1: "Utah Beach",
+    W2: "Gold Beach",
+    W3: "Juno Beach",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "1",
+    Q: "في فيلم Spirited Away، ما اسم الفتاة الصغيرة التي تحول والداها إلى خنازير في مدينة الأرواح؟",
+    R: "Chihiro",
+    W1: "San",
+    W2: "Kiki",
+    W3: "Sheeta",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "1",
+    Q: "في فيلم The Shining، ما اسم الفندق الجبلي المعزول والمحاصر بالثلوج محور الرعب؟",
+    R: "Overlook Hotel",
+    W1: "Bates Motel",
+    W2: "Grand Budapest Hotel",
+    W3: "Dolphin Hotel",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "1",
+    Q: "في فيلم Psycho، ما اسم مالك الفندق المنعزل الذي يرتكب جرائمه متقمصا شخصية والدته؟",
+    R: "Norman Bates",
+    W1: "Sam Loomis",
+    W2: "Milton Arbogast",
+    W3: "Lila Crane",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "1",
+    Q: "في فيلم Taxi Driver، ما اسم سائق التاكسي المحارب القديم في فيتنام المعادي لفساد نيويورك؟",
+    R: "Travis Bickle",
+    W1: "Betsy",
+    W2: "Sport",
+    W3: "Charles Palantine",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "1",
+    Q: "في فيلم Casablanca، ما اسم المقهى والملهى الشهير الذي يديره ريك بلين في المغرب؟",
+    R: "Rick Cafe Americain",
+    W1: "Blue Parrot Cafe",
+    W2: "Hotel Normandie",
+    W3: "Casablanca Lounge",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "1",
+    Q: "في فيلم 2001: A Space Odyssey، ما اسم الذكاء الاصطناعي المتحكم في سفينة الفضاء ديسكفري؟",
+    R: "HAL 9000",
+    W1: "GERTY",
+    W2: "TARS",
+    W3: "Skynet",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "1",
+    Q: "في فيلم Raiders of the Lost Ark، ما هو الأثر المقدس الذي يبحث عنه إنديانا جونز لمواجهة النازيين؟",
+    R: "Ark of the Covenant",
+    W1: "Holy Grail",
+    W2: "Sankara Stones",
+    W3: "Crystal Skull",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "1",
+    Q: "في فيلم No Country for Old Men، ما اسم القاتل السيكوباتي الذي يستخدم أسطوانة هواء مضغوط؟",
+    R: "Anton Chigurh",
+    W1: "Llewelyn Moss",
+    W2: "Ed Tom Bell",
+    W3: "Carson Wells",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "1",
+    Q: "في فيلم There Will Be Blood، ما هي الثروة الطبيعية التي يسعى دانيال بلينفيو للسيطرة عليها؟",
+    R: "Crude Oil",
+    W1: "Gold Mines",
+    W2: "Silver Veins",
+    W3: "Coal Deposits",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "1",
+    Q: "في فيلم 12 Angry Men، ما هو الرقم التعريفي للمحلف الشجاع الثابت المعترض على إدانة المتهم؟",
+    R: "Juror 8",
+    W1: "Juror 3",
+    W2: "Juror 7",
+    W3: "Juror 10",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "1",
+    Q: "في فيلم Gran Torino، ما اسم الطراز الكلاسيكي للسيارة الثمينة التي يمتلكها والت كوالسكي؟",
+    R: "Ford Gran Torino",
+    W1: "Chevy Impala",
+    W2: "Dodge Charger",
+    W3: "Pontiac GTO",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "1",
+    Q: "في فيلم Pan's Labyrinth، في أي بلد تجري الأحداث الفانتازية للطفلة أوفيليا أثناء الحرب الأهلية؟",
+    R: "Spain",
+    W1: "Italy",
+    W2: "Portugal",
+    W3: "Mexico",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "1",
+    Q: "في فيلم City of God، في أي مدينة برازيلية تشتهر بالأحياء العشوائية الصعبة تدور قصة روكيت؟",
+    R: "Rio de Janeiro",
+    W1: "Sao Paulo",
+    W2: "Salvador",
+    W3: "Brasilia",
+    Category: "قصة فيلم اجنبي"
+  },
+
+  // ==========================================
+  // LEVEL 2 (20 questions) - Plot & Secondary Characters
+  // ==========================================
+  {
+    Level: "2",
+    Q: "في فيلم The Godfather Part II، في أي بلد يمتلك مايكل كورليوني استثمارات فندقية قبل قيام الثورة؟",
+    R: "Cuba",
+    W1: "Mexico",
+    W2: "Colombia",
+    W3: "Panama",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "2",
+    Q: "في فيلم Inception، ما هو الشيء الرمزي المميز الذي يستعمله كوب كـ Totem للتأكد من الواقع؟",
+    R: "Spinning Top",
+    W1: "Loaded Die",
+    W2: "Brass Chess Piece",
+    W3: "Poker Chip",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "2",
+    Q: "في فيلم The Dark Knight، ما المنصب الرسمي الذي كان يشغله هارفي دينت قبل تشوهه؟",
+    R: "District Attorney",
+    W1: "Police Commissioner",
+    W2: "Mayor of Gotham",
+    W3: "Chief Justice",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "2",
+    Q: "في فيلم The Matrix، ما هو لون الحبة الدوائية التي تتيح لنيو معرفة حقيقة العالم والواقع؟",
+    R: "Red Pill",
+    W1: "Blue Pill",
+    W2: "Green Pill",
+    W3: "Yellow Pill",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "2",
+    Q: "في فيلم The Shawshank Redemption، ما اسم الأداة الجيولوجية الصغيرة التي استخدمها آندي للحفر؟",
+    R: "Rock Hammer",
+    W1: "Iron Chisel",
+    W2: "Steel Pick",
+    W3: "Diamond Drill",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "2",
+    Q: "في فيلم Interstellar، ما اسم الثقب الأسود العملاق الهائل المحاط بقرص ساطع من المادة؟",
+    R: "Gargantua",
+    W1: "Cygnus",
+    W2: "Sagittarius",
+    W3: "Titan",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "2",
+    Q: "في فيلم Pulp Fiction، ما اسم الملاكم المتمرد الذي رفض بيع النزال لزعيم العصابة؟",
+    R: "Butch Coolidge",
+    W1: "Vincent Vega",
+    W2: "Jules Winnfield",
+    W3: "Zed",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "2",
+    Q: "في فيلم Gladiator، من هو الإمبراطور الحكيم والد كومودوس الذي قُتل غدرا؟",
+    R: "Marcus Aurelius",
+    W1: "Julius Caesar",
+    W2: "Nero",
+    W3: "Trajan",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "2",
+    Q: "في فيلم The Lord of the Rings، ما اسم الساحر الأبيض الشرير الذي تحالف مع ساورون؟",
+    R: "Saruman",
+    W1: "Gandalf",
+    W2: "Radagast",
+    W3: "Alatar",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "2",
+    Q: "في فيلم Star Wars: A New Hope، ما اسم المحطة الفضائية التدميرية العملاقة التابعة للإمبراطورية؟",
+    R: "Death Star",
+    W1: "Starkiller",
+    W2: "Star Destroyer",
+    W3: "Dreadnought",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "2",
+    Q: "في فيلم Harry Potter and the Chamber of Secrets، ما نوع الوحش السري الكامن داخل الحجرة؟",
+    R: "Basilisk",
+    W1: "Dementor",
+    W2: "Hippogriff",
+    W3: "Dragon",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "2",
+    Q: "في فيلم Finding Nemo، ما هو العنوان الأسترالي المحفور على نظارة الغواص المفقودة؟",
+    R: "42 Wallaby Way Sydney",
+    W1: "12 Bondi Beach Sydney",
+    W2: "88 Harbour Bridge Sydney",
+    W3: "15 George Street Sydney",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "2",
+    Q: "في فيلم Toy Story 2، ما اسم راعية البقر الشجاعة المنضمة حديثا لعائلة ألعاب وودي؟",
+    R: "Jessie",
+    W1: "Bo Peep",
+    W2: "Barbie",
+    W3: "Gabby Gabby",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "2",
+    Q: "في فيلم Monsters, Inc.، ما الاسم اللطيف الذي أطلقه الوحش سولي على الطفلة البشرية الصغيرة؟",
+    R: "Boo",
+    W1: "Lily",
+    W2: "Bella",
+    W3: "Mia",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "2",
+    Q: "في فيلم The Lion King، ما اسم المرتفع الصخري المهيب مقر حكم ملوك الحيوانات؟",
+    R: "Pride Rock",
+    W1: "Elephant Graveyard",
+    W2: "Gorge Pass",
+    W3: "Waterhole Ridge",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "2",
+    Q: "في فيلم Titanic، ما اسم الجوهرة الزرقاء النادرة الثمينة المعلقة في عنق روز؟",
+    R: "Heart of the Ocean",
+    W1: "Star of Africa",
+    W2: "Hope Diamond",
+    W3: "Koh-i-Noor",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "2",
+    Q: "في فيلم Fight Club، ما هي القاعدة الأولى والأساسية الصارمة لنادي القتال؟",
+    R: "Do Not Talk About Fight Club",
+    W1: "Always Wear Proper Gloves",
+    W2: "Never Fight a Friend",
+    W3: "Only One Fight at a Time",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "2",
+    Q: "في فيلم Back to the Future، ما هي كمية الطاقة الكهربائية الهائلة المطلوبة لرحلة الزمن؟",
+    R: "1.21 Gigawatts",
+    W1: "2.50 Megawatts",
+    W2: "500 Kilowatts",
+    W3: "10 Gigawatts",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "2",
+    Q: "في فيلم The Truman Show، ما اسم المخرج التلفزيوني المتحكم في برنامج ترومان من قبة السماء؟",
+    R: "Christof",
+    W1: "Marlon",
+    W2: "Louis",
+    W3: "Simeon",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "2",
+    Q: "في فيلم Joker، ما اسم المذيع ومقدم البرامج الحوارية التلفزيونية الذي قتله آرثر على الهواء؟",
+    R: "Murray Franklin",
+    W1: "Ted Bundy",
+    W2: "Gene Ufland",
+    W3: "Randall",
+    Category: "قصة فيلم اجنبي"
+  },
+
+  // ==========================================
+  // LEVEL 4 (30 questions) - Detailed Narrative Lore
+  // ==========================================
+  {
+    Level: "4",
+    Q: "في فيلم The Dark Knight Rises، ما اسم السجن الجبلي تحت الأرضي العميق الذي حُبس فيه بروس واين؟",
+    R: "The Pit",
+    W1: "Blackgate",
+    W2: "Arkham Asylum",
+    W3: "Iron Heights",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "4",
+    Q: "في فيلم The Godfather، ما اسم المنتج السينمائي بهوليوود الذي رفض طلب فيتو فاستيقظ برأس حصان؟",
+    R: "Jack Woltz",
+    W1: "Moe Greene",
+    W2: "Sollozzo",
+    W3: "Barzini",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "4",
+    Q: "في فيلم Inception، في أي مدينة جرت أحداث المستوى الأول من الحلم داخل سيارة الأجرة الممطرة؟",
+    R: "Los Angeles",
+    W1: "Paris",
+    W2: "Tokyo",
+    W3: "Mombasa",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "4",
+    Q: "في فيلم Interstellar، كم سنة زمنية أرضية عادلت كل ساعة قضاها الطاقم على كوكب ميلر المائي؟",
+    R: "Seven Years",
+    W1: "Three Years",
+    W2: "Ten Years",
+    W3: "One Year",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "4",
+    Q: "في فيلم The Shawshank Redemption، ما هو الملصق الجداري لنجمة السينما الذي أخفى فتحة النفق؟",
+    R: "Rita Hayworth",
+    W1: "Marilyn Monroe",
+    W2: "Audrey Hepburn",
+    W3: "Elizabeth Taylor",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "4",
+    Q: "في فيلم Pulp Fiction، ما هي الآية التوراتية الخيالية التي يتلوها جولز قبل إطلاق النار؟",
+    R: "Ezekiel 25:17",
+    W1: "Psalm 23:4",
+    W2: "John 3:16",
+    W3: "Genesis 1:1",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "4",
+    Q: "في فيلم The Silence of the Lambs، ما هو اللقب الإجرامي للقاتل الذي يسعى وراء جلود ضحاياه؟",
+    R: "Buffalo Bill",
+    W1: "Tooth Fairy",
+    W2: "Red Dragon",
+    W3: "Boston Strangler",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "4",
+    Q: "في فيلم The Matrix، ما اسم السفينة الحوامة التي يقودها مورفيوس في العالم الحقيقي؟",
+    R: "Nebuchadnezzar",
+    W1: "Logos",
+    W2: "Vigilant",
+    W3: "Hammer",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "4",
+    Q: "في فيلم Gladiator، ما اسم صديق ماكسيموس المصارع الأفريقي النبيل الوفي في الحلبة؟",
+    R: "Juba",
+    W1: "Hagen",
+    W2: "Proximo",
+    W3: "Cicero",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "4",
+    Q: "في فيلم Oppenheimer، من هو رئيس هيئة الطاقة الذرية الذي دبر تجريد أوبنهايمر من تصريحه الأمني؟",
+    R: "Lewis Strauss",
+    W1: "Leslie Groves",
+    W2: "Ernest Lawrence",
+    W3: "Edward Teller",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "4",
+    Q: "في فيلم Dune، ما هو الاسم الحركي واللقب الذي أطلقه الفريمن على بول أتريدس كزعيم ديني؟",
+    R: "Muad'Dib",
+    W1: "Kwisatz Haderach",
+    W2: "Usul",
+    W3: "Lisan al Gaib",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "4",
+    Q: "في فيلم Blade Runner، ما هي شركة التكنولوجيا الحيوية العملاقة المصنعة للريبليكانت؟",
+    R: "Tyrell Corporation",
+    W1: "Cyberdyne Systems",
+    W2: "Weyland-Yutani",
+    W3: "Omni Consumer Products",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "4",
+    Q: "في فيلم Alien، ما اسم سفينة الشحن الفضائية التجارية التي هوجمت من الكائن الفضائي؟",
+    R: "Nostromo",
+    W1: "Sulaco",
+    W2: "Prometheus",
+    W3: "Covenant",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "4",
+    Q: "في فيلم Terminator 2، ما هي الشركة التقنية التي طورت الرقاقة الإلكترونية ونظام سكاينت؟",
+    R: "Cyberdyne Systems",
+    W1: "Weyland Corp",
+    W2: "Massive Dynamic",
+    W3: "InGen",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "4",
+    Q: "في فيلم Goodfellas، في أي مطار نفذت عصابة هنري هيل عملية سرقة لو Lufthansa الشهيرة؟",
+    R: "JFK Airport",
+    W1: "LaGuardia Airport",
+    W2: "Newark Airport",
+    W3: "Boston Logan",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "4",
+    Q: "في فيلم Scarface، ما اسم شقيقة توني مونتانا الصغرى التي كان يفرض عليها حماية مفرطة؟",
+    R: "Gina Montana",
+    W1: "Elvira Hancock",
+    W2: "Miriam",
+    W3: "Maria",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "4",
+    Q: "في فيلم The Wolf of Wall Street، ما اسم شركة الوساطة المالية التي أسسها جوردان بلفورت في لونغ آيلاند؟",
+    R: "Stratton Oakmont",
+    W1: "Merrill Lynch",
+    W2: "Rothschild & Co",
+    W3: "Pierce & Pierce",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "4",
+    Q: "في فيلم Shutter Island، ما اسم المريضة الهاربة التي ادعى المحققون اختفاءها من غرفتها المقفلة؟",
+    R: "Rachel Solando",
+    W1: "Dolores Chanal",
+    W2: "Bridget Kearns",
+    W3: "Emily Sheehan",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "4",
+    Q: "في فيلم The Prestige، من هو العالم والمخترع العبقري الذي صمم آلة النقل الآني لروبرت أنجير؟",
+    R: "Nikola Tesla",
+    W1: "Thomas Edison",
+    W2: "Alexander Bell",
+    W3: "Guglielmo Marconi",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "4",
+    Q: "في فيلم Se7en، ما هي الخطيئة المميتة التي ارتكبها القاتل جون دو نفسه وقادته لحبل المشنقة؟",
+    R: "Envy",
+    W1: "Wrath",
+    W2: "Pride",
+    W3: "Greed",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "4",
+    Q: "في فيلم Whiplash، ما اسم المعهد الموسيقي النخبوي المرموق في نيويورك الذي تدور فيه الأحداث؟",
+    R: "Shaffer Conservatory",
+    W1: "Juilliard School",
+    W2: "Berklee College",
+    W3: "Curtis Institute",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "4",
+    Q: "في فيلم Django Unchained، ما اسم المزرعة الإقطاعية سيئة السمعة التي يملكها كالفين كاندي؟",
+    R: "Candyland",
+    W1: "Tara Plantation",
+    W2: "Oak Alley",
+    W3: "Belle Meade",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "4",
+    Q: "في فيلم The Departed، ما هو الحي الشهير في بوسطن الذي نشأ فيه بيلي كوستيجان وكولين سوليفان؟",
+    R: "South Boston",
+    W1: "North End",
+    W2: "Beacon Hill",
+    W3: "Back Bay",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "4",
+    Q: "في فيلم Parasite، ما هو الطبق الكوري الفاخر الذي طلبت السيدة بارك طهيه في 8 دقائق؟",
+    R: "Ram-don",
+    W1: "Bibimbap",
+    W2: "Kimchi Jjigae",
+    W3: "Bulgogi",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "4",
+    Q: "في فيلم Mad Max: Fury Road، ما اسم الحاكم المستبد المصاب بالأورام الذي يتحكم في إمدادات المياه؟",
+    R: "Immortan Joe",
+    W1: "Rictus Erectus",
+    W2: "The People Eater",
+    W3: "The Bullet Farmer",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "4",
+    Q: "في فيلم Spirited Away، ما اسم الساحرة العجوز الطماعة مديرة حمام الأرواح الشعبي؟",
+    R: "Yubaba",
+    W1: "Zeniba",
+    W2: "Lin",
+    W3: "Kamaji",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "4",
+    Q: "في فيلم The Shining، ما هي الجملة المرعبة الوحيدة التي كان جاك يطبعها باستمرار على آلته الكاتبة؟",
+    R: "All work and no play",
+    W1: "Redrum Redrum",
+    W2: "Here is Johnny",
+    W3: "Forever and ever",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "4",
+    Q: "في فيلم Casablanca، ما اسم النشيد الوطني الذي غناه زبائن المقهى بحماسة لإسكات الضباط الألمان؟",
+    R: "La Marseillaise",
+    W1: "Die Wacht am Rhein",
+    W2: "God Save the King",
+    W3: "Star-Spangled Banner",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "4",
+    Q: "في فيلم No Country for Old Men، ما اسم العمدة العجوز الحكيم الذي يروي الفيلم ويتأمل تغيّر الزمن؟",
+    R: "Ed Tom Bell",
+    W1: "Llewelyn Moss",
+    W2: "Carson Wells",
+    W3: "Wendell",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "4",
+    Q: "في فيلم There Will Be Blood، ما هي الجملة الساخرة الشهيرة التي قالها دانيال لإيلي عن سرقة نفطه؟",
+    R: "I drink your milkshake",
+    W1: "I bought your church",
+    W2: "There is no God here",
+    W3: "I am finished",
+    Category: "قصة فيلم اجنبي"
+  },
+
+  // ==========================================
+  // LEVEL 5 (20 questions) - Deeper Narrative Elements
+  // ==========================================
+  {
+    Level: "5",
+    Q: "في فيلم The Godfather، ما اسم القرية الإيطالية في صقلية التي لجأ إليها مايكل واختبأ فيها؟",
+    R: "Corleone",
+    W1: "Palermo",
+    W2: "Catania",
+    W3: "Messina",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "5",
+    Q: "في فيلم The Dark Knight، ما اسم المستشفى العام الضخم الذي فجره الجوكر وهو يرتدي زي ممرضة؟",
+    R: "Gotham General",
+    W1: "Arkham Memorial",
+    W2: "Metropolis Mercy",
+    W3: "St Jude Hospital",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "5",
+    Q: "في فيلم Inception، ما اسم الموسيقى الفرنسية الشهيرة للمغنية إديث بياف المستخدمة كإشارة للركلة؟",
+    R: "Non, je ne regrette rien",
+    W1: "La Vie en rose",
+    W2: "Hymne a l'amour",
+    W3: "Milord",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "5",
+    Q: "في فيلم Interstellar، ما اسم الروبوت العسكري المضلع الوفي رفيق كوبر وبراند في الرحلة؟",
+    R: "TARS",
+    W1: "CASE",
+    W2: "KIPP",
+    W3: "GERTY",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "5",
+    Q: "في فيلم The Shawshank Redemption، في أي بلدة ساحلية مكسيكية التقى آندي بريد بعد فرارهما؟",
+    R: "Zihuatanejo",
+    W1: "Cancun",
+    W2: "Acapulco",
+    W3: "Cozumel",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "5",
+    Q: "في فيلم Pulp Fiction، ما هو الشيء السري الغامض ذو التوهج الذهبي داخل حقيبة مارسيلوس؟",
+    R: "Unknown Golden Glow",
+    W1: "Diamond Necklace",
+    W2: "Rare Platinum Bars",
+    W3: "Confidential Documents",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "5",
+    Q: "في فيلم The Silence of the Lambs، ما هي الحشرة الغريبة التي كان القاتل يضع شرنقتها في حلق ضحاياه؟",
+    R: "Death's-head Hawkmoth",
+    W1: "Monarch Butterfly",
+    W2: "Black Widow Spider",
+    W3: "Scarab Beetle",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "5",
+    Q: "في فيلم The Matrix Reloaded، من هو البرنامج القديم صانع المفاتيح الضروري للوصول للمصدر؟",
+    R: "Keymaker",
+    W1: "Merovingian",
+    W2: "Architect",
+    W3: "Oracle",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "5",
+    Q: "في فيلم Gladiator، ما هي العبارة اللاتينية التي رددها المصارعون أمام الإمبراطور في الساحة؟",
+    R: "Morituri te salutant",
+    W1: "Veni vidi vici",
+    W2: "Carpe diem",
+    W3: "Alea iacta est",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "5",
+    Q: "في فيلم Oppenheimer، في أي مختبر صحراوي سري في نيو مكسيكو أقيمت أول تجربة نووية ترينيتي؟",
+    R: "Los Alamos",
+    W1: "Oak Ridge",
+    W2: "Hanford",
+    W3: "Sandia",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "5",
+    Q: "في فيلم Dune، ما اسم السلاح أو الأداة الصوتية الإيقاعية التي يستخدمها الفريمن لاستدعاء الديدان؟",
+    R: "Thumper",
+    W1: "Crysknife",
+    W2: "Lasgun",
+    W3: "Stillsuit",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "5",
+    Q: "في فيلم Blade Runner، ما اسم الحمامة البيضاء التي حملها الآلي روي باتي في حواره الختامي الشهير؟",
+    R: "White Dove",
+    W1: "Mechanical Owl",
+    W2: "Origami Unicorn",
+    W3: "Black Crow",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "5",
+    Q: "في فيلم Alien، ما هو نوع الكائن الحي الأليف الوحيد الذي حرصت ريبلي على إنقاذه من الوحش؟",
+    R: "Ginger Cat",
+    W1: "White Rabbit",
+    W2: "Parrot Bird",
+    W3: "Small Terrier",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "5",
+    Q: "في فيلم Terminator 2، في أي مكان صناعي حارق جرى تدمير التيرميناتور النهائي والتضحية بـ T-800؟",
+    R: "Steel Mill Molten Vat",
+    W1: "Auto Shredding Plant",
+    W2: "Chemical Waste Tank",
+    W3: "Nuclear Cooling Pond",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "5",
+    Q: "في فيلم Goodfellas، ما اسم صلصة المعكرونة والثوم التي كان السجناء يقطعونها بشفرة الحلاقة؟",
+    R: "Garlic Tomato Sauce",
+    W1: "White Cream Alfredo",
+    W2: "Pesto Basil Sauce",
+    W3: "Bolognese Meat Gravy",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "5",
+    Q: "في فيلم Scarface، ما هي العبارة المكتوبة بالنيون على منطاد الهواء في سماء قصر توني مونتانا؟",
+    R: "The World Is Yours",
+    W1: "Power Is Everything",
+    W2: "Money Talks",
+    W3: "Never Back Down",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "5",
+    Q: "في فيلم The Wolf of Wall Street، ما هو العقار المهدئ النادر المنتهي الصلاحية الذي سبب شلل جوردان المؤقت؟",
+    R: "Lemmon 714 Quaaludes",
+    W1: "Xanax Pills",
+    W2: "Valium Tablets",
+    W3: "Adderall Capsules",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "5",
+    Q: "في فيلم Shutter Island، ما اسم الجناح الخرساني شديد الحراسة المخصص لأخطر المرضى العنيفين؟",
+    R: "Ward C",
+    W1: "Ward A",
+    W2: "Ward B",
+    W3: "Ward D",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "5",
+    Q: "في فيلم The Prestige، ما هو الاسم السري للخدعة السحرية الأسطورية التي تنافس عليها الساحران؟",
+    R: "The Transported Man",
+    W1: "The Vanishing Birdcage",
+    W2: "The Bullet Catch",
+    W3: "The Water Torture Cell",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "5",
+    Q: "في فيلم Se7en، ما هو الشيء المرعب والصادم داخل الصندوق البريدي الذي سلمه السائق لميلز بالصحراء؟",
+    R: "Tracy Mills Head",
+    W1: "John Doe Confession",
+    W2: "Gold Wedding Ring",
+    W3: "Loaded Revolver",
+    Category: "قصة فيلم اجنبي"
+  },
+
+  // ==========================================
+  // LEVEL 6 (20 questions) - Expert Film Trivia
+  // ==========================================
+  {
+    Level: "6",
+    Q: "في فيلم 12 Angry Men، ما هو الدليل المادي الحاسم الذي أخرجه المحلف رقم 8 من جيبه لإثارة الشك؟",
+    R: "Switchblade Knife",
+    W1: "Train Ticket",
+    W2: "Pair of Eyeglasses",
+    W3: "Pocket Watch",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "6",
+    Q: "في فيلم Citizen Kane، ما هي الكلمة الأخيرة الغامضة التي نطق بها تشارلز فوستر كين قبل وفاته؟",
+    R: "Rosebud",
+    W1: "Xanadu",
+    W2: "Inquirer",
+    W3: "Susan",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "6",
+    Q: "في فيلم Psycho، ما هي السلعة المالية التي سرقتها ماريون كرين من مكتب صاحب العمل قبل هروبها؟",
+    R: "Forty Thousand Dollars",
+    W1: "Diamond Ring",
+    W2: "Bearer Bonds",
+    W3: "Company Ledger",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "6",
+    Q: "في فيلم Casablanca، ما هو اسم خطاب العبور الرسمي الثمين الذي يسعى الجميع للحصول عليه؟",
+    R: "Letters of Transit",
+    W1: "Vichy Visa",
+    W2: "Diplomatic Immunity",
+    W3: "Safe Conduct Order",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "6",
+    Q: "في فيلم 2001: A Space Odyssey، ما هو الاسم والشكل الهندسي للكتلة الفضائية الغامضة التي تحفز التطور؟",
+    R: "Black Monolith",
+    W1: "Crystal Pyramid",
+    W2: "Golden Sphere",
+    W3: "Silver Cylinder",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "6",
+    Q: "في فيلم Apocalypse Now، ما اسم العقيد الأمريكي المنشق والمتحصن في أدغال كمبوديا كإله؟",
+    R: "Colonel Walter Kurtz",
+    W1: "Captain Benjamin Willard",
+    W2: "Lieutenant Colonel Kilgore",
+    W3: "General R. Corman",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "6",
+    Q: "في فيلم Taxi Driver، ما اسم الفتاة القاصر التي يسعى ترافيس بيكل لإنقاذها من قبضة القواد؟",
+    R: "Iris Steensma",
+    W1: "Betsy",
+    W2: "Jane",
+    W3: "Connie",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "6",
+    Q: "في فيلم Rear Window، ما هي المهنة التي يمارسها جيف المصاب بكسر في ساقه ويراقب جيرانه؟",
+    R: "Photojournalist",
+    W1: "Private Detective",
+    W2: "Insurance Investigator",
+    W3: "Crime Novelist",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "6",
+    Q: "في فيلم Vertigo، ما اسم اللوحة الفنية القديمة للمرأة المعلقة في المتحف التي تطارد هواجس مادلين؟",
+    R: "Portrait of Carlotta",
+    W1: "Lady with an Ermine",
+    W2: "Girl with a Pearl",
+    W3: "The Duchess of Alba",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "6",
+    Q: "في فيلم The Shining، ما هو المعنى العكسي للكلمة المرعبة Redrum التي كتبها الطفل داني على الباب؟",
+    R: "Murder",
+    W1: "Danger",
+    W2: "Horror",
+    W3: "Monster",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "6",
+    Q: "في فيلم Spirited Away، ما هو الاسم المؤقت البسيط الذي منحته يوبابا لشيهيرو بعد سلب هويتها؟",
+    R: "Sen",
+    W1: "Rin",
+    W2: "Mei",
+    W3: "Satsuki",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "6",
+    Q: "في فيلم Princess Mononoke، ما اسم المدينة الصناعية للحديد التي تقودها السيدة إيبوشي؟",
+    R: "Irontown",
+    W1: "Forest Village",
+    W2: "Valley of the Wind",
+    W3: "Laputa Castle",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "6",
+    Q: "في فيلم Howl's Moving Castle، ما اسم شيطان النار الصغير الظريف المحبوس في موقد القلعة؟",
+    R: "Calcifer",
+    W1: "Turnip Head",
+    W2: "Heen",
+    W3: "Suliman",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "6",
+    Q: "في فيلم City of God، ما اسم تاجر المخدرات الدموي القاسي غريم مانيه دغالينيا؟",
+    R: "Li'l Ze",
+    W1: "Benny",
+    W2: "Carrot",
+    W3: "Blacky",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "6",
+    Q: "في فيلم Pan's Labyrinth، ما اسم الضابط الفاشي القاسي المتسلط زوج والدة أوفيليا؟",
+    R: "Captain Vidal",
+    W1: "Doctor Ferreiro",
+    W2: "Lieutenant Garces",
+    W3: "Pedro",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "6",
+    Q: "في فيلم Amelie، ما هو الشيء التذكاري الغريب الذي كان صديق أميلي نينو يجمعه من محطات القطار؟",
+    R: "Discarded Passport Photos",
+    W1: "Used Train Tickets",
+    W2: "Antique Postcards",
+    W3: "Forgotten Metro Coins",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "6",
+    Q: "في فيلم Oldboy، كم سنة قضاها أوه داي-سو مسجونا في غرفة فندقية منعزلة دون معرفة السبب؟",
+    R: "Fifteen Years",
+    W1: "Ten Years",
+    W2: "Twenty Years",
+    W3: "Seven Years",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "6",
+    Q: "في فيلم The Pianist، من هو ضابط الفيرماخت الألماني النبيل الذي ساعد شبيلمان وزوده بالطعام؟",
+    R: "Wilm Hosenfeld",
+    W1: "Amon Goth",
+    W2: "Klaus Barbie",
+    W3: "Kurt Gerstein",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "6",
+    Q: "في فيلم Life Is Beautiful، ما هي الترجمة الإيطالية للتحية العاطفية التي ينادي بها غيدو زوجته؟",
+    R: "Buongiorno Principessa",
+    W1: "Arrivederci Roma",
+    W2: "Bella Ciao",
+    W3: "Grazie Mille Amore",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "6",
+    Q: "في فيلم A Beautiful Mind، ما هي الهلوسة البصرية الأولى لجون ناش لزميل سكنه المتخيل في برينستون؟",
+    R: "Charles Herman",
+    W1: "William Parcher",
+    W2: "Martin Hansen",
+    W3: "Sol",
+    Category: "قصة فيلم اجنبي"
+  },
+
+  // ==========================================
+  // LEVEL 7 (20 questions) - Cinephile Deep Cut
+  // ==========================================
+  {
+    Level: "7",
+    Q: "في فيلم The Godfather Part II، ما هي العبارة الصادمة التي قالها مايكل لشقيقه فريدو في كوبا؟",
+    R: "I know it was you Fredo",
+    W1: "You broke my heart Tom",
+    W2: "Never go against the family",
+    W3: "This is the business we chose",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "7",
+    Q: "في فيلم Chinatown، ما هي القضية الحيوية الكبرى التي تدور حولها مؤامرة الفساد في لوس أنجلوس؟",
+    R: "Municipal Water Supply",
+    W1: "Oil Drilling Rights",
+    W2: "Freeway Construction",
+    W3: "Railroad Expansion",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "7",
+    Q: "في فيلم Sunset Boulevard، من هو السيناريست الشاب العاثر الذي وجد مقتولا في مسبح النجمة القديمة؟",
+    R: "Joe Gillis",
+    W1: "Max von Mayerling",
+    W2: "Artie Green",
+    W3: "Sheldrake",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "7",
+    Q: "في فيلم All About Eve، ما اسم نجمة برودواي المخضرمة التي تسللت إيف هارينغتون لحياتها؟",
+    R: "Margo Channing",
+    W1: "Karen Richards",
+    W2: "Birdie Coonan",
+    W3: "Claudia Caswell",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "7",
+    Q: "في فيلم Some Like It Hot، ما هي الآلة الموسيقية التي عزفت عليها شوغر كين في فرقة الفتيات؟",
+    R: "Ukulele",
+    W1: "Saxophone",
+    W2: "Double Bass",
+    W3: "Trumpet",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "7",
+    Q: "في فيلم Singin' in the Rain، ما هو التحول التاريخي الكبرى في صناعة السينما الذي يعالجه الفيلم؟",
+    R: "Transition to Talking Pictures",
+    W1: "Introduction of Color Film",
+    W2: "Arrival of Television",
+    W3: "Rise of Widescreen Formats",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "7",
+    Q: "في فيلم North by Northwest، على أي معلم وطني أمريكي شهير تجري المطاردة الختامية الحاسمة؟",
+    R: "Mount Rushmore",
+    W1: "Statue of Liberty",
+    W2: "Golden Gate Bridge",
+    W3: "Empire State Building",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "7",
+    Q: "في فيلم Double Indemnity، ما نوع وثيقة التأمين التي اتفق والتر وولا على تزويرها لقتل الزوج؟",
+    R: "Accidental Train Death",
+    W1: "Life Insurance Drowning",
+    W2: "Fire Hazard Policy",
+    W3: "Vehicle Collision",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "7",
+    Q: "في فيلم The Third Man، ما اسم مهرب البنسلين الفاسد في فيينا الذي جسده أورسون ويلز؟",
+    R: "Harry Lime",
+    W1: "Holly Martins",
+    W2: "Major Calloway",
+    W3: "Baron Kurtz",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "7",
+    Q: "في فيلم The Bridge on the River Kwai، في أي دولة آسيوية بنى الأسرى البريطانيون الجسر للجيش الياباني؟",
+    R: "Thailand",
+    W1: "Burma",
+    W2: "Vietnam",
+    W3: "Malaysia",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "7",
+    Q: "في فيلم Lawrence of Arabia، ما اسم الميناء العثماني الإستراتيجي المحصن الذي استولى عليه لورنس عبر الصحراء؟",
+    R: "Aqaba",
+    W1: "Damascus",
+    W2: "Jerusalem",
+    W3: "Beirut",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "7",
+    Q: "في فيلم Dr. Strangelove، ما اسم القاعدة الجوية التي أصدر قائدها المعتوه أمر الهجوم النووي؟",
+    R: "Burpelson Air Force Base",
+    W1: "Langley Air Force Base",
+    W2: "Edwards Air Force Base",
+    W3: "Wright-Patterson Base",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "7",
+    Q: "في فيلم A Clockwork Orange، ما اسم العلاج النفسي القسري التجريبي الذي خضع له أليكس؟",
+    R: "Ludovico Technique",
+    W1: "Pavlov Conditioning",
+    W2: "Milgram Protocol",
+    W3: "Skinner Box Therapy",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "7",
+    Q: "في فيلم Barry Lyndon، في أي جيش أوروبي جُند باري رغما عنه بعد هروبه من دبلن؟",
+    R: "Prussian Army",
+    W1: "French Army",
+    W2: "Austrian Army",
+    W3: "Russian Army",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "7",
+    Q: "في فيلم The Deer Hunter، ما هي لعبة الموت القاتلة التي أُجبر الجنود على لعبها في فيتنام؟",
+    R: "Russian Roulette",
+    W1: "Quick Draw Duel",
+    W2: "Blindfolded Knife Fight",
+    W3: "Bare-Knuckle Brawl",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "7",
+    Q: "في فيلم Raging Bull، ما هو اللقب الرياضي للملاكم العنيف جاك لاموتا في حلبات الملاكمة؟",
+    R: "The Bronx Bull",
+    W1: "The Raging Stallion",
+    W2: "The Golden Boy",
+    W3: "The Brown Bomber",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "7",
+    Q: "في فيلم Ran، أي مسرحية تراجيدية لشكسبير اقتبس منها المخرج أكيرا كوروساوا قصة اللورد تورا؟",
+    R: "King Lear",
+    W1: "Macbeth",
+    W2: "Hamlet",
+    W3: "Othello",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "7",
+    Q: "في فيلم Fargo، ما هو المكان البشع الذي تخلص فيه القاتل غاير غريمسورد من جثة شريكه كارل؟",
+    R: "Wood Chipper",
+    W1: "Frozen Lake Ice Hole",
+    W2: "Barn Silo Pit",
+    W3: "Incinerator Furnace",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "7",
+    Q: "في فيلم The Big Lebowski، ما هو الشيء المنزلي البسيط الذي خربه الدخلاء وكان يضفي رونقا على الغرفة؟",
+    R: "Living Room Rug",
+    W1: "Leather Recliner",
+    W2: "Vintage Bowling Ball",
+    W3: "Coffee Table Glass",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "7",
+    Q: "في فيلم Memories of Murder، ما هي وسيلة التحقيق العلمية الحديثة التي عُطلت لغياب نتائجها من أمريكا؟",
+    R: "DNA Testing Analysis",
+    W1: "Fingerprint Matching",
+    W2: "Ballistic Trajectory",
+    W3: "Blood Type Crossmatch",
+    Category: "قصة فيلم اجنبي"
+  },
+
+  // ==========================================
+  // LEVEL 8 (20 questions) - Ultimate Climax / Culmination
+  // ==========================================
+  {
+    Level: "8",
+    Q: "في فيلم Inception، ما هو التساؤل المفتوح الذي تركه المشهد الختامي لـ Cobb مع دوران الـ Totem؟",
+    R: "Whether Cobb is Still Dreaming",
+    W1: "Whether Mal is Truly Alive",
+    W2: "Whether Fischer Won the Company",
+    W3: "Whether Miles Betrayed Cobb",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "8",
+    Q: "في فيلم The Shawshank Redemption، ما هو النص التوراتي الدقيق المنقوش داخل علبة إنجيل آندي؟",
+    R: "Salvation lies within",
+    W1: "The truth shall set you free",
+    W2: "The Lord is my shepherd",
+    W3: "Faith moves mountains",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "8",
+    Q: "في فيلم 2001: A Space Odyssey، ما هو الكائن الكوني المتطور الذي تحول إليه ديفيد بومان في النهاية؟",
+    R: "Star Child",
+    W1: "Solar Being",
+    W2: "Galactic Spirit",
+    W3: "Cosmic Wanderer",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "8",
+    Q: "في فيلم Blade Runner، ما هي العبارة الشعرية الخالدة التي اختتم بها روي باتي مناجاته الأخيرة؟",
+    R: "Like tears in rain",
+    W1: "All lost in darkness",
+    W2: "Fading into the night",
+    W3: "A dream within a dream",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "8",
+    Q: "في فيلم Citizen Kane، ما هو الشيء الحقيقي الذي يمثله Rosebud الذي أُحرق في نهاية الفيلم؟",
+    R: "Childhood Sled",
+    W1: "Mother Gold Locket",
+    W2: "First Newspaper Issue",
+    W3: "Toy Glass Snowglobe",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "8",
+    Q: "في فيلم Fight Club، ما هي الأغنية والمشهد البصري الختامي مع انهيار ناطحات السحاب الائتمانية؟",
+    R: "Where Is My Mind by Pixies",
+    W1: "Smells Like Teen Spirit",
+    W2: "Mad World by Gary Jules",
+    W3: "Creep by Radiohead",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "8",
+    Q: "في فيلم The Truman Show، ما هي الكلمات الوداعية الشهيرة التي نطق بها ترومان قبل خروجه من الباب؟",
+    R: "Good afternoon good evening good night",
+    W1: "Thank you all and goodbye",
+    W2: "See you on the other side",
+    W3: "The real world awaits me",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "8",
+    Q: "في فيلم Shutter Island، ما هو السؤال الفلسفي الختامي المؤلم الذي طرحه تيدي على تشاك قبل اقتياده؟",
+    R: "Live as a monster or die as a good man",
+    W1: "Can a guilty soul ever find forgiveness",
+    W2: "Is madness worse than unbearable truth",
+    W3: "Who watches the doctors who cure us",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "8",
+    Q: "في فيلم The Prestige، ما هو السر الحقيقي الصادم للخدعة التي حيرت أنجير عن حياة ألفريد بوردن؟",
+    R: "Borden had an identical twin brother",
+    W1: "Borden used a robotic double",
+    W2: "Borden had a second Tesla machine",
+    W3: "Borden hypnotized the entire audience",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "8",
+    Q: "في فيلم Memento، ما هي الحقيقة الصادمة التي كشفها تيدي لليونارد عن زوجته وقاتلها الحقيقي؟",
+    R: "Leonard himself accidentally killed her",
+    W1: "His wife ran away with John G",
+    W2: "Teddy was the real John G all along",
+    W3: "His wife never existed in reality",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "8",
+    Q: "في فيلم Whiplash، ما هي المقطوعة الموسيقية الجازية السريعة المعقدة التي أداها أندرو ببراعة مذهلة في النهاية؟",
+    R: "Caravan",
+    W1: "Whiplash",
+    W2: "Take Five",
+    W3: "Sing Sing Sing",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "8",
+    Q: "في فيلم Oldboy، ما هي التضحية الجسدية القاسية التي أقدم عليها أوه داي-سو لمنع إفشاء السر لابنته؟",
+    R: "Cutting off his own tongue",
+    W1: "Blinding his left eye",
+    W2: "Severing his right hand",
+    W3: "Piercing both eardrums",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "8",
+    Q: "في فيلم Parasite، أين انتهى المطاف بالأب كيم كي-تايك هاربا ومختبئا بعد حادثة الحديقة الدامية؟",
+    R: "The underground hidden bunker",
+    W1: "A cargo ship to Philippines",
+    W2: "An abandoned subway station",
+    W3: "The mountain forest temple",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "8",
+    Q: "في فيلم The Departed، من هو رجل الشرطة الذي باغت كولين سوليفان في شقته وأرداه قتيلا في المشهد الأخير؟",
+    R: "Staff Sergeant Sean Dignam",
+    W1: "Captain George Ellerby",
+    W2: "Trooper Brown",
+    W3: "Captain Charles Queenan",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "8",
+    Q: "في فيلم There Will Be Blood، ما هي الكلمات الأخيرة التي قالها دانيال بلينفيو لخادمه بعد قتل إيلي؟",
+    R: "I am finished",
+    W1: "Clean this mess",
+    W2: "Call the sheriff",
+    W3: "The oil is mine",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "8",
+    Q: "في فيلم Apocalypse Now، ما هي الكلمات الأخيرة المرعبة التي همس بها كورتز قبل أن يلفظ أنفاسه؟",
+    R: "The horror the horror",
+    W1: "Forgive my sins",
+    W2: "Drop the bomb",
+    W3: "Remember my name",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "8",
+    Q: "في فيلم Chinatown، ما هي الجملة الشهيرة التي قالها الزميل لجاك جيتس لتهدئته بعد مأساة إيفلين؟",
+    R: "Forget it Jake, it is Chinatown",
+    W1: "There is nothing you could do",
+    W2: "The police own this city",
+    W3: "Let the water take her",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "8",
+    Q: "في فيلم Sunset Boulevard، ما هي الجملة الأخيرة لنجمة السينما الصامتة نورما ديزموند وهي تتقدم للكاميرا؟",
+    R: "Mr DeMille I am ready for my close-up",
+    W1: "The pictures got smaller not me",
+    W2: "I will never leave Paramount",
+    W3: "Silent movies will return forever",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "8",
+    Q: "في فيلم Some Like It Hot، ما هي الجملة الختامية الأيقونية التي قالها المليونير أوزغود لجيري؟",
+    R: "Nobody is perfect",
+    W1: "Love conquers all",
+    W2: "I do not care about money",
+    W3: "We will marry in Florida",
+    Category: "قصة فيلم اجنبي"
+  },
+  {
+    Level: "8",
+    Q: "في فيلم Casablanca، ما هي العبارة الشهيرة التي قالها ريك للكابتن رينو وهما يسيران في الضباب؟",
+    R: "Beginning of a beautiful friendship",
+    W1: "Here is looking at you kid",
+    W2: "Play it again Sam",
+    W3: "We will always have Paris",
+    Category: "قصة فيلم اجنبي"
+  }
+];
+
+const targetPath = path.join(__dirname, 'foreign_films.json');
+fs.writeFileSync(targetPath, JSON.stringify(questions, null, 2), 'utf8');
+console.log(`Generated ${questions.length} questions for 'قصة فيلم اجنبي' at ${targetPath}`);
+
+// Validation
+const levels = {};
+questions.forEach((q, i) => {
+  levels[q.Level] = (levels[q.Level] || 0) + 1;
+  const choices = [q.R, q.W1, q.W2, q.W3];
+  choices.forEach(c => {
+    if (/[()（）]/.test(c)) throw new Error(`Parenthesis at #${i}: ${c}`);
+    if (!/[a-zA-Z]/.test(c)) throw new Error(`Expected English answer at #${i}: ${c}`);
+  });
+  if (new Set(choices).size !== 4) throw new Error(`Duplicate choice at #${i}`);
+  if (q.Category !== 'قصة فيلم اجنبي') throw new Error(`Wrong category at #${i}`);
+});
+console.log('Levels distribution:', levels);
