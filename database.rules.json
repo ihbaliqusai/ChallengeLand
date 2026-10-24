@@ -1,13 +1,35 @@
 {
   "rules": {
-    "DuelRequestsV2": {
-      ".indexOn": ["status"]
-    },
-    "TvMatches": {
-      ".read": true,
-      ".write": true
-    },
-    ".read": "auth != null",
-    ".write": "auth != null"
+    "rooms": {
+      "$roomId": {
+        ".read": "auth != null",
+
+        "hostUid": {
+          ".write": "auth != null && (!data.exists() || data.val() == auth.uid)"
+        },
+
+        "state": {
+          ".write": "auth != null && root.child('rooms').child($roomId).child('hostUid').val() == auth.uid"
+        },
+
+        "currentCard": {
+          ".write": "auth != null && root.child('rooms').child($roomId).child('hostUid').val() == auth.uid"
+        },
+
+        "players": {
+          "$uid": {
+            ".write": "auth != null && auth.uid == $uid",
+            ".validate": "newData.hasChildren(['isOnline', 'isReady', 'lastSeen'])"
+          }
+        },
+
+        "answers": {
+          "$uid": {
+            ".write": "auth != null && (auth.uid == $uid || root.child('rooms').child($roomId).child('hostUid').val() == auth.uid)",
+            ".validate": "newData.hasChildren(['uid', 'text', 'submittedAt'])"
+          }
+        }
+      }
+    }
   }
 }

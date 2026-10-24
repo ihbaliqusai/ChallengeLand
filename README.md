@@ -1,172 +1,81 @@
-# ChallengeLand - Online Multiplayer Quiz Game
+# أرض التحدي
 
-ChallengeLand keeps the original Android quiz gameplay foundation and adds a Flutter-powered online multiplayer layer on top of the same app.
+Challenge Land
 
-## What was added
+Arabic-first Flutter quiz and challenge MVP. Version 1 uses only free gameplay rewards; coins are earned through play and no real-money flow is implemented.
 
-- Email/password authentication
-- Optional Google sign-in
-- Online public matchmaking
-- Private rooms with room codes
-- Room-based multiplayer modes: `battle`, `elimination`, `blitz`, `survival`, `series`, and `team_battle`
-- Direct friend challenges and invitations
-- Live synchronized multiplayer question flow using Cloud Firestore
-- Player profiles, wins/losses, total score, rating, and match history
-- Leaderboard screen
-- Friends list and player search
-- Original local/native game launch preserved through the existing method channel
+## Open In VS Code
 
-## Project structure
+1. Open this folder in VS Code.
+2. Install the recommended extensions when prompted: Dart and Flutter.
+3. Select an Android emulator, connected Android device, or iOS simulator.
+4. Run the `Flutter Debug` launch configuration from `.vscode/launch.json`.
 
-- `lib/screens/auth` - login and auth gate
-- `lib/screens/home` - lobby, leaderboard entry point
-- `lib/screens/online` - friends, matchmaking, profile, live match screens
-- `lib/services` - authentication, profile, matchmaking, multiplayer room logic
-- `lib/repositories` - question loading and match question generation
-- `lib/models` - room, invitation, profile, and question models
-- `assets/questions.json` - shared question bank for the new online mode
-- `firestore.rules` - starter Firestore security rules
-- `firestore.indexes.json` - starter indexes for leaderboard/history/invitations
+## Common Commands
 
-## Firebase setup
+```powershell
+flutter pub get
+dart format .
+flutter analyze
+flutter test
+flutter run
+```
+
+Android emulator: start an emulator from Android Studio or VS Code, then run `flutter run`.
+
+iOS simulator: on macOS with Xcode installed, start a simulator and run `flutter run -d ios`.
+
+## Mock/Dev Mode
+
+Mock mode is enabled in `lib/core/constants/app_config.dart`:
+
+```dart
+static const bool useMockData = true;
+```
+
+When true, the app runs without Firebase. Guest login works, the home screen shows mock stats, quick match starts against a local bot, categories/questions load from local JSON, and leaderboards/friends/history use sample data.
+
+## Connect Firebase
 
 1. Create a Firebase project.
-2. Add an Android app with the published applicationId:
-   - `com.qi7bali.landchallengeonline`
-   - (The internal Android `namespace`/Kotlin package is still `com.qi7bali.landchallengeonline`; this is invisible to users and unrelated to the Play Store identity.)
-3. Replace `android/app/google-services.json` with your own Firebase config file.
-4. Enable these Firebase products:
-   - Authentication
-   - Cloud Firestore
-5. In Authentication, enable:
-   - Email/Password
-   - Google (optional but supported by the UI)
-6. Deploy Firestore rules and indexes:
-   - `firebase deploy --only firestore:rules`
-   - `firebase deploy --only firestore:indexes`
+2. Enable Authentication, Cloud Firestore, Firebase Storage, and later Cloud Messaging.
+3. Run FlutterFire CLI and generate `firebase_options.dart`.
+4. Set `AppConfig.useMockData = false`.
+5. Add Firebase config files:
+   - Android: `android/app/google-services.json`
+   - iOS: `ios/Runner/GoogleService-Info.plist`
+6. Publish `firestore.rules` after reviewing the MVP security notes.
 
-## Run steps
+See `FIREBASE_SETUP.md`, `FIRESTORE_SCHEMA.md`, and `SECURITY_NOTES.md`.
 
-1. Install Flutter SDK.
-2. Run:
-   - `flutter pub get`
-3. If you use Firebase CLI or FlutterFire CLI, configure the project as needed.
-4. Run the app:
-   - `flutter run`
+## Implemented MVP
 
-## Firestore collections used
+- Arabic RTL app shell and routing.
+- Guest/mock login and Google login placeholder.
+- Original widget-built game home scene with HUD, unlock banner, mascot, play button, and bottom navigation.
+- Game mode selection.
+- Mock quick match and playable timed quiz flow.
+- Score calculation with speed bonus.
+- Final result screen with XP/progress summary.
+- Private room create/join/lobby basics.
+- Team setup placeholder with auto distribution.
+- Daily challenge entry.
+- Rewards, leaderboard, profile, friends, search, requests, settings screens.
+- Firebase-ready services and Firestore constants.
 
-- `users/{uid}`
-- `users/{uid}/friends/{friendUid}`
-- `matches/{matchId}`
-- `matchmaking_queue/{uid}`
-- `invitations/{invitationId}`
-- `rooms/{roomId}`
+## MVP Limitations
 
-## Multiplayer behavior
+- Online matchmaking, room validation, answer validation, and leaderboard writes are client-shaped placeholders until Cloud Functions are added.
+- Google Sign-In needs Firebase project configuration before real use.
+- Notifications are structured as TODOs; no FCM dependency is active yet.
+- Friend challenges create the service path but do not send push notifications yet.
+- No real media question upload flow yet, only Storage preparation.
 
-### Public matchmaking
-- A player enters the public queue.
-- The service looks for another waiting player.
-- When found, a match room is created and both players join the same room.
+## Next Steps
 
-### Private matches and play with friends
-- A host creates a room.
-- The room gets a 6-character code.
-- Players join by code or invitation until the room is full, or the host starts early.
-- Missing seats can be filled with bots when the room starts.
-
-### Room modes
-- `battle`: standard score race.
-- `elimination`: round-based knockout flow.
-- `blitz`: timed score race.
-- `survival`: each player starts with 3 lives, correct answers give +1 score, wrong answers remove 1 life, and eliminated players stay out.
-- `series`: best-of-N round flow.
-- `team_battle`: team-vs-team score aggregation with individual score tracking.
-
-### Team Battle room flow
-- Phase order: `lobby` -> `playing` -> `finished`
-- Team Battle is intended for `2`-player and `4`-player rooms:
-  - `2` players = `1v1`
-  - `4` players = `2v2`
-- Players are assigned to `Team A` or `Team B`.
-- In the lobby, players can switch teams before the room starts.
-- The room service keeps teams balanced and rejects invalid distributions where one team exceeds its capacity.
-- If the host starts early, any open seats are filled with bots and assigned to the team that restores balance.
-- Each player finishes their own normal run and stores:
-  - `score`
-  - `answeredCount`
-  - `completedAt`
-  - `teamId`
-- Team totals are computed from the sum of each member's individual score.
-- When all human players have submitted, any pending bots are finalized, team totals are compared, and the room moves to `finished`.
-- Ties are deterministic draws: the room keeps `winnerTeamId` empty when Team A and Team B finish on the same total.
-
-### Survival room flow
-- Phase order: `lobby` -> `playing_round` -> `round_over` -> `finished`
-- Only the host can start the room and start the next Survival round.
-- At room start, all players and filled bots get 3 lives.
-- A player can answer once per round.
-- Eliminated players cannot answer and are not revived.
-- Lives persist across rounds; only per-round fields are reset for alive players.
-- If more than one player is still alive after a round, the room moves to `round_over`.
-- If only one player remains alive, that player becomes `winnerId` and the room moves to `finished`.
-
-### Real-time sync
-The room document stores:
-- room mode and phase
-- host ID and max players
-- round metadata such as `roundNumber`
-- optional `questionIds` for round-based modes
-- per-player room state: `score`, `ready`, `answeredCount`, `completedAt`, `currentAnswer`, `lives`, `eliminated`, `roundWins`, and `teamId`
-- `winnerId` / `winnerTeamId`
-
-For Team Battle, the important Firestore fields are:
-- `mode: 'team_battle'`
-- `phase: 'lobby' | 'playing' | 'finished'`
-- `players.{uid}.teamId`
-- `players.{uid}.score`
-- `players.{uid}.answeredCount`
-- `players.{uid}.completedAt`
-- `winnerTeamId`
-
-## Important notes
-
-- The original native Android quiz game is still launched from Flutter using the existing `millionaire/native` method channel.
-- The new online mode is implemented in Flutter to avoid breaking the original gameplay codebase.
-- Open public matchmaking still behaves like a lightweight direct match flow, while room mode supports more than two players.
-- Survival bots use the same room-state rules as human players and can lose lives or be eliminated.
-- Team Battle results are still played in the native bridge, but the final per-player scores are synced back into the Firestore room document when the player returns to Flutter.
-- If you want stronger anti-cheat guarantees later, move score validation and round progression into Firebase Cloud Functions.
-
-## Known limitations
-
-- The room layer keeps multiplayer room state in Cloud Firestore, while the existing native gameplay layer still uses its legacy bridge/data flow.
-- Multiplayer room validation still runs on the client. Purchases have a separate Cloud Functions verification and entitlement authority.
-- Team Battle is tuned around balanced `1v1` and `2v2` rooms; larger uneven team formats are intentionally not supported.
-
-## Store and purchase verification
-
-The Flutter store supports localized Google Play prices, coins, gems, bundles,
-monthly membership, permanent category access, category gem unlocks, characters,
-and free rewards. Payments are verified by authenticated Functions before native
-delivery; wallet balances and delivery IDs are saved together before Play
-acknowledgment or consumption. The legacy Android store redirects to this store.
-
-- [Commerce review and release checklist (Arabic)](docs/COMMERCE_REVIEW_AR.md)
-- [Purchase troubleshooting and backend setup (Arabic)](docs/COMMERCE_TROUBLESHOOTING_AR.md)
-- [Backend configuration, deployment, migration and testing](functions/README.md)
-
-Configure published Play products, API permissions, Functions and RTDN before
-enabling real payments. This repository currently supports Android billing;
-there is no iOS StoreKit implementation. The game wallet still uses legacy
-client balances: fully authoritative cross-device earned rewards and spending
-require a separate economy migration described in the review.
-
-## Recommended next improvements
-
-- Add presence and online/offline indicators
-- Add push notifications for invitations
-- Add rematch flow
-- Add chat/emotes in room
-- Move matchmaking and answer validation to Cloud Functions
+- Move answer validation and scoring to Cloud Functions.
+- Add real Google Sign-In configuration.
+- Add Firestore indexes for public profile search and leaderboards.
+- Add FCM invite notifications.
+- Add production anti-cheat checks and server timestamps.
+- Expand artwork, sounds, localization, and accessibility testing.
