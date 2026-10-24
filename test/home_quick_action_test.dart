@@ -79,6 +79,8 @@ class _HomeState extends ChangeNotifier implements AppState {
   @override
   bool get isOnline => online;
   @override
+  bool get useMockData => false;
+  @override
   bool get isVip => false;
   @override
   User? get user => signedIn ? _HomeUser() : null;

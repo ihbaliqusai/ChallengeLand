@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:challenge_land/models/room.dart';
+import 'package:challenge_land/models/legacy_room.dart';
 import 'package:challenge_land/services/native_bridge_service.dart';
-import 'package:challenge_land/services/room_service.dart';
+import 'package:challenge_land/services/legacy_room_service.dart';
 import 'package:challenge_land/services/online_match_flow.dart';
 import 'package:challenge_land/widgets/online_match_recovery_card.dart';
 import 'package:flutter/material.dart';

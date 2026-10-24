@@ -64,23 +64,6 @@ class _ResourceShopScreenState extends State<ResourceShopScreen> {
     final iap = context.read<InAppPurchaseService>();
     final details = iap.getProductDetails(product.id);
     if (details == null || !details.available) return;
-    final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => GameAlertDialog(
-                title: Center(
-                    child: Text(product.title, textAlign: TextAlign.center)),
-                content: Text('${product.subtitle}\n${details.price}',
-                    textAlign: TextAlign.center),
-                actionsAlignment: MainAxisAlignment.center,
-                actions: [
-                  TextButton(
-                      onPressed: () => Navigator.pop(ctx, false),
-                      child: const Text('إلغاء')),
-                  FilledButton(
-                      onPressed: () => Navigator.pop(ctx, true),
-                      child: const Text('متابعة للدفع')),
-                ]));
-    if (confirmed != true || !mounted) return;
     final started = await iap.buyProduct(product.id);
     if (!started && mounted) setState(() => _message = iap.error);
   }

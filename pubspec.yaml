@@ -50,6 +50,11 @@ dependencies:
   audioplayers: ^6.0.0
   flutter_animate: ^4.5.0
   lottie: ^3.1.0
+  # Restored dependencies used by the game's existing artwork, sharing and video screens.
+  share_plus: ^10.1.4
+  google_mobile_ads: ^5.3.1
+  qr_flutter: ^4.1.0
+  video_player: ^2.10.1
 
 dev_dependencies:
   flutter_test:
@@ -61,6 +66,11 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
+  fake_cloud_firestore: ^4.1.0+1
+  clock: ^1.1.2
+  video_player_platform_interface: ^6.6.0
+  # Existing artwork inspection scripts import this directly.
+  image: ^4.8.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -75,9 +85,101 @@ flutter:
 
   assets:
     - assets/images/
+    - assets/images/guide/
     - assets/icons/
     - assets/sounds/
     - assets/sample_data/
+    - assets/questions.json
+
+    # Existing original game artwork; no replacement screens.
+    - assets/ui/bg_main.webp
+    - assets/ui/bg_login.webp
+    - assets/ui/logo.webp
+    - assets/ui/person_welcome.webp
+    - assets/ui/home_menu.webp
+    - assets/ui/game_modes.webp
+    - assets/ui/play_stake_dialog.png
+    - assets/ui/weekly_reward.webp
+    - assets/ui/box1.png
+    - assets/store/champions_club_preview.webp
+    - assets/store/character_fahad.webp
+    - assets/store/character_talia.webp
+    - assets/store/coins_100000.webp
+    - assets/store/coins_25000.webp
+    - assets/store/coins_5000.webp
+    - assets/store/gems_1200.webp
+    - assets/store/gems_500.webp
+    - assets/store/gems_80.webp
+    - assets/store/hud_hearts.webp
+    - assets/store/hud_keys.webp
+    - assets/store/hud_tickets.webp
+    - assets/store/pack_resources_3.webp
+    - assets/store/pack_resources_10.webp
+    - assets/store/pack_keys_1.webp
+    - assets/store/pack_hearts_1.webp
+    - assets/store/pack_tickets_1.webp
+    - assets/store/exchange_hearts_1.webp
+    - assets/store/exchange_hearts_3.webp
+    - assets/store/exchange_keys_3.webp
+    - assets/store/exchange_keys_1.webp
+    - assets/store/exchange_bundle_3.webp
+    - assets/store/exchange_tickets_1.webp
+    - assets/store/exchange_tickets_3.webp
+    - assets/store/exchange_bundle_10.webp
+    - assets/store/membership.webp
+    - assets/store/navigation.webp
+    - assets/store/offer_champion.webp
+    - assets/store/offer_explorer.webp
+    - assets/store/offer_starter.webp
+    - assets/store/return_daily.webp
+    - assets/store/return_download.webp
+    - assets/store/return_watch.webp
+    - assets/store/reward_daily.webp
+    - assets/store/reward_watch.webp
+    - assets/store/btn_rent_green.png
+    - assets/social/friends_challenges.jfif
+    - assets/home/campaign.webp
+    - assets/home/lobby_background.jfif
+    - assets/home/level_badge.png
+    - assets/home/coins.webp
+    - assets/home/friends.webp
+    - assets/home/help.png
+    - assets/home/gems.webp
+    - assets/home/keys.png
+    - assets/home/tickets.png
+    - assets/home/menu.webp
+    - assets/home/modes.webp
+    - assets/home/play.png
+    - assets/home/store.webp
+    - assets/ui/splash_background.png
+    - assets/ui/splash_logo.png
+    - assets/ui/splash_presenter.png
+    - assets/ui/character_select_room.webp
+    - assets/ui/character_select_title.png
+    - assets/ui/million_challenge_logo.png
+    - assets/images/campaign/worlds/world_01_forest.webp
+    - assets/images/campaign/worlds/world_02_hills.webp
+    - assets/images/campaign/worlds/world_03_million_path.webp
+    - assets/images/campaign/worlds/world_04_desert.webp
+    - assets/images/campaign/worlds/world_05_genius_city.webp
+    - assets/images/campaign/worlds/world_06_mountain.webp
+    - assets/images/campaign/worlds/world_07_sea.webp
+    - assets/images/campaign/worlds/world_08_lab.webp
+    - assets/images/campaign/worlds/world_09_legends_gate.webp
+    - assets/images/campaign/worlds/world_10_million_palace.webp
+    - assets/images/campaign/ui/stage_button_blue.png
+    - assets/images/campaign/ui/stage_button_green.png
+    - assets/images/campaign/ui/star_1.png
+    - assets/images/campaign/ui/star_2.png
+    - assets/images/campaign/ui/star_3.png
+    - assets/images/campaign/ui/victory_background.jpg
+    - assets/images/campaign/ui/victory_panel.png
+    - assets/fonts/NotoSansArabic-OFL.txt
+
+  fonts:
+    - family: NotoSansArabic
+      fonts:
+        - asset: assets/fonts/NotoSansArabic.ttf
 
   # To add assets to your application, add an assets section, like this:
   # assets:

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../models/room.dart';
+import '../models/legacy_room.dart';
 import '../screens/online/room_lobby_screen.dart';
 import '../widgets/game_notice.dart';
 import 'native_bridge_service.dart';
-import 'room_service.dart';
+import 'legacy_room_service.dart';
 
 /// Shared rules for starting and returning to an account's online match.
 class OnlineMatchFlow {

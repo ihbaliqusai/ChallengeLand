@@ -1,4 +1,7 @@
 class AppRoutes {
+  static const guestTrial = '/guest-trial';
+  static const guestSignIn = '/guest-sign-in';
+  static const guideMenu = '/guide-menu';
   const AppRoutes._();
 
   static const splash = '/';

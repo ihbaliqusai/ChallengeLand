@@ -10,11 +10,11 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../core/app_state.dart';
 import '../../models/player_profile.dart';
-import '../../models/room.dart';
+import '../../models/legacy_room.dart';
 import '../../services/invite_service.dart';
 import '../../services/native_bridge_service.dart';
 import '../../services/profile_service.dart';
-import '../../services/room_service.dart';
+import '../../services/legacy_room_service.dart';
 import '../home/resource_shop_screen.dart';
 
 class RoomLobbyScreen extends StatefulWidget {

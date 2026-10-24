@@ -1,8 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:challenge_land/models/room.dart';
-import 'package:challenge_land/services/room_service.dart';
+import 'package:challenge_land/models/legacy_room.dart';
+import 'package:challenge_land/services/legacy_room_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

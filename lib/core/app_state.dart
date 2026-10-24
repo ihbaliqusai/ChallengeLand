@@ -8,7 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/game_character.dart';
 import '../models/game_category.dart';
 import '../models/economy_wallet.dart';
-import '../services/auth_service.dart';
+import '../services/legacy_auth_service.dart';
 import '../services/achievement_reward_service.dart';
 import '../services/daily_reward_service.dart';
 import '../services/campaign_currency_service.dart';
@@ -21,10 +21,11 @@ class AppState extends ChangeNotifier {
     required AuthService authService,
     required NativeBridgeService nativeBridgeService,
     FirebaseFirestore? firestore,
-  })  : _authService = authService,
-        _nativeBridgeService = nativeBridgeService,
-        _firestore = firestore ?? FirebaseFirestore.instance,
-        _progressionService = ProgressionService(firestore: firestore) {
+    this.useMockData = false,
+  }) : _authService = authService,
+       _nativeBridgeService = nativeBridgeService,
+       _firestoreOverride = firestore,
+       _progressionService = ProgressionService(firestore: firestore) {
     NativeBridgeService.addPurchaseDeliveredListener(_onPurchaseDelivered);
     unawaited(loadCategoryState());
     _authSubscription = _authService.authStateChanges().listen(_onAuthChanged);
@@ -43,7 +44,10 @@ class AppState extends ChangeNotifier {
 
   final AuthService _authService;
   final NativeBridgeService _nativeBridgeService;
-  final FirebaseFirestore _firestore;
+  final bool useMockData;
+  final FirebaseFirestore? _firestoreOverride;
+  FirebaseFirestore get _firestore =>
+      _firestoreOverride ?? FirebaseFirestore.instance;
   final ProgressionService _progressionService;
 
   StreamSubscription<User?>? _authSubscription;
@@ -64,8 +68,9 @@ class AppState extends ChangeNotifier {
   Future<void>? _economyLoading;
   bool _disposed = false;
 
-  Future<void> loadEconomy() => _economyLoading ??=
-      _loadEconomy().whenComplete(() => _economyLoading = null);
+  Future<void> loadEconomy() => _economyLoading ??= _loadEconomy().whenComplete(
+    () => _economyLoading = null,
+  );
 
   Future<void> _loadEconomy() async {
     final uid = currentUser?.uid;
@@ -74,7 +79,8 @@ class AppState extends ChangeNotifier {
       final result = await _nativeBridgeService.economy({'action': 'login'});
       if (_disposed || currentUser?.uid != uid) return;
       final next = EconomyWallet.fromMap(
-          Map<String, dynamic>.from(result['state'] as Map? ?? {}));
+        Map<String, dynamic>.from(result['state'] as Map? ?? {}),
+      );
       if (next.revision >= economyWallet.revision) economyWallet = next;
       economyLoaded = true;
       economyError = null;
@@ -91,7 +97,8 @@ class AppState extends ChangeNotifier {
     final result = await _nativeBridgeService.economy(data);
     if (_disposed || currentUser?.uid != uid) return;
     final next = EconomyWallet.fromMap(
-        Map<String, dynamic>.from(result['state'] as Map? ?? {}));
+      Map<String, dynamic>.from(result['state'] as Map? ?? {}),
+    );
     if (next.revision >= economyWallet.revision) economyWallet = next;
     economyLoaded = true;
     economyError = null;
@@ -121,8 +128,10 @@ class AppState extends ChangeNotifier {
   int get rewardWeekStart => ((streakDay.clamp(1, 30) - 1) ~/ 7) * 7 + 1;
   int get rewardWeekLength => (31 - rewardWeekStart).clamp(1, 7);
   int get rewardWeekCompleted =>
-      (streakDay.clamp(1, 30) - rewardWeekStart + (claimedToday ? 1 : 0))
-          .clamp(0, rewardWeekLength);
+      (streakDay.clamp(1, 30) - rewardWeekStart + (claimedToday ? 1 : 0)).clamp(
+        0,
+        rewardWeekLength,
+      );
 
   User? get currentUser => user ?? _authService.currentUser;
 
@@ -142,10 +151,10 @@ class AppState extends ChangeNotifier {
   bool get hasChosenCharacter => selectedCharacterIndex >= 0;
 
   GameCharacter get selectedCharacter => CharacterCatalog.byIndex(
-        selectedCharacterIndex < 0
-            ? CharacterCatalog.defaultIndex
-            : selectedCharacterIndex,
-      );
+    selectedCharacterIndex < 0
+        ? CharacterCatalog.defaultIndex
+        : selectedCharacterIndex,
+  );
 
   /// Whether [character] is available to the player given level + purchases.
   bool isCharacterUnlocked(GameCharacter character) {
@@ -215,8 +224,9 @@ class AppState extends ChangeNotifier {
   Future<bool> purchaseCharacter(GameCharacter character) async {
     if (!character.unlock.isPurchasable) return false;
     if (isCharacterUnlocked(character)) return true;
-    final payWith =
-        character.unlock.kind == CharacterUnlockKind.coins ? 'coins' : 'gems';
+    final payWith = character.unlock.kind == CharacterUnlockKind.coins
+        ? 'coins'
+        : 'gems';
     final balance = payWith == 'coins' ? coins : gems;
     if (balance < character.unlock.value) return false;
 
@@ -240,10 +250,9 @@ class AppState extends ChangeNotifier {
     final uid = currentUser?.uid;
     if (uid == null) return;
     try {
-      await _firestore.collection('users').doc(uid).set(
-        <String, dynamic>{'characterIndex': index},
-        SetOptions(merge: true),
-      );
+      await _firestore.collection('users').doc(uid).set(<String, dynamic>{
+        'characterIndex': index,
+      }, SetOptions(merge: true));
     } catch (_) {}
   }
 
@@ -265,8 +274,9 @@ class AppState extends ChangeNotifier {
   bool categoryStateLoaded = false;
 
   bool isCategoryUnlocked(String categoryName) {
-    if (economyWallet.owned.any((c) =>
-        GameCategory.normalize(c) == GameCategory.normalize(categoryName))) {
+    if (economyWallet.owned.any(
+      (c) => GameCategory.normalize(c) == GameCategory.normalize(categoryName),
+    )) {
       return true;
     }
     if ((economyWallet.rentals[GameCategory.normalize(categoryName)] ?? 0) >
@@ -282,8 +292,10 @@ class AppState extends ChangeNotifier {
     for (final item in unlockedCategories) {
       if (GameCategory.normalize(item) == norm) return true;
     }
-    final expiry =
-        GameCategory.rentalExpiryMillis(categoryName, categoryRentals);
+    final expiry = GameCategory.rentalExpiryMillis(
+      categoryName,
+      categoryRentals,
+    );
     if (expiry != null && expiry > DateTime.now().millisecondsSinceEpoch) {
       return true;
     }
@@ -319,7 +331,8 @@ class AppState extends ChangeNotifier {
   void _applyCommerceState(Map<String, dynamic> commerce) {
     _vipExpiryTimer?.cancel();
     vipExpiresAtMillis = (commerce['expiresAtMillis'] as num?)?.toInt() ?? 0;
-    isVip = commerce['isVip'] == true &&
+    isVip =
+        commerce['isVip'] == true &&
         vipExpiresAtMillis > DateTime.now().millisecondsSinceEpoch;
     hasPermanentCategoryPass = commerce['allCategories'] == true;
     hasAdFreeEntitlement = commerce['removeAds'] == true || isVip;
@@ -327,20 +340,24 @@ class AppState extends ChangeNotifier {
     ownedStoreProducts
       ..clear()
       ..addAll(
-          rawOwned is List ? rawOwned.map((id) => id.toString()) : <String>[]);
+        rawOwned is List ? rawOwned.map((id) => id.toString()) : <String>[],
+      );
     if (hasPermanentCategoryPass) ownedStoreProducts.add('category_all_access');
     if (isVip) {
       _vipExpiryTimer = Timer(
         Duration(
-            milliseconds:
-                vipExpiresAtMillis - DateTime.now().millisecondsSinceEpoch),
+          milliseconds:
+              vipExpiresAtMillis - DateTime.now().millisecondsSinceEpoch,
+        ),
         () => unawaited(loadCategoryState()),
       );
     }
   }
 
-  Future<bool> unlockCategoryWithGems(String category,
-      {int gemCost = 150}) async {
+  Future<bool> unlockCategoryWithGems(
+    String category, {
+    int gemCost = 150,
+  }) async {
     if (gems < gemCost) return false;
     await economyAction({'action': 'own', 'category': category});
     const ok = true;
@@ -405,7 +422,7 @@ class AppState extends ChangeNotifier {
     final wasOffline = !isOnline;
     isOnline = online;
     notifyListeners();
-    if (online && wasOffline && user != null) {
+    if (online && wasOffline && user != null && !useMockData) {
       unawaited(loadCurrency());
       unawaited(loadLevelData());
       final uid = user!.uid;
@@ -511,22 +528,24 @@ class AppState extends ChangeNotifier {
 
   Future<T> _enqueueProgression<T>(Future<T> Function() action) {
     final operation = _progressionTail.then((_) => action());
-    _progressionTail =
-        operation.then<void>((_) {}, onError: (Object _, StackTrace __) {});
+    _progressionTail = operation.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace __) {},
+    );
     return operation;
   }
 
   Map<String, dynamic> _publicIdentity(User account) => {
-        'username': _resolvedUsername(account),
-        'photoUrl': _resolvedPhotoUrl(account),
-        'friendCode': friendCode,
-      };
+    'username': _resolvedUsername(account),
+    'photoUrl': _resolvedPhotoUrl(account),
+    'friendCode': friendCode,
+  };
 
   static Map<String, int> _snapshotNumbers(dynamic raw) => raw is Map
       ? {
           for (final entry in raw.entries)
             if (entry.value is num)
-              entry.key.toString(): (entry.value as num).toInt()
+              entry.key.toString(): (entry.value as num).toInt(),
         }
       : <String, int>{};
 
@@ -551,7 +570,8 @@ class AppState extends ChangeNotifier {
 
         final progress = DailyRewardProgress.fromData(data, DateTime.now());
         streakDay = progress.day;
-        claimedToday = (progress.claimed ||
+        claimedToday =
+            (progress.claimed ||
                 _localDailyClaimDate == _todayCalendarDateString()) &&
             !_dailyRewardWalletPending;
         dailyStreakLoaded = true;
@@ -642,8 +662,10 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  Future<(AchievementPayout, Map<String, dynamic>)> _runAchievementOperation(
-      {required bool pay, String? key}) async {
+  Future<(AchievementPayout, Map<String, dynamic>)> _runAchievementOperation({
+    required bool pay,
+    String? key,
+  }) async {
     final account = currentUser;
     final uid = account?.uid;
     final generation = _authGeneration;
@@ -674,20 +696,22 @@ class AppState extends ChangeNotifier {
         try {
           await previousSnapshot;
           requireActive();
-          final native = await _nativeBridgeService
-              .getAchievements()
-              .timeout(const Duration(seconds: 8));
+          final native = await _nativeBridgeService.getAchievements().timeout(
+            const Duration(seconds: 8),
+          );
           requireActive();
           if (pay) _achievementWalletPending = true;
           final service = AchievementRewardService(firestore: _firestore);
-          final result = await (pay
-                  ? service.claim(
-                      uid: uid,
-                      native: native,
-                      key: key,
-                      identity: _publicIdentity(account))
-                  : service.synchronize(uid: uid, native: native))
-              .timeout(const Duration(seconds: 20));
+          final result =
+              await (pay
+                      ? service.claim(
+                          uid: uid,
+                          native: native,
+                          key: key,
+                          identity: _publicIdentity(account),
+                        )
+                      : service.synchronize(uid: uid, native: native))
+                  .timeout(const Duration(seconds: 20));
           requireActive();
           final balances = await _nativeBridgeService
               .setUserCurrency(
@@ -794,10 +818,17 @@ class AppState extends ChangeNotifier {
     authStateLoaded = true;
     final previousUser = user;
 
-    final isDifferentUser = previousUser != null &&
+    final isDifferentUser =
+        previousUser != null &&
         nextUser != null &&
         previousUser.uid != nextUser.uid;
     user = nextUser;
+    if (useMockData) {
+      characterStateLoaded = true;
+      selectedCharacterIndex = nextUser == null ? -1 : 1;
+      notifyListeners();
+      return;
+    }
 
     if (nextUser != null) {
       if (isDifferentUser) {
@@ -818,7 +849,8 @@ class AppState extends ChangeNotifier {
 
   Future<void> signIn(String email, String password) async {
     await _runBusy(
-        () => _authService.signInWithEmail(email: email, password: password));
+      () => _authService.signInWithEmail(email: email, password: password),
+    );
   }
 
   Future<void> register(String email, String password, String username) async {
@@ -859,9 +891,7 @@ class AppState extends ChangeNotifier {
 
   Future<void> deleteAccount({String? password}) async {
     final deletedUid = currentUser?.uid;
-    await _runBusy(
-      () => _authService.deleteCurrentAccount(password: password),
-    );
+    await _runBusy(() => _authService.deleteCurrentAccount(password: password));
     try {
       await _nativeBridgeService.resetLocalProgress(accountUid: deletedUid);
     } catch (_) {
@@ -910,8 +940,9 @@ class AppState extends ChangeNotifier {
   String get friendCode {
     final uid = currentUser?.uid;
     if (uid == null || uid.isEmpty) return '';
-    final normalized =
-        uid.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').toUpperCase();
+    final normalized = uid
+        .replaceAll(RegExp(r'[^A-Za-z0-9]'), '')
+        .toUpperCase();
     if (normalized.isEmpty) return '';
     return normalized.length > 10 ? normalized.substring(0, 10) : normalized;
   }
@@ -934,11 +965,17 @@ class AppState extends ChangeNotifier {
     await _nativeBridgeService.launchFriendChallenge(friendCode: friendCode);
   }
 
-  Future<void> openStakedFriendChallenge(String friendCode,
-      {required String matchId, required int stakeCoins}) async {
+  Future<void> openStakedFriendChallenge(
+    String friendCode, {
+    required String matchId,
+    required int stakeCoins,
+  }) async {
     await _syncLegacyUser();
     await _nativeBridgeService.launchStakedFriendChallenge(
-        friendCode: friendCode, matchId: matchId, stakeCoins: stakeCoins);
+      friendCode: friendCode,
+      matchId: matchId,
+      stakeCoins: stakeCoins,
+    );
     await loadCurrency();
   }
 
@@ -974,8 +1011,10 @@ class AppState extends ChangeNotifier {
       gemsReward: gemsReward,
       claimId: claimId,
     );
-    final xpGranted =
-        await grantCampaignXp(xpReward: xpReward, claimId: claimId);
+    final xpGranted = await grantCampaignXp(
+      xpReward: xpReward,
+      claimId: claimId,
+    );
     return currencyGranted && xpGranted;
   }
 
@@ -994,13 +1033,13 @@ class AppState extends ChangeNotifier {
         if (_commerceHydratedUid != uid) return false;
         final cloudBalance =
             await CampaignCurrencyService(firestore: _firestore).grant(
-          uid: uid,
-          claimId: claimId,
-          coins: coinsReward,
-          gems: gemsReward,
-          fallbackCoins: coins,
-          fallbackGems: gems,
-        );
+              uid: uid,
+              claimId: claimId,
+              coins: coinsReward,
+              gems: gemsReward,
+              fallbackCoins: coins,
+              fallbackGems: gems,
+            );
         if (generation != _authGeneration || currentUser?.uid != uid) {
           return false;
         }
@@ -1119,8 +1158,9 @@ class AppState extends ChangeNotifier {
       await _syncLegacyUser().timeout(const Duration(seconds: 3));
       if (!isActive()) return;
       final commerce = await _nativeBridgeService.getCommerceState().timeout(
-          const Duration(seconds: 3),
-          onTimeout: () => <String, dynamic>{});
+        const Duration(seconds: 3),
+        onTimeout: () => <String, dynamic>{},
+      );
       if (!isActive()) return;
       _applyCommerceState(commerce);
       final rawRemoteIds = data?['appliedCommerceDeliveryIds'];
@@ -1189,10 +1229,7 @@ class AppState extends ChangeNotifier {
       if (!isActive()) return;
       try {
         await _nativeBridgeService
-            .setCategoryState(
-              unlocked: unlockedCategories,
-              isVip: isVip,
-            )
+            .setCategoryState(unlocked: unlockedCategories, isVip: isVip)
             .timeout(const Duration(seconds: 2));
       } catch (_) {}
 
@@ -1321,35 +1358,35 @@ class AppState extends ChangeNotifier {
       final userRef = _firestore.collection('users').doc(uid);
       final remoteWallet = await _firestore
           .runTransaction<Map<String, dynamic>?>((transaction) async {
-        final snapshot = await transaction.get(userRef);
-        if (_disposed ||
-            currentUser?.uid != uid ||
-            _commerceHydratedUid != uid) {
-          return null;
-        }
-        final data = snapshot.data() ?? <String, dynamic>{};
-        final revision = (data['friendStakeRevision'] as num?)?.toInt() ?? 0;
-        final held = (data['friendStakeMatchId'] as String? ?? '').isNotEmpty;
-        final refreshWallet =
-            held || revision != (_friendStakeRevisions[uid] ?? 0);
-        transaction.set(
-            userRef,
-            <String, dynamic>{
+            final snapshot = await transaction.get(userRef);
+            if (_disposed ||
+                currentUser?.uid != uid ||
+                _commerceHydratedUid != uid) {
+              return null;
+            }
+            final data = snapshot.data() ?? <String, dynamic>{};
+            final revision =
+                (data['friendStakeRevision'] as num?)?.toInt() ?? 0;
+            final held =
+                (data['friendStakeMatchId'] as String? ?? '').isNotEmpty;
+            final refreshWallet =
+                held || revision != (_friendStakeRevisions[uid] ?? 0);
+            transaction.set(userRef, <String, dynamic>{
               if (!refreshWallet) 'coins': currentCoins,
               if (!refreshWallet) 'gems': currentGems,
               'unlockedCategories': FieldValue.arrayUnion(unlockedCategories),
               'characterIndex': selectedCharacterIndex,
-              'purchasedCharacters':
-                  FieldValue.arrayUnion(purchasedCharacters.toList()),
+              'purchasedCharacters': FieldValue.arrayUnion(
+                purchasedCharacters.toList(),
+              ),
               if (!refreshWallet)
                 'currencyUpdatedAt': FieldValue.serverTimestamp(),
               if (!refreshWallet) 'appliedCommerceDeliveryIds': deliveryIds,
-            },
-            SetOptions(merge: true));
-        return refreshWallet
-            ? {...data, 'friendStakeRevision': revision}
-            : null;
-      });
+            }, SetOptions(merge: true));
+            return refreshWallet
+                ? {...data, 'friendStakeRevision': revision}
+                : null;
+          });
       if (_disposed || currentUser?.uid != uid || _commerceHydratedUid != uid) {
         return;
       }
@@ -1357,7 +1394,8 @@ class AppState extends ChangeNotifier {
         // Escrow and payouts can arrive while Android still displays its old
         // balance. Read and compare inside the write transaction so its retry
         // cannot put the reserved coins back or erase a newer prize.
-        final remoteIds = (remoteWallet['appliedCommerceDeliveryIds'] as List?)
+        final remoteIds =
+            (remoteWallet['appliedCommerceDeliveryIds'] as List?)
                 ?.whereType<String>()
                 .toSet() ??
             <String>{};
@@ -1397,8 +1435,10 @@ class AppState extends ChangeNotifier {
         return;
       }
       if (currentUser?.uid == uid && deliveryIds.isNotEmpty) {
-        await _nativeBridgeService.confirmCommerceSnapshot(deliveryIds,
-            accountUid: uid);
+        await _nativeBridgeService.confirmCommerceSnapshot(
+          deliveryIds,
+          accountUid: uid,
+        );
       }
     } catch (e) {
       debugPrint('[AppState] Failed to save full user snapshot: $e');
@@ -1411,10 +1451,7 @@ class AppState extends ChangeNotifier {
 
   final Map<String, int> _friendStakeRevisions = {};
 
-  Future<void> syncPublicProfile({
-    int? level,
-    int? trophies,
-  }) async {
+  Future<void> syncPublicProfile({int? level, int? trophies}) async {
     // Only the progression transaction publishes totals; callers cannot
     // accidentally overwrite a newer trophy loss with an older screen value.
     await checkAndAwardXpForGames();

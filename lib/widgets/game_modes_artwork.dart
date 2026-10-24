@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'adaptive_asset_image.dart';
+import '../features/onboarding/guide_target.dart';
 
 /// Original mode artwork with native, accessible controls and glowing
 /// ambient light around each game mode button.
@@ -78,19 +79,19 @@ class _GameModesArtworkState extends State<GameModesArtwork>
           child: LayoutBuilder(
             builder: (context, area) {
               Rect map(Rect rect) => Rect.fromLTRB(
-                    (rect.left - GameModesArtwork._frame.left) /
-                        GameModesArtwork._frame.width *
-                        area.maxWidth,
-                    (rect.top - GameModesArtwork._frame.top) /
-                        GameModesArtwork._frame.height *
-                        area.maxHeight,
-                    (rect.right - GameModesArtwork._frame.left) /
-                        GameModesArtwork._frame.width *
-                        area.maxWidth,
-                    (rect.bottom - GameModesArtwork._frame.top) /
-                        GameModesArtwork._frame.height *
-                        area.maxHeight,
-                  );
+                (rect.left - GameModesArtwork._frame.left) /
+                    GameModesArtwork._frame.width *
+                    area.maxWidth,
+                (rect.top - GameModesArtwork._frame.top) /
+                    GameModesArtwork._frame.height *
+                    area.maxHeight,
+                (rect.right - GameModesArtwork._frame.left) /
+                    GameModesArtwork._frame.width *
+                    area.maxWidth,
+                (rect.bottom - GameModesArtwork._frame.top) /
+                    GameModesArtwork._frame.height *
+                    area.maxHeight,
+              );
 
               Widget action(
                 Rect region,
@@ -107,7 +108,8 @@ class _GameModesArtworkState extends State<GameModesArtwork>
                     ? bounds.shortestSide * 0.5
                     : bounds.shortestSide * 0.13;
 
-                return Positioned.fromRect(
+                return guidedArtworkPosition(
+                  label: title,
                   rect: Rect.fromCenter(
                     center: bounds.center,
                     width: math.max(48, bounds.width),
@@ -125,8 +127,9 @@ class _GameModesArtworkState extends State<GameModesArtwork>
                           animation: _glowAnimation,
                           builder: (context, child) {
                             final t = _glowAnimation.value;
-                            final pulseAlpha =
-                                enabled ? (0.45 + 0.55 * t) : 0.15;
+                            final pulseAlpha = enabled
+                                ? (0.45 + 0.55 * t)
+                                : 0.15;
                             final blur = enabled ? (8.0 + 10.0 * t) : 3.0;
 
                             return Stack(
@@ -136,13 +139,16 @@ class _GameModesArtworkState extends State<GameModesArtwork>
                                 Positioned.fill(
                                   child: IgnorePointer(
                                     child: CustomPaint(
-                                        painter: _ModeHaloPainter(
-                                      color: enabled ? glowColor : Colors.black,
-                                      secondaryColor: secondaryGlowColor,
-                                      opacity: pulseAlpha,
-                                      blur: blur,
-                                      radius: radius,
-                                    )),
+                                      painter: _ModeHaloPainter(
+                                        color: enabled
+                                            ? glowColor
+                                            : Colors.black,
+                                        secondaryColor: secondaryGlowColor,
+                                        opacity: pulseAlpha,
+                                        blur: blur,
+                                        radius: radius,
+                                      ),
+                                    ),
                                   ),
                                 ),
 
@@ -163,8 +169,9 @@ class _GameModesArtworkState extends State<GameModesArtwork>
                                                   alpha: 0.70 + 0.30 * t,
                                                 )
                                               : Colors.white24,
-                                          width:
-                                              enabled ? (1.8 + 1.2 * t) : 1.2,
+                                          width: enabled
+                                              ? (1.8 + 1.2 * t)
+                                              : 1.2,
                                         ),
                                       ),
                                     ),
@@ -185,9 +192,13 @@ class _GameModesArtworkState extends State<GameModesArtwork>
                                           decoration: BoxDecoration(
                                             gradient: LinearGradient(
                                               begin: Alignment(
-                                                  -1.2 + 2.4 * t, -1.0),
-                                              end:
-                                                  Alignment(1.2 + 2.4 * t, 1.0),
+                                                -1.2 + 2.4 * t,
+                                                -1.0,
+                                              ),
+                                              end: Alignment(
+                                                1.2 + 2.4 * t,
+                                                1.0,
+                                              ),
                                               colors: [
                                                 Colors.transparent,
                                                 glowColor.withValues(
@@ -220,8 +231,9 @@ class _GameModesArtworkState extends State<GameModesArtwork>
                                   Positioned.fill(
                                     child: DecoratedBox(
                                       decoration: BoxDecoration(
-                                        color: Colors.black
-                                            .withValues(alpha: 0.45),
+                                        color: Colors.black.withValues(
+                                          alpha: 0.45,
+                                        ),
                                         borderRadius: isCircle
                                             ? null
                                             : BorderRadius.circular(radius),
@@ -235,8 +247,9 @@ class _GameModesArtworkState extends State<GameModesArtwork>
                                 // 5. Touch/tap action target
                                 Positioned.fill(
                                   child: TextButton(
-                                    onPressed:
-                                        enabled ? onTap : widget.onUnavailable,
+                                    onPressed: enabled
+                                        ? onTap
+                                        : widget.onUnavailable,
                                     style: TextButton.styleFrom(
                                       padding: EdgeInsets.zero,
                                       minimumSize: Size.zero,
@@ -260,8 +273,10 @@ class _GameModesArtworkState extends State<GameModesArtwork>
                                     left: 7,
                                     child: Icon(
                                       Icons.lock_rounded,
-                                      size: (area.maxHeight * 0.065)
-                                          .clamp(14.0, 24.0),
+                                      size: (area.maxHeight * 0.065).clamp(
+                                        14.0,
+                                        24.0,
+                                      ),
                                       color: Colors.white70,
                                     ),
                                   ),
@@ -282,21 +297,26 @@ class _GameModesArtworkState extends State<GameModesArtwork>
                   children: [
                     Positioned.fill(
                       child: ClipRRect(
-                        borderRadius:
-                            BorderRadius.circular(area.maxWidth * 0.035),
+                        borderRadius: BorderRadius.circular(
+                          area.maxWidth * 0.035,
+                        ),
                         child: ClipRect(
                           child: Stack(
                             children: [
                               Positioned(
-                                left: -GameModesArtwork._frame.left /
+                                left:
+                                    -GameModesArtwork._frame.left /
                                     GameModesArtwork._frame.width *
                                     area.maxWidth,
-                                top: -GameModesArtwork._frame.top /
+                                top:
+                                    -GameModesArtwork._frame.top /
                                     GameModesArtwork._frame.height *
                                     area.maxHeight,
-                                width: area.maxWidth /
+                                width:
+                                    area.maxWidth /
                                     GameModesArtwork._frame.width,
-                                height: area.maxHeight /
+                                height:
+                                    area.maxHeight /
                                     GameModesArtwork._frame.height,
                                 child: adaptiveAssetImage(
                                   GameModesArtwork.asset,
@@ -363,34 +383,39 @@ class _GameModesArtworkState extends State<GameModesArtwork>
 }
 
 class _ModeHaloPainter extends CustomPainter {
-  const _ModeHaloPainter(
-      {required this.color,
-      required this.secondaryColor,
-      required this.opacity,
-      required this.blur,
-      required this.radius});
+  const _ModeHaloPainter({
+    required this.color,
+    required this.secondaryColor,
+    required this.opacity,
+    required this.blur,
+    required this.radius,
+  });
   final Color color, secondaryColor;
   final double opacity, blur, radius;
 
   @override
   void paint(Canvas canvas, Size size) {
     final ring = RRect.fromRectAndRadius(
-        (Offset.zero & size).deflate(2), Radius.circular(radius));
+      (Offset.zero & size).deflate(2),
+      Radius.circular(radius),
+    );
     // Stroke only: the glow surrounds the artwork without painting over its text.
     canvas.drawRRect(
-        ring,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 6
-          ..color = secondaryColor.withValues(alpha: .32 * opacity)
-          ..maskFilter = MaskFilter.blur(BlurStyle.normal, blur));
+      ring,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 6
+        ..color = secondaryColor.withValues(alpha: .32 * opacity)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, blur),
+    );
     canvas.drawRRect(
-        ring,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 3
-          ..color = color.withValues(alpha: .65 * opacity)
-          ..maskFilter = MaskFilter.blur(BlurStyle.normal, blur * .45));
+      ring,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3
+        ..color = color.withValues(alpha: .65 * opacity)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, blur * .45),
+    );
   }
 
   @override

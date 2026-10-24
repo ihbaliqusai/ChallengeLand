@@ -5,14 +5,18 @@ import 'package:provider/provider.dart';
 import '../../core/app_state.dart';
 import '../../widgets/adaptive_asset_image.dart';
 import '../legal/privacy_policy_screen.dart';
+import '../../core/constants/app_routes.dart';
 
 class LoginBottomSheet extends StatefulWidget {
   const LoginBottomSheet({super.key});
 
   static Future<void> show(BuildContext context) async {
     final state = context.read<AppState>();
-    if (state.user != null || ModalRoute.of(context)?.isCurrent != true) return;
+    if (state.user != null || ModalRoute.of(context)?.isCurrent == false) {
+      return;
+    }
     await showModalBottomSheet<void>(
+      routeSettings: const RouteSettings(name: AppRoutes.guestSignIn),
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
@@ -62,9 +66,11 @@ class _LoginBottomSheetState extends State<LoginBottomSheet> {
     } on FirebaseAuthException catch (error) {
       if (!mounted) return;
       if (error.code != 'cancelled' && error.code != 'sign_in_canceled') {
-        setState(() => _error = error.code == 'network-request-failed'
-            ? 'تحقق من اتصال الإنترنت ثم حاول مجدداً'
-            : 'تعذر تسجيل الدخول. يرجى المحاولة مرة أخرى');
+        setState(
+          () => _error = error.code == 'network-request-failed'
+              ? 'تحقق من اتصال الإنترنت ثم حاول مجدداً'
+              : 'تعذر تسجيل الدخول. يرجى المحاولة مرة أخرى',
+        );
       }
     } catch (_) {
       if (mounted) {
@@ -94,32 +100,41 @@ class _LoginBottomSheetState extends State<LoginBottomSheet> {
                   tooltip: 'إغلاق',
                   onPressed: () => Navigator.of(context).pop(),
                   visualDensity: VisualDensity.compact,
-                  constraints:
-                      const BoxConstraints.tightFor(width: 40, height: 40),
+                  constraints: const BoxConstraints.tightFor(
+                    width: 40,
+                    height: 40,
+                  ),
                   padding: const EdgeInsets.all(4),
-                  icon: const Icon(Icons.close_rounded,
-                      color: Color(0xFF444444), size: 24),
+                  icon: const Icon(
+                    Icons.close_rounded,
+                    color: Color(0xFF444444),
+                    size: 24,
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
               const Text(
                 'تسجيل الدخول',
                 style: TextStyle(
-                    color: _purple,
-                    fontSize: 26,
-                    fontFamily: 'NotoSansArabic',
-                    fontWeight: FontWeight.w900,
-                    fontVariations: [
-                      FontVariation('wght', 900),
-                      FontVariation('wdth', 85),
-                    ]),
+                  color: _purple,
+                  fontSize: 26,
+                  fontFamily: 'NotoSansArabic',
+                  fontWeight: FontWeight.w900,
+                  fontVariations: [
+                    FontVariation('wght', 900),
+                    FontVariation('wdth', 85),
+                  ],
+                ),
               ),
               const SizedBox(height: 16),
               const Text(
                 'أهلاً بك!\nقم بتسجيل الدخول للحفاظ على تقدمك',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                    color: Color(0xFF161616), fontSize: 16, height: 1.45),
+                  color: Color(0xFF161616),
+                  fontSize: 16,
+                  height: 1.45,
+                ),
               ),
               const SizedBox(height: 22),
               SizedBox(
@@ -137,26 +152,35 @@ class _LoginBottomSheetState extends State<LoginBottomSheet> {
                     shadowColor: Colors.black26,
                     surfaceTintColor: Colors.transparent,
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                   child: busy
                       ? const SizedBox.square(
                           dimension: 22,
                           child: CircularProgressIndicator(
-                              strokeWidth: 2, color: _purple),
+                            strokeWidth: 2,
+                            color: _purple,
+                          ),
                         )
                       : Row(
                           children: [
-                            adaptiveAssetImage('assets/ui/google.png',
-                                width: 22, height: 22),
+                            adaptiveAssetImage(
+                              'assets/ui/google.png',
+                              width: 22,
+                              height: 22,
+                            ),
                             const SizedBox(width: 12),
                             const Expanded(
                               child: FittedBox(
                                 fit: BoxFit.scaleDown,
-                                child: Text('تسجيل دخول بواسطة جوجل',
-                                    style: TextStyle(
-                                        fontSize: 17,
-                                        fontWeight: FontWeight.w700)),
+                                child: Text(
+                                  'تسجيل دخول بواسطة جوجل',
+                                  style: TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
                               ),
                             ),
                           ],
@@ -175,9 +199,9 @@ class _LoginBottomSheetState extends State<LoginBottomSheet> {
                       onChanged: busy
                           ? null
                           : (value) => setState(() {
-                                _acceptedPrivacy = value ?? false;
-                                _error = null;
-                              }),
+                              _acceptedPrivacy = value ?? false;
+                              _error = null;
+                            }),
                       semanticLabel: 'أوافق على سياسة الخصوصية',
                       activeColor: _purple,
                       checkColor: Colors.white,
@@ -191,28 +215,39 @@ class _LoginBottomSheetState extends State<LoginBottomSheet> {
                     child: Wrap(
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        const Text('قرأت ',
-                            style: TextStyle(
-                                color: Color(0xFF161616), fontSize: 14)),
+                        const Text(
+                          'قرأت ',
+                          style: TextStyle(
+                            color: Color(0xFF161616),
+                            fontSize: 14,
+                          ),
+                        ),
                         InkWell(
                           key: const ValueKey('login-privacy-link'),
                           onTap: busy
                               ? null
                               : () => Navigator.of(context).push(
-                                    MaterialPageRoute<void>(
-                                        builder: (_) =>
-                                            const PrivacyPolicyScreen()),
+                                  MaterialPageRoute<void>(
+                                    builder: (_) => const PrivacyPolicyScreen(),
                                   ),
-                          child: const Text('سياسة الخصوصية',
-                              style: TextStyle(
-                                  color: _purple,
-                                  fontSize: 14,
-                                  decoration: TextDecoration.underline,
-                                  decorationColor: _purple)),
-                        ),
-                        const Text(' وأوافق عليها.',
+                                ),
+                          child: const Text(
+                            'سياسة الخصوصية',
                             style: TextStyle(
-                                color: Color(0xFF161616), fontSize: 14)),
+                              color: _purple,
+                              fontSize: 14,
+                              decoration: TextDecoration.underline,
+                              decorationColor: _purple,
+                            ),
+                          ),
+                        ),
+                        const Text(
+                          ' وأوافق عليها.',
+                          style: TextStyle(
+                            color: Color(0xFF161616),
+                            fontSize: 14,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -221,10 +256,14 @@ class _LoginBottomSheetState extends State<LoginBottomSheet> {
               if (_error != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 6),
-                  child: Text(_error!,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                          color: Color(0xFFB91C1C), fontSize: 13)),
+                  child: Text(
+                    _error!,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Color(0xFFB91C1C),
+                      fontSize: 13,
+                    ),
+                  ),
                 ),
             ],
           ),

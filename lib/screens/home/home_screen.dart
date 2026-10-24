@@ -10,7 +10,11 @@ import '../online/room_lobby_screen.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/app_state.dart';
-import '../../models/room.dart';
+import '../../core/constants/app_routes.dart';
+import '../../state/guest_guide_provider.dart';
+import '../../features/onboarding/guide_target.dart';
+import '../../features/onboarding/guide_steps.dart';
+import '../../models/legacy_room.dart';
 import '../../core/player_rank.dart';
 import '../campaign/campaign_map_screen.dart';
 import '../character/character_select_screen.dart';
@@ -22,7 +26,7 @@ import 'profile_screen.dart';
 import '../online/settings_screen.dart';
 import '../online/stats_screen.dart';
 import '../online/achievements_screen.dart';
-import '../../services/room_service.dart';
+import '../../services/legacy_room_service.dart';
 import '../../services/online_match_flow.dart';
 import '../../services/campaign_result_handler.dart';
 import '../../services/invite_service.dart';
@@ -62,6 +66,7 @@ class _HomeScreenState extends State<HomeScreen>
   bool _handlingNativeLaunchAction = false;
   bool _hasCheckedDailyRewardThisLaunch = false;
   String? _initializedUserId;
+  GuestGuideProvider? _guide;
 
   @override
   void initState() {
@@ -82,11 +87,48 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _idleCtrl.stop();
+      _bgCtrl.stop();
+    }
+    final guide = context.read<GuestGuideProvider?>();
+    if (_guide != guide) {
+      _guide = guide;
+      if (guide != null) {
+        guide.navigateTo = (route) {
+          if (!mounted) return;
+          Navigator.of(context).popUntil((route) => route.isFirst);
+          if (route == AppRoutes.gameModes) {
+            _showGameModesSheet(context);
+          } else if (route == AppRoutes.guideMenu) {
+            final user = context.read<AppState>().user;
+            showModalBottomSheet<void>(
+              context: context,
+              routeSettings: const RouteSettings(name: AppRoutes.guideMenu),
+              backgroundColor: Colors.transparent,
+              barrierColor: Colors.black.withValues(alpha: .5),
+              isScrollControlled: true,
+              builder: (_) => GuideBackScope(
+                child: _HomeMenuSheet(
+                  rootContext: context,
+                  username: user?.displayName ?? 'لاعب',
+                  user: user,
+                  pendingRewards: 0,
+                ),
+              ),
+            );
+          }
+        };
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) guide.setLobbyReady(true);
+        });
+      }
+    }
     final uid = context.watch<AppState>().user?.uid;
     if (_initializedUserId == uid) return;
     _initializedUserId = uid;
     _hasCheckedDailyRewardThisLaunch = false;
-    if (uid == null) return;
+    if (uid == null || context.read<AppState>().useMockData) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || context.read<AppState>().user?.uid != uid) return;
       context.read<AppState>().loadCurrency();
@@ -107,7 +149,10 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (context.read<AppState>().user == null) return;
+    if (context.read<AppState>().user == null ||
+        context.read<AppState>().useMockData) {
+      return;
+    }
     if (state == AppLifecycleState.resumed) {
       context.read<AppState>().loadCurrency();
       context.read<AppState>().refreshCommerce();
@@ -171,8 +216,9 @@ class _HomeScreenState extends State<HomeScreen>
     if (!mounted) return;
     final appState = context.read<AppState>();
     if (appState.user == null || appState.isVip) return;
-    final shouldShow =
-        await SpecialOfferDialog.shouldShowAuto(isVip: appState.isVip);
+    final shouldShow = await SpecialOfferDialog.shouldShowAuto(
+      isVip: appState.isVip,
+    );
     if (shouldShow && mounted && appState.user != null && !appState.isVip) {
       await SpecialOfferDialog.show(context);
     }
@@ -226,15 +272,18 @@ class _HomeScreenState extends State<HomeScreen>
             final userId = context.read<AppState>().user?.uid;
             if (userId != null) {
               try {
-                if (!await OnlineMatchFlow.prepare(context, userId,
-                    roomId: candidate.code)) {
+                if (!await OnlineMatchFlow.prepare(
+                  context,
+                  userId,
+                  roomId: candidate.code,
+                )) {
                   return;
                 }
                 if (!mounted) return;
                 final joinResult = await context.read<RoomService>().joinRoom(
-                      roomId: candidate.code,
-                      userId: userId,
-                    );
+                  roomId: candidate.code,
+                  userId: userId,
+                );
                 if (!mounted) return;
                 await Navigator.of(context).push(
                   MaterialPageRoute<void>(
@@ -267,8 +316,9 @@ class _HomeScreenState extends State<HomeScreen>
     }
     _handlingNativeLaunchAction = true;
     try {
-      final action =
-          await context.read<NativeBridgeService>().consumeLaunchAction();
+      final action = await context
+          .read<NativeBridgeService>()
+          .consumeLaunchAction();
       if (!mounted || action == null || action.isEmpty) return;
       if (action == 'open_online_rooms') {
         Navigator.of(context).pushAndRemoveUntil(
@@ -276,13 +326,15 @@ class _HomeScreenState extends State<HomeScreen>
           (route) => route.isFirst,
         );
       } else if (action == 'open_store') {
-        Navigator.of(context).push(
-          MaterialPageRoute<void>(builder: (_) => const StoreScreen()),
-        );
+        Navigator.of(
+          context,
+        ).push(MaterialPageRoute<void>(builder: (_) => const StoreScreen()));
       } else if (action == 'social:requests') {
-        Navigator.of(context).push(MaterialPageRoute<void>(
-          builder: (_) => const SocialScreen(initialTab: 2),
-        ));
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => const SocialScreen(initialTab: 2),
+          ),
+        );
       } else if (action.startsWith('challenge:')) {
         final code = action.substring('challenge:'.length).trim();
         if (code.isNotEmpty) {
@@ -291,11 +343,9 @@ class _HomeScreenState extends State<HomeScreen>
       } else if (action.startsWith('room:')) {
         final roomId = action.substring('room:'.length).trim();
         if (roomId.isNotEmpty) {
-          Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => const RoomsScreen(),
-            ),
-          );
+          Navigator.of(
+            context,
+          ).push(MaterialPageRoute<void>(builder: (_) => const RoomsScreen()));
         }
       }
     } finally {
@@ -359,8 +409,9 @@ class _HomeScreenState extends State<HomeScreen>
         if (meOwner) {
           final seatScores = <String, int>{userId: score};
           for (final opponent in opponents) {
-            final oid =
-                (opponent['userId'] ?? opponent['id'] ?? '').toString().trim();
+            final oid = (opponent['userId'] ?? opponent['id'] ?? '')
+                .toString()
+                .trim();
             if (oid.isNotEmpty) {
               seatScores[oid] = (opponent['score'] as num?)?.toInt() ?? 0;
             }
@@ -428,7 +479,8 @@ class _HomeScreenState extends State<HomeScreen>
           break;
       }
 
-      final isWinner = (winnerId.isNotEmpty && winnerId == userId) ||
+      final isWinner =
+          (winnerId.isNotEmpty && winnerId == userId) ||
           (boardWinnerId.isNotEmpty && boardWinnerId == userId);
       if (isWinner && mounted) {
         RateGameService.instance.recordRoomMatchVictory(context);
@@ -456,9 +508,7 @@ class _HomeScreenState extends State<HomeScreen>
     for (final item in decoded) {
       if (item is Map) {
         opponents.add(
-          item.map(
-            (key, value) => MapEntry(key.toString(), value),
-          ),
+          item.map((key, value) => MapEntry(key.toString(), value)),
         );
       }
     }
@@ -467,6 +517,11 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   void dispose() {
+    _guide?.navigateTo = null;
+    final guide = _guide;
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => guide?.setLobbyReady(false),
+    );
     WidgetsBinding.instance.removeObserver(this);
     _idleCtrl.dispose();
     _bgCtrl.dispose();
@@ -479,8 +534,9 @@ class _HomeScreenState extends State<HomeScreen>
     final user = appState.user;
     final username =
         (user?.displayName ?? user?.email?.split('@').first ?? 'لاعب').trim();
-    final displayUsername =
-        username.isEmpty || username.contains('Ã') ? 'لاعب' : username;
+    final displayUsername = username.isEmpty || username.contains('Ã')
+        ? 'لاعب'
+        : username;
 
     return Scaffold(
       extendBody: true,
@@ -492,51 +548,52 @@ class _HomeScreenState extends State<HomeScreen>
             fit: BoxFit.cover,
           ),
         ),
-        child: LayoutBuilder(builder: (context, homeArea) {
-          return Stack(
-            children: [
-              // â”€â”€ Dark overlay â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-              Positioned.fill(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        const Color(0xFF08262C).withValues(alpha: 0.04),
-                        const Color(0xFF061418).withValues(alpha: 0.18),
-                      ],
+        child: LayoutBuilder(
+          builder: (context, homeArea) {
+            return Stack(
+              children: [
+                // â”€â”€ Dark overlay â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          const Color(0xFF08262C).withValues(alpha: 0.04),
+                          const Color(0xFF061418).withValues(alpha: 0.18),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
 
-              // â”€â”€ Animated sparkles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-              Positioned.fill(
-                child: AnimatedBuilder(
-                  animation: _bgCtrl,
-                  builder: (_, __) => CustomPaint(
-                    painter: _SparklesPainter(_bgCtrl.value),
+                // â”€â”€ Animated sparkles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                Positioned.fill(
+                  child: AnimatedBuilder(
+                    animation: _bgCtrl,
+                    builder: (_, __) =>
+                        CustomPaint(painter: _SparklesPainter(_bgCtrl.value)),
                   ),
                 ),
-              ),
 
-              // â”€â”€ CENTER arena â€” full screen width so content is truly centred â”€â”€
-              Positioned.fill(
-                child: SafeArea(
-                  left: false,
-                  child: _HomeLobbyLayout(
-                    appState: appState,
-                    username: displayUsername,
-                    user: user,
-                    idleCtrl: _idleCtrl,
-                    onCampaignTap: () => unawaited(_openCampaignMap()),
+                // â”€â”€ CENTER arena â€” full screen width so content is truly centred â”€â”€
+                Positioned.fill(
+                  child: SafeArea(
+                    left: false,
+                    child: _HomeLobbyLayout(
+                      appState: appState,
+                      username: displayUsername,
+                      user: user,
+                      idleCtrl: _idleCtrl,
+                      onCampaignTap: () => unawaited(_openCampaignMap()),
+                    ),
                   ),
                 ),
-              ),
-            ],
-          );
-        }),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -570,8 +627,10 @@ void _showOnlineRequiredToast(BuildContext context) {
 Future<void> _showGameModesSheet(BuildContext context) {
   return showDialog<void>(
     context: context,
+    routeSettings: const RouteSettings(name: AppRoutes.gameModes),
     barrierColor: Colors.black.withValues(alpha: 0.65),
-    builder: (sheetContext) => _GameModesSheet(rootContext: context),
+    builder: (sheetContext) =>
+        GuideBackScope(child: _GameModesSheet(rootContext: context)),
   );
 }
 
@@ -590,9 +649,9 @@ class _GameModesSheet extends StatelessWidget {
       _showOnlineRequiredToast(rootContext);
       return;
     }
-    Navigator.of(rootContext).push(
-      MaterialPageRoute<void>(builder: (_) => screen),
-    );
+    Navigator.of(
+      rootContext,
+    ).push(MaterialPageRoute<void>(builder: (_) => screen));
   }
 
   void _runMode(BuildContext sheetContext, VoidCallback action) {
@@ -605,11 +664,13 @@ class _GameModesSheet extends StatelessWidget {
     final appState = context.watch<AppState>();
     final media = MediaQuery.of(context);
     final width = math.min(
-        900.0,
-        math.min(
-            media.size.width - media.padding.horizontal - 24,
-            (media.size.height - media.padding.vertical - 24) *
-                GameModesArtwork.aspectRatio));
+      900.0,
+      math.min(
+        media.size.width - media.padding.horizontal - 24,
+        (media.size.height - media.padding.vertical - 24) *
+            GameModesArtwork.aspectRatio,
+      ),
+    );
     return Dialog(
       backgroundColor: Colors.transparent,
       surfaceTintColor: Colors.transparent,
@@ -622,14 +683,24 @@ class _GameModesSheet extends StatelessWidget {
           child: GameModesArtwork(
             isOnline: appState.isOnline,
             onClose: () => Navigator.of(context).pop(),
-            onMainChallenge: () => _runMode(context,
-                () => rootContext.read<AppState>().openMainChallenge()),
+            onMainChallenge: () => _runMode(
+              context,
+              () => rootContext.read<AppState>().openMainChallenge(),
+            ),
             onGroupChallenge: () => _openOnlineRoute(
-                context, const RoomsScreen(), appState.isOnline),
+              context,
+              const RoomsScreen(),
+              appState.isOnline,
+            ),
             onFriendChallenge: () => _openOnlineRoute(
-                context, const SocialScreen(), appState.isOnline),
+              context,
+              const SocialScreen(),
+              appState.isOnline,
+            ),
             onOffline: () => _runMode(
-                context, () => rootContext.read<AppState>().openOfflineGame()),
+              context,
+              () => rootContext.read<AppState>().openOfflineGame(),
+            ),
             onUnavailable: () =>
                 _runMode(context, () => _showOnlineRequiredToast(rootContext)),
           ),
@@ -680,6 +751,7 @@ class _HomeMenuButtonState extends State<_HomeMenuButton> {
   Future<void> _openMenu() async {
     await showModalBottomSheet<void>(
       context: context,
+      routeSettings: const RouteSettings(name: AppRoutes.guideMenu),
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.50),
       isScrollControlled: true,
@@ -697,7 +769,8 @@ class _HomeMenuButtonState extends State<_HomeMenuButton> {
 
   @override
   Widget build(BuildContext context) {
-    final hasDailyReward = widget.appState.isOnline &&
+    final hasDailyReward =
+        widget.appState.isOnline &&
         widget.appState.dailyStreakLoaded &&
         widget.appState.streakDay > 0 &&
         !widget.appState.claimedToday;
@@ -715,8 +788,11 @@ class _HomeMenuButtonState extends State<_HomeMenuButton> {
               SizedBox(
                 width: 52,
                 height: 52,
-                child: adaptiveAssetImage(HomeArtwork.menu,
-                    fit: BoxFit.contain, excludeFromSemantics: true),
+                child: adaptiveAssetImage(
+                  HomeArtwork.menu,
+                  fit: BoxFit.contain,
+                  excludeFromSemantics: true,
+                ),
               ),
               if (hasAttention)
                 const Positioned(top: -3, right: -3, child: _UnclaimedDot()),
@@ -741,14 +817,11 @@ class _HomeMenuSheet extends StatelessWidget {
   final dynamic user;
   final int pendingRewards;
 
-  void _openScreen(
-    BuildContext sheetContext,
-    Widget screen,
-  ) {
+  void _openScreen(BuildContext sheetContext, Widget screen) {
     Navigator.of(sheetContext).pop();
-    Navigator.of(rootContext).push(
-      MaterialPageRoute<void>(builder: (_) => screen),
-    );
+    Navigator.of(
+      rootContext,
+    ).push(MaterialPageRoute<void>(builder: (_) => screen));
   }
 
   @override
@@ -757,101 +830,129 @@ class _HomeMenuSheet extends StatelessWidget {
     final media = MediaQuery.of(context);
     final availableHeight = media.size.height - media.padding.vertical - 24;
     final width = math.min(
-        1000.0,
-        math.min(media.size.width - media.padding.horizontal - 24,
-            availableHeight * HomeMenuArtwork.aspectRatio));
-    final dailyReady = liveState.isOnline &&
+      1000.0,
+      math.min(
+        media.size.width - media.padding.horizontal - 24,
+        availableHeight * HomeMenuArtwork.aspectRatio,
+      ),
+    );
+    final dailyReady =
+        liveState.isOnline &&
         liveState.dailyStreakLoaded &&
         liveState.streakDay > 0 &&
         !liveState.claimedToday;
     return SafeArea(
-        child: Center(
-            child: Padding(
-      padding: const EdgeInsets.all(12),
-      child: SizedBox(
-          width: width,
-          child: HomeMenuArtwork(
-            username: username,
-            rankTitle: PlayerRank.titleForLevel(liveState.level),
-            rankColor: PlayerRank.colorForLevel(liveState.level),
-            photoUrl: user?.photoURL,
-            isOnline: liveState.isOnline,
-            dailyReady: dailyReady,
-            pendingRewards: pendingRewards,
-            onProfile: () => _openScreen(context, const ProfileScreen()),
-            onClose: () => Navigator.of(context).pop(),
-            onLeaderboard: () =>
-                _openScreen(context, const LeaderboardScreen()),
-            onRewards: () => _openScreen(context, const DailyStreakScreen()),
-            onStats: () => _openScreen(context, const StatsScreen()),
-            onAchievements: () =>
-                _openScreen(context, const AchievementsScreen()),
-            onSettings: () => _openScreen(context, const SettingsScreen()),
-            onUnavailable: () {
-              Navigator.of(context).pop();
-              _showOnlineRequiredToast(rootContext);
-            },
-            ratingEntry: FutureBuilder<bool>(
-              future: RateGameService.instance.shouldShowRatingEntry(),
-              builder: (context, snapshot) {
-                if (snapshot.data != true) return const SizedBox.shrink();
-                return Tooltip(
-                  message:
-                      'شاركنا رأيك وادعمنا للحصول على 500 كوين + 10 جواهر 🎁',
-                  child: InkWell(
-                    onTap: () {
-                      Navigator.of(context).pop();
-                      RateGameService.instance
-                          .showRateDialog(rootContext, isManual: true);
-                    },
-                    borderRadius: BorderRadius.circular(14),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 5),
-                      decoration: BoxDecoration(
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: SizedBox(
+            width: width,
+            child: HomeMenuArtwork(
+              username: username,
+              rankTitle: PlayerRank.titleForLevel(liveState.level),
+              rankColor: PlayerRank.colorForLevel(liveState.level),
+              photoUrl: user?.photoURL,
+              isOnline: liveState.isOnline,
+              dailyReady: dailyReady,
+              pendingRewards: pendingRewards,
+              onProfile: () => _openScreen(context, const ProfileScreen()),
+              onClose: () => Navigator.of(context).pop(),
+              onLeaderboard: () =>
+                  _openScreen(context, const LeaderboardScreen()),
+              onRewards: () => _openScreen(context, const DailyStreakScreen()),
+              onStats: () => _openScreen(context, const StatsScreen()),
+              onAchievements: () =>
+                  _openScreen(context, const AchievementsScreen()),
+              onSettings: () => _openScreen(context, const SettingsScreen()),
+              onUnavailable: () {
+                Navigator.of(context).pop();
+                _showOnlineRequiredToast(rootContext);
+              },
+              ratingEntry: FutureBuilder<bool>(
+                future: RateGameService.instance.shouldShowRatingEntry(),
+                builder: (context, snapshot) {
+                  if (snapshot.data != true) return const SizedBox.shrink();
+                  return Tooltip(
+                    message:
+                        'شاركنا رأيك وادعمنا للحصول على 500 كوين + 10 جواهر 🎁',
+                    child: InkWell(
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        RateGameService.instance.showRateDialog(
+                          rootContext,
+                          isManual: true,
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(14),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(
-                              color: const Color(0xFFDDAF55), width: 2),
+                            color: const Color(0xFFDDAF55),
+                            width: 2,
+                          ),
                           gradient: const LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [Color(0xFF826031), Color(0xFF35243E)]),
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [Color(0xFF826031), Color(0xFF35243E)],
+                          ),
                           boxShadow: const [
                             BoxShadow(
-                                color: Color(0xAA000000),
-                                blurRadius: 8,
-                                offset: Offset(0, 4))
-                          ]),
-                      child: const FittedBox(
+                              color: Color(0xAA000000),
+                              blurRadius: 8,
+                              offset: Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: const FittedBox(
                           fit: BoxFit.contain,
-                          child:
-                              Column(mainAxisSize: MainAxisSize.min, children: [
-                            Text('تقييم أرض التحدي ⭐',
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'تقييم أرض التحدي ⭐',
                                 style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 18,
-                                    height: 1.25,
-                                    fontWeight: FontWeight.w900)),
-                            Text('500 نقود + 10 جواهر',
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  height: 1.25,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              Text(
+                                '500 نقود + 10 جواهر',
                                 style: TextStyle(
-                                    color: Color(0xFFFDE68A),
-                                    fontSize: 12,
-                                    height: 1.4,
-                                    fontWeight: FontWeight.w700)),
-                            Text('قيّم الآن',
+                                  color: Color(0xFFFDE68A),
+                                  fontSize: 12,
+                                  height: 1.4,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              Text(
+                                'قيّم الآن',
                                 style: TextStyle(
-                                    color: Color(0xFFFFD761),
-                                    fontSize: 15,
-                                    height: 1.25,
-                                    fontWeight: FontWeight.w900)),
-                          ])),
+                                  color: Color(0xFFFFD761),
+                                  fontSize: 15,
+                                  height: 1.25,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
-          )),
-    )));
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -879,68 +980,95 @@ class _HomeLobbyLayout extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(builder: (context, area) {
-        // The background reaches the edge; every control clears the cutout.
-        final safeLeft = MediaQuery.paddingOf(context).left;
-        final width = area.maxWidth - safeLeft;
-        final height = area.maxHeight;
-        final portrait = height > width;
-        final headerHeight = portrait ? 108.0 : 64.0;
-        final panelWidth =
-            portrait ? width - 32 : (width * .29).clamp(190.0, 340.0);
-        final panelTop = portrait ? height * .66 : headerHeight + 16;
-        final panelHeight = height - panelTop - 16;
-        final heroLeftInset = portrait ? 64.0 : 76.0;
-        final heroLeft = heroLeftInset + safeLeft;
-        final heroWidth =
-            portrait ? width - 80 : width - panelWidth - heroLeftInset - 40;
-        final heroBottom = portrait ? panelTop - 10 : height - 16;
-        final characterTop = headerHeight + 62;
-        final characterHeight = math.max(1.0, heroBottom - characterTop);
-        final compact = height < 600;
-        final maxWalletWidth =
-            portrait ? width - 28 : (width - 100).clamp(280.0, 520.0);
-        final balanceWidth = (maxWalletWidth - 12) / 4;
-        const walletGap = 2.0;
-        const resourceScale = .9;
-        final keysWidth =
-            math.min(balanceWidth, 44 * 1608 / 872) * resourceScale;
-        final ticketsWidth =
-            math.min(balanceWidth, 44 * 1616 / 884) * resourceScale;
-        final walletWidth =
-            balanceWidth * 2 + keysWidth + ticketsWidth + walletGap * 3;
-        final badgeHeight = portrait
-            ? (compact ? 44.0 : 50.0)
-            : (panelHeight * .18).clamp(36.0, 52.0);
-        final bannerHeight = portrait
-            ? (compact ? 50.0 : 56.0)
-            : math.min(panelWidth * .28, (panelHeight - badgeHeight - 24) / 3);
-        Widget fitBadge(Widget badge) => SizedBox(
-            height: badgeHeight,
-            width: portrait ? (panelWidth - 12) / 2 : panelWidth,
-            child: SignInRequiredAction(
-                child: FittedBox(fit: BoxFit.contain, child: badge)));
-        Widget banner(String asset, String label, VoidCallback onPressed,
-                {bool enabled = true, double? width, double? height}) =>
-            SizedBox(
-                width: width ?? (portrait ? (panelWidth - 12) / 2 : panelWidth),
-                height: height ?? bannerHeight,
-                child: SignInRequiredAction(
-                    child: FittedBox(
-                        child: _BattleButton(
-                            asset: asset,
-                            label: label,
-                            compact: compact,
-                            enabled: enabled,
-                            onPressed: onPressed))));
-        final campaign = banner(
-            HomeArtwork.campaign, 'تحدي المراحل', onCampaignTap,
-            enabled: appState.isOnline);
-        final modes = banner(HomeArtwork.modes, 'أوضاع اللعب',
-            () => _showGameModesSheet(context));
-        final promotions = [
-          if (!appState.isVip) fitBadge(const SpecialOfferBadge()),
-          fitBadge(LobbyActionPanel(
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, area) {
+      // The background reaches the edge; every control clears the cutout.
+      final safeLeft = MediaQuery.paddingOf(context).left;
+      final width = area.maxWidth - safeLeft;
+      final height = area.maxHeight;
+      final portrait = height > width;
+      final headerHeight = portrait ? 108.0 : 64.0;
+      final panelWidth = portrait
+          ? width - 32
+          : (width * .29).clamp(190.0, 340.0);
+      final panelTop = portrait ? height * .66 : headerHeight + 16;
+      final panelHeight = height - panelTop - 16;
+      final heroLeftInset = portrait ? 64.0 : 76.0;
+      final heroLeft = heroLeftInset + safeLeft;
+      final heroWidth = portrait
+          ? width - 80
+          : width - panelWidth - heroLeftInset - 40;
+      final heroBottom = portrait ? panelTop - 10 : height - 16;
+      final characterTop = headerHeight + 62;
+      final characterHeight = math.max(1.0, heroBottom - characterTop);
+      final compact = height < 600;
+      final maxWalletWidth = portrait
+          ? width - 28
+          : (width - 100).clamp(280.0, 520.0);
+      final balanceWidth = (maxWalletWidth - 12) / 4;
+      const walletGap = 2.0;
+      const resourceScale = .9;
+      final keysWidth = math.min(balanceWidth, 44 * 1608 / 872) * resourceScale;
+      final ticketsWidth =
+          math.min(balanceWidth, 44 * 1616 / 884) * resourceScale;
+      final walletWidth =
+          balanceWidth * 2 + keysWidth + ticketsWidth + walletGap * 3;
+      final badgeHeight = portrait
+          ? (compact ? 44.0 : 50.0)
+          : (panelHeight * .18).clamp(36.0, 52.0);
+      final bannerHeight = portrait
+          ? (compact ? 50.0 : 56.0)
+          : math.min(panelWidth * .28, (panelHeight - badgeHeight - 24) / 3);
+      Widget fitBadge(Widget badge) => SizedBox(
+        height: badgeHeight,
+        width: portrait ? (panelWidth - 12) / 2 : panelWidth,
+        child: SignInRequiredAction(
+          guideTarget: badge is SpecialOfferBadge
+              ? GuideTargets.club
+              : GuideTargets.play,
+          child: FittedBox(fit: BoxFit.contain, child: badge),
+        ),
+      );
+      Widget banner(
+        String asset,
+        String label,
+        VoidCallback onPressed, {
+        bool enabled = true,
+        double? width,
+        double? height,
+      }) => SizedBox(
+        width: width ?? (portrait ? (panelWidth - 12) / 2 : panelWidth),
+        height: height ?? bannerHeight,
+        child: SignInRequiredAction(
+          guideTarget: label == 'تحدي المراحل'
+              ? GuideTargets.campaign
+              : GuideTargets.modes,
+          child: FittedBox(
+            child: _BattleButton(
+              asset: asset,
+              label: label,
+              compact: compact,
+              enabled: enabled,
+              onPressed: onPressed,
+            ),
+          ),
+        ),
+      );
+      final campaign = banner(
+        HomeArtwork.campaign,
+        'تحدي المراحل',
+        onCampaignTap,
+        enabled: appState.isOnline,
+      );
+      final modes = banner(
+        HomeArtwork.modes,
+        'أوضاع اللعب',
+        () => _showGameModesSheet(context),
+      );
+      final promotions = [
+        if (!appState.isVip) fitBadge(const SpecialOfferBadge()),
+        fitBadge(
+          LobbyActionPanel(
             key: const ValueKey('home-play-button'),
             title: 'العب',
             subtitle: 'اختر مبلغ المباراة ومنافسك',
@@ -950,13 +1078,17 @@ class _HomeLobbyLayout extends StatelessWidget {
             notificationColor: const Color(0xFF34D399),
             notificationAnimation: TweenSequence<double>([
               TweenSequenceItem(
-                tween: Tween(begin: 1.0, end: 0.0)
-                    .chain(CurveTween(curve: Curves.easeInOut)),
+                tween: Tween(
+                  begin: 1.0,
+                  end: 0.0,
+                ).chain(CurveTween(curve: Curves.easeInOut)),
                 weight: 50,
               ),
               TweenSequenceItem(
-                tween: Tween(begin: 0.0, end: 1.0)
-                    .chain(CurveTween(curve: Curves.easeInOut)),
+                tween: Tween(
+                  begin: 0.0,
+                  end: 1.0,
+                ).chain(CurveTween(curve: Curves.easeInOut)),
                 weight: 50,
               ),
             ]).animate(idleCtrl),
@@ -968,166 +1100,230 @@ class _HomeLobbyLayout extends StatelessWidget {
               }
               PlayStakeDialog.show(context);
             },
-          )),
-        ];
-        return Stack(children: [
+          ),
+        ),
+      ];
+      return Stack(
+        children: [
           Positioned(
-              top: 6,
-              left: safeLeft + 6,
-              child: SignInRequiredAction(
-                  child: _HomeMenuButton(
-                      appState: appState, username: username, user: user))),
+            top: 6,
+            left: safeLeft + 6,
+            child: SignInRequiredAction(
+              guideTarget: GuideTargets.menu,
+              child: _HomeMenuButton(
+                appState: appState,
+                username: username,
+                user: user,
+              ),
+            ),
+          ),
           Positioned(
-              top: portrait ? 60 : 8,
-              right: portrait ? (width - walletWidth) / 2 : 16,
-              width: walletWidth,
-              height: 44,
-              child: SignInRequiredAction(
-                  child: Row(textDirection: TextDirection.ltr, children: [
-                for (final gems in [false, true]) ...[
-                  if (gems) const SizedBox(width: walletGap),
-                  SizedBox(
+            top: portrait ? 60 : 8,
+            right: portrait ? (width - walletWidth) / 2 : 16,
+            width: walletWidth,
+            height: 44,
+            child: SignInRequiredAction(
+              guideTarget: GuideTargets.coins,
+              explainToVisitor: false,
+              child: Row(
+                textDirection: TextDirection.ltr,
+                children: [
+                  for (final gems in [false, true]) ...[
+                    if (gems) const SizedBox(width: walletGap),
+                    SizedBox(
                       width: balanceWidth,
-                      child: HomeCurrencyArtwork(
-                          key: ValueKey(gems
-                              ? 'home-gems-balance'
-                              : 'home-coins-balance'),
+                      child: GuideTarget(
+                        id: gems ? GuideTargets.gems : GuideTargets.coins,
+                        child: HomeCurrencyArtwork(
+                          key: ValueKey(
+                            gems ? 'home-gems-balance' : 'home-coins-balance',
+                          ),
                           gems: gems,
                           value: (gems ? appState.gems : appState.coins)
                               .toString(),
                           enabled: appState.isOnline,
                           onPressed: () =>
-                              _openOnlineScreen(context, const StoreScreen()))),
-                ],
-                const SizedBox(width: walletGap),
-                SizedBox(
+                              _openOnlineScreen(context, const StoreScreen()),
+                        ),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(width: walletGap),
+                  SizedBox(
                     width: keysWidth,
-                    child: HomeResourceArtwork(
+                    child: GuideTarget(
+                      id: GuideTargets.keys,
+                      child: HomeResourceArtwork(
                         key: const ValueKey('home-keys-balance'),
                         tickets: false,
                         value: appState.economyLoaded
                             ? '${appState.economyWallet.totalKeys}'
                             : user == null
-                                ? '0'
-                                : '…',
+                            ? '0'
+                            : '…',
                         enabled: appState.isOnline,
                         onPressed: () => _openOnlineScreen(
-                            context,
-                            const StoreScreen(
-                                initialKind: StoreProductKind.resource)))),
-                const SizedBox(width: walletGap),
-                SizedBox(
+                          context,
+                          const StoreScreen(
+                            initialKind: StoreProductKind.resource,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: walletGap),
+                  SizedBox(
                     width: ticketsWidth,
-                    child: HomeResourceArtwork(
+                    child: GuideTarget(
+                      id: GuideTargets.tickets,
+                      child: HomeResourceArtwork(
                         key: const ValueKey('home-tickets-balance'),
                         tickets: true,
                         value: appState.economyLoaded
                             ? '${appState.economyWallet.tickets}'
                             : user == null
-                                ? '0'
-                                : '…',
+                            ? '0'
+                            : '…',
                         enabled: appState.isOnline,
                         onPressed: () => _openOnlineScreen(
-                            context,
-                            const StoreScreen(
-                                initialKind: StoreProductKind.resource)))),
-              ]))),
+                          context,
+                          const StoreScreen(
+                            initialKind: StoreProductKind.resource,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
           Positioned(
-              top: headerHeight + 2,
-              left: heroLeft,
-              width: heroWidth,
-              height: 56,
-              child: Center(child: _LevelBadge(appState: appState))),
+            top: headerHeight + 2,
+            left: heroLeft,
+            width: heroWidth,
+            height: 56,
+            child: Center(
+              child: GuideTarget(
+                id: GuideTargets.level,
+                child: _LevelBadge(appState: appState),
+              ),
+            ),
+          ),
           Positioned(
-              top: characterTop,
-              left: heroLeft,
-              width: heroWidth,
-              height: characterHeight,
-              child: SignInRequiredAction(
-                  child: HomeCharacterArtwork(
-                      key: const ValueKey('home-selected-character'),
-                      character: appState.selectedCharacter,
-                      onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => const CharacterSelectScreen(),
-                            ),
-                          )))),
+            top: characterTop,
+            left: heroLeft,
+            width: heroWidth,
+            height: characterHeight,
+            child: SignInRequiredAction(
+              guideTarget: GuideTargets.character,
+              child: HomeCharacterArtwork(
+                key: const ValueKey('home-selected-character'),
+                character: appState.selectedCharacter,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const CharacterSelectScreen(),
+                  ),
+                ),
+              ),
+            ),
+          ),
           Positioned(
-              bottom: portrait ? height - heroBottom : 12,
-              left: heroLeft,
-              width: heroWidth,
-              child: OnlineMatchRecoveryCard(userId: user?.uid ?? '')),
+            bottom: portrait ? height - heroBottom : 12,
+            left: heroLeft,
+            width: heroWidth,
+            child: OnlineMatchRecoveryCard(userId: user?.uid ?? ''),
+          ),
           Positioned(
-              top: portrait ? headerHeight + 12 : 74,
-              left: safeLeft + 6,
-              child: Column(mainAxisSize: MainAxisSize.min, children: [
+            top: portrait ? headerHeight + 12 : 74,
+            left: safeLeft + 6,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
                 SignInRequiredAction(
-                    child: HomeQuickAction(
-                        key: const ValueKey('home-friends-shortcut'),
-                        asset: HomeArtwork.friends,
-                        label: 'الأصدقاء واللاعبون',
-                        icon: Icons.people_alt_rounded,
-                        color: const Color(0xFF7DD3FC),
-                        animation: idleCtrl,
-                        showGreenDot: true,
-                        isAvailable: appState.isOnline,
-                        onPressed: () =>
-                            _openOnlineScreen(context, const SocialScreen()))),
+                  guideTarget: GuideTargets.friends,
+                  child: HomeQuickAction(
+                    key: const ValueKey('home-friends-shortcut'),
+                    asset: HomeArtwork.friends,
+                    label: 'الأصدقاء واللاعبون',
+                    icon: Icons.people_alt_rounded,
+                    color: const Color(0xFF7DD3FC),
+                    animation: idleCtrl,
+                    showGreenDot: true,
+                    isAvailable: appState.isOnline,
+                    onPressed: () =>
+                        _openOnlineScreen(context, const SocialScreen()),
+                  ),
+                ),
                 const SizedBox(height: 12),
                 SignInRequiredAction(
-                    child: HomeQuickAction(
-                        key: const ValueKey('home-store-shortcut'),
-                        asset: HomeArtwork.store,
-                        label: 'المتجر',
-                        icon: Icons.shopping_basket_rounded,
-                        color: const Color(0xFFFFD761),
-                        animation: idleCtrl,
-                        animationPhase: math.pi / 3,
-                        isAvailable: appState.isOnline,
-                        onPressed: () =>
-                            _openOnlineScreen(context, const StoreScreen()))),
+                  guideTarget: GuideTargets.store,
+                  child: HomeQuickAction(
+                    key: const ValueKey('home-store-shortcut'),
+                    asset: HomeArtwork.store,
+                    label: 'المتجر',
+                    icon: Icons.shopping_basket_rounded,
+                    color: const Color(0xFFFFD761),
+                    animation: idleCtrl,
+                    animationPhase: math.pi / 3,
+                    isAvailable: appState.isOnline,
+                    onPressed: () =>
+                        _openOnlineScreen(context, const StoreScreen()),
+                  ),
+                ),
                 const SizedBox(height: 12),
                 SignInRequiredAction(
-                    child: HomeQuickAction(
-                        key: const ValueKey('home-help-shortcut'),
-                        asset: HomeArtwork.help,
-                        label: 'تواصل معنا',
-                        icon: Icons.question_mark_rounded,
-                        color: const Color(0xFFFFD761),
-                        animation: idleCtrl,
-                        animationPhase: math.pi * 2 / 3,
-                        onPressed: () => showSupportContact(context))),
-              ])),
+                  guideTarget: GuideTargets.help,
+                  child: HomeQuickAction(
+                    key: const ValueKey('home-help-shortcut'),
+                    asset: HomeArtwork.help,
+                    label: 'تواصل معنا',
+                    icon: Icons.question_mark_rounded,
+                    color: const Color(0xFFFFD761),
+                    animation: idleCtrl,
+                    animationPhase: math.pi * 2 / 3,
+                    onPressed: () => showSupportContact(context),
+                  ),
+                ),
+              ],
+            ),
+          ),
           Positioned(
-              key: const ValueKey('home-actions-panel'),
-              top: panelTop,
-              right: 16,
-              width: panelWidth,
-              height: panelHeight,
-              child: portrait
-                  ? Column(children: [
+            key: const ValueKey('home-actions-panel'),
+            top: panelTop,
+            right: 16,
+            width: panelWidth,
+            height: panelHeight,
+            child: portrait
+                ? Column(
+                    children: [
                       Row(
-                          textDirection: TextDirection.ltr,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            campaign,
-                            const SizedBox(width: 12),
-                            modes
-                          ]),
+                        textDirection: TextDirection.ltr,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [campaign, const SizedBox(width: 12), modes],
+                      ),
                       const Spacer(),
                       ...promotions.expand(
-                          (badge) => [badge, const SizedBox(height: 6)]),
-                    ])
-                  : Column(children: [
+                        (badge) => [badge, const SizedBox(height: 6)],
+                      ),
+                    ],
+                  )
+                : Column(
+                    children: [
                       ...promotions.expand(
-                          (badge) => [badge, const SizedBox(height: 6)]),
+                        (badge) => [badge, const SizedBox(height: 6)],
+                      ),
                       const Spacer(),
                       campaign,
                       const SizedBox(height: 6),
                       modes,
-                    ])),
-        ]);
-      });
+                    ],
+                  ),
+          ),
+        ],
+      );
+    },
+  );
 }
 
 class _LevelBadge extends StatelessWidget {
@@ -1136,11 +1332,11 @@ class _LevelBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => HomeLevelBadge(
-        key: const ValueKey('home-level-badge'),
-        level: appState.level,
-        xp: appState.xpInCurrentLevel,
-        requiredXp: appState.xpNeededForLevel,
-      );
+    key: const ValueKey('home-level-badge'),
+    level: appState.level,
+    xp: appState.xpInCurrentLevel,
+    requiredXp: appState.xpNeededForLevel,
+  );
 }
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1173,22 +1369,24 @@ class _UnclaimedDot extends StatelessWidget {
 //  WATCH AD CARD
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class _BattleButton extends StatelessWidget {
-  const _BattleButton(
-      {required this.asset,
-      required this.label,
-      required this.onPressed,
-      this.compact = false,
-      this.enabled = true});
+  const _BattleButton({
+    required this.asset,
+    required this.label,
+    required this.onPressed,
+    this.compact = false,
+    this.enabled = true,
+  });
   final String asset, label;
   final VoidCallback onPressed;
   final bool compact, enabled;
   @override
   Widget build(BuildContext context) => HomeBannerButton(
-      asset: asset,
-      label: label,
-      compact: compact,
-      enabled: enabled,
-      onPressed: enabled ? onPressed : () => _showOnlineRequiredToast(context));
+    asset: asset,
+    label: label,
+    compact: compact,
+    enabled: enabled,
+    onPressed: enabled ? onPressed : () => _showOnlineRequiredToast(context),
+  );
 }
 
 class _SparklesPainter extends CustomPainter {

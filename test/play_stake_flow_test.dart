@@ -11,7 +11,7 @@ import 'package:firebase_core_platform_interface/test.dart'; // ignore: depend_o
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import 'package:challenge_land/core/app_state.dart';
-import 'package:challenge_land/services/auth_service.dart';
+import 'package:challenge_land/services/legacy_auth_service.dart';
 import 'package:challenge_land/services/native_bridge_service.dart';
 import 'package:challenge_land/widgets/play_stake_dialog.dart';
 import 'package:challenge_land/widgets/play_stake_artwork.dart';

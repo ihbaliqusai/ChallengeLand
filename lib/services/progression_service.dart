@@ -8,9 +8,11 @@ import '../core/player_rank.dart';
 /// a transaction after its response is lost never awards the same play twice.
 class ProgressionService {
   ProgressionService({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+    : _firestoreOverride = firestore;
 
-  final FirebaseFirestore _firestore;
+  final FirebaseFirestore? _firestoreOverride;
+  FirebaseFirestore get _firestore =>
+      _firestoreOverride ?? FirebaseFirestore.instance;
   static const version = 2;
   static const maxValue = 2147483647;
   static const modes = <String>[
@@ -118,16 +120,23 @@ class ProgressionService {
     if (source['xp'] == null && data['xp'] == null) {
       // Older profiles sometimes published only a level. Its entry threshold
       // is the conservative XP floor that preserves earned unlocks on restore.
-      final legacyLevel =
-          integer(source['level'] ?? data['level']).clamp(1, 999999);
-      result['xp'] = math.max(integer(data['totalScore']),
-          PlayerRank.xpForLevel(legacyLevel).clamp(0, maxValue));
+      final legacyLevel = integer(
+        source['level'] ?? data['level'],
+      ).clamp(1, 999999);
+      result['xp'] = math.max(
+        integer(data['totalScore']),
+        PlayerRank.xpForLevel(legacyLevel).clamp(0, maxValue),
+      );
     }
     if (nested is! Map) {
-      result['gamesPlayed'] = math.max(result['gamesPlayed']!,
-          integer(data['lastKnownGamesPlayed'] ?? data['totalMatches']));
-      result['wins'] =
-          math.max(result['wins']!, integer(data['lastKnownWins']));
+      result['gamesPlayed'] = math.max(
+        result['gamesPlayed']!,
+        integer(data['lastKnownGamesPlayed'] ?? data['totalMatches']),
+      );
+      result['wins'] = math.max(
+        result['wins']!,
+        integer(data['lastKnownWins']),
+      );
     }
     return normalize(result);
   }
@@ -163,8 +172,9 @@ class ProgressionService {
     final playerId = _documentId(uid, 'uid');
     final installationId = _documentId(deviceId, 'deviceId');
     final userRef = _firestore.collection('users').doc(playerId);
-    final checkpointRef =
-        userRef.collection('progressionDevices').doc(installationId);
+    final checkpointRef = userRef
+        .collection('progressionDevices')
+        .doc(installationId);
     final publicRef = _firestore.collection('public_profiles').doc(playerId);
     // Capture immutable inputs before Firestore retries this callback.
     final local = Map<String, int>.from(nativeStats);
@@ -187,8 +197,9 @@ class ProgressionService {
         final before = integer(previousCounters[key]);
         // A partial/older capture cannot erase an acknowledgement and cause a
         // subsequent retry to award the missing counters again.
-        final incoming =
-            captured.containsKey(key) ? integer(captured[key]) : before;
+        final incoming = captured.containsKey(key)
+            ? integer(captured[key])
+            : before;
         if (incoming < before) stale = true;
         final after = math.max(before, incoming);
         acknowledged[key] = after;
@@ -205,13 +216,13 @@ class ProgressionService {
       final trophyContribution = stale
           ? previousTrophies
           : captured.containsKey('trophies')
-              ? _signedInteger(captured['trophies'])
-              : previousTrophies;
+          ? _signedInteger(captured['trophies'])
+          : previousTrophies;
       acknowledged['trophies'] = trophyContribution;
       totals['trophies'] = importLegacy
           ? math.max(totals['trophies'] ?? 0, integer(local['trophies']))
           : ((totals['trophies'] ?? 0) + trophyContribution - previousTrophies)
-              .clamp(0, maxValue);
+                .clamp(0, maxValue);
       for (final key in maximumKeys) {
         totals[key] = math.max(totals[key] ?? 0, integer(local[key]));
       }
@@ -227,9 +238,10 @@ class ProgressionService {
       });
       transaction.set(userRef, privatePayload(totals), SetOptions(merge: true));
       transaction.set(
-          publicRef,
-          publicPayload(playerId, totals, publicIdentity),
-          SetOptions(merge: true));
+        publicRef,
+        publicPayload(playerId, totals, publicIdentity),
+        SetOptions(merge: true),
+      );
       return totals;
     });
   }
@@ -270,30 +282,34 @@ class ProgressionService {
       }
       transaction.set(userRef, privatePayload(totals), SetOptions(merge: true));
       transaction.set(
-          _firestore.collection('public_profiles').doc(playerId),
-          publicPayload(playerId, totals, publicIdentity),
-          SetOptions(merge: true));
+        _firestore.collection('public_profiles').doc(playerId),
+        publicPayload(playerId, totals, publicIdentity),
+        SetOptions(merge: true),
+      );
       return totals;
     });
   }
 
   static Map<String, dynamic> privatePayload(Map<String, int> stats) => {
-        'playerStats': stats,
-        'xp': stats['xp'] ?? 0,
-        'level': stats['level'] ?? 1,
-        'trophies': stats['trophies'] ?? 0,
-        'bestTrophies': stats['bestTrophies'] ?? 0,
-        'wins': stats['wins'] ?? 0,
-        'losses': stats['losses'] ?? 0,
-        'draws': stats['draws'] ?? 0,
-        'totalMatches': stats['gamesPlayed'] ?? 0,
-        'totalScore': stats['xp'] ?? 0,
-        'progressionVersion': version,
-        'progressionUpdatedAt': FieldValue.serverTimestamp(),
-      };
+    'playerStats': stats,
+    'xp': stats['xp'] ?? 0,
+    'level': stats['level'] ?? 1,
+    'trophies': stats['trophies'] ?? 0,
+    'bestTrophies': stats['bestTrophies'] ?? 0,
+    'wins': stats['wins'] ?? 0,
+    'losses': stats['losses'] ?? 0,
+    'draws': stats['draws'] ?? 0,
+    'totalMatches': stats['gamesPlayed'] ?? 0,
+    'totalScore': stats['xp'] ?? 0,
+    'progressionVersion': version,
+    'progressionUpdatedAt': FieldValue.serverTimestamp(),
+  };
 
   static Map<String, dynamic> publicPayload(
-      String uid, Map<String, int> stats, Map<String, dynamic> identity) {
+    String uid,
+    Map<String, int> stats,
+    Map<String, dynamic> identity,
+  ) {
     final normalized = normalize(stats);
     return {
       'uid': uid,

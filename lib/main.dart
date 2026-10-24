@@ -1,25 +1,421 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter/foundation.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart' show MobileAds;
+import 'package:provider/provider.dart';
 
-import 'app.dart';
+import 'core/app_state.dart';
 import 'core/constants/app_config.dart';
-import 'core/utils/sound_service.dart';
+import 'core/constants/app_routes.dart';
+import 'state/guest_guide_provider.dart';
+import 'features/onboarding/guest_guide_host.dart';
+import 'features/onboarding/guide_target.dart';
+import 'screens/auth/login_bottom_sheet.dart';
+import 'screens/auth/first_run_challenge_screen.dart';
+import 'widgets/support_contact_sheet.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'core/app_settings.dart';
+import 'core/shared_assets.dart';
+import 'core/campaign_navigation.dart';
+import 'screens/auth/auth_gate.dart';
+import 'screens/splash/splash_screen.dart';
+import 'services/legacy_auth_service.dart';
+import 'services/native_bridge_service.dart';
+import 'services/online_match_flow.dart';
+import 'services/profile_service.dart'; // still needed by other screens
+import 'services/legacy_room_service.dart';
+import 'services/ad_service.dart';
+import 'services/cross_promo_service.dart';
+import 'services/invite_service.dart';
+import 'services/social_service.dart';
+import 'widgets/social_shell.dart';
+import 'services/in_app_purchase_service.dart';
+import 'widgets/startup_gate.dart';
+import 'widgets/game_viewport.dart';
+import 'widgets/game_notice.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  final adService = AdService();
+  runApp(
+    DefaultAssetBundle(
+      bundle: SharedAssets.bundle,
+      child: StartupGate(
+        initialize: _initializeApp,
+        loading: MaterialApp(
+          debugShowCheckedModeBanner: false,
+          builder: (context, child) =>
+              GameViewport(child: child ?? const SizedBox.shrink()),
+          home: const Scaffold(
+            backgroundColor: Colors.black,
+            body: SplashPoster(),
+          ),
+        ),
+        ready: ChallengeLandApp(adService: adService),
+      ),
+    ),
+  );
+  // Ads and consent must not delay the first frame or app startup.
+}
 
-  if (!AppConfig.useMockData) {
+Future<void> _initializeApp() async {
+  try {
+    await SharedAssets.initializeFont();
+  } on MissingPluginException {
+    if (!AppConfig.useMockData) rethrow;
+  }
+  await SystemChrome.setPreferredOrientations(const <DeviceOrientation>[
+    DeviceOrientation.landscapeLeft,
+    DeviceOrientation.landscapeRight,
+  ]);
+
+  // إخفاء شريط الحالة وأزرار التنقل (الرجوع / Home) نهائياً في كل الشاشات
+  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+
+  try {
+    if (!AppConfig.useMockData) await Firebase.initializeApp();
+  } catch (_) {
+    // يسمح بفتح الواجهة حتى قبل تهيئة Firebase الكاملة.
+  }
+  if (defaultTargetPlatform == TargetPlatform.android) {
     try {
-      // TODO: Update Firebase project to match new package name.
-      await Firebase.initializeApp();
-    } catch (_) {
-      // TODO: Add Firebase options with FlutterFire CLI before production.
+      await const MethodChannel(
+        'millionaire/native',
+      ).invokeMethod<bool>('preloadLocalQuestions');
+    } catch (error) {
+      debugPrint('[Startup] Question preload unavailable: $error');
+    }
+  }
+}
+
+class ChallengeLandApp extends StatefulWidget {
+  const ChallengeLandApp({
+    super.key,
+    required this.adService,
+    this.nativeBridge,
+  });
+
+  final AdService adService;
+  final NativeBridgeService? nativeBridge;
+
+  @override
+  State<ChallengeLandApp> createState() => _ChallengeLandAppState();
+}
+
+class _ChallengeLandAppState extends State<ChallengeLandApp> {
+  bool _startupComplete = false;
+
+  void _onStartupReady() {
+    if (_startupComplete) return;
+    setState(() => _startupComplete = true);
+    unawaited(_initializeAds());
+  }
+
+  Future<void> _initializeAds() async {
+    if (!mounted || AppConfig.useMockData) return;
+    try {
+      await widget.adService.initialize();
+      if (!mounted) return;
+      if (kDebugMode && const bool.fromEnvironment('ADMOB_OPEN_INSPECTOR')) {
+        MobileAds.instance.openAdInspector((error) {
+          if (error != null) debugPrint('[AdMob] Inspector failed: $error');
+        });
+      }
+    } catch (error) {
+      debugPrint('[AdMob] Initialization failed: $error');
     }
   }
 
-  unawaited(SoundService.instance.init());
+  Future<void> _openTrial() async {
+    final navigator = OnlineMatchFlow.navigatorKey.currentState;
+    if (navigator == null) return;
+    final guide = navigator.context.read<GuestGuideProvider>();
+    await guide.minimize();
+    if (!navigator.mounted) return;
+    navigator.popUntil((route) => route.isFirst);
+    await (await SharedPreferences.getInstance()).setBool(
+      GuestGuideProvider.trialPendingKey,
+      true,
+    );
+    await navigator.push(
+      MaterialPageRoute<void>(
+        settings: const RouteSettings(name: AppRoutes.guestTrial),
+        builder: (_) => const FirstRunChallengeScreen(guideTrial: true),
+      ),
+    );
+    await (await SharedPreferences.getInstance()).remove(
+      GuestGuideProvider.trialPendingKey,
+    );
+    if (mounted &&
+        navigator.mounted &&
+        navigator.context.read<AppState>().user == null) {
+      guide.showChoices();
+    }
+  }
 
-  runApp(const ChallengeLandApp());
+  Future<void> _openSignIn() async {
+    final navigator = OnlineMatchFlow.navigatorKey.currentState;
+    if (navigator == null) return;
+    final guide = navigator.context.read<GuestGuideProvider>();
+    await guide.minimize();
+    if (!navigator.mounted) return;
+    navigator.popUntil((route) => route.isFirst);
+    await LoginBottomSheet.show(navigator.overlay!.context);
+    if (mounted &&
+        navigator.mounted &&
+        navigator.context.read<AppState>().user == null) {
+      guide.showChoices();
+    }
+  }
+
+  Future<void> _openContact() async {
+    final navigator = OnlineMatchFlow.navigatorKey.currentState;
+    if (navigator == null) return;
+    await navigator.context.read<GuestGuideProvider>().minimize();
+    if (!navigator.mounted) return;
+    await showSupportContact(navigator.overlay!.context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider<AdService>.value(value: widget.adService),
+        Provider<AuthService>(
+          create: (_) => AuthService(useMockData: AppConfig.useMockData),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => GuestGuideProvider()..initialize(),
+        ),
+        Provider<ProfileService>(create: (_) => ProfileService()),
+        Provider<NativeBridgeService>(
+          create: (_) => widget.nativeBridge ?? NativeBridgeService(),
+        ),
+        ChangeNotifierProvider<InAppPurchaseService>(
+          create: (context) => InAppPurchaseService(
+            nativeBridge: context.read<NativeBridgeService>(),
+          ),
+        ),
+        ChangeNotifierProvider<CrossPromoService>(
+          create: (context) =>
+              CrossPromoService(bridge: context.read<NativeBridgeService>())
+                ..checkInstallation(),
+        ),
+        ChangeNotifierProvider<AppSettings>(
+          create: (context) =>
+              AppSettings(context.read<NativeBridgeService>())..load(),
+        ),
+        Provider<RoomService>(create: (_) => RoomService()),
+        Provider<InviteService>(create: (_) => InviteService()),
+        Provider<SocialService>(create: (_) => SocialService()),
+        ChangeNotifierProxyProvider2<
+          AuthService,
+          NativeBridgeService,
+          AppState
+        >(
+          create: (context) => AppState(
+            authService: context.read<AuthService>(),
+            nativeBridgeService: context.read<NativeBridgeService>(),
+            useMockData: AppConfig.useMockData,
+          ),
+          update: (context, auth, nativeBridge, previous) =>
+              previous ??
+              AppState(
+                authService: auth,
+                nativeBridgeService: nativeBridge,
+                useMockData: AppConfig.useMockData,
+              ),
+        ),
+      ],
+      child: Consumer<AppSettings>(
+        builder: (context, settings, _) => MaterialApp(
+          title: 'ChallengeLand',
+          navigatorKey: OnlineMatchFlow.navigatorKey,
+          navigatorObservers: [
+            campaignRouteObserver,
+            GuestGuideObserver(context.read<GuestGuideProvider>()),
+          ],
+          debugShowCheckedModeBanner: false,
+          locale: settings.locale,
+          supportedLocales: const <Locale>[Locale('ar'), Locale('en')],
+          builder: (context, child) {
+            return GameViewport(
+              child: GuestGuideHost(
+                navigatorKey: OnlineMatchFlow.navigatorKey,
+                onTrial: _openTrial,
+                onSignIn: _openSignIn,
+                onContact: _openContact,
+                child: GuideBackScope(
+                  child: AppConfig.useMockData
+                      ? child ?? const SizedBox.shrink()
+                      : SocialShell(child: child ?? const SizedBox.shrink()),
+                ),
+              ),
+            );
+          },
+          localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+            GlobalMaterialLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+          ],
+          theme: ThemeData(
+            useMaterial3: true,
+            brightness: Brightness.dark,
+            fontFamily: 'Baloo',
+            fontFamilyFallback: const ['NotoSansArabic'],
+            scaffoldBackgroundColor: const Color(0xFF030712),
+            colorScheme: const ColorScheme.dark(
+              primary: Color(0xFF7C3AED),
+              secondary: Color(0xFF38BDF8),
+              surface: Color(0xFF0B173F),
+            ),
+            snackBarTheme: const SnackBarThemeData(
+              behavior: SnackBarBehavior.floating,
+              backgroundColor: Color(0xFF0B173F),
+              contentTextStyle: TextStyle(color: Colors.white, fontSize: 15),
+            ),
+            textTheme: const TextTheme(
+              bodyMedium: TextStyle(color: Colors.white),
+              bodyLarge: TextStyle(color: Colors.white),
+              titleMedium: TextStyle(color: Colors.white),
+            ),
+            inputDecorationTheme: InputDecorationTheme(
+              filled: true,
+              fillColor: Colors.white.withValues(alpha: 0.08),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 18,
+                vertical: 16,
+              ),
+              labelStyle: const TextStyle(color: Colors.white70),
+              prefixIconColor: const Color(0xFF7DD3FC),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(18),
+                borderSide: BorderSide(
+                  color: Colors.white.withValues(alpha: 0.18),
+                ),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(18),
+                borderSide: BorderSide(
+                  color: Colors.white.withValues(alpha: 0.18),
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(18),
+                borderSide: const BorderSide(
+                  color: Color(0xFF7DD3FC),
+                  width: 1.8,
+                ),
+              ),
+            ),
+            filledButtonTheme: FilledButtonThemeData(
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF6D28D9),
+                foregroundColor: Colors.white,
+                textStyle: const TextStyle(fontWeight: FontWeight.w800),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
+                ),
+              ),
+            ),
+            outlinedButtonTheme: OutlinedButtonThemeData(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white,
+                side: BorderSide(color: Colors.white.withValues(alpha: 0.22)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
+                ),
+              ),
+            ),
+          ),
+          home: _ConnectivityWrapper(
+            showBanner: _startupComplete,
+            child: AuthGate(onReady: _onStartupReady),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Connectivity banner ───────────────────────────────────────────────────────
+
+class _ConnectivityWrapper extends StatefulWidget {
+  const _ConnectivityWrapper({required this.child, this.showBanner = true});
+  final Widget child;
+  final bool showBanner;
+
+  @override
+  State<_ConnectivityWrapper> createState() => _ConnectivityWrapperState();
+}
+
+class _ConnectivityWrapperState extends State<_ConnectivityWrapper> {
+  StreamSubscription<List<ConnectivityResult>>? _sub;
+  bool _isOffline = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (AppConfig.useMockData) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) context.read<AppState>().updateConnectivity(true);
+      });
+      return;
+    }
+    _checkNow();
+    _sub = Connectivity().onConnectivityChanged.listen(_update);
+  }
+
+  Future<void> _checkNow() async {
+    _update(await Connectivity().checkConnectivity());
+  }
+
+  void _update(List<ConnectivityResult> results) {
+    final offline =
+        results.isEmpty || results.every((r) => r == ConnectivityResult.none);
+    if (!mounted) return;
+    // Always push the latest state into AppState so first-frame consumers
+    // (e.g. AuthGate) see the correct value, even when the flag itself
+    // didn't change between rebuilds of this wrapper.
+    context.read<AppState>().updateConnectivity(!offline);
+    if (offline != _isOffline) {
+      setState(() => _isOffline = offline);
+      if (widget.showBanner) _showConnectionNotice();
+    }
+  }
+
+  @override
+  void didUpdateWidget(_ConnectivityWrapper oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!oldWidget.showBanner && widget.showBanner && _isOffline) {
+      _showConnectionNotice();
+    }
+  }
+
+  void _showConnectionNotice() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !widget.showBanner) return;
+      final arabic = Localizations.localeOf(context).languageCode == 'ar';
+      GameNoticeMessenger.of(context).show(
+        _isOffline
+            ? (arabic ? 'لا يوجد اتصال بالإنترنت' : 'No internet connection')
+            : (arabic ? 'تم استعادة الاتصال بالإنترنت' : 'Connection restored'),
+        tone: _isOffline ? GameNoticeTone.warning : GameNoticeTone.success,
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

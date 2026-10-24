@@ -16,6 +16,8 @@ import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.StandardMethodCodec
 
 class MainActivity : FlutterActivity() {
+    private fun hasFirebaseConfiguration() =
+        com.google.firebase.FirebaseApp.getApps(this).isNotEmpty()
     private val campaignMapMusicVolume = 0.5f
 
     private var pendingLaunchAction: String? = null
@@ -27,17 +29,19 @@ class MainActivity : FlutterActivity() {
         VerifiedCommerceStore.invalidateWalletHydration(this)
         super.onCreate(savedInstanceState)
         GameViewportActivity.configureWindow(window)
-        DuelNotifications.initialize(this)
-        PlayerPresence.initialize(application)
+        if (hasFirebaseConfiguration()) {
+            DuelNotifications.initialize(this)
+            PlayerPresence.initialize(application)
+        }
         handleIntentData(intent)
         syncDailyReminderSchedule()
     }
 
     override fun onResume() {
         super.onResume()
-        DuelNotifications.resume(this)
+        if (hasFirebaseConfiguration()) DuelNotifications.resume(this)
         syncDailyReminderSchedule()
-        GameEconomy.flush(this)
+        if (hasFirebaseConfiguration()) GameEconomy.flush(this)
     }
 
     override fun onDestroy() {
@@ -54,7 +58,7 @@ class MainActivity : FlutterActivity() {
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == 7502 || requestCode == 7401) {
-            DuelNotifications.sync(this)
+            if (hasFirebaseConfiguration()) DuelNotifications.sync(this)
             syncDailyReminderSchedule()
         }
     }
@@ -114,7 +118,7 @@ class MainActivity : FlutterActivity() {
         CharacterAnimationTextures(this, flutterEngine.renderer,
             flutterEngine.dartExecutor.binaryMessenger)
         val channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "millionaire/native")
-        playBillingManager = PlayBillingManager(this, channel)
+        if (hasFirebaseConfiguration()) playBillingManager = PlayBillingManager(this, channel)
         channel.setMethodCallHandler { call, result ->
                 when (call.method) {
                     "gameEconomy" -> {

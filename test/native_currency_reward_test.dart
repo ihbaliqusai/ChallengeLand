@@ -1,5 +1,5 @@
 import 'package:challenge_land/core/app_state.dart';
-import 'package:challenge_land/services/auth_service.dart';
+import 'package:challenge_land/services/legacy_auth_service.dart';
 import 'package:challenge_land/services/cross_promo_service.dart';
 import 'package:challenge_land/services/native_bridge_service.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';

@@ -98,6 +98,7 @@ public final class QuestionHistory {
     }
 
     private static boolean connectedAccount(Context context) {
+        if (com.google.firebase.FirebaseApp.getApps(context).isEmpty()) return false;
         com.google.firebase.auth.FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
         return user != null && !user.isAnonymous() && user.getUid().equals(ProgressionAccount.uid(context));
     }

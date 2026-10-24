@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:challenge_land/core/app_state.dart';
 import 'package:challenge_land/core/player_rank.dart';
-import 'package:challenge_land/services/auth_service.dart';
+import 'package:challenge_land/services/legacy_auth_service.dart';
 import 'package:challenge_land/services/native_bridge_service.dart';
 import 'package:challenge_land/services/progression_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -93,7 +93,7 @@ class _MergeTransaction implements Transaction {
   }
 
   @override
-  Transaction update(DocumentReference ref, Map<String, dynamic> data) {
+  Transaction update(DocumentReference ref, Map<Object, Object?> data) {
     delegate.update(ref, data);
     return this;
   }

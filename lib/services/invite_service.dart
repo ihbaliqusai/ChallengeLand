@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/player_profile.dart';
-import '../models/room.dart';
+import '../models/legacy_room.dart';
 
 enum InviteType {
   friendChallenge,

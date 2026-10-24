@@ -678,7 +678,7 @@ class _RecordingTransaction implements Transaction {
   }
 
   @override
-  Transaction update(DocumentReference ref, Map<String, dynamic> data) {
+  Transaction update(DocumentReference ref, Map<Object, Object?> data) {
     writes.add(ref.path);
     delegate.update(ref, data);
     return this;

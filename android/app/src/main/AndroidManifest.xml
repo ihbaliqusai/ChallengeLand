@@ -1,8 +1,16 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <application
         android:label="Challenge Land"
+        android:supportsRtl="true"
+        android:largeHeap="true"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        tools:replace="android:label">
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -25,11 +33,41 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- The optional visitor trial reuses the existing native game board. -->
+        <activity
+            android:name=".GameActivity"
+            android:exported="false"
+            android:screenOrientation="sensorLandscape"
+            android:theme="@style/AppTheme"
+            android:configChanges="orientation|keyboardHidden|screenSize|smallestScreenSize|screenLayout|density|uiMode" />
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="ca-app-pub-3940256099942544~3347511713" />
+        <activity android:name=".LegacyMainActivity" android:exported="false" android:screenOrientation="sensorLandscape" android:theme="@style/AppTheme" android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode" />
+        <activity android:name=".StatsActivity" android:exported="false" android:screenOrientation="sensorLandscape" android:theme="@style/AppTheme" android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode" />
+        <activity android:name=".StoreActivity" android:exported="false" android:screenOrientation="sensorLandscape" android:theme="@style/AppTheme" android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode" />
+        <activity android:name=".SettingsActivity" android:exported="false" android:screenOrientation="sensorLandscape" android:theme="@style/AppTheme" android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode" />
+        <activity android:name=".PrivacyPolicyActivity" android:exported="false" android:screenOrientation="sensorLandscape" android:theme="@style/AppTheme" android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode" />
+        <activity android:name=".AchievementsActivity" android:exported="false" android:screenOrientation="sensorLandscape" android:theme="@style/AppTheme" android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode" />
+        <activity android:name=".ResultActivity" android:exported="false" android:screenOrientation="sensorLandscape" android:theme="@style/AppTheme" android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode" />
+        <activity android:name=".OpponentActivity" android:exported="false" android:screenOrientation="sensorLandscape" android:theme="@style/AppTheme" android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode" />
+        <activity android:name=".WinnerActivity" android:exported="false" android:screenOrientation="sensorLandscape" android:theme="@style/AppTheme" android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode" />
+        <activity android:name=".LocalTeamsGamesActivity" android:exported="false" android:screenOrientation="sensorLandscape" android:theme="@style/AppTheme" android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode" />
+        <activity android:name=".OfflineGamesActivity" android:exported="false" android:screenOrientation="sensorLandscape" android:theme="@style/AppTheme" android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode" />
+        <activity android:name=".OfflineSetupActivity" android:exported="false" android:screenOrientation="sensorLandscape" android:theme="@style/AppTheme" android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode" />
+        <activity android:name=".BaseGameActivity" android:exported="false" android:screenOrientation="sensorLandscape" android:theme="@style/AppTheme" android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode" />
+        <activity android:name=".BattleGameActivity" android:exported="false" android:screenOrientation="sensorLandscape" android:theme="@style/AppTheme" android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode" />
+        <activity android:name=".EliminationGameActivity" android:exported="false" android:screenOrientation="sensorLandscape" android:theme="@style/AppTheme" android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode" />
+        <activity android:name=".BlitzGameActivity" android:exported="false" android:screenOrientation="sensorLandscape" android:theme="@style/AppTheme" android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode" />
+        <activity android:name=".SurvivalGameActivity" android:exported="false" android:screenOrientation="sensorLandscape" android:theme="@style/AppTheme" android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode" />
+        <activity android:name=".SeriesGameActivity" android:exported="false" android:screenOrientation="sensorLandscape" android:theme="@style/AppTheme" android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode" />
+        <activity android:name=".TeamBattleGameActivity" android:exported="false" android:screenOrientation="sensorLandscape" android:theme="@style/AppTheme" android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode" />
+        <activity android:name=".LoginActivity" android:exported="false" android:screenOrientation="sensorLandscape" android:theme="@style/AppTheme" android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

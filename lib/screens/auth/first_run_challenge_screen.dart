@@ -14,7 +14,8 @@ import '../../services/native_bridge_service.dart';
 import '../../widgets/adaptive_asset_image.dart';
 
 class FirstRunChallengeScreen extends StatefulWidget {
-  const FirstRunChallengeScreen({super.key});
+  const FirstRunChallengeScreen({super.key, this.guideTrial = false});
+  final bool guideTrial;
 
   @override
   State<FirstRunChallengeScreen> createState() =>
@@ -68,7 +69,14 @@ class _FirstRunChallengeScreenState extends State<FirstRunChallengeScreen>
       _selectedCharacterIndex = appState.selectedCharacterIndex;
     }
 
-    _startCountdown();
+    if (widget.guideTrial) {
+      _countdownActive = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _launchStage();
+      });
+    } else {
+      _startCountdown();
+    }
   }
 
   void _startCountdown() {
@@ -122,10 +130,25 @@ class _FirstRunChallengeScreenState extends State<FirstRunChallengeScreen>
   Future<void> _consumePendingResult() async {
     if (!mounted) return;
     _pendingResultAttempts++;
+    if (widget.guideTrial) {
+      final result = await context
+          .read<NativeBridgeService>()
+          .consumePendingCampaignStageResult();
+      if (!mounted) return;
+      if (result != null ||
+          _pendingResultAttempts >= _maxPendingResultAttempts) {
+        Navigator.of(context).pop();
+        return;
+      }
+      Future<void>.delayed(const Duration(milliseconds: 350), () {
+        if (mounted && _launching) _consumePendingResult();
+      });
+      return;
+    }
     final handled =
         await CampaignResultHandler.consumeAndHandlePendingCampaignResult(
-      context: context,
-    );
+          context: context,
+        );
     if (!mounted) return;
     if (handled) {
       setState(() {
@@ -177,6 +200,11 @@ class _FirstRunChallengeScreenState extends State<FirstRunChallengeScreen>
     final nativeBridge = context.read<NativeBridgeService>();
 
     try {
+      if (widget.guideTrial) {
+        await nativeBridge.resetLegacyUser();
+        await nativeBridge.clearPendingCampaignStageResult();
+        await nativeBridge.setSelectedCharacter(_selectedCharacterIndex);
+      }
       const questionIds = <int>[];
       final effectiveAllowedLevels = stage.allowedLevels
           .where((level) => level.trim().isNotEmpty)
@@ -191,6 +219,7 @@ class _FirstRunChallengeScreenState extends State<FirstRunChallengeScreen>
 
       final launchConfig = _modeEngine.buildLaunchConfig(stage);
       await nativeBridge.launchCampaignStage(
+        campaignEntry: widget.guideTrial ? 'guest_trial' : 'stage',
         campaignId: launchConfig['campaignId'] as String? ?? stage.campaignId,
         stageId: launchConfig['stageId'] as String? ?? stage.id,
         stageType: launchConfig['stageType'] as String? ?? stage.type.value,
@@ -231,10 +260,11 @@ class _FirstRunChallengeScreenState extends State<FirstRunChallengeScreen>
         boardBotIntelligence: launchConfig['boardBotIntelligence'] as int? ?? 0,
         categoryPolicy:
             launchConfig['categoryPolicy'] as String? ?? 'playerPick',
-        worldCategories: (launchConfig['worldCategories'] as List<dynamic>? ??
-                const <dynamic>[])
-            .map((dynamic e) => e.toString())
-            .toList(growable: false),
+        worldCategories:
+            (launchConfig['worldCategories'] as List<dynamic>? ??
+                    const <dynamic>[])
+                .map((dynamic e) => e.toString())
+                .toList(growable: false),
       );
       if (mounted) setState(() => _waitingForResult = true);
     } catch (_) {
@@ -309,7 +339,9 @@ class _FirstRunChallengeScreenState extends State<FirstRunChallengeScreen>
                         constraints: const BoxConstraints(maxWidth: 960),
                         child: SingleChildScrollView(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 8),
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
                           child: isLandscape
                               ? _buildLandscapeContent()
                               : _buildPortraitContent(),
@@ -325,10 +357,7 @@ class _FirstRunChallengeScreenState extends State<FirstRunChallengeScreen>
             ),
 
             // ── Launching / Loading Overlay ───────────────────────────────
-            if (_launching)
-              Positioned.fill(
-                child: _buildLaunchingOverlay(),
-              ),
+            if (_launching) Positioned.fill(child: _buildLaunchingOverlay()),
           ],
         ),
       ),
@@ -353,8 +382,9 @@ class _FirstRunChallengeScreenState extends State<FirstRunChallengeScreen>
                 decoration: BoxDecoration(
                   color: const Color(0xFF0A1E4A).withValues(alpha: 0.65),
                   shape: BoxShape.circle,
-                  border:
-                      Border.all(color: Colors.white.withValues(alpha: 0.22)),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.22),
+                  ),
                 ),
                 child: const Icon(
                   Icons.arrow_forward_rounded,
@@ -385,8 +415,10 @@ class _FirstRunChallengeScreenState extends State<FirstRunChallengeScreen>
             GestureDetector(
               onTap: _pauseCountdown,
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFFACC15).withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(20),
@@ -397,8 +429,11 @@ class _FirstRunChallengeScreenState extends State<FirstRunChallengeScreen>
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.timer_rounded,
-                        color: Color(0xFFFACC15), size: 16),
+                    const Icon(
+                      Icons.timer_rounded,
+                      color: Color(0xFFFACC15),
+                      size: 16,
+                    ),
                     const SizedBox(width: 5),
                     Text(
                       'انطلاق خلال $_countdownSeconds ث',
@@ -409,8 +444,11 @@ class _FirstRunChallengeScreenState extends State<FirstRunChallengeScreen>
                       ),
                     ),
                     const SizedBox(width: 4),
-                    const Icon(Icons.pause_rounded,
-                        color: Colors.white70, size: 14),
+                    const Icon(
+                      Icons.pause_rounded,
+                      color: Colors.white70,
+                      size: 14,
+                    ),
                   ],
                 ),
               ),
@@ -437,10 +475,7 @@ class _FirstRunChallengeScreenState extends State<FirstRunChallengeScreen>
         ),
         const SizedBox(width: 16),
         // Right Column: Character Selection & Showcase
-        Expanded(
-          flex: 6,
-          child: _buildHeroPickerCard(),
-        ),
+        Expanded(flex: 6, child: _buildHeroPickerCard()),
       ],
     );
   }
@@ -633,17 +668,18 @@ class _FirstRunChallengeScreenState extends State<FirstRunChallengeScreen>
       decoration: BoxDecoration(
         color: const Color(0xFF08153A).withValues(alpha: 0.78),
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.16),
-        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [
-              const Icon(Icons.person_pin_rounded,
-                  color: Color(0xFFFACC15), size: 20),
+              const Icon(
+                Icons.person_pin_rounded,
+                color: Color(0xFFFACC15),
+                size: 20,
+              ),
               const SizedBox(width: 6),
               const Text(
                 'اختر بطلك للانطلاق:',
@@ -730,8 +766,9 @@ class _FirstRunChallengeScreenState extends State<FirstRunChallengeScreen>
                           style: TextStyle(
                             color: isSelected ? Colors.white : Colors.white70,
                             fontSize: 12,
-                            fontWeight:
-                                isSelected ? FontWeight.w900 : FontWeight.w700,
+                            fontWeight: isSelected
+                                ? FontWeight.w900
+                                : FontWeight.w700,
                           ),
                         ),
                       ],
@@ -799,9 +836,9 @@ class _FirstRunChallengeScreenState extends State<FirstRunChallengeScreen>
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFFF59E0B).withValues(
-                        alpha: 0.35 + _pulseCtrl.value * 0.25,
-                      ),
+                      color: const Color(
+                        0xFFF59E0B,
+                      ).withValues(alpha: 0.35 + _pulseCtrl.value * 0.25),
                       blurRadius: 18,
                       spreadRadius: 1,
                     ),
@@ -908,8 +945,11 @@ class _FirstRunChallengeScreenState extends State<FirstRunChallengeScreen>
                       _pendingResultAttempts = 0;
                     });
                   },
-                  icon: const Icon(Icons.close_rounded,
-                      size: 16, color: Color(0xFFF87171)),
+                  icon: const Icon(
+                    Icons.close_rounded,
+                    size: 16,
+                    color: Color(0xFFF87171),
+                  ),
                   label: const Text(
                     'إلغاء والعودة للساحة',
                     style: TextStyle(
@@ -919,13 +959,16 @@ class _FirstRunChallengeScreenState extends State<FirstRunChallengeScreen>
                     ),
                   ),
                   style: TextButton.styleFrom(
-                    backgroundColor:
-                        const Color(0xFFEF4444).withValues(alpha: 0.15),
+                    backgroundColor: const Color(
+                      0xFFEF4444,
+                    ).withValues(alpha: 0.15),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 6,
+                    ),
                   ),
                 ),
               ],
@@ -1027,8 +1070,8 @@ class _EmbersPainter extends CustomPainter {
       final opacity = progress < 0.15
           ? progress / 0.15
           : progress > 0.85
-              ? (1 - progress) / 0.15
-              : 1.0;
+          ? (1 - progress) / 0.15
+          : 1.0;
 
       canvas.drawCircle(
         Offset(p.x * size.width, size.height * (1 - progress)),
