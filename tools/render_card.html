@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+@font-face {
+  font-family: 'Baloo';
+  src: url('../assets/fonts/baloo.ttf');
+}
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+html, body {
+  width: 352px;
+  height: 352px;
+  overflow: hidden;
+  background: transparent;
+}
+.card {
+  position: relative;
+  width: 352px;
+  height: 352px;
+  background: transparent;
+}
+.bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 352px;
+  height: 352px;
+}
+.bottom-bar {
+  position: absolute;
+  bottom: 14px;
+  left: 20px;
+  width: 312px;
+  height: 70px;
+  background-color: #1A5A59;
+  border-radius: 0 0 30px 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.title {
+  font-family: 'Baloo', sans-serif;
+  font-size: 32px;
+  font-weight: bold;
+  color: #FFFFFF;
+  line-height: 1;
+  text-align: center;
+  direction: rtl;
+  padding-bottom: 4px;
+}
+</style>
+</head>
+<body>
+<div class="card">
+  <img class="bg" src="../assets/categories/مسلسلات عربية.png" />
+  <div class="bottom-bar">
+    <div class="title">دراما سورية</div>
+  </div>
+</div>
+</body>
+</html>
