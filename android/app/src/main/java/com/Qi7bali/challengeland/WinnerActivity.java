@@ -1,6 +1,5 @@
 package com.qi7bali.landchallengeonline;
 
-import androidx.appcompat.app.AppCompatActivity;
 
 import android.content.Intent;
 import android.media.MediaPlayer;
@@ -25,7 +24,7 @@ import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback;
 
 import java.util.Random;
 
-public class WinnerActivity extends AppCompatActivity {
+public class WinnerActivity extends GameViewportActivity {
 
     int width;
     int height;
@@ -54,8 +53,7 @@ public class WinnerActivity extends AppCompatActivity {
         loadInterstitialAd();
 
 
-        DisplayMetrics metrics = new DisplayMetrics();
-        getWindowManager().getDefaultDisplay().getMetrics(metrics);
+        DisplayMetrics metrics = GameViewportActivity.canvasMetrics(this);
 
         width = metrics.widthPixels;
         height = metrics.heightPixels;

@@ -13,6 +13,6 @@ console.log(`Merged ${career.length} career questions into ${bankPath}.`);
 const serverPath = 'functions/src/original_stake_questions.json';
 const server = JSON.parse(fs.readFileSync(serverPath,'utf8'));
 const original = server.filter(question=>question.category!=='مسيرة لاعب');
-const rows = career.map(q=>({category:q.Category,text:q.Q,answers:[q.R,q.W1,q.W2,q.W3],level:q.Level,img:''}));
+const rows = career.map(q=>({category:q.Category,text:q.Q,answers:[q.R,q.W1,q.W2,q.W3],level:q.Level,img:'',clubPath:q.ClubPath}));
 fs.writeFileSync(serverPath,JSON.stringify([...original,...rows]));
 console.log(`Synced ${rows.length} career questions to the server bank.`);

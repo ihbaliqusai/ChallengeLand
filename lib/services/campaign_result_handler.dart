@@ -1,3 +1,4 @@
+import '../widgets/game_notice.dart';
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -617,7 +618,7 @@ class CampaignResultHandler {
   }
 
   static void _showSnack(BuildContext context, String message) {
-    ScaffoldMessenger.of(context)
+    GameNoticeMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(

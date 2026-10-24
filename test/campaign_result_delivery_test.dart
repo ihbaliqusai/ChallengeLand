@@ -166,6 +166,25 @@ void main() {
     wallet.dispose();
   }
 
+  testWidgets('result paints behind the cutout while keeping controls safe',
+      (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1600, 720);
+    tester.view.padding = const FakeViewPadding(left: 102);
+    tester.view.viewPadding = const FakeViewPadding(left: 102);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetPadding);
+    addTearDown(tester.view.resetViewPadding);
+    await openResult(tester);
+    expect(tester.getRect(find.byKey(const ValueKey('victory-background'))),
+        const Rect.fromLTWH(0, 0, 1600, 720));
+    expect(tester.getRect(find.text('تفاصيل المرحلة')).left,
+        greaterThanOrEqualTo(102));
+    campaign.submission.complete(saved());
+    await close(tester);
+  });
+
   testWidgets('result appears before cloud save and wallet refresh finish',
       (tester) async {
     await openResult(tester);

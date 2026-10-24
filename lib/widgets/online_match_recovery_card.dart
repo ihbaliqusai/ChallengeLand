@@ -1,12 +1,11 @@
+import 'game_notice.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../models/room.dart';
-import '../screens/online/room_lobby_screen.dart';
 import '../services/native_bridge_service.dart';
-import '../services/room_service.dart';
+import '../services/online_match_flow.dart';
 
 class OnlineMatchRecoveryCard extends StatefulWidget {
   const OnlineMatchRecoveryCard({super.key, required this.userId});
@@ -52,79 +51,36 @@ class _OnlineMatchRecoveryCardState extends State<OnlineMatchRecoveryCard>
       final matches = await context
           .read<NativeBridgeService>()
           .getRecoverableOnlineMatches();
-      if (mounted && refreshId == _refreshId) {
-        setState(() => _matches = matches
-            .where((match) => match['uid'] == widget.userId)
-            .toList(growable: false));
+      if (!mounted || refreshId != _refreshId) return;
+      final uid = widget.userId;
+      final owned = matches.where((match) => match['uid'] == uid).toList();
+      // Keep return buttons available while the live server checks are pending.
+      setState(() => _matches = owned);
+      final resolved = <Map<String, dynamic>>[];
+      for (final match in owned) {
+        try {
+          resolved.add(await OnlineMatchFlow.inspect(context, uid, match));
+        } catch (_) {
+          resolved.add(match);
+        }
+        if (!mounted || refreshId != _refreshId) return;
       }
+      setState(() => _matches = resolved);
     } catch (_) {
       // A failed refresh keeps the saved return button available for another try.
     }
   }
 
-  Future<void> _showResult(String id, String message) async {
-    final uid = widget.userId;
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Text('انتهت المباراة'),
-        content: Text(message),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('حسنًا'))
-        ],
-      ),
-    );
-    if (!mounted || widget.userId != uid) return;
-    await context.read<NativeBridgeService>().dismissOnlineMatchRecovery(id);
-  }
-
   Future<void> _resume(Map<String, dynamic> match) async {
     if (_busy) return;
     final uid = widget.userId;
-    final id = match['id'] as String;
     setState(() => _busy = true);
     try {
-      if (match['finished'] == true) {
-        await _showResult(
-            id, match['message'] as String? ?? 'انتهت المباراة أثناء غيابك.');
-      } else if ((match['roomId'] as String? ?? '').isNotEmpty) {
-        final roomId = match['roomId'] as String;
-        final service = context.read<RoomService>();
-        final room = await service.getRoomForRecovery(roomId);
-        if (!mounted || widget.userId != uid) return;
-        if (room == null || !room.containsPlayer(uid)) {
-          await _showResult(id, 'لم تعد هذه المباراة متاحة للعودة إليها.');
-        } else if (room.phase == Room.phaseFinished) {
-          final winner = room.winnerId ?? '';
-          final winnerTeam = room.winnerTeamId ?? '';
-          final won = winner == uid ||
-              (winnerTeam.isNotEmpty &&
-                  winnerTeam == room.players[uid]?.teamId);
-          await _showResult(
-              id,
-              won
-                  ? 'فزت بالمباراة.'
-                  : winner.isNotEmpty || winnerTeam.isNotEmpty
-                      ? 'خسرت المباراة التي انتهت أثناء غيابك.'
-                      : 'انتهت المباراة بالتعادل.');
-        } else {
-          await service.joinRoom(roomId: roomId, userId: uid);
-          if (!mounted || widget.userId != uid) return;
-          await Navigator.of(context).push(MaterialPageRoute<void>(
-            builder: (_) =>
-                RoomLobbyScreen(roomId: roomId, isJoiningMidGame: true),
-          ));
-        }
-      } else {
-        await context.read<NativeBridgeService>().resumeOnlineMatch(id);
-      }
+      await OnlineMatchFlow.resume(context, uid, match);
       if (mounted && widget.userId == uid) await _refresh();
     } catch (_) {
       if (mounted && widget.userId == uid) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        GameNoticeMessenger.of(context).showSnackBar(const SnackBar(
           content:
               Text('تعذر استعادة المباراة. تحقق من الاتصال ثم حاول مجددًا.'),
         ));
@@ -169,6 +125,8 @@ class _OnlineMatchRecoveryCardState extends State<OnlineMatchRecoveryCard>
   Widget build(BuildContext context) {
     if (_matches.isEmpty) return const SizedBox.shrink();
     final finished = _matches.every((match) => match['finished'] == true);
+    final activeCount =
+        _matches.where((match) => match['finished'] != true).length;
     return Material(
       color: const Color(0xF2113440),
       borderRadius: BorderRadius.circular(12),
@@ -201,7 +159,11 @@ class _OnlineMatchRecoveryCardState extends State<OnlineMatchRecoveryCard>
                           color: Colors.white, fontWeight: FontWeight.w800)),
                   Text(
                       _matches.length > 1
-                          ? 'لديك ${_matches.length} مباريات محفوظة'
+                          ? finished
+                              ? 'لديك ${_matches.length} نتائج سابقة'
+                              : activeCount > 1
+                                  ? 'لديك $activeCount مباريات سابقة لم تنتهِ'
+                                  : 'مباراة جارية ونتائج سابقة'
                           : finished
                               ? 'اضغط لعرض النتيجة'
                               : 'تابع المباراة أو اعرض نتيجتها إذا انتهت',

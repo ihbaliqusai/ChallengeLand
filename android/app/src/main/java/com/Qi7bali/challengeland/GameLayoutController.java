@@ -37,7 +37,7 @@ final class GameLayoutController {
     }
 
     void configureGameSurfaceLayout() {
-        final DisplayMetrics metrics = activity.getResources().getDisplayMetrics();
+        final DisplayMetrics metrics = GameViewportActivity.canvasMetrics(activity);
         final float screenWidthDp = metrics.widthPixels / metrics.density;
         final float screenHeightDp = metrics.heightPixels / metrics.density;
         final boolean shortScreen = screenHeightDp < 390f;
@@ -121,10 +121,10 @@ final class GameLayoutController {
     // (~480dp tall) landscape screen.
     private static final int HOST_WIDTH_DP = 208;
     private static final int HOST_HEIGHT_DP = 141;
-    private static final int HOST_BOTTOM_MARGIN_DP = 240;
+    private static final int HOST_BOTTOM_MARGIN_DP = 288;
     private static final int PLATE_WIDTH_DP = 152;
     private static final int PLATE_HEIGHT_DP = 64;
-    private static final int PLATE_BOTTOM_MARGIN_DP = 182;
+    private static final int PLATE_BOTTOM_MARGIN_DP = 230;
     private static final float PLATE_TEXT_SP = 19f;
 
     /**

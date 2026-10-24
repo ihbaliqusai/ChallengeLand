@@ -1,7 +1,6 @@
 package com.qi7bali.landchallengeonline;
 
 import androidx.appcompat.app.AlertDialog;
-import androidx.appcompat.app.AppCompatActivity;
 
 import android.content.ClipData;
 import android.content.ClipboardManager;
@@ -43,7 +42,7 @@ import java.util.Locale;
  * تم إعادة تصميمها بالكامل بهوية Esports Championship فخمة وعصرية،
  * مع دعم البث للشاشة الكبيرة (TV Mode)، وإحصائيات فورية للمواجهات.
  */
-public class LocalTeamsGamesActivity extends AppCompatActivity {
+public class LocalTeamsGamesActivity extends GameViewportActivity {
 
     // ==========================================
     // لوحة الألوان الفاخرة (Esports Luxury Theme)
@@ -1051,7 +1050,7 @@ public class LocalTeamsGamesActivity extends AppCompatActivity {
         btnRow.setOrientation(LinearLayout.HORIZONTAL);
         btnRow.setGravity(Gravity.CENTER);
 
-        final AlertDialog dialog = new AlertDialog.Builder(this)
+        final AlertDialog dialog = GameNoticeDialogs.builder(this)
                 .setView(dialogView)
                 .create();
         if (dialog.getWindow() != null) {
@@ -1078,7 +1077,7 @@ public class LocalTeamsGamesActivity extends AppCompatActivity {
                                 "ChallengeLand TV Link",
                                 "رابط شاشة التحدي: " + webUrl + " | رمز الدخول: " + tvCode);
                         clipboard.setPrimaryClip(clip);
-                        Toast.makeText(LocalTeamsGamesActivity.this, "تم نسخ الرابط والرمز بنجاح 📋", Toast.LENGTH_SHORT).show();
+                        GameNotice.makeText(LocalTeamsGamesActivity.this, "تم نسخ الرابط والرمز بنجاح 📋", Toast.LENGTH_SHORT).show();
                     }
                 }
             });
@@ -1117,7 +1116,7 @@ public class LocalTeamsGamesActivity extends AppCompatActivity {
                     public void run() {
                         boolean ok = LocalTeamsGameStore.delete(LocalTeamsGamesActivity.this, id);
                         if (ok) {
-                            Toast.makeText(LocalTeamsGamesActivity.this, "تم حذف المباراة بنجاح", Toast.LENGTH_SHORT).show();
+                            GameNotice.makeText(LocalTeamsGamesActivity.this, "تم حذف المباراة بنجاح", Toast.LENGTH_SHORT).show();
                             refreshList();
                         }
                     }
@@ -1132,7 +1131,7 @@ public class LocalTeamsGamesActivity extends AppCompatActivity {
             if (LocalTeamsGameStore.isFinished(record)) finished++;
         }
         if (finished == 0) {
-            Toast.makeText(this, "سجل الأبطال فارغ بالفعل!", Toast.LENGTH_SHORT).show();
+            GameNotice.makeText(this, "سجل الأبطال فارغ بالفعل!", Toast.LENGTH_SHORT).show();
             return;
         }
         showCustomConfirmDialog(
@@ -1143,7 +1142,7 @@ public class LocalTeamsGamesActivity extends AppCompatActivity {
                     @Override
                     public void run() {
                         int count = LocalTeamsGameStore.clearFinished(LocalTeamsGamesActivity.this);
-                        Toast.makeText(LocalTeamsGamesActivity.this, "تم تنظيف " + count + " مباراة من السجل", Toast.LENGTH_SHORT).show();
+                        GameNotice.makeText(LocalTeamsGamesActivity.this, "تم تنظيف " + count + " مباراة من السجل", Toast.LENGTH_SHORT).show();
                         refreshList();
                     }
                 }
@@ -1178,7 +1177,7 @@ public class LocalTeamsGamesActivity extends AppCompatActivity {
         btnRow.setOrientation(LinearLayout.HORIZONTAL);
         btnRow.setGravity(Gravity.CENTER_VERTICAL);
 
-        final AlertDialog dialog = new AlertDialog.Builder(this)
+        final AlertDialog dialog = GameNoticeDialogs.builder(this)
                 .setView(dialogView)
                 .create();
 

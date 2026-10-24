@@ -441,7 +441,7 @@ final class GameOfflineContestantsController {
         releaseVideos();
         row.removeAllViews();
 
-        final DisplayMetrics metrics = activity.getResources().getDisplayMetrics();
+        final DisplayMetrics metrics = GameViewportActivity.canvasMetrics(activity);
         final float density = metrics.density;
         final float screenWidthDp = metrics.widthPixels / density;
         final float screenHeightDp = metrics.heightPixels / density;
@@ -943,7 +943,7 @@ final class GameOfflineContestantsController {
             return;
         }
 
-        final DisplayMetrics metrics = activity.getResources().getDisplayMetrics();
+        final DisplayMetrics metrics = GameViewportActivity.canvasMetrics(activity);
         final float density = metrics.density;
         final int widthPx = scoreBoardContent.getWidth() > 0
                 ? scoreBoardContent.getWidth()
@@ -1054,7 +1054,7 @@ final class GameOfflineContestantsController {
         }
         scoreBoardContent.removeAllViews();
 
-        final DisplayMetrics metrics = activity.getResources().getDisplayMetrics();
+        final DisplayMetrics metrics = GameViewportActivity.canvasMetrics(activity);
         final float density = metrics.density;
 
         ImageView bg = activity.findViewById(R.id.offlineScoreBoardBg);

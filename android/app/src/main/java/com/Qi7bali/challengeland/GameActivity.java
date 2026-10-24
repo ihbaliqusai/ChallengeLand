@@ -3,7 +3,6 @@ package com.qi7bali.landchallengeonline;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
-import androidx.appcompat.app.AppCompatActivity;
 import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
@@ -91,7 +90,7 @@ import static com.qi7bali.landchallengeonline.GameRules.NEXT_QUESTION_SYNC_BUFFE
 import static com.qi7bali.landchallengeonline.GameRules.ONLINE_SPEED_POINTS;
 import static com.qi7bali.landchallengeonline.GameRules.QUESTION_TIMEOUT_MS;
 
-public class GameActivity extends AppCompatActivity implements ProgressionMatchHost, GameBackgroundGuard.Host {
+public class GameActivity extends GameViewportActivity implements ProgressionMatchHost, GameBackgroundGuard.Host {
     private final GameBackgroundGuard backgroundGuard = new GameBackgroundGuard(this, this);
     private boolean backgroundPenaltyRequestPending;
     private long backgroundPenaltyRetryAt;
@@ -236,7 +235,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
             EXITING = true;
             backgroundParticipationEnded = true;
             backgroundGuard.acknowledge();
-            new AlertDialog.Builder(this).setTitle("انتهت مشاركتك")
+            GameNoticeDialogs.builder(this).setTitle("انتهت مشاركتك")
                     .setMessage("انتهت مشاركتك لتكرار مغادرة اللعبة أكثر من 10 ثوانٍ أثناء الإجابة ثلاث مرات.")
                     .setCancelable(false).setPositiveButton("العودة", (dialog, which) -> {
                         if (campaignMode) finishCampaignAndReturnToFlutter();
@@ -264,8 +263,8 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         questionSelectionPending = false;
         if (EXITING || isFinishing()) return;
         String message = error.getMessage() == null ? "تعذر اختيار أسئلة جديدة. حاول مجددًا." : error.getMessage();
-        Toast.makeText(this, message, Toast.LENGTH_LONG).show();
-        if (retryQuestionSelection != null) new AlertDialog.Builder(this).setMessage(message)
+        GameNotice.makeText(this, message, Toast.LENGTH_LONG).show();
+        if (retryQuestionSelection != null) GameNoticeDialogs.builder(this).setMessage(message)
                 .setPositiveButton("إعادة المحاولة", (dialog, which) -> retryQuestionSelection.run())
                 .setNegativeButton("رجوع", (dialog, which) -> finish()).show();
     }
@@ -366,6 +365,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     GameRewardedAdController rewardedAdController;
     GameLifelineController lifelineController;
     GameLayoutController layoutController;
+    private PresenterBubbleController presenterBubble;
     GameOpponentHudController opponentHudController;
     GameOfflineContestantsController offlineContestants;
     GameCampaignHudController campaignHudController;
@@ -751,7 +751,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                     finish(); return;
                 }
             } catch (RuntimeException failure) {
-                Toast.makeText(this, "تعذر تثبيت حجز المباراة. حاول مجددًا.", Toast.LENGTH_LONG).show();
+                GameNotice.makeText(this, "تعذر تثبيت حجز المباراة. حاول مجددًا.", Toast.LENGTH_LONG).show();
                 finish(); return;
             }
         }
@@ -868,7 +868,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                 }
                 }
             } else {
-                Toast.makeText(GameActivity.this, "لا يوجد اتصال بالإنترنت", Toast.LENGTH_SHORT).show();
+                GameNotice.makeText(GameActivity.this, "لا يوجد اتصال بالإنترنت", Toast.LENGTH_SHORT).show();
             }
 
         } else {
@@ -1006,6 +1006,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         txtA4 = findViewById(R.id.txtA4);
         layoutController.configureAnswerTextSizing();
         layoutController.configureGameSurfaceLayout();
+        presenterBubble = new PresenterBubbleController(this, rlyDialog);
         imgA1 = findViewById(R.id.imgA1);
         imgA2 = findViewById(R.id.imgA2);
         imgA3 = findViewById(R.id.imgA3);
@@ -1137,7 +1138,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                                     rlySelected.getChildAt(2).setVisibility(View.VISIBLE);
                                     resolveOnlineRoundIfReady();
                                 } else {
-                                    Toast.makeText(GameActivity.this, "لا يوجد اتصال بالإنترنت", Toast.LENGTH_SHORT).show();
+                                    GameNotice.makeText(GameActivity.this, "لا يوجد اتصال بالإنترنت", Toast.LENGTH_SHORT).show();
                                 }
                             } else {
                                 checkAnswer(false);
@@ -1174,7 +1175,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                                 lifelineController.hideTwoAnswers();
                                 startTimer(false);
                                 updateInventoryBadges();
-                                Toast.makeText(GameActivity.this, "تم استخدام 50:50 إضافية", Toast.LENGTH_SHORT).show();
+                                GameNotice.makeText(GameActivity.this, "تم استخدام 50:50 إضافية", Toast.LENGTH_SHORT).show();
                             }
                             break;
                         case "ConfirmExtraHelpAudience":
@@ -1184,7 +1185,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                                 stopTimer(true);
                                 lifelineController.showAudienceVote();
                                 updateInventoryBadges();
-                                Toast.makeText(GameActivity.this, "تم استخدام مساعدة جمهور إضافية", Toast.LENGTH_SHORT).show();
+                                GameNotice.makeText(GameActivity.this, "تم استخدام مساعدة جمهور إضافية", Toast.LENGTH_SHORT).show();
                             }
                             break;
                         case "ConfirmExtraHelpCall":
@@ -1194,7 +1195,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                                 stopTimer(true);
                                 lifelineController.callFriend();
                                 updateInventoryBadges();
-                                Toast.makeText(GameActivity.this, "تم استخدام اتصال إضافي", Toast.LENGTH_SHORT).show();
+                                GameNotice.makeText(GameActivity.this, "تم استخدام اتصال إضافي", Toast.LENGTH_SHORT).show();
                             }
                             break;
                         case "ConfirmHome":
@@ -1540,7 +1541,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                     if (overlay != null && overlay.getVisibility() == View.VISIBLE) {
                         int[] cell = pickRandomRemainingCell();
                         if (cell != null) {
-                            Toast.makeText(GameActivity.this, "انتهى وقت الاختيار، تم اختيار خانة تلقائياً",
+                            GameNotice.makeText(GameActivity.this, "انتهى وقت الاختيار، تم اختيار خانة تلقائياً",
                                     Toast.LENGTH_SHORT).show();
                             onCellPicked(cell[0], cell[1]);
                         }
@@ -1761,7 +1762,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     }
 
     private boolean isShortGameScreen() {
-        final DisplayMetrics metrics = getResources().getDisplayMetrics();
+        final DisplayMetrics metrics = GameViewportActivity.canvasMetrics(this);
         return metrics.heightPixels / metrics.density < 390f;
     }
 
@@ -1954,7 +1955,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     private void applyBotIdentity(MatchOpponent opponent, boolean replacingHuman) {
         GameBotLogic.applyBotIdentity(opponent);
         if (opponent != null && replacingHuman) {
-            Toast.makeText(
+            GameNotice.makeText(
                     this,
                     opponent.name + " يتابع اللعب الآن كخصم آلي",
                     Toast.LENGTH_SHORT
@@ -2414,7 +2415,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
             RandomStakeLedger.settle(this, safeIntentString("randomStakeId", ""), win, draw);
             return true;
         } catch (RuntimeException failure) {
-            new AlertDialog.Builder(this).setTitle("تعذر حفظ نتيجة القطع")
+            GameNoticeDialogs.builder(this).setTitle("تعذر حفظ نتيجة القطع")
                     .setMessage("لم يتم تأكيد تسوية الرهان بعد. أعد المحاولة لحفظ النتيجة.")
                     .setPositiveButton("إعادة المحاولة", (dialog, which) -> retry.run())
                     .setCancelable(false).show();
@@ -2597,29 +2598,17 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
 
         final int count = Math.max(1, offlineContestants.contestantCount());
         final int myScore = offlineContestants.scoreForSlot(0);
-        final boolean[] seatWon = new boolean[count];
         boolean completed;
-        String headline;
 
         if ("boss".equals(boardCampaignKind)) {
             boolean beat = count > 1;
-            int bestScore = myScore;
             for (int g = 1; g < count; g++) {
                 int s = offlineContestants.scoreForSlot(g);
                 if (s >= myScore) beat = false;   // must strictly beat every boss
-                if (s > bestScore) bestScore = s;
             }
             completed = beat;
-            for (int g = 0; g < count; g++) {
-                seatWon[g] = offlineContestants.scoreForSlot(g) == bestScore;
-            }
-            headline = completed ? "🏆 هزمت الزعماء!" : "💔 لم تتغلّب على الزعماء";
         } else {
             completed = myScore >= boardTargetScore;
-            seatWon[0] = completed;
-            headline = completed
-                    ? ("🏆 تجاوزت الهدف!  " + myScore + " / " + boardTargetScore)
-                    : ("💔 لم تبلغ الهدف  " + myScore + " / " + boardTargetScore);
         }
 
         // Feed the campaign result pipeline (score/correct counts -> stars in Flutter).
@@ -2629,11 +2618,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                 boardRequiredCategoryCount, boardCampaignDeadlineMs, System.currentTimeMillis());
         if (!constraint.isEmpty()) {
             completed = false;
-            java.util.Arrays.fill(seatWon, false);
             campaignFailureReason = constraint;
-            headline = "timeExpired".equals(constraint) ? "⏱ انتهى وقت المرحلة"
-                    : "eliminated".equals(constraint) ? "💔 تجاوزت عدد الأخطاء المسموح"
-                    : "💔 لم تكمل الإجابات الصحيحة في فئات العالم المطلوبة";
         } else {
             campaignFailureReason = completed ? "" : ("boss".equals(boardCampaignKind)
                     ? "boss_not_defeated" : "target_score_not_reached");
@@ -2648,12 +2633,9 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
             }
         } catch (Exception ignored) {
         }
-        if (completed) {
-            person.moveShow2Hands(1500);
-            person.raiseEyeBrowsUp(1000, false, true);
-        }
-        playSound(completed ? R.raw.new_level : R.raw.wrong_answer, false, false);
-        showBoardResultScreen(headline, 0, 0, 0, seatWon);
+        // Flutter presents the stage result, stars and rewards. Return directly
+        // instead of showing the generic board result and its auto-continue delay.
+        proceedAfterBoardResult();
     }
 
     // =====================================================================
@@ -3887,7 +3869,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         if (boardAllCategories.size() < requiredColumns) {
             campaignFailureReason = "question_pool_unavailable";
             persistPendingCampaignStageResult(false, 0, 0);
-            Toast.makeText(this, "أسئلة هذه المرحلة غير متاحة الآن، جرّب مرحلة أخرى", Toast.LENGTH_LONG).show();
+            GameNotice.makeText(this, "أسئلة هذه المرحلة غير متاحة الآن، جرّب مرحلة أخرى", Toast.LENGTH_LONG).show();
             finishCampaignAndReturnToFlutter();
             return;
         }
@@ -3897,7 +3879,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                 < boardRequiredCategoryCount) {
             campaignFailureReason = "question_pool_unavailable";
             persistPendingCampaignStageResult(false, 0, 0);
-            Toast.makeText(this, "أسئلة فئات هذه المرحلة غير متاحة الآن", Toast.LENGTH_LONG).show();
+            GameNotice.makeText(this, "أسئلة فئات هذه المرحلة غير متاحة الآن", Toast.LENGTH_LONG).show();
             finishCampaignAndReturnToFlutter();
             return;
         }
@@ -3909,7 +3891,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         }
         if ("playerPick".equals(boardCategoryPolicy)) {
             if (boardPool.size() < requiredColumns) {
-                Toast.makeText(this, "تحتاج " + requiredColumns + " فئات مفتوحة لهذه المرحلة. اختر من فئاتك أو افتح فئات إضافية", Toast.LENGTH_LONG).show();
+                GameNotice.makeText(this, "تحتاج " + requiredColumns + " فئات مفتوحة لهذه المرحلة. اختر من فئاتك أو افتح فئات إضافية", Toast.LENGTH_LONG).show();
             }
             saveCampaignProgress(OfflineBoardGameStore.PHASE_CATEGORY_SELECT);
             showCategorySelect();
@@ -4032,7 +4014,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         stopTimer(false);
         cancelPendingBoardReveal();
         cancelBoardSelectTimer();
-        Toast.makeText(this, "هذه المرحلة تحتاج فئات مفتوحة كافية من فئات عالمها. افتح الفئات المطلوبة ثم عد؛ محاولتك محفوظة", Toast.LENGTH_LONG).show();
+        GameNotice.makeText(this, "هذه المرحلة تحتاج فئات مفتوحة كافية من فئات عالمها. افتح الفئات المطلوبة ثم عد؛ محاولتك محفوظة", Toast.LENGTH_LONG).show();
         finish();
     }
 
@@ -4157,7 +4139,11 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                                 tile.setBackground(categoryTileBg(false, false));
                             } else {
                                 if (selected.size() >= boardCols) {
-                                    Toast.makeText(GameActivity.this, "اخترت " + boardCols + " فئات بالفعل", Toast.LENGTH_SHORT).show();
+                                    String categoryLimit = boardCols == 1 ? "فئة واحدة"
+                                            : boardCols == 2 ? "فئتين" : boardCols + " فئات";
+                                    GameNotice.makeText(GameActivity.this,
+                                            "يمكنك اختيار " + categoryLimit + " فقط. ألغِ تحديد فئة لتختار غيرها.",
+                                            Toast.LENGTH_LONG).withTone(GameNotice.Tone.WARNING).show();
                                     return;
                                 }
                                 selected.add(category);
@@ -4274,7 +4260,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
             final TextView counter, final Button confirm) {
         GameEconomy.refresh(this, (wallet, loadError) -> {
             if (isFinishing() || isDestroyed()) return;
-            if (loadError != null) { Toast.makeText(this, loadError, Toast.LENGTH_LONG).show(); return; }
+            if (loadError != null) { GameNotice.makeText(this, loadError, Toast.LENGTH_LONG).show(); return; }
 
             final org.json.JSONObject econState = GameEconomy.state(this);
             final int tickets = econState.optInt("tickets", 0);
@@ -4301,8 +4287,9 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
             if (dialog.getWindow() != null) {
                 dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
                 dialog.getWindow().setDimAmount(0.75f);
-                final int screenWidth = getResources().getDisplayMetrics().widthPixels;
-                final int screenHeight = getResources().getDisplayMetrics().heightPixels;
+                final DisplayMetrics canvas = GameViewportActivity.canvasMetrics(this);
+                final int screenWidth = canvas.widthPixels;
+                final int screenHeight = canvas.heightPixels;
                 final int dialogWidth = Math.min(dpx(520), screenWidth - dpx(24));
                 final int maxContentHeight = Math.min(dpx(360), Math.round(screenHeight * 0.88f) - dpx(40));
 
@@ -4384,16 +4371,16 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                 }
                 btnTicket.setOnClickListener(v -> {
                     if (GameEconomy.state(GameActivity.this).optInt("tickets") < 1) {
-                        Toast.makeText(GameActivity.this, "تذاكر التصنيفات غير كافية. احصل عليها من المتجر.", Toast.LENGTH_LONG).show();
+                        GameNotice.makeText(GameActivity.this, "تذاكر التصنيفات غير كافية. احصل عليها من المتجر.", Toast.LENGTH_LONG).show();
                         return;
                     }
                     if (!GameEconomy.selectTicket(GameActivity.this, category)) {
-                        Toast.makeText(GameActivity.this, "اخترت تصنيفات بعدد تذاكرك المتاحة.", Toast.LENGTH_LONG).show();
+                        GameNotice.makeText(GameActivity.this, "اخترت تصنيفات بعدد تذاكرك المتاحة.", Toast.LENGTH_LONG).show();
                         return;
                     }
                     dialog.dismiss();
                     refreshUnlockedTile(category, tile, selected, counter, confirm);
-                    Toast.makeText(GameActivity.this, "تم اختيار التصنيف لمباراة واحدة.", Toast.LENGTH_SHORT).show();
+                    GameNotice.makeText(GameActivity.this, "تم اختيار التصنيف لمباراة واحدة.", Toast.LENGTH_SHORT).show();
                 });
             }
 
@@ -4407,7 +4394,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                     btnAd.setOnClickListener(v -> {
                         if (rewardedAdController == null) return;
                         if (GameEconomy.remainingAdRewards(GameActivity.this, "tickets") == 0) {
-                            Toast.makeText(GameActivity.this, "اكتملت إعلانات التذاكر وتجربة التصنيفات لليوم. تتجدد عند منتصف الليل UTC.", Toast.LENGTH_LONG).show();
+                            GameNotice.makeText(GameActivity.this, "اكتملت إعلانات التذاكر وتجربة التصنيفات لليوم. تتجدد عند منتصف الليل UTC.", Toast.LENGTH_LONG).show();
                             return;
                         }
                         rewardedAdController.show(new GameRewardedAdController.RewardCallback() {
@@ -4417,7 +4404,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                             }
                             public void onAdClosed(boolean earned) {}
                             public void onAdFailedToLoad(String error) {
-                                Toast.makeText(GameActivity.this, error, Toast.LENGTH_LONG).show();
+                                GameNotice.makeText(GameActivity.this, error, Toast.LENGTH_LONG).show();
                             }
                         });
                     });
@@ -4583,7 +4570,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         if (confirmDialog.getWindow() != null) {
             confirmDialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
             confirmDialog.getWindow().setDimAmount(0.65f);
-            int width = Math.min(dpx(420), getResources().getDisplayMetrics().widthPixels - dpx(32));
+            int width = Math.min(dpx(420), GameViewportActivity.canvasMetrics(this).widthPixels - dpx(32));
             confirmDialog.getWindow().setLayout(width, ViewGroup.LayoutParams.WRAP_CONTENT);
         }
 
@@ -4623,14 +4610,14 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         GameEconomy.request(this, data, (value, error) -> {
             if (isFinishing() || isDestroyed()) return;
             if (error != null) {
-                Toast.makeText(this, error, Toast.LENGTH_LONG).show();
+                GameNotice.makeText(this, error, Toast.LENGTH_LONG).show();
             } else {
                 String successMsg = "own".equals(action) || "ownVoucher".equals(action)
                         ? "تم امتلاك تصنيف «" + category + "» بنجاح!"
                         : "ad".equals(action)
                         ? "تم فتح تصنيف «" + category + "» لهذه المباراة!"
                         : "تم استئجار تصنيف «" + category + "» بنجاح!";
-                Toast.makeText(this, successMsg, Toast.LENGTH_SHORT).show();
+                GameNotice.makeText(this, successMsg, Toast.LENGTH_SHORT).show();
                 refreshUnlockedTile(category, tile, selected, counter, confirm);
             }
         });
@@ -4686,13 +4673,13 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         if (boardCampaignMatch) {
             refreshCampaignCategoryAccess();
             if (!CampaignBoardRules.canUseCategories(chosen, boardCols, boardPool)) {
-                Toast.makeText(this, "اختر " + boardCols + " فئات مفتوحة. ربما انتهت مدة فتح إحدى الفئات", Toast.LENGTH_LONG).show();
+                GameNotice.makeText(this, "اختر " + boardCols + " فئات مفتوحة. ربما انتهت مدة فتح إحدى الفئات", Toast.LENGTH_LONG).show();
                 showCategorySelect();
                 return;
             }
             if (CampaignBoardRules.themedCategoryCount(chosen, boardWorldCategories)
                     < boardRequiredCategoryCount) {
-                Toast.makeText(this, "اختر على الأقل " + boardRequiredCategoryCount
+                GameNotice.makeText(this, "اختر على الأقل " + boardRequiredCategoryCount
                         + " فئات من فئات العالم: " + android.text.TextUtils.join("، ", boardWorldCategories),
                         Toast.LENGTH_LONG).show();
                 showCategorySelect();
@@ -4730,7 +4717,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         }
         for (int col = 0; col < boardCols; col++) for (int row = 0; row < BOARD_ROWS; row++) {
             if (boardCellQuestion[col][row] == null) {
-                Toast.makeText(this, QuestionHistory.EXHAUSTED, Toast.LENGTH_LONG).show();
+                GameNotice.makeText(this, QuestionHistory.EXHAUSTED, Toast.LENGTH_LONG).show();
                 showCategorySelect(); return;
             }
         }
@@ -5929,7 +5916,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                         paidDuelExiting = false;
                         paidDuelRenderKey = "";
                         if (!paidDuelState.isEmpty()) applyPaidDuelState(paidDuelState, paidDuelQuestion, "retry");
-                        Toast.makeText(GameActivity.this, safeString(error.getMessage()).isEmpty()
+                        GameNotice.makeText(GameActivity.this, safeString(error.getMessage()).isEmpty()
                                 ? "جارٍ إعادة الاتصال بالمباراة…" : error.getMessage(), Toast.LENGTH_LONG).show();
                     }
                 });
@@ -6109,7 +6096,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     /** Owner creates the game session; the joiner looks it up. Then both pick a category. */
     private void startOnlineBoardSession() {
         if (safeIntentString("duelSessionId", "").isEmpty()) {
-            Toast.makeText(this, "معرّف المباراة مفقود. أعد البحث عن منافس.", Toast.LENGTH_LONG).show();
+            GameNotice.makeText(this, "معرّف المباراة مفقود. أعد البحث عن منافس.", Toast.LENGTH_LONG).show();
             finish();
             return;
         }
@@ -6128,7 +6115,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
 
                 @Override
                 public void onFailed(DatabaseError error) {
-                    Toast.makeText(GameActivity.this, "تعذر إنشاء المباراة", Toast.LENGTH_SHORT).show();
+                    GameNotice.makeText(GameActivity.this, "تعذر إنشاء المباراة", Toast.LENGTH_SHORT).show();
                     finish();
                 }
             });
@@ -6457,7 +6444,21 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
             }
         }
         payload.put("ready", true);
-        reserveBoardQuestions(() -> boardRef().updateChildren(payload));
+        reserveBoardQuestions(() -> boardRef().runTransaction(new Transaction.Handler() {
+            @Override public Transaction.Result doTransaction(MutableData board) {
+                // Withdrawal may settle a duel while its category setup is pending.
+                if ("finished".equals(board.child("phase").getValue(String.class))
+                        || Boolean.TRUE.equals(board.child("ready").getValue(Boolean.class))) {
+                    return Transaction.abort();
+                }
+                for (Map.Entry<String, Object> entry : payload.entrySet())
+                    board.child(entry.getKey()).setValue(entry.getValue());
+                return Transaction.success(board);
+            }
+            @Override public void onComplete(DatabaseError error, boolean committed, DataSnapshot snapshot) {
+                // Existing ready/terminal listeners render the committed shared state.
+            }
+        }, false));
     }
 
     /** Host only: build the room board (one category per seat) and push it. */
@@ -7705,7 +7706,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                 tvBadge.setOnClickListener(new View.OnClickListener() {
                     @Override
                     public void onClick(View v) {
-                        Toast.makeText(GameActivity.this, "افتح https://challengeland.web.app/play واكتب الرمز: " + currentTvCode, Toast.LENGTH_LONG).show();
+                        GameNotice.makeText(GameActivity.this, "افتح https://challengeland.web.app/play واكتب الرمز: " + currentTvCode, Toast.LENGTH_LONG).show();
                     }
                 });
                 centerBox.addView(tvBadge);
@@ -7918,7 +7919,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                 if (overlay == null || overlay.getVisibility() != View.VISIBLE) return;
                 int[] cell = pickRandomRemainingCell();
                 if (cell != null) {
-                    Toast.makeText(GameActivity.this, "انتهى وقت الاختيار، تم اختيار خانة تلقائياً",
+                    GameNotice.makeText(GameActivity.this, "انتهى وقت الاختيار، تم اختيار خانة تلقائياً",
                             Toast.LENGTH_SHORT).show();
                     onCellPicked(cell[0], cell[1]);
                 }
@@ -8544,7 +8545,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         btnRow.setOrientation(LinearLayout.HORIZONTAL);
         btnRow.setGravity(Gravity.CENTER_VERTICAL);
 
-        final AlertDialog dialog = new AlertDialog.Builder(this)
+        final AlertDialog dialog = GameNoticeDialogs.builder(this)
                 .setView(dialogView)
                 .create();
 
@@ -8733,7 +8734,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         msgLp.bottomMargin = dpx(16);
         dialogView.addView(message, msgLp);
 
-        final AlertDialog dialog = new AlertDialog.Builder(this)
+        final AlertDialog dialog = GameNoticeDialogs.builder(this)
                 .setView(dialogView)
                 .create();
 
@@ -8820,7 +8821,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         }
 
         String teamName = boardTeamName(slot);
-        Toast.makeText(this, "تم تعديل الحكم واحتساب " + award + " نقطة لـ " + teamName, Toast.LENGTH_LONG).show();
+        GameNotice.makeText(this, "تم تعديل الحكم واحتساب " + award + " نقطة لـ " + teamName, Toast.LENGTH_LONG).show();
 
         saveLocalTeamsProgress(LocalTeamsGameStore.PHASE_BOARD);
 
@@ -8906,7 +8907,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         if (!boardMode || !boardAwaitingTypedInput) return;
         String typed = boardAnswerInput != null ? boardAnswerInput.getText().toString() : "";
         if (typed.trim().isEmpty()) {
-            Toast.makeText(this, "اكتب إجابتك أولاً", Toast.LENGTH_SHORT).show();
+            GameNotice.makeText(this, "اكتب إجابتك أولاً", Toast.LENGTH_SHORT).show();
             return;
         }
         if (paidDuel != null) {
@@ -9667,7 +9668,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                 questionsReady = false;
                 questionsLoadFailed = true;
                 startPending = false;
-                Toast.makeText(GameActivity.this, "تعذر تحميل أسئلة المواجهة", Toast.LENGTH_SHORT).show();
+                GameNotice.makeText(GameActivity.this, "تعذر تحميل أسئلة المواجهة", Toast.LENGTH_SHORT).show();
             }
         });
     }
@@ -9694,7 +9695,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                             questionsReady = false;
                             questionsLoadFailed = true;
                             startPending = false;
-                            Toast.makeText(GameActivity.this, "تعذر تحميل أسئلة المواجهة", Toast.LENGTH_SHORT).show();
+                            GameNotice.makeText(GameActivity.this, "تعذر تحميل أسئلة المواجهة", Toast.LENGTH_SHORT).show();
                         }
                     });
                 }
@@ -9715,14 +9716,14 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         }
         if (questionsLoadFailed) {
             startPending = false;
-            Toast.makeText(GameActivity.this, "تعذر تحميل أسئلة المواجهة", Toast.LENGTH_SHORT).show();
+            GameNotice.makeText(GameActivity.this, "تعذر تحميل أسئلة المواجهة", Toast.LENGTH_SHORT).show();
             return;
         }
         if (startPending) {
             return;
         }
         startPending = true;
-        Toast.makeText(GameActivity.this, "جارٍ تجهيز أسئلة المواجهة...", Toast.LENGTH_SHORT).show();
+        GameNotice.makeText(GameActivity.this, "جارٍ تجهيز أسئلة المواجهة...", Toast.LENGTH_SHORT).show();
         final Handler handler = new Handler();
         handler.postDelayed(new Runnable() {
             @Override
@@ -9733,7 +9734,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                 }
                 if (questionsLoadFailed) {
                     startPending = false;
-                    Toast.makeText(GameActivity.this, "تعذر تحميل الأسئلة", Toast.LENGTH_SHORT).show();
+                    GameNotice.makeText(GameActivity.this, "تعذر تحميل الأسئلة", Toast.LENGTH_SHORT).show();
                     CAN_CLICK = true;
                     return;
                 }
@@ -9993,7 +9994,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
             scheduleFictitiousAnswerForCurrentQuestion();
         }
 
-        Toast.makeText(this, "ستكمل المباراة الآن ضد الكمبيوتر", Toast.LENGTH_SHORT).show();
+        GameNotice.makeText(this, "ستكمل المباراة الآن ضد الكمبيوتر", Toast.LENGTH_SHORT).show();
         CAN_HOME = true;
         if (myAnswer > 0) {
             CAN_PLAY = false;
@@ -11036,7 +11037,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
     }
 
     private void showCampaignLifelineUnavailable() {
-        Toast.makeText(this, "هذه المساعدة غير متاحة في هذه المرحلة", Toast.LENGTH_SHORT).show();
+        GameNotice.makeText(this, "هذه المساعدة غير متاحة في هذه المرحلة", Toast.LENGTH_SHORT).show();
     }
 
     private void recordCampaignLifelineUse(String type) {
@@ -11457,7 +11458,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         CAN_CLICK = false;
         CAN_HOME = false;
         stopTimer(false);
-        Toast.makeText(this, "انتهى الوقت!", Toast.LENGTH_SHORT).show();
+        GameNotice.makeText(this, "انتهى الوقت!", Toast.LENGTH_SHORT).show();
         campaignFailureReason = "timeExpired";
         persistPendingCampaignStageResult(false, getCampaignCurrentMoney(), campaignWrongAnswers);
         new Handler().postDelayed(new Runnable() {
@@ -11565,7 +11566,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
             if (boardDuelFinished) { proceedAfterBoardResult(); return; }
             if (paidDuel.isPending()) return;
             boolean active = "active".equals(paidDuelState.get("status"));
-            new AlertDialog.Builder(this).setTitle(active ? "الانسحاب من التحدي؟" : "إلغاء التحدي؟")
+            GameNoticeDialogs.builder(this).setTitle(active ? "الانسحاب من التحدي؟" : "إلغاء التحدي؟")
                     .setMessage(active ? "بعد بدء المباراة يُحسب الانسحاب خسارة ويحصل صديقك على مجموع القطع."
                             : "تُلغى المباراة وتُعاد القطع للطرفين.")
                     .setPositiveButton(active ? "انسحاب" : "إلغاء التحدي", (dialog, which) -> {
@@ -11630,7 +11631,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                         person.raiseEyeBrowsUp(2000, false, true);
                         person.like(2000);
                         if (campaignMode && "boss".equals(campaignStageType) && !campaignBossBotName.trim().isEmpty()) {
-                            Toast.makeText(GameActivity.this, "تواجه الآن " + campaignBossBotName, Toast.LENGTH_SHORT).show();
+                            GameNotice.makeText(GameActivity.this, "تواجه الآن " + campaignBossBotName, Toast.LENGTH_SHORT).show();
                         }
                         if (modeOnline)
                             showDialog("نبدأ الآن.. استعدوا للمباراة", "", 1000, 3000, R.drawable.mouth_01, false);
@@ -11699,7 +11700,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         stopTimer(false);
         if (boardLocalTeams && boardMode && !localTeamsFinished) {
             saveLocalTeamsProgress(currentLocalTeamsPhase());
-            Toast.makeText(this, "تم حفظ المباراة ويمكنك متابعتها لاحقًا", Toast.LENGTH_SHORT).show();
+            GameNotice.makeText(this, "تم حفظ المباراة ويمكنك متابعتها لاحقًا", Toast.LENGTH_SHORT).show();
             if (offlineContestants != null) offlineContestants.release();
             if (cdtProgress != null) cdtProgress.cancel();
             finish();
@@ -11707,7 +11708,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
         }
         if (shouldSaveOfflineBoard() && !offlineBoardFinished) {
             saveOfflineBoardProgress(currentOfflineBoardPhase());
-            Toast.makeText(this, "تم حفظ المباراة ويمكنك متابعتها لاحقًا", Toast.LENGTH_SHORT).show();
+            GameNotice.makeText(this, "تم حفظ المباراة ويمكنك متابعتها لاحقًا", Toast.LENGTH_SHORT).show();
             if (offlineContestants != null) offlineContestants.release();
             if (cdtProgress != null) cdtProgress.cancel();
             finish();
@@ -12300,7 +12301,7 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
                 }
 
             } else {
-                Toast.makeText(this,
+                GameNotice.makeText(this,
                         "خطأ أثناء الانصال .. لا يمكنك الاتصال بالخادم. تحقق من اتصالك بالانترنت ثم حاول مرة أخرى.",
                         Toast.LENGTH_LONG).show();
             }
@@ -12417,9 +12418,9 @@ public class GameActivity extends AppCompatActivity implements ProgressionMatchH
             txtDialog.animateText(message, presenterDialogue::textCompleted);
             rlyDialog.setVisibility(View.VISIBLE);
             rlyDialog.bringToFront();
-            Animations.dialogZoom(rlyDialog, 4, 150, 1.05f);
+            presenterBubble.show();
             person.talk(Math.max(timeTalk, (msgLen + 1) * PresenterDialogue.CHARACTER_DELAY_MS), nextMouthId);
-            txtDialog.setPadding(30, 10, 20, timeDialog > 0 ? 30 : 50);
+            presenterBubble.prepare(message, timeDialog <= 0);
             if (timeDialog <= 0) {
                 CAN_CLICK = true;
                 btnDialogYes.setVisibility(View.VISIBLE);

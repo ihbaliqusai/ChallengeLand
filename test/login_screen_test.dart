@@ -1,6 +1,8 @@
 import 'package:challenge_land/core/app_state.dart';
 import 'package:challenge_land/screens/auth/login_screen.dart';
 import 'package:challenge_land/services/native_bridge_service.dart';
+import 'package:challenge_land/widgets/game_viewport.dart';
+import 'package:challenge_land/widgets/game_notice.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -49,14 +51,27 @@ class _FakeNativeBridge implements NativeBridgeService {
 }
 
 void main() {
-  Widget buildSubject(_FakeAppState state) {
+  Future<void> dismissFeedback(WidgetTester tester) async {
+    final close = find.descendant(
+        of: find.byType(GameNoticeCard),
+        matching: find.byIcon(Icons.close_rounded));
+    if (close.evaluate().isNotEmpty) {
+      await tester.tap(close.first);
+      await tester.pump();
+    }
+  }
+
+  Widget buildSubject(_FakeAppState state, {bool fixedCanvas = false}) {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider<AppState>.value(value: state),
         Provider<NativeBridgeService>.value(value: _FakeNativeBridge()),
       ],
-      child: const MaterialApp(
-        home: LoginScreen(),
+      child: MaterialApp(
+        builder: fixedCanvas
+            ? (context, child) => GameViewport(child: child!)
+            : null,
+        home: const LoginScreen(),
       ),
     );
   }
@@ -67,6 +82,29 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
   }
+
+  testWidgets(
+      'login retains its landscape layout across phone and tablet sizes',
+      (tester) async {
+    for (final size in const [
+      Size(640, 320),
+      Size(800, 360),
+      Size(1280, 800)
+    ]) {
+      setViewport(tester, size);
+      await tester.pumpWidget(buildSubject(_FakeAppState(), fixedCanvas: true));
+      await tester.pump(const Duration(seconds: 1));
+      final context = tester.element(find.byType(LoginScreen));
+      final canvas = MediaQuery.sizeOf(context);
+      expect(canvas.width / canvas.height,
+          closeTo(size.width / size.height, .001));
+      expect(tester.getRect(find.byType(Scaffold).first),
+          rectMoreOrLessEquals(Offset.zero & size, epsilon: .01));
+      expect(find.byType(TextField), findsWidgets);
+      expect(tester.takeException(), isNull, reason: '$size');
+      await tester.pumpWidget(const SizedBox.shrink());
+    }
+  });
 
   testWidgets('renders login screen in landscape 800x360 without overflow',
       (tester) async {
@@ -132,11 +170,12 @@ void main() {
     expect(find.text('مرحباً بك يا بطل! الساحة بانتظارك ⚔️'), findsOneWidget);
 
     // Tap the speech bubble
+    await dismissFeedback(tester);
     await tester.tap(find.text('مرحباً بك يا بطل! الساحة بانتظارك ⚔️'));
     await tester.pump(const Duration(milliseconds: 350));
 
-    expect(
-        find.text('أكثر من 50,000 سؤال ومنافسات حقيقية أونلاين! 🧠'), findsOneWidget);
+    expect(find.text('أكثر من 50,000 سؤال ومنافسات حقيقية أونلاين! 🧠'),
+        findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -150,6 +189,7 @@ void main() {
     final forgotBtn = find.text('نسيت كلمة المرور؟');
     expect(forgotBtn, findsOneWidget);
 
+    await dismissFeedback(tester);
     await tester.tap(forgotBtn);
     await tester.pump(const Duration(milliseconds: 350));
 
@@ -176,4 +216,3 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 }
-

@@ -45,7 +45,7 @@ public class ImageObservationController {
 
                     if (activeDialog.getWindow() != null) {
                         activeDialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-                        int width = (int) (activity.getResources().getDisplayMetrics().widthPixels * 0.94);
+                        int width = (int) (GameViewportActivity.canvasMetrics(activity).widthPixels * 0.94);
                         activeDialog.getWindow().setLayout(width, ViewGroup.LayoutParams.WRAP_CONTENT);
                     }
 

@@ -1,6 +1,5 @@
 package com.qi7bali.landchallengeonline;
 
-import androidx.appcompat.app.AppCompatActivity;
 
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -24,7 +23,7 @@ import java.util.Random;
 import java.util.Map;
 import java.util.HashMap;
 
-public class OpponentActivity extends AppCompatActivity {
+public class OpponentActivity extends GameViewportActivity {
 
     private static final int BOT_FALLBACK_DELAY_MS = 8000;
 
@@ -70,6 +69,12 @@ public class OpponentActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // Also protect legacy entry points and rapid overlapping launch calls.
+        if (OnlineMatchRecovery.hasActiveMatch(this, null)) {
+            GameNotice.makeText(this, "أكمل المباراة السابقة أو انسحب منها من الشاشة الرئيسية أولًا.", Toast.LENGTH_LONG).show();
+            finish();
+            return;
+        }
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
                 WindowManager.LayoutParams.FLAG_FULLSCREEN);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
@@ -129,11 +134,11 @@ public class OpponentActivity extends AppCompatActivity {
             getIntent().putExtra("randomStakeId", randomStakeId);
             try {
                 if (!RandomStakeLedger.reserve(this, randomStakeId, randomStakeCoins)) {
-                    Toast.makeText(this, "رصيدك لا يكفي أو أن مبلغ المباراة غير صالح.", Toast.LENGTH_LONG).show();
+                    GameNotice.makeText(this, "رصيدك لا يكفي أو أن مبلغ المباراة غير صالح.", Toast.LENGTH_LONG).show();
                     finish(); return;
                 }
             } catch (RuntimeException failure) {
-                Toast.makeText(this, "تعذر حفظ حجز القطع. حاول مجددًا.", Toast.LENGTH_LONG).show();
+                GameNotice.makeText(this, "تعذر حفظ حجز القطع. حاول مجددًا.", Toast.LENGTH_LONG).show();
                 finish(); return;
             }
         }
@@ -203,7 +208,7 @@ public class OpponentActivity extends AppCompatActivity {
                         stakeIntroError("أرسل دعوة جديدة بالتحديث الحالي للعب التحدي الأصلي."); return;
                     }
                     if ("settled".equals(match.get("status"))) {
-                        Toast.makeText(this, "انتهت هذه المواجهة وتمت تسوية القطع.", Toast.LENGTH_LONG).show();
+                        GameNotice.makeText(this, "انتهت هذه المواجهة وتمت تسوية القطع.", Toast.LENGTH_LONG).show();
                         finish(); return;
                     }
                     duelSessionId = stakeMatchId;
@@ -239,14 +244,14 @@ public class OpponentActivity extends AppCompatActivity {
     }
 
     private void stakeIntroError(String message) {
-        new android.app.AlertDialog.Builder(this).setMessage(message).setCancelable(false)
+        GameNoticeDialogs.platformBuilder(this).setMessage(message).setCancelable(false)
             .setPositiveButton("إعادة المحاولة", (dialog, which) -> loadStakedOpponent())
             .setNegativeButton("رجوع", (dialog, which) -> leaveStakeIntro()).show();
     }
 
     private void leaveStakeIntro() {
         if (stakeCancelling || closed || launchingGame) return;
-        new android.app.AlertDialog.Builder(this).setTitle("مغادرة التحدي؟")
+        GameNoticeDialogs.platformBuilder(this).setTitle("مغادرة التحدي؟")
             .setMessage("قبل بدء اللعب تُعاد القطع. إذا بدأت المباراة فالانسحاب يُحسب خسارة.")
             .setNegativeButton("متابعة", null)
             .setPositiveButton("مغادرة", (dialog, which) -> {
@@ -259,7 +264,7 @@ public class OpponentActivity extends AppCompatActivity {
                         stakeCancelling = false;
                         if (isFinishing() || isDestroyed()) return;
                         if (result.isSuccessful()) { cleanupPendingRequest(); finish(); }
-                        else Toast.makeText(this, "تعذر تأكيد المغادرة. تحقق من الاتصال وحاول مجددًا.", Toast.LENGTH_LONG).show();
+                        else GameNotice.makeText(this, "تعذر تأكيد المغادرة. تحقق من الاتصال وحاول مجددًا.", Toast.LENGTH_LONG).show();
                     });
             }).show();
     }
@@ -274,12 +279,12 @@ public class OpponentActivity extends AppCompatActivity {
                     return;
                 }
                 if (targetUserId == null || targetUserId.trim().isEmpty()) {
-                    Toast.makeText(OpponentActivity.this, "كود الصديق غير صحيح أو غير مسجل", Toast.LENGTH_LONG).show();
+                    GameNotice.makeText(OpponentActivity.this, "كود الصديق غير صحيح أو غير مسجل", Toast.LENGTH_LONG).show();
                     finish();
                     return;
                 }
                 if (targetUserId.equals(userID)) {
-                    Toast.makeText(OpponentActivity.this, "لا يمكنك تحدي نفسك", Toast.LENGTH_SHORT).show();
+                    GameNotice.makeText(OpponentActivity.this, "لا يمكنك تحدي نفسك", Toast.LENGTH_SHORT).show();
                     finish();
                     return;
                 }
@@ -323,7 +328,7 @@ public class OpponentActivity extends AppCompatActivity {
 
             @Override
             public void onFailed(DatabaseError error) {
-                Toast.makeText(OpponentActivity.this, "تعذر العثور على الصديق الآن", Toast.LENGTH_SHORT).show();
+                GameNotice.makeText(OpponentActivity.this, "تعذر العثور على الصديق الآن", Toast.LENGTH_SHORT).show();
                 finish();
             }
         });
@@ -494,7 +499,7 @@ public class OpponentActivity extends AppCompatActivity {
                 }
                 if (user == null) {
                     resolvingOpponent = false;
-                    Toast.makeText(OpponentActivity.this, "تعذر تحميل بيانات المنافس", Toast.LENGTH_SHORT).show();
+                    GameNotice.makeText(OpponentActivity.this, "تعذر تحميل بيانات المنافس", Toast.LENGTH_SHORT).show();
                     return;
                 }
                 user.id = opponentId;

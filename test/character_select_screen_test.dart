@@ -6,6 +6,7 @@ import 'dart:ui' as ui;
 import 'package:challenge_land/core/app_state.dart';
 import 'package:challenge_land/models/game_character.dart';
 import 'package:challenge_land/screens/character/character_select_screen.dart';
+import 'package:challenge_land/widgets/game_viewport.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -78,6 +79,7 @@ void main() {
     AppState? state,
     double textScale = 1,
     int? initialIndex,
+    bool fixedCanvas = false,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
@@ -93,7 +95,7 @@ void main() {
           builder: (context, child) => MediaQuery(
             data: MediaQuery.of(context)
                 .copyWith(textScaler: TextScaler.linear(textScale)),
-            child: child!,
+            child: fixedCanvas ? GameViewport(child: child!) : child!,
           ),
           theme: ThemeData.dark().copyWith(
             textTheme:
@@ -111,6 +113,37 @@ void main() {
         ]));
     await tester.pumpAndSettle();
   }
+
+  testWidgets(
+      'character picker preserves the same arrangement on every display',
+      (tester) async {
+    for (final size in const [
+      Size(640, 320),
+      Size(800, 360),
+      Size(1280, 800)
+    ]) {
+      await mount(tester, size: size, textScale: 2, fixedCanvas: true);
+      final context = tester.element(find.byType(CharacterSelectScreen));
+      final canvas = MediaQuery.sizeOf(context);
+      expect(canvas.width / canvas.height,
+          closeTo(size.width / size.height, .001));
+      expect(tester.getRect(find.byType(Scaffold).first),
+          rectMoreOrLessEquals(Offset.zero & size, epsilon: .01));
+      final right =
+          tester.getRect(find.byKey(const ValueKey('character-rail-mahmoud')));
+      final middle =
+          tester.getRect(find.byKey(const ValueKey('character-rail-omar')));
+      final left =
+          tester.getRect(find.byKey(const ValueKey('character-rail-khaled')));
+      expect(right.left, greaterThan(middle.right));
+      expect(middle.left, greaterThan(left.right));
+      expect(right.top, closeTo(left.top, .01));
+      await tester.tap(find.byKey(const ValueKey('character-rail-khaled')));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull, reason: '$size');
+      await tester.pumpWidget(const SizedBox.shrink());
+    }
+  });
 
   testWidgets('renders stage, rail and allows selecting different characters',
       (tester) async {

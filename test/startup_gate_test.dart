@@ -16,8 +16,8 @@ void main() {
       ),
     ));
     expect(tester.takeException(), isNull);
-    final logo = tester.widget<Image>(find.byType(Image));
-    expect((logo.image as ResizeImage).width, 1);
+    final logo = tester.widget<Image>(find.byType(Image).last);
+    expect((logo.image as ResizeImage).width, 2);
     await tester.pumpWidget(const SizedBox());
   });
 

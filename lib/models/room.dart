@@ -26,6 +26,7 @@ class RoomPlayer {
     this.roundWins = 0,
     this.teamId,
     this.disconnected = false,
+    this.forfeited = false,
     this.seatSourceId,
   });
 
@@ -47,6 +48,9 @@ class RoomPlayer {
 
   /// true when the player left an active game — they keep their slot and can rejoin.
   final bool disconnected;
+
+  /// Explicit withdrawal is permanent for this match; a disconnect is resumable.
+  final bool forfeited;
   final String? seatSourceId;
 
   factory RoomPlayer.fromMap(
@@ -64,6 +68,7 @@ class RoomPlayer {
         roundWins: (map['roundWins'] as num?)?.toInt() ?? 0,
         teamId: Room.normalizeTeamId(map['teamId'] as String?),
         disconnected: map['disconnected'] == true,
+        forfeited: map['forfeited'] == true,
         seatSourceId: map['seatSourceId'] as String?,
       );
 
@@ -79,6 +84,7 @@ class RoomPlayer {
         if (roundWins > 0) 'roundWins': roundWins,
         if (teamId != null) 'teamId': Room.normalizeTeamId(teamId),
         if (disconnected) 'disconnected': disconnected,
+        if (forfeited) 'forfeited': forfeited,
         if (seatSourceId != null) 'seatSourceId': seatSourceId,
       };
 
@@ -93,6 +99,7 @@ class RoomPlayer {
     int? roundWins,
     String? teamId,
     bool? disconnected,
+    bool? forfeited,
     String? seatSourceId,
   }) {
     return RoomPlayer(
@@ -106,6 +113,7 @@ class RoomPlayer {
       roundWins: roundWins ?? this.roundWins,
       teamId: Room.normalizeTeamId(teamId ?? this.teamId),
       disconnected: disconnected ?? this.disconnected,
+      forfeited: forfeited ?? this.forfeited,
       seatSourceId: seatSourceId ?? this.seatSourceId,
     );
   }

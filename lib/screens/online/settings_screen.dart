@@ -1,3 +1,4 @@
+import '../../widgets/game_notice.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -200,13 +201,8 @@ class _SettingsScreenState extends State<SettingsScreen>
     String en, {
     bool error = false,
   }) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(_text(settings, ar, en)),
-        backgroundColor:
-            error ? const Color(0xFFB91C1C) : const Color(0xFF0F766E),
-      ),
-    );
+    GameNoticeMessenger.of(context).show(_text(settings, ar, en),
+        tone: error ? GameNoticeTone.error : GameNoticeTone.success);
   }
 
   Future<String?> _showDeleteAccountDialog({
@@ -223,7 +219,7 @@ class _SettingsScreenState extends State<SettingsScreen>
         final settings = context.watch<AppSettings>();
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setState) {
-            return AlertDialog(
+            return GameAlertDialog(
               backgroundColor: const Color(0xFF081328),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),

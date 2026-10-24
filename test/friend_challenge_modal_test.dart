@@ -2,17 +2,36 @@ import 'package:challenge_land/core/app_state.dart';
 import 'package:challenge_land/models/player_profile.dart';
 import 'package:challenge_land/models/game_character.dart';
 import 'package:challenge_land/services/invite_service.dart';
+import 'package:challenge_land/services/native_bridge_service.dart';
 import 'package:challenge_land/widgets/friend_challenge_modal.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
+class _User implements User {
+  @override
+  String get uid => 'player';
+  @override
+  String? get displayName => 'Player';
+  @override
+  String? get photoURL => null;
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _AvailableNativeBridge extends NativeBridgeService {
+  @override
+  Future<List<Map<String, dynamic>>> getRecoverableOnlineMatches() async => [];
+  @override
+  Future<bool> isOnlineMatchAccount(String uid) async => true;
+}
+
 class _App extends ChangeNotifier implements AppState {
   int balance = 1000;
   int? launchedStake;
   @override
-  User? get user => null;
+  User? get user => _User();
   @override
   String get friendCode => 'MYCODE1234';
   @override
@@ -50,6 +69,8 @@ void main() {
         providers: [
           ChangeNotifierProvider<AppState>.value(value: app),
           Provider<InviteService>.value(value: _Invites()),
+          Provider<NativeBridgeService>(
+              create: (_) => _AvailableNativeBridge()),
         ],
         child: const MaterialApp(
             home: Scaffold(body: FriendChallengeModal(initialStake: 500)))));

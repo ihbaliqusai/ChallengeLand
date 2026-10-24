@@ -1,3 +1,4 @@
+import '../../widgets/game_notice.dart';
 import 'dart:convert';
 import 'dart:async';
 import 'dart:math' as math;
@@ -22,6 +23,7 @@ import '../online/settings_screen.dart';
 import '../online/stats_screen.dart';
 import '../online/achievements_screen.dart';
 import '../../services/room_service.dart';
+import '../../services/online_match_flow.dart';
 import '../../services/campaign_result_handler.dart';
 import '../../services/invite_service.dart';
 import '../../services/native_bridge_service.dart';
@@ -42,6 +44,8 @@ import '../../services/rate_game_service.dart';
 import '../../services/cross_promo_service.dart';
 import '../../widgets/adaptive_asset_image.dart';
 import '../../widgets/online_match_recovery_card.dart';
+import '../../widgets/sign_in_required_action.dart';
+import '../../widgets/support_contact_sheet.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -57,28 +61,13 @@ class _HomeScreenState extends State<HomeScreen>
   bool _syncingPendingRoomMatchResult = false;
   bool _handlingNativeLaunchAction = false;
   bool _hasCheckedDailyRewardThisLaunch = false;
+  String? _initializedUserId;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<AppState>().loadCurrency();
-      // loadLevelData sets _lastKnownGamesPlayed then calls checkAndAwardXpForGames.
-      // Called here because didChangeAppLifecycleState(resumed) is NOT fired
-      // when the native game Activity restarts MainActivity with FLAG_ACTIVITY_CLEAR_TASK.
-      context.read<AppState>().loadLevelData();
-      _consumePendingRoomMatchResult();
-      CampaignResultHandler.consumeAndHandlePendingCampaignResult(
-        context: context,
-      );
-      _consumeNativeLaunchAction();
-      Future.delayed(const Duration(milliseconds: 600), () {
-        if (mounted) _checkClipboardForIncomingInvite();
-      });
-      _checkAndShowDailyReward();
-    });
     _idleCtrl = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 3),
@@ -91,7 +80,34 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final uid = context.watch<AppState>().user?.uid;
+    if (_initializedUserId == uid) return;
+    _initializedUserId = uid;
+    _hasCheckedDailyRewardThisLaunch = false;
+    if (uid == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || context.read<AppState>().user?.uid != uid) return;
+      context.read<AppState>().loadCurrency();
+      context.read<AppState>().loadLevelData();
+      _consumePendingRoomMatchResult();
+      CampaignResultHandler.consumeAndHandlePendingCampaignResult(
+        context: context,
+      );
+      _consumeNativeLaunchAction();
+      Future.delayed(const Duration(milliseconds: 600), () {
+        if (mounted && context.read<AppState>().user?.uid == uid) {
+          _checkClipboardForIncomingInvite();
+        }
+      });
+      _checkAndShowDailyReward();
+    });
+  }
+
+  @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (context.read<AppState>().user == null) return;
     if (state == AppLifecycleState.resumed) {
       context.read<AppState>().loadCurrency();
       context.read<AppState>().refreshCommerce();
@@ -154,16 +170,16 @@ class _HomeScreenState extends State<HomeScreen>
   Future<void> _checkAndShowSpecialOffer() async {
     if (!mounted) return;
     final appState = context.read<AppState>();
-    if (appState.isVip) return;
+    if (appState.user == null || appState.isVip) return;
     final shouldShow =
         await SpecialOfferDialog.shouldShowAuto(isVip: appState.isVip);
-    if (shouldShow && mounted && !appState.isVip) {
+    if (shouldShow && mounted && appState.user != null && !appState.isVip) {
       await SpecialOfferDialog.show(context);
     }
   }
 
   Future<void> _checkClipboardForIncomingInvite() async {
-    if (!mounted) return;
+    if (!mounted || context.read<AppState>().user == null) return;
     try {
       final appState = context.read<AppState>();
       final myCode = appState.friendCode;
@@ -210,6 +226,11 @@ class _HomeScreenState extends State<HomeScreen>
             final userId = context.read<AppState>().user?.uid;
             if (userId != null) {
               try {
+                if (!await OnlineMatchFlow.prepare(context, userId,
+                    roomId: candidate.code)) {
+                  return;
+                }
+                if (!mounted) return;
                 final joinResult = await context.read<RoomService>().joinRoom(
                       roomId: candidate.code,
                       userId: userId,
@@ -239,7 +260,11 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _consumeNativeLaunchAction() async {
-    if (_handlingNativeLaunchAction || !mounted) return;
+    if (_handlingNativeLaunchAction ||
+        !mounted ||
+        context.read<AppState>().user == null) {
+      return;
+    }
     _handlingNativeLaunchAction = true;
     try {
       final action =
@@ -297,12 +322,13 @@ class _HomeScreenState extends State<HomeScreen>
     final userId = context.read<AppState>().user?.uid;
     if (userId == null) return;
     final nativeBridgeService = context.read<NativeBridgeService>();
-    final roomService = context.read<RoomService>();
 
     _syncingPendingRoomMatchResult = true;
     try {
       final payload = await nativeBridgeService.getPendingRoomMatchResult();
       if (payload == null) return;
+      if (!mounted) return;
+      final roomService = context.read<RoomService>();
 
       final roomId = (payload['roomId'] ?? '').toString().trim();
       final matchMode = (payload['matchMode'] ?? '').toString().trim();
@@ -517,7 +543,7 @@ class _HomeScreenState extends State<HomeScreen>
 }
 
 void _showOnlineRequiredToast(BuildContext context) {
-  ScaffoldMessenger.of(context)
+  GameNoticeMessenger.of(context)
     ..hideCurrentSnackBar()
     ..showSnackBar(
       const SnackBar(
@@ -638,6 +664,7 @@ class _HomeMenuButtonState extends State<_HomeMenuButton> {
   }
 
   Future<void> _refreshPendingRewards() async {
+    if (widget.appState.user == null) return;
     try {
       final data = await context.read<NativeBridgeService>().getAchievements();
       if (!mounted) return;
@@ -853,8 +880,7 @@ class _HomeLobbyLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(builder: (context, area) {
-        // The shortcut rail uses a small physical edge inset. Keep the remaining
-        // controls in their original safe area on displays with a left cutout.
+        // The background reaches the edge; every control clears the cutout.
         final safeLeft = MediaQuery.paddingOf(context).left;
         final width = area.maxWidth - safeLeft;
         final height = area.maxHeight;
@@ -892,19 +918,21 @@ class _HomeLobbyLayout extends StatelessWidget {
         Widget fitBadge(Widget badge) => SizedBox(
             height: badgeHeight,
             width: portrait ? (panelWidth - 12) / 2 : panelWidth,
-            child: FittedBox(fit: BoxFit.contain, child: badge));
+            child: SignInRequiredAction(
+                child: FittedBox(fit: BoxFit.contain, child: badge)));
         Widget banner(String asset, String label, VoidCallback onPressed,
                 {bool enabled = true, double? width, double? height}) =>
             SizedBox(
                 width: width ?? (portrait ? (panelWidth - 12) / 2 : panelWidth),
                 height: height ?? bannerHeight,
-                child: FittedBox(
-                    child: _BattleButton(
-                        asset: asset,
-                        label: label,
-                        compact: compact,
-                        enabled: enabled,
-                        onPressed: onPressed)));
+                child: SignInRequiredAction(
+                    child: FittedBox(
+                        child: _BattleButton(
+                            asset: asset,
+                            label: label,
+                            compact: compact,
+                            enabled: enabled,
+                            onPressed: onPressed))));
         final campaign = banner(
             HomeArtwork.campaign, 'تحدي المراحل', onCampaignTap,
             enabled: appState.isOnline);
@@ -945,15 +973,17 @@ class _HomeLobbyLayout extends StatelessWidget {
         return Stack(children: [
           Positioned(
               top: 6,
-              left: 12,
-              child: _HomeMenuButton(
-                  appState: appState, username: username, user: user)),
+              left: safeLeft + 6,
+              child: SignInRequiredAction(
+                  child: _HomeMenuButton(
+                      appState: appState, username: username, user: user))),
           Positioned(
               top: portrait ? 60 : 8,
               right: portrait ? (width - walletWidth) / 2 : 16,
               width: walletWidth,
               height: 44,
-              child: Row(textDirection: TextDirection.ltr, children: [
+              child: SignInRequiredAction(
+                  child: Row(textDirection: TextDirection.ltr, children: [
                 for (final gems in [false, true]) ...[
                   if (gems) const SizedBox(width: walletGap),
                   SizedBox(
@@ -977,7 +1007,9 @@ class _HomeLobbyLayout extends StatelessWidget {
                         tickets: false,
                         value: appState.economyLoaded
                             ? '${appState.economyWallet.totalKeys}'
-                            : '…',
+                            : user == null
+                                ? '0'
+                                : '…',
                         enabled: appState.isOnline,
                         onPressed: () => _openOnlineScreen(
                             context,
@@ -991,13 +1023,15 @@ class _HomeLobbyLayout extends StatelessWidget {
                         tickets: true,
                         value: appState.economyLoaded
                             ? '${appState.economyWallet.tickets}'
-                            : '…',
+                            : user == null
+                                ? '0'
+                                : '…',
                         enabled: appState.isOnline,
                         onPressed: () => _openOnlineScreen(
                             context,
                             const StoreScreen(
                                 initialKind: StoreProductKind.resource)))),
-              ])),
+              ]))),
           Positioned(
               top: headerHeight + 2,
               left: heroLeft,
@@ -1009,14 +1043,15 @@ class _HomeLobbyLayout extends StatelessWidget {
               left: heroLeft,
               width: heroWidth,
               height: characterHeight,
-              child: HomeCharacterArtwork(
-                  key: const ValueKey('home-selected-character'),
-                  character: appState.selectedCharacter,
-                  onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const CharacterSelectScreen(),
-                        ),
-                      ))),
+              child: SignInRequiredAction(
+                  child: HomeCharacterArtwork(
+                      key: const ValueKey('home-selected-character'),
+                      character: appState.selectedCharacter,
+                      onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const CharacterSelectScreen(),
+                            ),
+                          )))),
           Positioned(
               bottom: portrait ? height - heroBottom : 12,
               left: heroLeft,
@@ -1024,31 +1059,44 @@ class _HomeLobbyLayout extends StatelessWidget {
               child: OnlineMatchRecoveryCard(userId: user?.uid ?? '')),
           Positioned(
               top: portrait ? headerHeight + 12 : 74,
-              left: 12,
+              left: safeLeft + 6,
               child: Column(mainAxisSize: MainAxisSize.min, children: [
-                HomeQuickAction(
-                    key: const ValueKey('home-friends-shortcut'),
-                    asset: HomeArtwork.friends,
-                    label: 'الأصدقاء واللاعبون',
-                    icon: Icons.people_alt_rounded,
-                    color: const Color(0xFF7DD3FC),
-                    animation: idleCtrl,
-                    showGreenDot: true,
-                    isAvailable: appState.isOnline,
-                    onPressed: () =>
-                        _openOnlineScreen(context, const SocialScreen())),
+                SignInRequiredAction(
+                    child: HomeQuickAction(
+                        key: const ValueKey('home-friends-shortcut'),
+                        asset: HomeArtwork.friends,
+                        label: 'الأصدقاء واللاعبون',
+                        icon: Icons.people_alt_rounded,
+                        color: const Color(0xFF7DD3FC),
+                        animation: idleCtrl,
+                        showGreenDot: true,
+                        isAvailable: appState.isOnline,
+                        onPressed: () =>
+                            _openOnlineScreen(context, const SocialScreen()))),
                 const SizedBox(height: 12),
-                HomeQuickAction(
-                    key: const ValueKey('home-store-shortcut'),
-                    asset: HomeArtwork.store,
-                    label: 'المتجر',
-                    icon: Icons.shopping_basket_rounded,
-                    color: const Color(0xFFFFD761),
-                    animation: idleCtrl,
-                    animationPhase: math.pi / 3,
-                    isAvailable: appState.isOnline,
-                    onPressed: () =>
-                        _openOnlineScreen(context, const StoreScreen())),
+                SignInRequiredAction(
+                    child: HomeQuickAction(
+                        key: const ValueKey('home-store-shortcut'),
+                        asset: HomeArtwork.store,
+                        label: 'المتجر',
+                        icon: Icons.shopping_basket_rounded,
+                        color: const Color(0xFFFFD761),
+                        animation: idleCtrl,
+                        animationPhase: math.pi / 3,
+                        isAvailable: appState.isOnline,
+                        onPressed: () =>
+                            _openOnlineScreen(context, const StoreScreen()))),
+                const SizedBox(height: 12),
+                SignInRequiredAction(
+                    child: HomeQuickAction(
+                        key: const ValueKey('home-help-shortcut'),
+                        asset: HomeArtwork.help,
+                        label: 'تواصل معنا',
+                        icon: Icons.question_mark_rounded,
+                        color: const Color(0xFFFFD761),
+                        animation: idleCtrl,
+                        animationPhase: math.pi * 2 / 3,
+                        onPressed: () => showSupportContact(context))),
               ])),
           Positioned(
               key: const ValueKey('home-actions-panel'),

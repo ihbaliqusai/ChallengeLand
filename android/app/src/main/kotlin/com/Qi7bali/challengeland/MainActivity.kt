@@ -26,6 +26,7 @@ class MainActivity : FlutterActivity() {
         installSplashScreen()
         VerifiedCommerceStore.invalidateWalletHydration(this)
         super.onCreate(savedInstanceState)
+        GameViewportActivity.configureWindow(window)
         DuelNotifications.initialize(this)
         PlayerPresence.initialize(application)
         handleIntentData(intent)
@@ -220,6 +221,30 @@ class MainActivity : FlutterActivity() {
                     "getRecoverableOnlineMatches" -> {
                         result.success(OnlineMatchRecovery.pending(this).toString())
                     }
+                    "isOnlineMatchAccount" -> {
+                        result.success(call.argument<String>("uid") == ProgressionAccount.uid(this))
+                    }
+                    "completeOnlineRoomRecovery" -> {
+                        val id = call.argument<String>("id").orEmpty()
+                        check(id.startsWith("room:")) { "Invalid room recovery" }
+                        check(call.argument<String>("uid") == ProgressionAccount.uid(this)) { "تغير حساب اللاعب. حاول مجددًا." }
+                        OnlineMatchRecovery.finishSaved(this, id, call.argument<String>("message").orEmpty(), false)
+                        result.success(null)
+                    }
+                    "inspectOnlineMatch", "forfeitOnlineMatch" -> {
+                        val expectedUid = call.argument<String>("uid")
+                        if (expectedUid != null && expectedUid != ProgressionAccount.uid(this)) {
+                            result.error("ONLINE_MATCH_ACCOUNT_CHANGED", "تغير حساب اللاعب. حاول مجددًا.", null)
+                            return@setMethodCallHandler
+                        }
+                        OnlineMatchActions.inspect(this, call.argument<String>("id").orEmpty(),
+                            call.method == "forfeitOnlineMatch", object : OnlineMatchActions.Completion {
+                                override fun success(summary: String) { result.success(summary) }
+                                override fun failure(message: String?) {
+                                    result.error("ONLINE_MATCH_RECOVERY_FAILED", message, null)
+                                }
+                            })
+                    }
                     "resumeOnlineMatch" -> {
                         try {
                             val recoveryId = call.argument<String>("id").orEmpty()
@@ -358,6 +383,40 @@ class MainActivity : FlutterActivity() {
                             }
                         }
                     }
+                    "openExternalUrl" -> {
+                        val uri = Uri.parse(call.argument<String>("url").orEmpty())
+                        val opened = if (uri.scheme == "https" && !uri.host.isNullOrBlank()) {
+                            try {
+                                startActivity(Intent(Intent.ACTION_VIEW, uri))
+                                true
+                            } catch (e: Exception) {
+                                false
+                            }
+                        } else false
+                        result.success(opened)
+                    }
+                    "composeSupportEmail" -> {
+                        val recipient = call.argument<String>("recipient").orEmpty()
+                        val subject = call.argument<String>("subject").orEmpty()
+                        val body = call.argument<String>("body").orEmpty()
+                        if (recipient.isBlank() || body.isBlank()) {
+                            result.success(false)
+                        } else {
+                            val opened = try {
+                                val uri = Uri.parse("mailto:${Uri.encode(recipient, "@")}"
+                                    + "?subject=${Uri.encode(subject)}&body=${Uri.encode(body)}")
+                                startActivity(Intent(Intent.ACTION_SENDTO, uri).apply {
+                                    putExtra(Intent.EXTRA_EMAIL, arrayOf(recipient))
+                                    putExtra(Intent.EXTRA_SUBJECT, subject)
+                                    putExtra(Intent.EXTRA_TEXT, body)
+                                })
+                                true
+                            } catch (e: Exception) {
+                                false
+                            }
+                            result.success(opened)
+                        }
+                    }
                     "openStoreRating" -> {
                         val targetPkg = call.argument<String>("packageName") ?: packageName
                         var opened = false
@@ -456,6 +515,10 @@ class MainActivity : FlutterActivity() {
                         }
                     }
                     "launchRoomMatch" -> {
+                        if (OnlineMatchRecovery.hasActiveMatch(this, call.argument<String>("roomId"))) {
+                            result.error("ONLINE_MATCH_PENDING", "أكمل المباراة السابقة أو انسحب منها أولًا.", null)
+                            return@setMethodCallHandler
+                        }
                         val matchMode = call.argument<String>("matchMode") ?: "battle"
                         val activityClass = when (matchMode) {
                             "elimination" -> EliminationGameActivity::class.java

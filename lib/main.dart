@@ -17,6 +17,7 @@ import 'screens/auth/auth_gate.dart';
 import 'screens/splash/splash_screen.dart';
 import 'services/auth_service.dart';
 import 'services/native_bridge_service.dart';
+import 'services/online_match_flow.dart';
 import 'services/profile_service.dart'; // still needed by other screens
 import 'services/room_service.dart';
 import 'services/ad_service.dart';
@@ -26,6 +27,8 @@ import 'services/social_service.dart';
 import 'widgets/social_shell.dart';
 import 'services/in_app_purchase_service.dart';
 import 'widgets/startup_gate.dart';
+import 'widgets/game_viewport.dart';
+import 'widgets/game_notice.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -34,9 +37,11 @@ Future<void> main() async {
       bundle: SharedAssets.bundle,
       child: StartupGate(
         initialize: _initializeApp,
-        loading: const MaterialApp(
+        loading: MaterialApp(
           debugShowCheckedModeBanner: false,
-          home: Scaffold(
+          builder: (context, child) =>
+              GameViewport(child: child ?? const SizedBox.shrink()),
+          home: const Scaffold(
             backgroundColor: Colors.black,
             body: SplashPoster(),
           ),
@@ -146,19 +151,13 @@ class _ChallengeLandAppState extends State<ChallengeLandApp> {
       child: Consumer<AppSettings>(
         builder: (context, settings, _) => MaterialApp(
           title: 'ChallengeLand',
+          navigatorKey: OnlineMatchFlow.navigatorKey,
           navigatorObservers: [campaignRouteObserver],
           debugShowCheckedModeBanner: false,
           locale: settings.locale,
           supportedLocales: const <Locale>[Locale('ar'), Locale('en')],
           builder: (context, child) {
-            final mediaQuery = MediaQuery.of(context);
-            return MediaQuery(
-              data: mediaQuery.copyWith(
-                textScaler: mediaQuery.textScaler.clamp(
-                  minScaleFactor: 1,
-                  maxScaleFactor: 1,
-                ),
-              ),
+            return GameViewport(
               child: SocialShell(child: child ?? const SizedBox.shrink()),
             );
           },
@@ -273,7 +272,31 @@ class _ConnectivityWrapperState extends State<_ConnectivityWrapper> {
     // (e.g. AuthGate) see the correct value, even when the flag itself
     // didn't change between rebuilds of this wrapper.
     context.read<AppState>().updateConnectivity(!offline);
-    if (offline != _isOffline) setState(() => _isOffline = offline);
+    if (offline != _isOffline) {
+      setState(() => _isOffline = offline);
+      if (widget.showBanner) _showConnectionNotice();
+    }
+  }
+
+  @override
+  void didUpdateWidget(_ConnectivityWrapper oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!oldWidget.showBanner && widget.showBanner && _isOffline) {
+      _showConnectionNotice();
+    }
+  }
+
+  void _showConnectionNotice() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !widget.showBanner) return;
+      final arabic = Localizations.localeOf(context).languageCode == 'ar';
+      GameNoticeMessenger.of(context).show(
+        _isOffline
+            ? (arabic ? 'لا يوجد اتصال بالإنترنت' : 'No internet connection')
+            : (arabic ? 'تم استعادة الاتصال بالإنترنت' : 'Connection restored'),
+        tone: _isOffline ? GameNoticeTone.warning : GameNoticeTone.success,
+      );
+    });
   }
 
   @override
@@ -283,33 +306,5 @@ class _ConnectivityWrapperState extends State<_ConnectivityWrapper> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 350),
-          height: _isOffline && widget.showBanner ? 38 : 0,
-          color: const Color(0xFFDC2626),
-          child: _isOffline && widget.showBanner
-              ? const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.wifi_off_rounded, color: Colors.white, size: 16),
-                    SizedBox(width: 8),
-                    Text(
-                      'لا يوجد اتصال بالإنترنت',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                )
-              : const SizedBox.shrink(),
-        ),
-        Expanded(child: widget.child),
-      ],
-    );
-  }
+  Widget build(BuildContext context) => widget.child;
 }

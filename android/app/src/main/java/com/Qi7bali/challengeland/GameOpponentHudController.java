@@ -93,7 +93,7 @@ final class GameOpponentHudController {
         }
 
         final int totalPlayers = 1 + activity.opponents.size();
-        final DisplayMetrics metrics = activity.getResources().getDisplayMetrics();
+        final DisplayMetrics metrics = GameViewportActivity.canvasMetrics(activity);
         final float screenHeightDp = metrics.heightPixels / metrics.density;
         final int scoreboardBudgetDp = Math.max(220, Math.round(screenHeightDp * 0.54f));
         final boolean compact = totalPlayers >= 6;

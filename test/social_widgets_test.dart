@@ -7,7 +7,9 @@ import 'package:challenge_land/screens/social/player_profile_screen.dart';
 import 'package:challenge_land/screens/social/social_screen.dart';
 import 'package:challenge_land/services/social_service.dart';
 import 'package:challenge_land/services/native_bridge_service.dart';
+import 'package:challenge_land/services/online_match_flow.dart';
 import 'package:challenge_land/widgets/friend_stake_selector.dart';
+import 'package:challenge_land/widgets/game_notice.dart';
 import 'package:challenge_land/widgets/social_shell.dart';
 import 'package:challenge_land/widgets/social_artwork.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -68,6 +70,24 @@ class _StakesBridge extends NativeBridgeService {
     calls.add(data);
     return {};
   }
+}
+
+class _AvailableNativeBridge extends NativeBridgeService {
+  @override
+  Future<List<Map<String, dynamic>>> getRecoverableOnlineMatches() async => [];
+  @override
+  Future<bool> isOnlineMatchAccount(String uid) async => true;
+}
+
+class _SavedMatchBridge extends _AvailableNativeBridge {
+  @override
+  Future<List<Map<String, dynamic>>> getRecoverableOnlineMatches() async => [
+        {'id': 'bot:previous', 'uid': 'bob', 'finished': false},
+      ];
+  @override
+  Future<Map<String, dynamic>> inspectOnlineMatch(String id,
+          {bool forfeit = false, String? uid}) async =>
+      {'id': id, 'uid': 'bob', 'finished': false};
 }
 
 class _StalledSocialService extends SocialService {
@@ -183,6 +203,7 @@ void main() {
       int initialTab = 0,
       Size size = const Size(640, 360),
       ThemeData? theme,
+      NativeBridgeService? recoveryBridge,
       double textScale = 1}) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
@@ -190,8 +211,11 @@ void main() {
         providers: [
           ChangeNotifierProvider<AppState>.value(value: app),
           Provider<SocialService>.value(value: service),
+          Provider<NativeBridgeService>(
+              create: (_) => recoveryBridge ?? _AvailableNativeBridge()),
         ],
         child: MaterialApp(
+            navigatorKey: OnlineMatchFlow.navigatorKey,
             theme: theme,
             builder: (context, child) => MediaQuery(
                 data: MediaQuery.of(context)
@@ -225,6 +249,13 @@ void main() {
   }
 
   Future<void> openOptions(WidgetTester tester, String peer) async {
+    final feedbackClose = find.descendant(
+        of: find.byType(GameNoticeCard),
+        matching: find.byIcon(Icons.close_rounded));
+    if (feedbackClose.evaluate().isNotEmpty) {
+      await tester.tap(feedbackClose.first);
+      await tester.pumpAndSettle();
+    }
     final player = find.byKey(ValueKey('player:$peer'));
     await reveal(tester, player);
     await tester.tap(player);
@@ -234,6 +265,35 @@ void main() {
 
   Finder option(String label) =>
       find.descendant(of: find.byType(Dialog), matching: find.text(label));
+
+  testWidgets(
+      'accepting an invitation can show recovery above the root social notice',
+      (tester) async {
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final ref = db.doc('social_challenges/alice:bob');
+    await ref.set({
+      'members': ['alice', 'bob'],
+      'fromUid': 'alice',
+      'toUid': 'bob',
+      'status': 'pending',
+      'mode': 'duel',
+      'createdAt': Timestamp.fromDate(now),
+      'expiresAt': Timestamp.fromDate(now.add(const Duration(seconds: 30))),
+    });
+    final app = _App('bob');
+    await pump(tester, app,
+        size: const Size(640, 480), recoveryBridge: _SavedMatchBridge());
+    await tester.tap(find.text('قبول'));
+    await tester.pumpAndSettle();
+    expect(find.text('لديك مباراة لم تنتهِ'), findsOneWidget);
+    expect(find.text('دعوة إلى التحدي'), findsNothing);
+    await tester.tap(find.text('إلغاء'));
+    await tester.pumpAndSettle();
+    expect((await ref.get()).data()?['status'], 'pending');
+    expect(app.launched, isEmpty);
+    expect(find.text('دعوة إلى التحدي'), findsOneWidget);
+  });
 
   testWidgets(
       'paid friend invitation shows cost and pool before server acceptance',
@@ -795,6 +855,10 @@ void main() {
     expect(
         (await db.doc('social_settings/alice').get()).data()?['discoverable'],
         isFalse);
+    await tester.tap(find.descendant(
+        of: find.byType(GameNoticeCard),
+        matching: find.byIcon(Icons.close_rounded)));
+    await tester.pumpAndSettle();
     await reveal(tester, find.text('الجميع'));
     await tester.tap(find.text('الجميع'));
     await tester.pumpAndSettle();
@@ -958,10 +1022,12 @@ void main() {
           ..addFont(SharedAssets.bundle.load('assets/fonts/baloo.ttf')))
         .load();
     await (FontLoader('NotoSansArabic')
-          ..addFont(SharedAssets.bundle.load('assets/fonts/NotoSansArabic.ttf')))
+          ..addFont(
+              SharedAssets.bundle.load('assets/fonts/NotoSansArabic.ttf')))
         .load();
     await (FontLoader('MaterialIcons')
-          ..addFont(SharedAssets.bundle.load('fonts/MaterialIcons-Regular.otf')))
+          ..addFont(
+              SharedAssets.bundle.load('fonts/MaterialIcons-Regular.otf')))
         .load();
     final theme = ThemeData.dark(useMaterial3: true).copyWith(
         textTheme: ThemeData.dark().textTheme.apply(

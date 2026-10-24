@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:challenge_land/models/room.dart';
 import 'package:challenge_land/services/native_bridge_service.dart';
 import 'package:challenge_land/services/room_service.dart';
+import 'package:challenge_land/services/online_match_flow.dart';
 import 'package:challenge_land/widgets/online_match_recovery_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -14,6 +15,15 @@ class _Rooms implements RoomService {
   Room? room;
   bool offline = false;
   int joins = 0;
+  int forfeits = 0;
+  @override
+  Future<Room?> forfeitRoom(
+      {required String roomId, required String userId}) async {
+    if (offline) throw StateError('offline');
+    forfeits++;
+    return room;
+  }
+
   @override
   Future<Room?> getRoomForRecovery(String roomId) async {
     if (offline) throw StateError('offline');
@@ -41,6 +51,8 @@ void main() {
   late _Rooms rooms;
   bool resumeFails = false;
   bool refreshFails = false;
+  bool forfeitFails = false;
+  String activeUid = 'alice';
   Completer<String>? pendingRead;
 
   setUp(() {
@@ -49,6 +61,8 @@ void main() {
     rooms = _Rooms();
     resumeFails = false;
     refreshFails = false;
+    forfeitFails = false;
+    activeUid = 'alice';
     pendingRead = null;
     messenger.setMockMethodCallHandler(channel, (call) async {
       calls.add(call);
@@ -61,6 +75,30 @@ void main() {
         case 'resumeOnlineMatch':
           if (resumeFails) throw PlatformException(code: 'offline');
           return true;
+        case 'isOnlineMatchAccount':
+          return (call.arguments as Map)['uid'] == activeUid;
+        case 'inspectOnlineMatch':
+          final match =
+              saved.firstWhere((m) => m['id'] == (call.arguments as Map)['id']);
+          return jsonEncode({'uid': 'alice', ...match});
+        case 'forfeitOnlineMatch':
+          if (forfeitFails) throw PlatformException(code: 'offline');
+          final match =
+              saved.firstWhere((m) => m['id'] == (call.arguments as Map)['id']);
+          final result = {
+            'uid': 'alice',
+            ...match,
+            'finished': true,
+            'message': 'خسرت المباراة بسبب الانسحاب منها.'
+          };
+          saved.remove(match);
+          return jsonEncode(result);
+        case 'completeOnlineRoomRecovery':
+          final match =
+              saved.firstWhere((m) => m['id'] == (call.arguments as Map)['id']);
+          match['finished'] = true;
+          match['message'] = (call.arguments as Map)['message'];
+          return null;
         case 'dismissOnlineMatchRecovery':
           saved.removeWhere(
               (match) => match['id'] == (call.arguments as Map)['id']);
@@ -73,7 +111,10 @@ void main() {
 
   tearDown(() => messenger.setMockMethodCallHandler(channel, null));
 
-  Future<void> mount(WidgetTester tester, {String uid = 'alice'}) async {
+  bool? allowed;
+  Object? startError;
+  Future<void> mount(WidgetTester tester,
+      {String uid = 'alice', bool startButton = false, String? roomId}) async {
     await tester.pumpWidget(MultiProvider(
       providers: [
         Provider<NativeBridgeService>(create: (_) => NativeBridgeService()),
@@ -81,8 +122,23 @@ void main() {
       ],
       child: MaterialApp(
           home: Scaffold(
-              body: SizedBox(
-                  width: 380, child: OnlineMatchRecoveryCard(userId: uid)))),
+              body: startButton
+                  ? Builder(
+                      builder: (context) => TextButton(
+                            onPressed: () async {
+                              try {
+                                allowed = await OnlineMatchFlow.prepare(
+                                    context, uid,
+                                    roomId: roomId);
+                              } catch (error) {
+                                startError = error;
+                              }
+                            },
+                            child: const Text('ابدأ'),
+                          ))
+                  : SizedBox(
+                      width: 380,
+                      child: OnlineMatchRecoveryCard(userId: uid)))),
     ));
     await tester.pumpAndSettle();
   }
@@ -235,5 +291,128 @@ void main() {
     expect(find.text('العودة إلى المباراة'), findsOneWidget);
     expect(find.text('انتهت المباراة'), findsNothing);
     expect(saved, hasLength(1));
+  });
+
+  Future<void> start(WidgetTester tester, {String? roomId}) async {
+    allowed = null;
+    startError = null;
+    await mount(tester, startButton: true, roomId: roomId);
+    await tester.tap(find.text('ابدأ'));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('a new match starts immediately when no previous match exists',
+      (tester) async {
+    await start(tester);
+    expect(allowed, isTrue);
+  });
+
+  testWidgets('cancel keeps the previous match without starting another',
+      (tester) async {
+    saved = [
+      {'id': 'bot:old', 'finished': false}
+    ];
+    await start(tester);
+    expect(find.text('لديك مباراة لم تنتهِ'), findsOneWidget);
+    await tester.tap(find.text('إلغاء'));
+    await tester.pumpAndSettle();
+    expect(allowed, isFalse);
+    expect(saved, hasLength(1));
+    expect(calls.where((c) => c.method == 'forfeitOnlineMatch'), isEmpty);
+  });
+
+  testWidgets(
+      'continue returns to the same bot match and cancels the new launch',
+      (tester) async {
+    saved = [
+      {'id': 'bot:old', 'finished': false}
+    ];
+    await start(tester);
+    await tester.tap(find.text('إكمال السابقة'));
+    await tester.pumpAndSettle();
+    expect(allowed, isFalse);
+    expect(calls.where((c) => c.method == 'resumeOnlineMatch').single.arguments,
+        {'id': 'bot:old'});
+    expect(calls.where((c) => c.method == 'forfeitOnlineMatch'), isEmpty);
+  });
+
+  testWidgets(
+      'explicit withdrawal settles every legacy match before allowing a new one',
+      (tester) async {
+    saved = [
+      {'id': 'bot:old', 'finished': false},
+      {'id': 'duel:old', 'finished': false},
+      {'id': 'paid:old', 'finished': false},
+    ];
+    await start(tester);
+    await tester.tap(find.text('انسحاب وبدء جديدة'));
+    await tester.pumpAndSettle();
+    expect(allowed, isTrue);
+    expect(saved, isEmpty);
+    expect(calls.where((c) => c.method == 'forfeitOnlineMatch'), hasLength(3));
+  });
+
+  testWidgets('failed withdrawal blocks the new match and retains recovery',
+      (tester) async {
+    saved = [
+      {'id': 'duel:old', 'finished': false}
+    ];
+    forfeitFails = true;
+    await start(tester);
+    await tester.tap(find.text('انسحاب وبدء جديدة'));
+    await tester.pumpAndSettle();
+    expect(allowed, isNull);
+    expect(startError, isNotNull);
+    expect(saved, hasLength(1));
+  });
+
+  testWidgets('an unread terminal result does not block a new game',
+      (tester) async {
+    saved = [
+      {'id': 'duel:old', 'finished': true, 'message': 'فزت بالمباراة.'}
+    ];
+    await start(tester);
+    expect(allowed, isTrue);
+    expect(saved, hasLength(1));
+    expect(calls.where((c) => c.method == 'forfeitOnlineMatch'), isEmpty);
+  });
+
+  testWidgets(
+      'a human match finished during absence shows its result without relaunching',
+      (tester) async {
+    saved = [
+      {'id': 'duel:old', 'finished': false}
+    ];
+    await mount(tester);
+    saved.single['finished'] = true;
+    saved.single['message'] = 'خسرت المباراة التي انتهت أثناء غيابك.';
+    await tapReturn(tester);
+    expect(find.text('خسرت المباراة التي انتهت أثناء غيابك.'), findsOneWidget);
+    expect(calls.where((c) => c.method == 'resumeOnlineMatch'), isEmpty);
+  });
+
+  testWidgets(
+      'switching accounts while deciding cannot forfeit the previous account match',
+      (tester) async {
+    saved = [
+      {'id': 'bot:old', 'finished': false}
+    ];
+    await start(tester);
+    activeUid = 'bob';
+    await tester.tap(find.text('انسحاب وبدء جديدة'));
+    await tester.pumpAndSettle();
+    expect(allowed, isFalse);
+    expect(calls.where((c) => c.method == 'forfeitOnlineMatch'), isEmpty);
+    expect(saved, hasLength(1));
+  });
+
+  testWidgets('returning to the same room never prompts for withdrawal',
+      (tester) async {
+    saved = [
+      {'id': 'room:old:1', 'roomId': 'old', 'finished': false}
+    ];
+    await start(tester, roomId: 'old');
+    expect(allowed, isTrue);
+    expect(rooms.forfeits, 0);
   });
 }

@@ -11,6 +11,16 @@ class EconomyOperationException implements Exception {
 }
 
 class NativeBridgeService {
+  Future<bool> isOnlineMatchAccount(String uid) async =>
+      await _channel.invokeMethod<bool>('isOnlineMatchAccount', {'uid': uid}) ==
+      true;
+
+  Future<void> completeOnlineRoomRecovery(String id, String message,
+      {required String uid}) async {
+    await _channel.invokeMethod<void>('completeOnlineRoomRecovery',
+        {'id': id, 'message': message, 'uid': uid});
+  }
+
   Future<List<Map<String, dynamic>>> getRecoverableOnlineMatches() async {
     final raw =
         await _channel.invokeMethod<String>('getRecoverableOnlineMatches');
@@ -25,6 +35,23 @@ class NativeBridgeService {
 
   Future<void> resumeOnlineMatch(String id) async {
     await _channel.invokeMethod<bool>('resumeOnlineMatch', {'id': id});
+  }
+
+  Future<Map<String, dynamic>> inspectOnlineMatch(String id,
+      {bool forfeit = false, String? uid}) async {
+    final raw = await _channel.invokeMethod<String>(
+        forfeit ? 'forfeitOnlineMatch' : 'inspectOnlineMatch',
+        {'id': id, if (uid != null) 'uid': uid});
+    if (raw == null) throw StateError('تعذر التحقق من المباراة السابقة.');
+    // Native launch credentials and board answers must stay on the native side.
+    final record = Map<String, dynamic>.from(jsonDecode(raw) as Map);
+    return {
+      'id': record['id'],
+      'uid': record['uid'],
+      'roomId': record['roomId'],
+      'finished': record['finished'] == true,
+      'message': record['message'],
+    };
   }
 
   Future<void> dismissOnlineMatchRecovery(String id) async {
@@ -214,6 +241,38 @@ class NativeBridgeService {
       return result;
     } catch (_) {
       return null;
+    }
+  }
+
+  Future<bool> composeSupportEmail({
+    required String recipient,
+    required String subject,
+    required String body,
+  }) async {
+    try {
+      return await _channel.invokeMethod<bool>('composeSupportEmail', {
+            'recipient': recipient,
+            'subject': subject,
+            'body': body,
+          }) ??
+          false;
+    } on PlatformException {
+      return false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
+
+  Future<bool> openExternalUrl(String url) async {
+    if (Uri.tryParse(url)?.scheme != 'https') return false;
+    try {
+      return await _channel
+              .invokeMethod<bool>('openExternalUrl', {'url': url}) ??
+          false;
+    } on PlatformException {
+      return false;
+    } on MissingPluginException {
+      return false;
     }
   }
 

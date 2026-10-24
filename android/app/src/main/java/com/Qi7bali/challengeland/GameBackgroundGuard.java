@@ -95,7 +95,7 @@ final class GameBackgroundGuard {
             policy.notifiedViolations = policy.violations;
         }
         save();
-        if (showWarning) Toast.makeText(activity,
+        if (showWarning) GameNotice.makeText(activity,
                 "غادرت اللعبة لأكثر من 10 ثوانٍ أثناء الإجابة مرتين. أُغلق السؤال، وتكرار ذلك مرة ثالثة ينهي مشاركتك.",
                 Toast.LENGTH_LONG).show();
         return enforce();

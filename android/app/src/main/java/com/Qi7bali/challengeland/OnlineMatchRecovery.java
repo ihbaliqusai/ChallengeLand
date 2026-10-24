@@ -35,7 +35,7 @@ public final class OnlineMatchRecovery {
         return id;
     }
 
-    private static JSONObject read(Context context, String id) {
+    static JSONObject read(Context context, String id) {
         if (id == null || id.isEmpty()) return null;
         String raw = ProgressionAccount.preferences(context).getString(PREFIX + id, null);
         try {
@@ -74,7 +74,16 @@ public final class OnlineMatchRecovery {
                     extras.put(key, value);
             }
             record.put("extras", extras);
-            record.put("roomId", activity.getIntent().getStringExtra("roomId"));
+            // Tracking runs before the activity has initialized its board fields.
+            String roomId = extras.optString("roomId");
+            String mode = roomId.isEmpty() ? "board" : extras.optString("matchMode", "battle");
+            record.put("matchId", id.startsWith("duel:") ? id
+                    : id.startsWith("paid:") ? "duel:" + extras.optString("stakeMatchId")
+                    : !roomId.isEmpty() ? "room:" + roomId + ":" + mode + ":" + Math.max(1, extras.optInt("roomRoundNumber", 1))
+                    : NativeProgression.fallbackId(activity));
+            record.put("matchMode", mode);
+            record.put("humanOnline", id.startsWith("duel:") || id.startsWith("paid:"));
+            record.put("roomId", roomId);
             write(activity, record);
         } catch (org.json.JSONException error) {
             throw new IllegalStateException("Cannot save online match", error);
@@ -91,18 +100,51 @@ public final class OnlineMatchRecovery {
         records.sort((a, b) -> Long.compare(b.optLong("createdAt"), a.optLong("createdAt")));
         JSONArray result = new JSONArray();
         for (JSONObject record : records) {
-            // Board answers and launch credentials stay on the native side.
-            JSONObject summary = new JSONObject();
-            try {
-                summary.put("id", record.optString("id"));
-                summary.put("uid", record.optString("uid"));
-                summary.put("roomId", record.optString("roomId"));
-                summary.put("finished", record.optBoolean("finished"));
-                summary.put("message", record.optString("message"));
-                result.put(summary);
-            } catch (org.json.JSONException ignored) {}
+            result.put(summary(record));
         }
         return result;
+    }
+
+    static JSONObject summary(JSONObject record) {
+        // Board answers and launch credentials stay on the native side.
+        JSONObject summary = new JSONObject();
+        try {
+            summary.put("id", record.optString("id"));
+            summary.put("uid", record.optString("uid"));
+            summary.put("roomId", record.optString("roomId"));
+            summary.put("finished", record.optBoolean("finished"));
+            summary.put("message", record.optString("message"));
+        } catch (org.json.JSONException ignored) {}
+        return summary;
+    }
+
+    public static synchronized boolean hasActiveMatch(Context context, String roomId) {
+        JSONArray matches = pending(context);
+        for (int i = 0; i < matches.length(); i++) {
+            JSONObject match = matches.optJSONObject(i);
+            if (match != null && !match.optBoolean("finished")
+                    && (roomId == null || roomId.isEmpty()
+                        || !roomId.equals(match.optString("roomId")))) return true;
+        }
+        return false;
+    }
+
+    static synchronized JSONObject finishSaved(Context context, String id, String message, boolean observed) {
+        JSONObject record = read(context, id);
+        if (record == null) throw new IllegalStateException("هذه المباراة لم تعد متاحة.");
+        try {
+            // A server result must never be overwritten by a delayed withdrawal.
+            if (!record.optBoolean("finished")) {
+                record.put("finished", true);
+                record.put("message", message);
+                record.remove("checkpoint");
+            }
+            record.put("observed", observed || record.optBoolean("observed"));
+            write(context, record);
+            return record;
+        } catch (org.json.JSONException error) {
+            throw new IllegalStateException(error);
+        }
     }
 
     public static synchronized void updateLaunch(Activity activity) {
@@ -144,7 +186,7 @@ public final class OnlineMatchRecovery {
         if (!NativeProgression.activeAccount(activity)) return;
         String id = activity.getIntent().getStringExtra(ID);
         JSONObject record = read(activity, id);
-        if (record == null) return;
+        if (record == null || record.optBoolean("finished")) return;
         try {
             record.put("finished", true);
             record.put("observed", observed);

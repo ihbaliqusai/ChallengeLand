@@ -1,3 +1,4 @@
+import '../../widgets/game_notice.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -79,22 +80,8 @@ class _CharacterSelectScreenState extends State<CharacterSelectScreen>
 
   void _showSnack(String message, {bool isError = false}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(
-            message,
-            textDirection: TextDirection.rtl,
-            style: const TextStyle(fontWeight: FontWeight.w700),
-          ),
-          backgroundColor:
-              isError ? const Color(0xFFB91C1C) : const Color(0xFF0F766E),
-          behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      );
+    GameNoticeMessenger.of(context).show(message,
+        tone: isError ? GameNoticeTone.error : GameNoticeTone.success);
   }
 
   Future<void> _onPrimary() async {
@@ -118,7 +105,7 @@ class _CharacterSelectScreenState extends State<CharacterSelectScreen>
       final balance = isCoins ? appState.coins : appState.gems;
       if (balance < character.unlock.value) {
         final shortfall = character.unlock.value - balance;
-        ScaffoldMessenger.of(context).showSnackBar(
+        GameNoticeMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
               'تحتاج إلى $shortfall ${isCoins ? 'عملة' : 'جوهرة'} إضافية لفتح هذه الشخصية.',
@@ -180,7 +167,7 @@ class _CharacterSelectScreenState extends State<CharacterSelectScreen>
       context: context,
       builder: (ctx) => Directionality(
         textDirection: TextDirection.rtl,
-        child: AlertDialog(
+        child: GameAlertDialog(
           backgroundColor: const Color(0xFF140D2B),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(22),

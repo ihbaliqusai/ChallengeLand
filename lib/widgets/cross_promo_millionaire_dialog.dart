@@ -1,3 +1,4 @@
+import 'game_notice.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -75,7 +76,7 @@ class _CrossPromoMillionaireDialogState
     if (result == 'launched_app') {
       Navigator.of(context).pop();
     } else if (result != 'opened_market' && result != 'opened_web') {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      GameNoticeMessenger.of(context).showSnackBar(const SnackBar(
         content: Text('تعذّر فتح اللعبة أو المتجر. حاول مرة أخرى.'),
       ));
     }
@@ -91,7 +92,7 @@ class _CrossPromoMillionaireDialogState
         'حمّل اللعبة ثم عد لاستلام المكافأة.',
       CrossPromoClaimResult.failed => 'تعذّر استلام المكافأة. حاول مرة أخرى.',
     };
-    ScaffoldMessenger.of(context)
+    GameNoticeMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(message)));
   }
 

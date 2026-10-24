@@ -1,3 +1,4 @@
+import '../../widgets/game_notice.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -55,7 +56,7 @@ class _OfflineWelcomeScreenState extends State<OfflineWelcomeScreen>
       // flip isOnline → AuthGate rebuilds to LoginScreen automatically.
       context.read<AppState>().updateConnectivity(true);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
+      GameNoticeMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('لا يزال الاتصال غير متوفر، حاول مرة أخرى'),
           duration: Duration(seconds: 2),

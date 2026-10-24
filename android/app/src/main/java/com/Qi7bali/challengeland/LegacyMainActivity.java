@@ -1,7 +1,6 @@
 package com.qi7bali.landchallengeonline;
 
 import androidx.appcompat.app.AlertDialog;
-import androidx.appcompat.app.AppCompatActivity;
 
 import android.content.ClipData;
 import android.content.ClipboardManager;
@@ -23,7 +22,7 @@ import android.widget.Toast;
 
 import java.util.Random;
 
-public class LegacyMainActivity extends AppCompatActivity {
+public class LegacyMainActivity extends GameViewportActivity {
 
     int T_LIGHTS = 0;
     ImageView imgClosedEyes;
@@ -67,7 +66,7 @@ public class LegacyMainActivity extends AppCompatActivity {
             Data.setUserActive(userID);
         }
         if (!Data.isNetworkAvailable(this) && !userID.equals("guest_local")) {
-            Toast.makeText(this, getString(R.string.msg_no_internet), Toast.LENGTH_SHORT).show();
+            GameNotice.makeText(this, getString(R.string.msg_no_internet), Toast.LENGTH_SHORT).show();
         }
 
         findViewById(android.R.id.content).postDelayed(new Runnable() {
@@ -199,7 +198,7 @@ public class LegacyMainActivity extends AppCompatActivity {
         if (PlayerProgress.canClaimDailyReward(this)) {
             PlayerProgress.DailyReward reward = PlayerProgress.claimDailyReward(this);
             applyLocalUserInfo();
-            new androidx.appcompat.app.AlertDialog.Builder(this)
+            GameNoticeDialogs.builder(this)
                     .setTitle(R.string.daily_reward_title)
                     .setMessage(getString(R.string.daily_reward_message, reward.coins, reward.gems, reward.streak))
                     .setPositiveButton(R.string.daily_reward_positive, null)
@@ -319,7 +318,7 @@ public class LegacyMainActivity extends AppCompatActivity {
             Intent intent = new Intent(LegacyMainActivity.this, OfflineGamesActivity.class);
             startActivity(intent);
         } catch (Exception e) {
-            Toast.makeText(this, getString(R.string.msg_open_game_failed), Toast.LENGTH_SHORT).show();
+            GameNotice.makeText(this, getString(R.string.msg_open_game_failed), Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -328,7 +327,7 @@ public class LegacyMainActivity extends AppCompatActivity {
             safeStartGame();
             return;
         }
-        new androidx.appcompat.app.AlertDialog.Builder(this)
+        GameNoticeDialogs.builder(this)
                 .setTitle(getString(R.string.dialog_new_game_title))
                 .setMessage(getString(R.string.dialog_new_game_message))
                 .setPositiveButton(getString(R.string.yes), (dialog, which) -> safeStartGame())
@@ -338,11 +337,11 @@ public class LegacyMainActivity extends AppCompatActivity {
 
     private void openOnlineOptions() {
         if (userID.equals("guest_local")) {
-            Toast.makeText(this, "سجل الدخول أولاً للعب عبر الإنترنت", Toast.LENGTH_SHORT).show();
+            GameNotice.makeText(this, "سجل الدخول أولاً للعب عبر الإنترنت", Toast.LENGTH_SHORT).show();
             return;
         }
         if (!Data.isNetworkAvailable(this)) {
-            Toast.makeText(this, getString(R.string.msg_no_internet), Toast.LENGTH_SHORT).show();
+            GameNotice.makeText(this, getString(R.string.msg_no_internet), Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -358,7 +357,7 @@ public class LegacyMainActivity extends AppCompatActivity {
         int verticalPadding = (int) (12 * getResources().getDisplayMetrics().density);
         friendCodeInput.setPadding(horizontalPadding, verticalPadding, horizontalPadding, verticalPadding);
 
-        final AlertDialog dialog = new AlertDialog.Builder(this)
+        final AlertDialog dialog = GameNoticeDialogs.builder(this)
                 .setTitle("اللعب أونلاين")
                 .setMessage("كودك: " + myFriendCode + "\nيمكنك بدء تحدي صديق أو البحث عن منافس عشوائي.")
                 .setView(friendCodeInput)
@@ -373,7 +372,7 @@ public class LegacyMainActivity extends AppCompatActivity {
                 if (clipboard != null) {
                     clipboard.setPrimaryClip(ClipData.newPlainText("friend_code", myFriendCode));
                 }
-                Toast.makeText(LegacyMainActivity.this, "تم نسخ كود الصديق", Toast.LENGTH_SHORT).show();
+                GameNotice.makeText(LegacyMainActivity.this, "تم نسخ كود الصديق", Toast.LENGTH_SHORT).show();
             });
 
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
@@ -409,7 +408,7 @@ public class LegacyMainActivity extends AppCompatActivity {
             moveTaskToBack(true);
             return;
         }
-        new androidx.appcompat.app.AlertDialog.Builder(this)
+        GameNoticeDialogs.builder(this)
                 .setTitle(getString(R.string.dialog_exit_title))
                 .setMessage(getString(R.string.dialog_exit_message))
                 .setPositiveButton(getString(R.string.yes), (dialog, which) -> {

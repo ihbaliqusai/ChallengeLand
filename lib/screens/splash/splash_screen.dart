@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
@@ -147,28 +148,122 @@ class _SplashScreenState extends State<SplashScreen>
   }
 }
 
-/// The matching first frame covers platform startup and decoder initialization.
+/// Fills the window with scenery and lays out the two transparent cutouts safely.
 class SplashPoster extends StatelessWidget {
   const SplashPoster({super.key});
 
   @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
-    return SizedBox.expand(
-      child: Image.asset(
-        'assets/ui/splash.png',
-        fit: BoxFit.cover,
-        alignment: Alignment.center,
-        cacheWidth:
-            (media.size.width * media.devicePixelRatio).ceil().clamp(1, 1920),
-        cacheHeight: (media.size.width * media.devicePixelRatio * 9 / 16)
-            .ceil()
-            .clamp(1, 1080),
-        gaplessPlayback: true,
-        excludeFromSemantics: true,
-      ),
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Image.asset(
+          'assets/ui/splash_background.png',
+          key: const ValueKey('splash-artwork'),
+          fit: BoxFit.cover,
+          cacheWidth:
+              (media.size.width * media.devicePixelRatio).ceil().clamp(2, 2560),
+          gaplessPlayback: true,
+          excludeFromSemantics: true,
+        ),
+        if (!media.size.isEmpty)
+          SafeArea(
+            bottom: false,
+            child: LayoutBuilder(builder: (context, constraints) {
+              final width = constraints.maxWidth;
+              final height = constraints.maxHeight;
+              const presenterAspect = 984 / 1160;
+              final presenterHeight = math.min(
+                  math.max(0.0, height - 24), width * .45 / presenterAspect);
+              final presenterWidth = presenterHeight * presenterAspect;
+              final logoAreaWidth = math.max(0.0, width - presenterWidth - 36);
+              final logoWidth =
+                  math.min(560.0, math.max(0.0, logoAreaWidth - 40));
+              return Stack(
+                children: [
+                  Positioned(
+                    left: (logoAreaWidth - logoWidth) / 2,
+                    top: math.min(60.0, height * .08),
+                    width: logoWidth,
+                    height: logoWidth * 644 / 996,
+                    child: const _SplashCutout(
+                      key: ValueKey('splash-logo'),
+                      asset: 'assets/ui/splash_logo.png',
+                      sourceSize: Size(1200, 700),
+                      visibleBounds: Rect.fromLTWH(102, 28, 996, 644),
+                    ),
+                  ),
+                  Positioned(
+                    right: 12,
+                    bottom: 0,
+                    width: presenterWidth,
+                    height: presenterHeight,
+                    child: const _SplashCutout(
+                      key: ValueKey('splash-presenter'),
+                      asset: 'assets/ui/splash_presenter.png',
+                      sourceSize: Size(1000, 1400),
+                      visibleBounds: Rect.fromLTWH(8, 240, 984, 1160),
+                    ),
+                  ),
+                ],
+              );
+            }),
+          ),
+      ],
     );
   }
+}
+
+/// Removes only the supplied file's transparent padding in layout coordinates.
+/// The visible artwork always scales uniformly and the source file stays intact.
+class _SplashCutout extends StatelessWidget {
+  const _SplashCutout({
+    super.key,
+    required this.asset,
+    required this.sourceSize,
+    required this.visibleBounds,
+  });
+
+  final String asset;
+  final Size sourceSize;
+  final Rect visibleBounds;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+        builder: (context, constraints) {
+          final scale = math.min(constraints.maxWidth / visibleBounds.width,
+              constraints.maxHeight / visibleBounds.height);
+          final decodeWidth = (sourceSize.width *
+                  scale *
+                  MediaQuery.devicePixelRatioOf(context))
+              .ceil()
+              .clamp(2, sourceSize.width.toInt());
+          return ClipRect(
+            child: FittedBox(
+              fit: BoxFit.contain,
+              child: SizedBox.fromSize(
+                size: visibleBounds.size,
+                child: Stack(
+                  children: [
+                    Positioned(
+                      left: -visibleBounds.left,
+                      top: -visibleBounds.top,
+                      width: sourceSize.width,
+                      height: sourceSize.height,
+                      child: Image.asset(asset,
+                          fit: BoxFit.fill,
+                          cacheWidth: decodeWidth,
+                          gaplessPlayback: true,
+                          excludeFromSemantics: true),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      );
 }
 
 /// Stylized desert-adventure progress bar with golden glow, bevel framing,

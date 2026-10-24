@@ -39,6 +39,7 @@ android {
         versionCode flutter.versionCode
         versionName flutter.versionName
         multiDexEnabled true
+        testInstrumentationRunner 'android.test.InstrumentationTestRunner'
     }
 
     signingConfigs {
@@ -100,6 +101,12 @@ tasks.register('verifySharedAssetManifest') {
 tasks.named('preBuild').configure { dependsOn('verifySharedAssetManifest') }
 
 dependencies {
+    // Device layout checks use the Android SDK's test runner, without adding
+    // test libraries or activities to release builds.
+    androidTestCompileOnly files(
+        "${android.sdkDirectory}/platforms/${android.compileSdkVersion}/optional/android.test.runner.jar",
+        "${android.sdkDirectory}/platforms/${android.compileSdkVersion}/optional/android.test.base.jar"
+    )
     implementation 'androidx.multidex:multidex:2.0.1'
     implementation 'androidx.appcompat:appcompat:1.7.1'
     implementation 'androidx.core:core-splashscreen:1.0.1'

@@ -1,3 +1,4 @@
+import 'game_notice.dart';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -90,7 +91,7 @@ class _RateGameDialogState extends State<RateGameDialog>
       final rewardGranted = await service.grantRatingReward(context);
       if (mounted) {
         Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
+        GameNoticeMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(
               children: [
@@ -138,7 +139,7 @@ class _RateGameDialogState extends State<RateGameDialog>
         _feedbackSubmitted = true;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      GameNoticeMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             success

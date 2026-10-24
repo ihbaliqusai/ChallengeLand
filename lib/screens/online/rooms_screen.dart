@@ -1,3 +1,4 @@
+import '../../widgets/game_notice.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -8,6 +9,7 @@ import '../../models/room.dart';
 import '../../services/invite_service.dart';
 import '../../services/profile_service.dart';
 import '../../services/room_service.dart';
+import '../../services/online_match_flow.dart';
 import 'room_lobby_screen.dart';
 
 class RoomsScreen extends StatefulWidget {
@@ -85,6 +87,8 @@ class _RoomsScreenState extends State<RoomsScreen>
     }
     setState(() => _creatingRoom = true);
     try {
+      if (!await OnlineMatchFlow.prepare(context, userId)) return;
+      if (!mounted) return;
       final roomId = await context.read<RoomService>().createRoom(
             hostId: userId,
             maxPlayers: _maxPlayers,
@@ -113,6 +117,10 @@ class _RoomsScreenState extends State<RoomsScreen>
     if (trimmedId.isEmpty || userId == null) return;
     setState(() => _joiningRoom = true);
     try {
+      if (!await OnlineMatchFlow.prepare(context, userId, roomId: trimmedId)) {
+        return;
+      }
+      if (!mounted) return;
       final joinResult = await context.read<RoomService>().joinRoom(
             roomId: trimmedId,
             userId: userId,
@@ -150,7 +158,7 @@ class _RoomsScreenState extends State<RoomsScreen>
   void _showError(Object error) {
     if (!mounted) return;
     final message = error is StateError ? error.message : error.toString();
-    ScaffoldMessenger.of(context).showSnackBar(
+    GameNoticeMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
         backgroundColor: const Color(0xFF7F1D1D),

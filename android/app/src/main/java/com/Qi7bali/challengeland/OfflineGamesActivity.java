@@ -1,7 +1,6 @@
 package com.qi7bali.landchallengeonline;
 
 import androidx.appcompat.app.AlertDialog;
-import androidx.appcompat.app.AppCompatActivity;
 
 import android.content.Context;
 import android.content.Intent;
@@ -40,7 +39,7 @@ import java.util.Locale;
  * تم إعادة تصميمها بالكامل بهوية Esports Championship فخمة وعصرية،
  * مع دعم شريط القياسات الحية، وإحصائيات المنافسين، وسجل الأبطال.
  */
-public class OfflineGamesActivity extends AppCompatActivity {
+public class OfflineGamesActivity extends GameViewportActivity {
 
     // ==========================================
     // لوحة الألوان الفاخرة (Esports Luxury Theme)
@@ -984,7 +983,7 @@ public class OfflineGamesActivity extends AppCompatActivity {
                     public void run() {
                         boolean ok = OfflineBoardGameStore.delete(OfflineGamesActivity.this, id);
                         if (ok) {
-                            Toast.makeText(OfflineGamesActivity.this, "تم حذف اللعبة بنجاح", Toast.LENGTH_SHORT).show();
+                            GameNotice.makeText(OfflineGamesActivity.this, "تم حذف اللعبة بنجاح", Toast.LENGTH_SHORT).show();
                             refreshList();
                         }
                     }
@@ -1001,7 +1000,7 @@ public class OfflineGamesActivity extends AppCompatActivity {
                     @Override
                     public void run() {
                         int count = OfflineBoardGameStore.clearFinished(OfflineGamesActivity.this);
-                        Toast.makeText(OfflineGamesActivity.this, "تم تنظيف " + count + " مباراة من السجل", Toast.LENGTH_SHORT).show();
+                        GameNotice.makeText(OfflineGamesActivity.this, "تم تنظيف " + count + " مباراة من السجل", Toast.LENGTH_SHORT).show();
                         refreshList();
                     }
                 }
@@ -1036,7 +1035,7 @@ public class OfflineGamesActivity extends AppCompatActivity {
         btnRow.setOrientation(LinearLayout.HORIZONTAL);
         btnRow.setGravity(Gravity.CENTER_VERTICAL);
 
-        final AlertDialog dialog = new AlertDialog.Builder(this)
+        final AlertDialog dialog = GameNoticeDialogs.builder(this)
                 .setView(dialogView)
                 .create();
 

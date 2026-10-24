@@ -5,8 +5,6 @@ import '../../core/app_state.dart';
 import '../character/character_select_screen.dart';
 import '../home/home_screen.dart';
 import '../splash/splash_screen.dart';
-import 'login_screen.dart';
-import 'offline_welcome_screen.dart';
 
 /// Prepares account data under the intro, then reveals the resolved destination.
 class AuthGate extends StatefulWidget {
@@ -59,9 +57,7 @@ class _AuthGateState extends State<AuthGate> {
 
   Widget _destination(AppState appState) {
     if (appState.user == null) {
-      return appState.isOnline
-          ? const LoginScreen()
-          : const OfflineWelcomeScreen();
+      return const HomeScreen();
     }
     if (!appState.hasChosenCharacter) {
       return const CharacterSelectScreen(forced: true);

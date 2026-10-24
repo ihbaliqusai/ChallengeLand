@@ -229,4 +229,18 @@ final class OnlineDuelState {
         board.put("scores", scores(board));
         board.remove("disconnectGrace");
     }
+
+    /** Explicit withdrawal also works during category setup and keeps a prior result. */
+    static boolean withdraw(Map<String, Object> session, String player) {
+        Map<String, Object> board = map(session.get("board"));
+        if (!participant(board, player)) return false;
+        if ("finished".equals(board.get("phase"))) return true;
+        String owner = String.valueOf(board.get("ownerId"));
+        forfeit(board, player.equals(owner) ? String.valueOf(board.get("joinerId")) : owner);
+        session.put("board", board);
+        Map<String, Object> presence = map(session.get(player));
+        presence.put("status", "left");
+        session.put(player, presence);
+        return true;
+    }
 }

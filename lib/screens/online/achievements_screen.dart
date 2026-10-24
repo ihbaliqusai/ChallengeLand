@@ -1,3 +1,4 @@
+import '../../widgets/game_notice.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -1354,7 +1355,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
         showCurrencyRewardOverlay(context, coins: result.coins, gems: 0);
       }
       final count = result.newlyClaimedIds.length;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      GameNoticeMessenger.of(context).showSnackBar(SnackBar(
         content: Text(
             count > 0
                 ? 'تم تحصيل $count إنجاز: +${_compactNumber(result.coins)} عملة و +${_compactNumber(result.xp)} XP'

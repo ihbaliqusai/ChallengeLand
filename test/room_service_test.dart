@@ -1,4 +1,4 @@
-﻿import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:challenge_land/models/room.dart';
@@ -6,6 +6,91 @@ import 'package:challenge_land/services/room_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  group('explicit online withdrawal', () {
+    late FakeFirebaseFirestore firestore;
+    late RoomService service;
+
+    setUp(() async {
+      firestore = FakeFirebaseFirestore();
+      service = RoomService(firestore: firestore);
+      await firestore.collection('rooms').doc('saved').set({
+        'hostId': 'alice',
+        'maxPlayers': 2,
+        'mode': Room.modeBattle,
+        'phase': Room.phasePlaying,
+        'started': true,
+        'players': {
+          'alice': const RoomPlayer(score: 100, ready: true).toMap(),
+          'bob': const RoomPlayer(score: 200, ready: true).toMap(),
+        },
+      });
+    });
+
+    test('permanent withdrawal cannot reconnect and transfers host', () async {
+      await service.forfeitRoom(roomId: 'saved', userId: 'alice');
+      final room = await _loadRoom(firestore, 'saved');
+      expect(room.players['alice']!.forfeited, isTrue);
+      expect(room.players['alice']!.disconnected, isTrue);
+      expect(room.players['alice']!.completedAt, isNotNull);
+      expect(room.hostId, 'bob');
+      await expectLater(
+          service.joinRoom(roomId: 'saved', userId: 'alice'), throwsStateError);
+    });
+
+    test('temporary disconnect can still reconnect', () async {
+      await service.leaveRoom(roomId: 'saved', userId: 'alice');
+      await service.joinRoom(roomId: 'saved', userId: 'alice');
+      final room = await _loadRoom(firestore, 'saved');
+      expect(room.players['alice']!.forfeited, isFalse);
+      expect(room.players['alice']!.disconnected, isFalse);
+    });
+
+    test('withdrawn score cannot win a later series round', () async {
+      await firestore.collection('rooms').doc('saved').update({
+        'mode': Room.modeSeries,
+        'phase': Room.phasePlayingRound,
+        'seriesTarget': 1,
+        'players.alice.score': 1000,
+        'players.bob.score': 10,
+        'players.alice.completedAt': Timestamp.now(),
+        'players.bob.completedAt': Timestamp.now(),
+      });
+      await service.forfeitRoom(roomId: 'saved', userId: 'alice');
+      await service.processSeriesRound(roomId: 'saved');
+      final room = await _loadRoom(firestore, 'saved');
+      expect(room.phase, Room.phaseFinished);
+      expect(room.winnerId, 'bob');
+    });
+
+    test('withdrawal eliminates even a player who already answered the round',
+        () async {
+      await firestore.collection('rooms').doc('saved').update({
+        'mode': Room.modeSurvival,
+        'phase': Room.phasePlayingRound,
+        'players.alice.lives': 3,
+        'players.alice.completedAt': Timestamp.now(),
+      });
+      await service.forfeitRoom(roomId: 'saved', userId: 'alice');
+      final room = await _loadRoom(firestore, 'saved');
+      expect(room.players['alice']!.eliminated, isTrue);
+      expect(room.players['alice']!.forfeited, isTrue);
+    });
+
+    test('a committed result wins over a simultaneous withdrawal', () async {
+      await firestore.collection('rooms').doc('saved').update({
+        'phase': Room.phaseFinished,
+        'winnerId': 'alice',
+      });
+      final result =
+          await service.forfeitRoom(roomId: 'saved', userId: 'alice');
+      expect(result!.winnerId, 'alice');
+      final room = await _loadRoom(firestore, 'saved');
+      expect(room.players['alice']!.forfeited, isFalse);
+      expect(room.winnerId, 'alice');
+      expect(room.containsPlayer('alice'), isTrue);
+    });
+  });
 
   group('RoomService survival mode', () {
     late FakeFirebaseFirestore firestore;

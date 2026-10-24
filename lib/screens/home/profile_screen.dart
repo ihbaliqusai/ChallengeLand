@@ -1,3 +1,4 @@
+import '../../widgets/game_notice.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -50,7 +51,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     if (newName == null || newName.isEmpty || !mounted) return;
 
-    final messenger = ScaffoldMessenger.of(context);
+    final messenger = GameNoticeMessenger.of(context);
     try {
       await appState.updateUsername(newName);
       messenger.showSnackBar(
@@ -1295,7 +1296,7 @@ class _AccountStrip extends StatelessWidget {
                 ? () {
                     Clipboard.setData(ClipboardData(text: friendCode));
                     HapticFeedback.selectionClick();
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    GameNoticeMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text('تم نسخ كود التحدي: $friendCode'),
                         duration: const Duration(seconds: 2),
@@ -1402,7 +1403,7 @@ class _EditUsernameDialogState extends State<_EditUsernameDialog> {
   Widget build(BuildContext context) {
     return Directionality(
       textDirection: TextDirection.rtl,
-      child: AlertDialog(
+      child: GameAlertDialog(
         backgroundColor: const Color(0xFF081328),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         title: const Row(

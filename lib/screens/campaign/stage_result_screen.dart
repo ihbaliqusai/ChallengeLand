@@ -1,3 +1,4 @@
+import '../../widgets/game_notice.dart';
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -30,6 +31,7 @@ import 'widgets/result_replay_goal_card.dart';
 import 'widgets/result_ribbon_header.dart';
 import 'widgets/result_score_counter.dart';
 import 'widgets/save_guest_progress_dialog.dart';
+import 'widgets/stage_victory_scene.dart';
 
 class StageResultScreen extends StatefulWidget {
   const StageResultScreen({
@@ -68,6 +70,9 @@ class _StageResultScreenState extends State<StageResultScreen>
   bool _rewardDoubled = false;
   bool _doublingReward = false;
   bool _savingResult = false;
+  bool _showVictoryDetails = false;
+  bool _collectingRewards = false;
+  bool _rewardsCollected = false;
   StageSubmissionResult? _savedSubmission;
   bool _rewardApplied = false;
   CampaignStage? _nextStage;
@@ -151,7 +156,7 @@ class _StageResultScreenState extends State<StageResultScreen>
             error: error, stackTrace: stackTrace, uid: uid, payload: payload);
       }
       if (mounted && appState.currentUser?.uid == uid) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        GameNoticeMessenger.of(context).showSnackBar(
           SnackBar(content: Text(_saveFailureMessage(error))),
         );
       }
@@ -371,7 +376,7 @@ class _StageResultScreenState extends State<StageResultScreen>
       _launchingStage = false;
       _waitingForResult = false;
     });
-    ScaffoldMessenger.of(context)
+    GameNoticeMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         const SnackBar(
@@ -402,6 +407,60 @@ class _StageResultScreenState extends State<StageResultScreen>
         attempt.used5050 + attempt.usedAudience + attempt.usedCall;
     final hasCoins = appState.currentUser != null;
 
+    if (completed && !_showVictoryDetails) {
+      final user = appState.currentUser;
+      final name =
+          (user?.displayName ?? user?.email?.split('@').first ?? '').trim();
+      return Directionality(
+        textDirection: TextDirection.rtl,
+        child: Scaffold(
+          body: Stack(
+            children: [
+              Positioned.fill(
+                child: StageVictoryScene(
+                  stage: stage,
+                  result: submissionResult,
+                  playerName: name.isEmpty ? 'بطل التحدي' : name,
+                  photoUrl: user?.photoURL,
+                  gameplayXp:
+                      (rawNativeResult?['gameplayXp'] as num?)?.toInt() ?? 0,
+                  saving: _savingResult || _collectingRewards,
+                  collected: _rewardsCollected,
+                  isDoubled: _rewardDoubled,
+                  onCollect: _collectVictoryRewards,
+                  onMap: _returnToMap,
+                  onRetry: () => _launchStageAgain(context),
+                  onDetails: () => setState(() => _showVictoryDetails = true),
+                  onRetrySave: _isUnsavedPreview &&
+                          !_savingResult &&
+                          user != null &&
+                          (widget.submissionUid == null ||
+                              user.uid == widget.submissionUid)
+                      ? () => _retrySave(context)
+                      : null,
+                  onNext: _nextStage != null &&
+                          _nextProgress?.status != StageProgressStatus.locked
+                      ? _openNextStage
+                      : null,
+                  nextLabel: _nextStage?.isBossStage == true
+                      ? 'التالي: مواجهة الزعيم'
+                      : 'المرحلة التالية',
+                ),
+              ),
+              if (_launchingStage)
+                Positioned.fill(
+                  child: _BlockingLoadingOverlay(
+                    message: _waitingForResult
+                        ? 'جارٍ استلام نتيجة المرحلة...'
+                        : 'جارٍ بدء المرحلة...',
+                  ),
+                ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -419,7 +478,10 @@ class _StageResultScreenState extends State<StageResultScreen>
                       children: [
                         _TopHud(
                           coins: hasCoins ? appState.coins : null,
-                          onBack: _returnToMap,
+                          onBack: _showVictoryDetails
+                              ? () =>
+                                  setState(() => _showVictoryDetails = false)
+                              : _returnToMap,
                         ),
                         Expanded(
                           child: SingleChildScrollView(
@@ -635,6 +697,64 @@ class _StageResultScreenState extends State<StageResultScreen>
     );
   }
 
+  Future<void> _collectVictoryRewards() async {
+    if (_savingResult || _collectingRewards || _rewardsCollected) return;
+    final appState = context.read<AppState>();
+    if (appState.currentUser == null) {
+      _openSaveGuestProgressModal(context);
+      return;
+    }
+    if (_isUnsavedPreview) {
+      await _retrySave(context);
+      if (!mounted || _isUnsavedPreview) return;
+    }
+    if (appState.currentUser?.uid != submissionResult.attempt.uid) {
+      _returnToMap();
+      return;
+    }
+    setState(() => _collectingRewards = true);
+    try {
+      // Saving normally delivers this reward in the background. The same receipt
+      // makes collection safe if the player taps before that delivery finishes.
+      final applied = currencyRewardApplied ||
+          await CampaignResultHandler.applySubmissionReward(
+            appState: appState,
+            campaignService: widget.campaignService ?? CampaignService(),
+            result: submissionResult,
+          );
+      if (!mounted ||
+          appState.currentUser?.uid != submissionResult.attempt.uid) {
+        return;
+      }
+      if (!applied &&
+          (submissionResult.rewardCoinsGranted > 0 ||
+              submissionResult.rewardGemsGranted > 0)) {
+        GameNoticeMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('تعذرت إضافة المكافأة الآن. حاول مرة أخرى.'),
+        ));
+        return;
+      }
+      setState(() {
+        _rewardApplied = applied;
+        _rewardsCollected = true;
+      });
+      HapticFeedback.mediumImpact();
+      showCurrencyRewardOverlay(
+        context,
+        coins: submissionResult.rewardCoinsGranted * (_rewardDoubled ? 2 : 1),
+        gems: submissionResult.rewardGemsGranted * (_rewardDoubled ? 2 : 1),
+      );
+    } catch (_) {
+      if (mounted) {
+        GameNoticeMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('تعذر جمع المكافآت الآن. حاول مرة أخرى.'),
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _collectingRewards = false);
+    }
+  }
+
   String _cleanMessage(
     String message, {
     required bool completed,
@@ -729,7 +849,7 @@ class _StageResultScreenState extends State<StageResultScreen>
       context: context,
       builder: (dialogCtx) => Directionality(
         textDirection: TextDirection.rtl,
-        child: AlertDialog(
+        child: GameAlertDialog(
           backgroundColor: const Color(0xFF0F1A3C),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(22),
@@ -801,7 +921,7 @@ class _StageResultScreenState extends State<StageResultScreen>
     final user = context.read<AppState>().currentUser;
     final uid = user?.uid.trim() ?? '';
     final payload = rawNativeResult;
-    final messenger = ScaffoldMessenger.of(context);
+    final messenger = GameNoticeMessenger.of(context);
     if (user == null || uid.isEmpty || payload == null) {
       messenger
         ..hideCurrentSnackBar()
@@ -840,7 +960,7 @@ class _StageResultScreenState extends State<StageResultScreen>
       _waitingForResult = false;
     });
     final nativeBridge = context.read<NativeBridgeService>();
-    final messenger = ScaffoldMessenger.of(context);
+    final messenger = GameNoticeMessenger.of(context);
     try {
       // The board loads its own question pool natively — no id selection needed.
       const questionIds = <int>[];
@@ -934,7 +1054,7 @@ class _StageResultScreenState extends State<StageResultScreen>
 
     final adService = context.read<AdService>();
     final appState = context.read<AppState>();
-    final messenger = ScaffoldMessenger.of(context);
+    final messenger = GameNoticeMessenger.of(context);
     final rewardUid = submissionResult.attempt.uid;
     if (rewardUid.isEmpty || appState.currentUser?.uid != rewardUid) {
       _returnToMap();

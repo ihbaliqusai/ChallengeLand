@@ -17,8 +17,11 @@ import 'package:challenge_land/widgets/home_quick_action.dart';
 import 'package:challenge_land/widgets/home_menu_artwork.dart';
 import 'package:challenge_land/widgets/game_modes_artwork.dart';
 import 'package:challenge_land/widgets/home_artwork.dart';
+import 'package:challenge_land/widgets/game_viewport.dart';
 import 'package:challenge_land/widgets/special_offer_badge.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:challenge_land/screens/auth/login_bottom_sheet.dart';
 // Firebase's test harness accompanies the app's existing Firebase dependency.
 // ignore: depend_on_referenced_packages
 import 'package:firebase_core_platform_interface/test.dart';
@@ -29,14 +32,26 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+class _HomeUser implements User {
+  @override
+  String get uid => 'home-player';
+  @override
+  String get displayName => 'لاعب';
+  @override
+  String get email => 'player@example.com';
+  @override
+  dynamic noSuchMethod(Invocation invocation) => null;
+}
+
 class _HomeState extends ChangeNotifier implements AppState {
   @override
   EconomyWallet get economyWallet =>
       const EconomyWallet(dailyKeys: 3, tickets: 2);
   @override
   bool get economyLoaded => true;
-  _HomeState({this.online = false});
+  _HomeState({this.online = false, this.signedIn = true});
   final bool online;
+  final bool signedIn;
   int characterIndex = 1;
   @override
   int get selectedCharacterIndex => characterIndex;
@@ -66,9 +81,11 @@ class _HomeState extends ChangeNotifier implements AppState {
   @override
   bool get isVip => false;
   @override
-  get user => null;
+  User? get user => signedIn ? _HomeUser() : null;
   @override
-  get currentUser => null;
+  User? get currentUser => user;
+  @override
+  bool get isBusy => false;
   @override
   int get coins => 1200;
   @override
@@ -117,6 +134,8 @@ class _NativeBridge extends NativeBridgeService {
 
   @override
   Future<Map<String, dynamic>> getAchievements() async => {};
+  @override
+  Future<Map<String, dynamic>?> getPendingRoomMatchResult() async => null;
   @override
   Future<String?> consumeLaunchAction() async => null;
   @override
@@ -175,6 +194,97 @@ Widget _shortcut({
 }
 
 void main() {
+  for (final online in [true, false]) {
+    testWidgets('guest home requires sign-in for every control online=$online',
+        (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1600, 826));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      for (final font in {
+        'Baloo': 'assets/fonts/baloo.ttf',
+        'NotoSansArabic': 'assets/fonts/NotoSansArabic.ttf',
+        'MaterialIcons': 'fonts/MaterialIcons-Regular.otf',
+      }.entries) {
+        await (FontLoader(font.key)
+              ..addFont(SharedAssets.bundle.load(font.value)))
+            .load();
+      }
+      final state = _HomeState(online: online, signedIn: false);
+      final previewKey = GlobalKey();
+      addTearDown(state.dispose);
+      await tester.pumpWidget(MultiProvider(
+        providers: [
+          ChangeNotifierProvider<AppState>.value(value: state),
+          Provider<NativeBridgeService>.value(value: _NativeBridge()),
+        ],
+        child: MaterialApp(
+            builder: (context, child) => RepaintBoundary(
+                key: previewKey, child: GameViewport(child: child!)),
+            theme: ThemeData(
+                brightness: Brightness.dark,
+                useMaterial3: true,
+                fontFamily: 'Baloo',
+                fontFamilyFallback: const ['NotoSansArabic']),
+            home: const HomeScreen()),
+      ));
+      await tester.pump(const Duration(seconds: 4));
+      expect(find.byType(LoginBottomSheet), findsNothing);
+
+      var previewSaved = false;
+      for (final control in [
+        find.byTooltip('القائمة'),
+        find.byKey(const ValueKey('home-friends-shortcut')),
+        find.byKey(const ValueKey('home-store-shortcut')),
+        find.byKey(const ValueKey('home-help-shortcut')),
+        find.byKey(const ValueKey('home-coins-balance')),
+        find.byKey(const ValueKey('home-gems-balance')),
+        find.byKey(const ValueKey('home-keys-balance')),
+        find.byKey(const ValueKey('home-tickets-balance')),
+        find.byKey(const ValueKey('home-play-button')),
+        find.byType(SpecialOfferBadge),
+        find.byTooltip('تحدي المراحل'),
+        find.byTooltip('أوضاع اللعب'),
+        find.byKey(const ValueKey('home-selected-character')),
+      ]) {
+        await tester.tapAt(tester.getCenter(control));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(find.byType(LoginBottomSheet), findsOneWidget,
+            reason: control.toString());
+        expect(find.byType(HomeScreen), findsOneWidget);
+        expect(find.byType(GameModesArtwork), findsNothing);
+        expect(find.byType(CharacterSelectScreen), findsNothing);
+        if (online && !previewSaved) {
+          final context = tester.element(find.byType(LoginBottomSheet));
+          await tester.runAsync(() => Future.wait([
+                for (final image
+                    in tester.widgetList<Image>(find.byType(Image)))
+                  precacheImage(image.image, context),
+              ]));
+          await tester.pump();
+          final boundary = previewKey.currentContext!.findRenderObject()
+              as RenderRepaintBoundary;
+          await tester.runAsync(() async {
+            final image = await boundary.toImage();
+            final bytes =
+                await image.toByteData(format: ui.ImageByteFormat.png);
+            await File('build/guest-login-bottom-sheet.png')
+                .writeAsBytes(bytes!.buffer.asUint8List());
+            image.dispose();
+          });
+          previewSaved = true;
+        }
+        await tester.tap(find.byKey(const ValueKey('close-login-sheet')));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(find.byType(LoginBottomSheet), findsNothing);
+      }
+      expect(state.mainChallengeRequests, 0);
+      expect(state.offlineRequests, 0);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
+
   TestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets('delayed character loading never enlarges the face portrait',
@@ -373,6 +483,113 @@ void main() {
       await Firebase.initializeApp();
     });
 
+    testWidgets(
+        'home fills phone and tablet edges including the reported left gap',
+        (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'has_rated_challenge_land': true,
+        'rate_reward_claimed': true,
+      });
+      for (final font in {
+        'Baloo': 'assets/fonts/baloo.ttf',
+        'NotoSansArabic': 'assets/fonts/NotoSansArabic.ttf',
+        'MaterialIcons': 'fonts/MaterialIcons-Regular.otf',
+      }.entries) {
+        await (FontLoader(font.key)
+              ..addFont(SharedAssets.bundle.load(font.value)))
+            .load();
+      }
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      final state = _HomeState();
+      final promo = _Promo();
+      addTearDown(state.dispose);
+      addTearDown(promo.dispose);
+      for (final display in <(Size, double)>[
+        (const Size(1592, 826), 108),
+        (const Size(2340, 1080), 100),
+        (const Size(1280, 800), 0),
+        (const Size(640, 360), 0),
+      ]) {
+        final size = display.$1;
+        tester.view.physicalSize = size;
+        final boundaryKey = GlobalKey();
+        final safe = EdgeInsets.only(left: display.$2);
+        await tester.pumpWidget(MultiProvider(
+          providers: [
+            ChangeNotifierProvider<AppState>.value(value: state),
+            ChangeNotifierProvider<CrossPromoService>.value(value: promo),
+            Provider<NativeBridgeService>.value(value: _NativeBridge()),
+          ],
+          child: MaterialApp(
+            theme: ThemeData.dark().copyWith(
+              textTheme: ThemeData.dark()
+                  .textTheme
+                  .apply(fontFamily: 'NotoSansArabic'),
+            ),
+            builder: (context, child) => RepaintBoundary(
+              key: boundaryKey,
+              child: MediaQuery(
+                data: MediaQuery.of(context).copyWith(
+                  padding: safe,
+                  viewPadding: safe,
+                  textScaler: const TextScaler.linear(2.5),
+                ),
+                child: GameViewport(child: child!),
+              ),
+            ),
+            home: const HomeScreen(),
+          ),
+        ));
+        await tester.pump(const Duration(milliseconds: 100));
+        final context = tester.element(find.byType(HomeScreen));
+        await tester.runAsync(() => Future.wait([
+              precacheImage(const AssetImage(HomeArtwork.background), context),
+              for (final image in tester.widgetList<Image>(find.byType(Image)))
+                precacheImage(image.image, context),
+            ]));
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(tester.getRect(find.byType(Scaffold).first),
+            rectMoreOrLessEquals(Offset.zero & size, epsilon: .01));
+        for (final control in [
+          find.byTooltip('القائمة'),
+          find.byKey(const ValueKey('home-friends-shortcut')),
+          find.byKey(const ValueKey('home-store-shortcut')),
+          find.byKey(const ValueKey('home-help-shortcut')),
+        ]) {
+          expect(control.hitTestable(), findsOneWidget);
+          final bounds = tester.getRect(control);
+          expect(bounds.left, greaterThanOrEqualTo(display.$2));
+          expect(bounds.right, lessThanOrEqualTo(size.width));
+        }
+        expect(tester.takeException(), isNull, reason: '$size');
+        final boundary = boundaryKey.currentContext!.findRenderObject()
+            as RenderRepaintBoundary;
+        await tester.runAsync(() async {
+          final image = await boundary.toImage();
+          final pixels =
+              (await image.toByteData(format: ui.ImageByteFormat.rawRgba))!;
+          for (final x in [0, image.width - 1]) {
+            final offset = ((image.height ~/ 2) * image.width + x) * 4;
+            expect(
+                pixels.getUint8(offset) +
+                    pixels.getUint8(offset + 1) +
+                    pixels.getUint8(offset + 2),
+                greaterThan(0),
+                reason: 'A black strip remains at x=$x on $size');
+          }
+          final png = await image.toByteData(format: ui.ImageByteFormat.png);
+          await File(
+                  'build/fullscreen-home-${size.width.toInt()}x${size.height.toInt()}.png')
+              .writeAsBytes(png!.buffer.asUint8List());
+          image.dispose();
+        });
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump(const Duration(seconds: 1));
+      }
+    });
+
     for (final size in [
       const Size(640, 360),
       const Size(800, 400),
@@ -417,10 +634,11 @@ void main() {
         for (final shortcut in [
           find.byKey(const ValueKey('home-friends-shortcut')),
           find.byKey(const ValueKey('home-store-shortcut')),
+          find.byKey(const ValueKey('home-help-shortcut')),
         ]) {
           final bounds = tester.getRect(shortcut);
-          expect(bounds.left, closeTo(12, .01),
-              reason: 'Left shortcuts keep a small physical edge inset');
+          expect(bounds.left, closeTo(size.width > size.height ? 38 : 6, .01),
+              reason: 'Left shortcuts remain clear of the camera cutout');
           expect(bounds.top, greaterThanOrEqualTo(0));
           expect(bounds.right, lessThanOrEqualTo(size.width));
           expect(bounds.bottom, lessThanOrEqualTo(size.height));
@@ -431,8 +649,8 @@ void main() {
         }
         expect(find.byKey(const ValueKey('home-friends-green-dot')),
             findsOneWidget);
-        expect(
-            tester.getRect(find.byTooltip('القائمة')).left, closeTo(12, .01));
+        expect(tester.getRect(find.byTooltip('القائمة')).left,
+            closeTo(size.width > size.height ? 38 : 6, .01));
         expect(find.byType(CrossPromoMillionaireBadge), findsNothing);
         final campaignBounds = tester.getRect(find.byTooltip('تحدي المراحل'));
         final modesBounds = tester.getRect(find.byTooltip('أوضاع اللعب'));
@@ -460,6 +678,15 @@ void main() {
                 reason: 'Home banners must remain clear of the bottom badges');
           }
         }
+        await tester.tap(find.byKey(const ValueKey('home-help-shortcut')));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(find.text('تواصل مع فريق العمل'), findsOneWidget);
+        expect(find.byKey(const ValueKey('support-message')), findsOneWidget);
+        await tester.tap(find.byTooltip('إغلاق التواصل'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(find.text('تواصل مع فريق العمل'), findsNothing);
         await tester.tap(find.byKey(const ValueKey('home-friends-shortcut')));
         await tester.pump();
         expect(find.text('تتطلب هذه الميزة اتصالا بالإنترنت'), findsOneWidget);
@@ -769,7 +996,7 @@ void main() {
       final characterBounds =
           tester.getRect(find.byKey(const ValueKey('home-selected-character')));
       expect(levelBounds.center.dx, closeTo(characterBounds.center.dx, .01));
-      expect(menuBounds.left, closeTo(12, .01));
+      expect(menuBounds.left, closeTo(6, .01));
       if (size.width > size.height) {
         expect(ticketBounds.right, closeTo(size.width - 16, .01));
         expect(coinBounds.left, greaterThan(menuBounds.right));

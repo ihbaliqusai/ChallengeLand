@@ -4,7 +4,8 @@ import 'package:challenge_land/services/invite_service.dart';
 import 'package:challenge_land/widgets/incoming_invite_dialog.dart';
 
 void main() {
-  testWidgets('IncomingInviteDialog renders friend challenge candidate and responds to actions',
+  testWidgets(
+      'IncomingInviteDialog renders friend challenge candidate and responds to actions',
       (tester) async {
     const candidate = InviteCandidate(
       type: InviteType.friendChallenge,
@@ -62,7 +63,8 @@ void main() {
     expect(dismissed, isTrue);
   });
 
-  testWidgets('IncomingInviteDialog renders room invite candidate with mode pill and players count',
+  testWidgets(
+      'IncomingInviteDialog renders room invite candidate with mode pill and players count',
       (tester) async {
     const candidate = InviteCandidate(
       type: InviteType.room,
@@ -100,7 +102,8 @@ void main() {
     expect(find.text('انضمام للغرفة 🚀'), findsOneWidget);
   });
 
-  testWidgets('IncomingInviteDialog renders without overflow on compact screens',
+  testWidgets(
+      'IncomingInviteDialog renders without overflow on compact screens',
       (tester) async {
     const candidate = InviteCandidate(
       type: InviteType.friendChallenge,

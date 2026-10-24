@@ -1,3 +1,4 @@
+import '../../widgets/game_notice.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/app_state.dart';
@@ -26,7 +27,7 @@ class _ResourceShopScreenState extends State<ResourceShopScreen> {
   Future<void> _buy(Map<String, dynamic> data, String summary) async {
     final confirmed = await showDialog<bool>(
         context: context,
-        builder: (ctx) => AlertDialog(
+        builder: (ctx) => GameAlertDialog(
                 title: const Center(
                     child: Text('تأكيد الشراء', textAlign: TextAlign.center)),
                 content: Text(summary, textAlign: TextAlign.center),
@@ -65,7 +66,7 @@ class _ResourceShopScreenState extends State<ResourceShopScreen> {
     if (details == null || !details.available) return;
     final confirmed = await showDialog<bool>(
         context: context,
-        builder: (ctx) => AlertDialog(
+        builder: (ctx) => GameAlertDialog(
                 title: Center(
                     child: Text(product.title, textAlign: TextAlign.center)),
                 content: Text('${product.subtitle}\n${details.price}',

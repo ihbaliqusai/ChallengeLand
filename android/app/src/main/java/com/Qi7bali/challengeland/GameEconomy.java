@@ -134,7 +134,7 @@ public final class GameEconomy {
         return false;
     }
     private static void showFailure(Activity a, String error, Runnable retry) {
-        new android.app.AlertDialog.Builder(a).setTitle("رصيد اللعب").setMessage(error)
+        GameNoticeDialogs.platformBuilder(a).setTitle("رصيد اللعب").setMessage(error)
             .setPositiveButton("إعادة المحاولة", (d, w) -> retry.run())
             .setNeutralButton("المتجر", (d, w) -> a.startActivity(new android.content.Intent(a, StoreActivity.class)))
             .setNegativeButton("رجوع", (d, w) -> a.finish()).setCancelable(false).show();

@@ -1,3 +1,4 @@
+import 'game_notice.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,6 +7,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../core/app_state.dart';
+import '../services/online_match_flow.dart';
 import '../models/player_profile.dart';
 import '../services/invite_service.dart';
 import '../services/social_service.dart';
@@ -243,7 +245,7 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
       await Clipboard.setData(ClipboardData(text: code));
       HapticFeedback.mediumImpact();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      GameNoticeMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
             children: [
@@ -321,7 +323,7 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
       }
 
       if (!mounted) return;
-      final messenger = ScaffoldMessenger.of(context);
+      final messenger = GameNoticeMessenger.of(context);
       Navigator.of(context).pop();
       messenger.showSnackBar(const SnackBar(
           content: Text(
@@ -360,6 +362,10 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
     try {
       HapticFeedback.mediumImpact();
       if (!mounted) return;
+      if (!await OnlineMatchFlow.prepare(context, appState.user?.uid ?? '')) {
+        if (mounted) setState(() => _isLaunching = false);
+        return;
+      }
       await appState.openRandomMatch(stakeCoins: _stakeCoins);
       if (mounted) Navigator.of(context).pop();
     } catch (e) {

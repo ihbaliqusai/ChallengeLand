@@ -95,6 +95,7 @@ flutter:
     - assets/home/level_badge.png
     - assets/home/coins.webp
     - assets/home/friends.webp
+    - assets/home/help.png
     - assets/home/gems.webp
     - assets/home/keys.png
     - assets/home/tickets.png
@@ -102,7 +103,9 @@ flutter:
     - assets/home/modes.webp
     - assets/home/play.png
     - assets/home/store.webp
-    - assets/ui/splash.png
+    - assets/ui/splash_background.png
+    - assets/ui/splash_logo.png
+    - assets/ui/splash_presenter.png
     - assets/ui/character_select_room.webp
     - assets/ui/character_select_title.png
     - assets/ui/million_challenge_logo.png
@@ -122,6 +125,8 @@ flutter:
     - assets/images/campaign/ui/star_1.png
     - assets/images/campaign/ui/star_2.png
     - assets/images/campaign/ui/star_3.png
+    - assets/images/campaign/ui/victory_background.jpg
+    - assets/images/campaign/ui/victory_panel.png
 
     - assets/fonts/NotoSansArabic-OFL.txt
 

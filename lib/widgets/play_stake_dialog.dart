@@ -1,8 +1,10 @@
+import 'game_notice.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../core/app_state.dart';
+import '../services/online_match_flow.dart';
 import '../screens/social/social_screen.dart';
 import 'play_stake_artwork.dart';
 
@@ -87,6 +89,10 @@ class _PlayStakeDialogState extends State<PlayStakeDialog> {
     HapticFeedback.mediumImpact();
 
     try {
+      if (!await OnlineMatchFlow.prepare(context, appState.user?.uid ?? '')) {
+        if (mounted) setState(() => _isLaunching = false);
+        return;
+      }
       await appState.openRandomMatch(stakeCoins: _selectedStake);
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
@@ -123,7 +129,7 @@ class _PlayStakeDialogState extends State<PlayStakeDialog> {
   }
 
   void _showToast(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
+    GameNoticeMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(msg),
         backgroundColor: const Color(0xFF1E1038),

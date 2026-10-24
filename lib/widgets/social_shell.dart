@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/app_state.dart';
+import '../services/online_match_flow.dart';
 import '../services/social_service.dart';
+import 'game_notice.dart';
 
 /// Receives invitations on every Flutter route, and starts the existing native
 /// duel on BOTH devices after the recipient's atomic acceptance.
@@ -28,6 +30,7 @@ class _SocialShellState extends State<SocialShell> with WidgetsBindingObserver {
   final _dismissedFriends = <String>{};
   bool _foreground = true;
   bool _working = false;
+  bool _choosingMatch = false;
   final _handled = <String>{};
   String? _error;
   Set<String> _blocked = {};
@@ -113,6 +116,15 @@ class _SocialShellState extends State<SocialShell> with WidgetsBindingObserver {
     super.dispose();
   }
 
+  Future<bool> _prepareMatch(String uid, {String? matchId}) async {
+    setState(() => _choosingMatch = true);
+    try {
+      return await OnlineMatchFlow.prepare(context, uid, matchId: matchId);
+    } finally {
+      if (mounted) setState(() => _choosingMatch = false);
+    }
+  }
+
   Future<void> _launchAccepted() async {
     if (_working || !_foreground || _uid == null || !mounted) return;
     final uid = _uid!;
@@ -153,6 +165,12 @@ class _SocialShellState extends State<SocialShell> with WidgetsBindingObserver {
       final profile = await service.profile(peer);
       final code = profile['friendCode']?.toString() ?? '';
       if (code.isEmpty) throw const SocialException('لم يتوفر رمز اللاعب.');
+      if (!mounted) return;
+      if (!await _prepareMatch(uid,
+          matchId: data['stakeMatchId']?.toString())) {
+        _handled.add(token);
+        return;
+      }
       final age =
           service.now.difference((data['acceptedAt'] as Timestamp).toDate());
       if (!mounted ||
@@ -207,6 +225,9 @@ class _SocialShellState extends State<SocialShell> with WidgetsBindingObserver {
     });
     try {
       final service = context.read<SocialService>();
+      if (challenge && status == 'accepted' && !await _prepareMatch(_uid!)) {
+        return;
+      }
       if (challenge && stakeCoins > 0) {
         await service.respondStakedChallenge(id, status,
             expectedAmount: stakeCoins);
@@ -257,121 +278,169 @@ class _SocialShellState extends State<SocialShell> with WidgetsBindingObserver {
     final stakeCoins = request == null || isFriend
         ? 0
         : SocialService.stakeCoins(request.data());
+    final remaining = request == null
+        ? 0
+        : (request.data()['expiresAt'] as Timestamp)
+            .toDate()
+            .difference(context.read<SocialService>().now)
+            .inSeconds
+            .clamp(0, 30);
+    final tone = request == null
+        ? GameNoticeTone.error
+        : isFriend
+            ? GameNoticeTone.friend
+            : GameNoticeTone.challenge;
     return Stack(children: [
       widget.child,
-      if (_foreground && ((request != null) || _error != null))
-        Positioned(
-            top: 12,
-            left: 20,
-            right: 20,
-            child: SafeArea(
-                child: Material(
-                    elevation: 12,
-                    color: const Color(0xFF172554),
-                    borderRadius: BorderRadius.circular(16),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8),
-                      child: Directionality(
-                          textDirection: TextDirection.rtl,
-                          child:
-                              Column(mainAxisSize: MainAxisSize.min, children: [
-                            Row(children: [
-                              Icon(
-                                  isFriend
-                                      ? Icons.person_add_alt_1_rounded
-                                      : Icons.sports_esports_rounded,
-                                  color: const Color(0xFF38BDF8)),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                  child: request == null
-                                      ? Text(_error!)
-                                      : FutureBuilder<Map<String, dynamic>>(
-                                          future: context
-                                              .read<SocialService>()
-                                              .profile(request.data()[isIncoming
-                                                  ? 'fromUid'
-                                                  : 'toUid'] as String),
-                                          builder: (context, snapshot) => Text(
-                                              isFriend
-                                                  ? '${snapshot.data?['username'] ?? 'لاعب'} أرسل لك طلب صداقة'
-                                                  : '${isIncoming ? '${snapshot.data?['username'] ?? 'لاعب'} يدعوك لمواجهة' : 'بانتظار قبول ${snapshot.data?['username'] ?? 'اللاعب'}'} • ${(request.data()['expiresAt'] as Timestamp).toDate().difference(context.read<SocialService>().now).inSeconds.clamp(0, 30)} ث',
-                                              maxLines: 2,
-                                              overflow:
-                                                  TextOverflow.ellipsis))),
-                              if (isFriend)
-                                Semantics(
-                                    label: 'لاحقًا',
-                                    child: IconButton(
-                                      key: const ValueKey(
-                                          'dismissFriendRequest'),
-                                      onPressed: () => setState(() =>
-                                          _dismissedFriends.add(
-                                              '${request.id}:${request.data()['createdAt']}')),
-                                      icon: const Icon(Icons.close_rounded),
-                                    )),
-                            ]),
-                            if (stakeCoins > 0) ...[
-                              const SizedBox(height: 6),
-                              Text(
-                                  SocialService.stakeDescription(
-                                      request!.data()),
+      if (_foreground && !_choosingMatch && (request != null || _error != null))
+        Positioned.fill(
+          child: Stack(children: [
+            const ModalBarrier(color: Color(0xB3070B19), dismissible: false),
+            SafeArea(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                    20, 16, 20, 16 + MediaQuery.viewInsetsOf(context).bottom),
+                child: Center(
+                  child: Directionality(
+                    textDirection: TextDirection.rtl,
+                    child: Semantics(
+                      scopesRoute: true,
+                      explicitChildNodes: true,
+                      child: GameNoticeCard(
+                        key: ValueKey('socialNotice:${request?.id ?? 'error'}'),
+                        tone: tone,
+                        title: Text(request == null
+                            ? 'تعذّر فتح المواجهة'
+                            : isFriend
+                                ? 'طلب صداقة جديد'
+                                : isIncoming
+                                    ? 'دعوة إلى التحدي'
+                                    : 'تم إرسال الدعوة'),
+                        onClose: _working
+                            ? null
+                            : isFriend
+                                ? () => setState(() => _dismissedFriends.add(
+                                    '${request.id}:${request.data()['createdAt']}'))
+                                : request == null
+                                    ? () => setState(() => _error = null)
+                                    : null,
+                        busy: _working,
+                        progress: request != null && !isFriend
+                            ? remaining / 30
+                            : null,
+                        content:
+                            Column(mainAxisSize: MainAxisSize.min, children: [
+                          if (request != null)
+                            FutureBuilder<Map<String, dynamic>>(
+                              future: context.read<SocialService>().profile(
+                                  request.data()[isIncoming
+                                      ? 'fromUid'
+                                      : 'toUid'] as String),
+                              builder: (context, snapshot) => Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    isFriend
+                                        ? '${snapshot.data?['username'] ?? 'لاعب'} أرسل لك طلب صداقة'
+                                        : isIncoming
+                                            ? '${snapshot.data?['username'] ?? 'لاعب'} يدعوك لمواجهة'
+                                            : 'بانتظار قبول ${snapshot.data?['username'] ?? 'اللاعب'}',
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  if (!isFriend) ...[
+                                    const SizedBox(height: 12),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 14, vertical: 6),
+                                      decoration: BoxDecoration(
+                                        color:
+                                            tone.color.withValues(alpha: 0.1),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Text('متبقي $remaining ثانية',
+                                          style: TextStyle(
+                                              color: tone.color,
+                                              fontWeight: FontWeight.w700)),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          if (stakeCoins > 0) ...[
+                            const SizedBox(height: 12),
+                            Text(
+                                SocialService.stakeDescription(request!.data()),
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                    color: Color(0xFFFFD166),
+                                    fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 4),
+                            const Text(
+                                'التعادل أو خلل المباراة يعيد القطع. الانسحاب بعد البدء خسارة.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(fontSize: 11)),
+                          ],
+                          if (_error != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Text(_error!,
                                   textAlign: TextAlign.center,
                                   style: const TextStyle(
-                                      color: Color(0xFFFFD166),
-                                      fontWeight: FontWeight.bold)),
-                              const Text(
-                                  'التعادل أو خلل المباراة يعيد القطع. الانسحاب بعد البدء خسارة.',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(fontSize: 11)),
-                            ],
-                            if (_error != null && request != null)
-                              Padding(
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 6),
-                                  child: Text(_error!,
-                                      style: const TextStyle(
-                                          color: Color(0xFFFDA4AF)))),
-                            Wrap(
-                                alignment: WrapAlignment.end,
-                                spacing: 8,
-                                children: [
-                                  if (request != null && isIncoming) ...[
-                                    FilledButton(
-                                        onPressed: _working
-                                            ? null
-                                            : () => _respond(
-                                                request.id, 'accepted',
-                                                challenge: !isFriend,
-                                                stakeCoins: stakeCoins),
-                                        child: Text(stakeCoins > 0
-                                            ? 'قبول بـ$stakeCoins قطعة'
-                                            : 'قبول')),
-                                    TextButton(
-                                        onPressed: _working
-                                            ? null
-                                            : () => _respond(
-                                                request.id, 'declined',
-                                                challenge: !isFriend,
-                                                stakeCoins: stakeCoins),
-                                        child: const Text('رفض')),
-                                  ],
-                                  if (request != null && !isIncoming)
-                                    TextButton(
-                                        onPressed: _working
-                                            ? null
-                                            : () => _respond(
-                                                request.id, 'cancelled',
-                                                stakeCoins: stakeCoins),
-                                        child: const Text('إلغاء الدعوة')),
-                                  if (_error != null)
-                                    IconButton(
-                                        onPressed: () =>
-                                            setState(() => _error = null),
-                                        icon: const Icon(Icons.close)),
-                                ])
-                          ])),
-                    )))),
+                                      color: Color(0xFFFDA4AF))),
+                            ),
+                        ]),
+                        actions: [
+                          if (request != null && isIncoming) ...[
+                            FilledButton(
+                              onPressed: _working
+                                  ? null
+                                  : () => _respond(request.id, 'accepted',
+                                      challenge: !isFriend,
+                                      stakeCoins: stakeCoins),
+                              child: Text(stakeCoins > 0
+                                  ? 'قبول بـ$stakeCoins قطعة'
+                                  : 'قبول'),
+                            ),
+                            OutlinedButton(
+                              onPressed: _working
+                                  ? null
+                                  : () => _respond(request.id, 'declined',
+                                      challenge: !isFriend,
+                                      stakeCoins: stakeCoins),
+                              child: const Text('رفض'),
+                            ),
+                          ],
+                          if (request != null && !isIncoming)
+                            OutlinedButton(
+                              onPressed: _working
+                                  ? null
+                                  : () => _respond(request.id, 'cancelled',
+                                      stakeCoins: stakeCoins),
+                              child: const Text('إلغاء الدعوة'),
+                            ),
+                          if (isFriend)
+                            TextButton(
+                              key: const ValueKey('dismissFriendRequest'),
+                              onPressed: _working
+                                  ? null
+                                  : () => setState(() => _dismissedFriends.add(
+                                      '${request.id}:${request.data()['createdAt']}')),
+                              child: const Text('لاحقًا'),
+                            ),
+                          if (request == null)
+                            FilledButton(
+                              onPressed: () => setState(() => _error = null),
+                              child: const Text('حسنًا'),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ]),
+        ),
     ]);
   }
 }

@@ -1,3 +1,4 @@
+import '../../widgets/game_notice.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -196,7 +197,7 @@ class _CampaignMapScreenState extends State<CampaignMapScreen>
   }
 
   void _showLockedMessage(CampaignStage stage) {
-    ScaffoldMessenger.of(context)
+    GameNoticeMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         const SnackBar(

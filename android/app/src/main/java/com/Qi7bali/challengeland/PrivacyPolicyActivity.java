@@ -1,17 +1,20 @@
 package com.qi7bali.landchallengeonline;
 
 import android.graphics.Color;
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
+import android.webkit.WebViewClient;
+import android.webkit.WebResourceRequest;
 import android.widget.TextView;
+import android.widget.Toast;
 
-import androidx.appcompat.app.AppCompatActivity;
 
-public class PrivacyPolicyActivity extends AppCompatActivity {
+public class PrivacyPolicyActivity extends GameViewportActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         supportRequestWindowFeature(Window.FEATURE_NO_TITLE);
@@ -34,10 +37,28 @@ public class PrivacyPolicyActivity extends AppCompatActivity {
         settings.setJavaScriptEnabled(false);
         settings.setDomStorageEnabled(false);
         settings.setAllowFileAccess(true);
-        settings.setBuiltInZoomControls(false);
+        settings.setBuiltInZoomControls(true);
         settings.setDisplayZoomControls(false);
 
         webView.setBackgroundColor(Color.parseColor("#071330"));
+        webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                if (!request.isForMainFrame()) return false;
+                String scheme = request.getUrl().getScheme();
+                if ("file".equals(scheme)) return false;
+                if (!"https".equals(scheme) && !"mailto".equals(scheme)) return true;
+                try {
+                    startActivity(new Intent("mailto".equals(scheme)
+                            ? Intent.ACTION_SENDTO : Intent.ACTION_VIEW, request.getUrl()));
+                } catch (RuntimeException error) {
+                    Toast.makeText(PrivacyPolicyActivity.this,
+                            "تعذر فتح الرابط. يمكنك استخدام بريد التواصل الموضح في الصفحة.",
+                            Toast.LENGTH_LONG).show();
+                }
+                return true;
+            }
+        });
         webView.loadUrl("file:///android_asset/privacy_policy_ar.html");
     }
 

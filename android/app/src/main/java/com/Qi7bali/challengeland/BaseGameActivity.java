@@ -3,7 +3,6 @@ package com.qi7bali.landchallengeonline;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
-import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.widget.TextViewCompat;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -67,7 +66,7 @@ import org.json.JSONObject;
 import java.util.Iterator;
 import java.util.Locale;
 
-public abstract class BaseGameActivity extends AppCompatActivity implements ProgressionMatchHost, GameBackgroundGuard.Host {
+public abstract class BaseGameActivity extends GameViewportActivity implements ProgressionMatchHost, GameBackgroundGuard.Host {
     private final GameBackgroundGuard backgroundGuard = new GameBackgroundGuard(this, this);
     protected boolean backgroundDisqualified;
 
@@ -106,7 +105,7 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
             leaveOnlineMatchIfNeeded();
             EXITING = true;
             backgroundGuard.acknowledge();
-            new AlertDialog.Builder(this).setTitle("انتهت مشاركتك")
+            GameNoticeDialogs.builder(this).setTitle("انتهت مشاركتك")
                     .setMessage("انتهت مشاركتك لتكرار مغادرة اللعبة أكثر من 10 ثوانٍ أثناء الإجابة ثلاث مرات.")
                     .setCancelable(false).setPositiveButton("العودة", (dialog, which) -> {
                         navigateToHome();
@@ -343,6 +342,7 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
             eliminationMode = false,
             meOwner;
     Person person;
+    private PresenterBubbleController presenterBubble;
     Data dataAnswer;
     InterstitialAd mInterstitialAd;
     String myID, opponentID, myName, opponentName, myPhoto, opponentPhoto,
@@ -595,7 +595,7 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
                     getGame();
                 }
             } else {
-                Toast.makeText(BaseGameActivity.this, "لا يوجد اتصال بالإنترنت", Toast.LENGTH_SHORT).show();
+                GameNotice.makeText(BaseGameActivity.this, "لا يوجد اتصال بالإنترنت", Toast.LENGTH_SHORT).show();
             }
 
         } else {
@@ -644,6 +644,7 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
         txtA4 = findViewById(R.id.txtA4);
         configureAnswerTextSizing();
         configureGameSurfaceLayout();
+        presenterBubble = new PresenterBubbleController(this, rlyDialog);
         imgA1 = findViewById(R.id.imgA1);
         imgA2 = findViewById(R.id.imgA2);
         imgA3 = findViewById(R.id.imgA3);
@@ -755,7 +756,7 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
                                     rlySelected.getChildAt(2).setVisibility(View.VISIBLE);
                                     resolveOnlineRoundIfReady();
                                 } else {
-                                    Toast.makeText(BaseGameActivity.this, "لا يوجد اتصال بالإنترنت", Toast.LENGTH_SHORT).show();
+                                    GameNotice.makeText(BaseGameActivity.this, "لا يوجد اتصال بالإنترنت", Toast.LENGTH_SHORT).show();
                                 }
                             } else {
                                 checkAnswer(false);
@@ -788,7 +789,7 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
                                 help_hideTwoAnswers();
                                 startTimer(false);
                                 updateInventoryBadges();
-                                Toast.makeText(BaseGameActivity.this, "تم استخدام 50:50 إضافية", Toast.LENGTH_SHORT).show();
+                                GameNotice.makeText(BaseGameActivity.this, "تم استخدام 50:50 إضافية", Toast.LENGTH_SHORT).show();
                             }
                             break;
                         case "ConfirmExtraHelpAudience":
@@ -797,7 +798,7 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
                                 stopTimer(true);
                                 help_getVoteAudience();
                                 updateInventoryBadges();
-                                Toast.makeText(BaseGameActivity.this, "تم استخدام مساعدة جمهور إضافية", Toast.LENGTH_SHORT).show();
+                                GameNotice.makeText(BaseGameActivity.this, "تم استخدام مساعدة جمهور إضافية", Toast.LENGTH_SHORT).show();
                             }
                             break;
                         case "ConfirmExtraHelpCall":
@@ -806,7 +807,7 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
                                 stopTimer(true);
                                 help_call();
                                 updateInventoryBadges();
-                                Toast.makeText(BaseGameActivity.this, "تم استخدام اتصال إضافي", Toast.LENGTH_SHORT).show();
+                                GameNotice.makeText(BaseGameActivity.this, "تم استخدام اتصال إضافي", Toast.LENGTH_SHORT).show();
                             }
                             break;
                         case "ConfirmHome":
@@ -1354,7 +1355,7 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
         }
 
         final int totalPlayers = 1 + opponents.size();
-        final DisplayMetrics metrics = getResources().getDisplayMetrics();
+        final DisplayMetrics metrics = GameViewportActivity.canvasMetrics(this);
         final float screenHeightDp = metrics.heightPixels / metrics.density;
         final int scoreboardBudgetDp = Math.max(220, Math.round(screenHeightDp * 0.54f));
         final boolean compact = totalPlayers >= 6;
@@ -1494,7 +1495,7 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
     }
 
     private void configureGameSurfaceLayout() {
-        final DisplayMetrics metrics = getResources().getDisplayMetrics();
+        final DisplayMetrics metrics = GameViewportActivity.canvasMetrics(this);
         final float screenWidthDp = metrics.widthPixels / metrics.density;
         final float screenHeightDp = metrics.heightPixels / metrics.density;
         final boolean shortScreen = screenHeightDp < 390f;
@@ -1648,7 +1649,7 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
     }
 
     private boolean isShortGameScreen() {
-        final DisplayMetrics metrics = getResources().getDisplayMetrics();
+        final DisplayMetrics metrics = GameViewportActivity.canvasMetrics(this);
         return metrics.heightPixels / metrics.density < 390f;
     }
 
@@ -2274,7 +2275,7 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
                 : profile.intelligence;
         opponent.level = Math.max(1, opponent.intelligence / 10);
         if (replacingHuman) {
-            Toast.makeText(
+            GameNotice.makeText(
                     this,
                     opponent.name + " يتابع اللعب الآن كخصم آلي",
                     Toast.LENGTH_SHORT
@@ -2814,7 +2815,7 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
         CAN_PLAY = false;
         CAN_HOME = false;
 
-        new AlertDialog.Builder(this)
+        GameNoticeDialogs.builder(this)
                 .setMessage("أخطأت في 3 أسئلة متتالية. سيكمل خصم آلي اللعب بدلًا منك.")
                 .setCancelable(false)
                 .setPositiveButton("حسنًا", new DialogInterface.OnClickListener() {
@@ -3125,17 +3126,17 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
                 questions = trimQuestionsForCurrentMatch(LocalQuestions.load(this, excluded));
                 if (questions.isEmpty()) {
                     questionsLoadFailed = true;
-                    Toast.makeText(this, QuestionHistory.EXHAUSTED, Toast.LENGTH_LONG).show();
+                    GameNotice.makeText(this, QuestionHistory.EXHAUSTED, Toast.LENGTH_LONG).show();
                     return;
                 }
                 QuestionHistory.reserve(this, "", "", questions, () -> questionsReady = !EXITING,
                         error -> {
                             questionsLoadFailed = true;
-                            Toast.makeText(this, error.getMessage(), Toast.LENGTH_LONG).show();
+                            GameNotice.makeText(this, error.getMessage(), Toast.LENGTH_LONG).show();
                         });
             }, error -> {
                 questionsLoadFailed = true;
-                Toast.makeText(this, error.getMessage(), Toast.LENGTH_LONG).show();
+                GameNotice.makeText(this, error.getMessage(), Toast.LENGTH_LONG).show();
             });
             return;
         }
@@ -3144,7 +3145,7 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
                 if (!EXITING && !isFinishing()) fetchRoomQuestionsWithRetry(gameID, 25);
             }, error -> {
                 questionsLoadFailed = true;
-                Toast.makeText(this, error.getMessage(), Toast.LENGTH_LONG).show();
+                GameNotice.makeText(this, error.getMessage(), Toast.LENGTH_LONG).show();
             });
             return;
         }
@@ -3162,7 +3163,7 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
                 questionsReady = false;
                 questionsLoadFailed = true;
                 startPending = false;
-                Toast.makeText(BaseGameActivity.this, "تعذر تحميل أسئلة المواجهة", Toast.LENGTH_SHORT).show();
+                GameNotice.makeText(BaseGameActivity.this, "تعذر تحميل أسئلة المواجهة", Toast.LENGTH_SHORT).show();
             }
         });
     }
@@ -3181,7 +3182,7 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
                             },
                             error -> {
                                 questionsLoadFailed = true;
-                                Toast.makeText(BaseGameActivity.this, error.getMessage(), Toast.LENGTH_LONG).show();
+                                GameNotice.makeText(BaseGameActivity.this, error.getMessage(), Toast.LENGTH_LONG).show();
                                 finish();
                             });
                     return;
@@ -3207,7 +3208,7 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
                 questionsReady = false;
                 questionsLoadFailed = true;
                 startPending = false;
-                Toast.makeText(BaseGameActivity.this, "ØªØ¹Ø°Ø± ØªØ­Ù…ÙŠÙ„ Ø£Ø³Ø¦Ù„Ø© Ø§Ù„Ù…ÙˆØ§Ø¬Ù‡Ø©", Toast.LENGTH_SHORT).show();
+                GameNotice.makeText(BaseGameActivity.this, "ØªØ¹Ø°Ø± ØªØ­Ù…ÙŠÙ„ Ø£Ø³Ø¦Ù„Ø© Ø§Ù„Ù…ÙˆØ§Ø¬Ù‡Ø©", Toast.LENGTH_SHORT).show();
             }
         });
     }
@@ -3234,7 +3235,7 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
                             questionsReady = false;
                             questionsLoadFailed = true;
                             startPending = false;
-                            Toast.makeText(BaseGameActivity.this, "تعذر تحميل أسئلة المواجهة", Toast.LENGTH_SHORT).show();
+                            GameNotice.makeText(BaseGameActivity.this, "تعذر تحميل أسئلة المواجهة", Toast.LENGTH_SHORT).show();
                         }
                     });
                 }
@@ -3653,14 +3654,14 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
         }
         if (questionsLoadFailed) {
             startPending = false;
-            Toast.makeText(BaseGameActivity.this, "تعذر تحميل أسئلة المواجهة", Toast.LENGTH_SHORT).show();
+            GameNotice.makeText(BaseGameActivity.this, "تعذر تحميل أسئلة المواجهة", Toast.LENGTH_SHORT).show();
             return;
         }
         if (startPending) {
             return;
         }
         startPending = true;
-        Toast.makeText(BaseGameActivity.this, "جارٍ تجهيز أسئلة المواجهة...", Toast.LENGTH_SHORT).show();
+        GameNotice.makeText(BaseGameActivity.this, "جارٍ تجهيز أسئلة المواجهة...", Toast.LENGTH_SHORT).show();
         final Handler handler = new Handler();
         handler.postDelayed(new Runnable() {
             @Override
@@ -3671,7 +3672,7 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
                 }
                 if (questionsLoadFailed) {
                     startPending = false;
-                    Toast.makeText(BaseGameActivity.this, "تعذر تحميل الأسئلة", Toast.LENGTH_SHORT).show();
+                    GameNotice.makeText(BaseGameActivity.this, "تعذر تحميل الأسئلة", Toast.LENGTH_SHORT).show();
                     CAN_CLICK = true;
                     return;
                 }
@@ -4094,7 +4095,7 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
             scheduleFictitiousAnswerForCurrentQuestion();
         }
 
-        Toast.makeText(this, "ستكمل المباراة الآن ضد الكمبيوتر", Toast.LENGTH_SHORT).show();
+        GameNotice.makeText(this, "ستكمل المباراة الآن ضد الكمبيوتر", Toast.LENGTH_SHORT).show();
         CAN_HOME = true;
         if (myAnswer > 0) {
             CAN_PLAY = false;
@@ -5908,7 +5909,7 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
             } else {
                 onQuestionsExhausted();
                 if (!isBlitzMode()) {
-                    Toast.makeText(this,
+                    GameNotice.makeText(this,
                             "خطأ أثناء الانصال .. لا يمكنك الاتصال بالخادم. تحقق من اتصالك بالانترنت ثم حاول مرة أخرى.",
                             Toast.LENGTH_LONG).show();
                 }
@@ -6178,9 +6179,9 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
             txtDialog.animateText(message, presenterDialogue::textCompleted);
             rlyDialog.setVisibility(View.VISIBLE);
             rlyDialog.bringToFront();
-            Animations.dialogZoom(rlyDialog, 4, 150, 1.05f);
+            presenterBubble.show();
             person.talk(Math.max(timeTalk, (msgLen + 1) * PresenterDialogue.CHARACTER_DELAY_MS), nextMouthId);
-            txtDialog.setPadding(30, 10, 20, timeDialog > 0 ? 30 : 50);
+            presenterBubble.prepare(message, timeDialog <= 0);
             if (timeDialog <= 0) {
                 CAN_CLICK = true;
                 btnDialogYes.setVisibility(View.VISIBLE);
@@ -6561,7 +6562,7 @@ public abstract class BaseGameActivity extends AppCompatActivity implements Prog
         confirmExit();
         /*
 
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        AlertDialog.Builder builder = GameNoticeDialogs.builder(this);
         builder.setMessage("هل تريد حقا الخروج من المباراة ؟")
                 .setPositiveButton("نعم", dialogClickListener)
                 .setNegativeButton("لا", dialogClickListener)

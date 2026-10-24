@@ -3,6 +3,24 @@ progression classes directly from source, using the compiled commerce companion
 from an Android build. The small `android.*` stand-ins are used
 only by this verification directory and are excluded from the APK.
 
+The native scene checks exercise the real `GameActivity`, video surface, safe
+insets and presenter bubble on Android. They assert that all background layers
+share the full window, the callout touches the presenter's head without covering
+navigation or the question, Home stays beside sound at the top right,
+the stage HUD stays in its own safe rail,
+confirmation buttons fit, and modal shading covers
+the cutout gutters with the same opacity as the center. Screenshots are saved
+for phone, wide phone and tablet sizes with left, right and absent cutouts,
+for both the solo stage board and the classic campaign (18 scene configurations).
+The script accepts emulator serials only and restores display settings afterward:
+
+```powershell
+Push-Location android
+.\gradlew.bat :app:assembleDebug :app:assembleDebugAndroidTest --console=plain
+Pop-Location
+.\android\verification\check_game_scene.ps1 -Serial emulator-5560
+```
+
 From the repository root in PowerShell:
 
 ```powershell

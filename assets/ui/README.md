@@ -1,4 +1,21 @@
-# Home menu artwork
+# UI artwork
+
+## Layered splash artwork
+
+The splash assets are copied unchanged from
+`C:\Users\Qusai\Downloads\New folder (36)`:
+
+- `splash_background.png`: `الخلفية.png`, 2560 × 1600.
+- `splash_logo.png`: `الشعار.png`, 1200 × 700, transparent.
+- `splash_presenter.png`: `المقدم.png`, 1000 × 1400, transparent.
+
+The background fills the whole window. The logo and presenter keep their
+proportions inside the cutout-safe area. Layout trims only transparent padding
+(logo: x102/y28/996×644; presenter: x8/y240/984×1160). The loading bar remains a
+separate widget. The old flattened `splash.png` is retained as a source reference
+and is no longer bundled.
+
+## Home menu artwork
 
 Active PNG artwork described below is shipped as pixel-identical lossless WebP.
 Original PNGs remain for editing and are excluded from the runtime asset list.

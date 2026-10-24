@@ -6,6 +6,10 @@ $compiledApp = Join-Path $repoRoot 'build/app/intermediates/javac/debug/compileD
 $compiledKotlin = Join-Path $repoRoot 'build/app/tmp/kotlin-classes/debug'
 $verificationJson = Join-Path $env:TEMP 'challengeland-json-20240303.jar'
 New-Item -ItemType Directory -Path $checkOutput -Force | Out-Null
+javac -encoding UTF-8 -d $checkOutput (Join-Path $nativeSources 'GameViewportSpec.java') (Join-Path $PSScriptRoot 'GameViewportCheck.java')
+if ($LASTEXITCODE -ne 0) { throw 'Game viewport checks did not compile' }
+java -cp $checkOutput com.qi7bali.landchallengeonline.GameViewportCheck
+if ($LASTEXITCODE -ne 0) { throw 'Game viewport checks failed' }
 javac -encoding UTF-8 -d $checkOutput (Join-Path $nativeSources 'Question.java') (Join-Path $nativeSources 'CategoryConfig.java') (Join-Path $nativeSources 'CampaignBoardRules.java') (Join-Path $PSScriptRoot 'CampaignBoardRulesCheck.java')
 if ($LASTEXITCODE -ne 0) { throw 'Campaign board checks did not compile' }
 java -cp $checkOutput com.qi7bali.landchallengeonline.CampaignBoardRulesCheck

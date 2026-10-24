@@ -33,6 +33,9 @@ public final class OnlineMatchRecoveryCheck {
                 .putExtra("meOwner", true).putExtra("opponentsJson", "[{\"bot\":true}]");
         OnlineMatchRecovery.track(bot);
         String botId = OnlineMatchRecovery.pending(device).getJSONObject(0).getString("id");
+        check(OnlineMatchRecovery.hasActiveMatch(device, null), "unfinished bot blocks a new launch");
+        check(OnlineMatchRecovery.read(device, botId).getString("matchId")
+                .equals(NativeProgression.fallbackId(bot)), "bot loss uses its original progression identity");
         JSONObject board = new JSONObject("{\"state\":{\"turnIndex\":5,\"scores\":[400,200],\"cells\":[{\"consumed\":true}]}}");
         OnlineMatchRecovery.saveBotCheckpoint(bot, board);
         bot.getIntent().putExtra("economySessionId", "paid-once");
@@ -57,7 +60,9 @@ public final class OnlineMatchRecoveryCheck {
         human.getIntent().putExtra("duelSessionId", "existing-duel");
         OnlineMatchRecovery.track(human);
         OnlineMatchRecovery.track(human);
-        check(OnlineMatchRecovery.pending(device).length() == 2, "multiple games retained without duplicates");
+        check(OnlineMatchRecovery.pending(device).length() == 2, "legacy multiple saves stay available for explicit resolution");
+        check("duel:existing-duel".equals(OnlineMatchRecovery.read(device, "duel:existing-duel").getString("matchId")),
+                "human identity is stable before activity board initialization");
         OnlineMatchRecovery.resume(reopenedApp, "duel:existing-duel");
         check("existing-duel".equals(reopenedApp.lastStartedIntent.getStringExtra("duelSessionId")),
                 "human match resumes reserved session");
@@ -97,10 +102,28 @@ public final class OnlineMatchRecoveryCheck {
         Game room = new Game(device);
         room.getIntent().putExtra("roomId", "room-1");
         OnlineMatchRecovery.track(room);
+        check(!OnlineMatchRecovery.hasActiveMatch(device, "room-1"), "next round of the same room is allowed");
+        check(OnlineMatchRecovery.hasActiveMatch(device, "different-room"), "another room requires withdrawal");
         try {
             OnlineMatchRecovery.resume(reopenedApp, "room:room-1:1");
             throw new AssertionError("room recovery must refresh membership through lobby");
         } catch (IllegalStateException expected) { assertions++; }
+        device.account().failNextCommit = true;
+        try {
+            OnlineMatchRecovery.finishSaved(device, "room:room-1:1", "خسرت", true);
+            throw new AssertionError("failed withdrawal must not allow a new match");
+        } catch (IllegalStateException expected) { assertions++; }
+        check(OnlineMatchRecovery.hasActiveMatch(device, null), "failed commit keeps the previous match active");
+        OnlineMatchRecovery.finishSaved(device, "room:room-1:1", "خسرت بسبب الانسحاب", true);
+        check(!OnlineMatchRecovery.hasActiveMatch(device, null), "confirmed withdrawal releases the active match");
+        check(OnlineMatchRecovery.isFinished(room), "withdrawn activity cannot restart on recreation");
+        OnlineMatchRecovery.complete(room, "فزت", false);
+        check(OnlineMatchRecovery.read(device, "room:room-1:1").getString("message").contains("خسرت"),
+                "late activity completion cannot overwrite a withdrawal result");
+        OnlineMatchRecovery.track(room);
+        check(!OnlineMatchRecovery.hasActiveMatch(device, null), "old pause callbacks cannot recreate withdrawn recovery");
+        OnlineMatchRecovery.finishSaved(device, "room:room-1:1", "نتيجة متأخرة", false);
+        check(OnlineMatchRecovery.pending(device).length() == 0, "late inspection cannot resurrect an acknowledged result");
         System.out.println("Online recovery checks passed (" + assertions + " assertions)");
     }
 }

@@ -15,6 +15,7 @@ import 'package:challenge_land/services/cross_promo_service.dart';
 import 'package:challenge_land/services/in_app_purchase_service.dart';
 import 'package:challenge_land/services/native_bridge_service.dart';
 import 'package:challenge_land/widgets/game_store_widgets.dart';
+import 'package:challenge_land/widgets/game_viewport.dart';
 import 'package:challenge_land/widgets/special_offer_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -301,6 +302,7 @@ void main() {
   Future<void> mount(WidgetTester tester, Size size,
       {StoreProductKind? initialKind,
       GlobalKey? repaintKey,
+      bool fixedCanvas = false,
       double textScale = 1}) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = size;
@@ -331,7 +333,7 @@ void main() {
         builder: (context, child) => MediaQuery(
           data: MediaQuery.of(context)
               .copyWith(textScaler: TextScaler.linear(textScale)),
-          child: child!,
+          child: fixedCanvas ? GameViewport(child: child!) : child!,
         ),
         home: RepaintBoundary(
           key: repaintKey,
@@ -369,6 +371,25 @@ void main() {
     await tester.tap(label);
     await assertClean(tester, 'Tab $tab');
   }
+
+  testWidgets(
+      'store controls remain usable on the shared phone and tablet canvas',
+      (tester) async {
+    for (final size in const [Size(640, 320), Size(1280, 800)]) {
+      await mount(tester, size, fixedCanvas: true, textScale: 2);
+      await assertClean(tester, 'Shared canvas at $size');
+      final canvas =
+          MediaQuery.sizeOf(tester.element(find.byType(StoreScreen)));
+      expect(canvas.width / canvas.height,
+          closeTo(size.width / size.height, .001));
+      expect(tester.getRect(find.byType(Scaffold).first),
+          rectMoreOrLessEquals(Offset.zero & size, epsilon: .01));
+      for (final tab in ['Gems', 'Membership', 'Categories & characters']) {
+        await select(tester, tab);
+      }
+      await tester.pumpWidget(const SizedBox.shrink());
+    }
+  });
 
   for (final viewport in <Size>[
     const Size(800, 360),

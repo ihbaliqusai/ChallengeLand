@@ -1,3 +1,4 @@
+import '../../widgets/game_notice.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -96,7 +97,7 @@ class _StagePlayScreenState extends State<StagePlayScreen>
     _launching = false;
     _resultRetry?.cancel();
     _resultTimeout?.cancel();
-    final messenger = ScaffoldMessenger.of(context);
+    final messenger = GameNoticeMessenger.of(context);
     Navigator.of(context).pop();
     messenger
       ..hideCurrentSnackBar()

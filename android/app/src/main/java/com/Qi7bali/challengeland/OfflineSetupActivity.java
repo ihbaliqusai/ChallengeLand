@@ -1,6 +1,5 @@
 package com.qi7bali.landchallengeonline;
 
-import androidx.appcompat.app.AppCompatActivity;
 
 import android.content.Intent;
 import android.os.Bundle;
@@ -15,7 +14,7 @@ import android.widget.TextView;
  * here — it comes from the app-wide character selection
  * ({@link AppPrefs#getEffectiveCharacter(android.content.Context)}).
  */
-public class OfflineSetupActivity extends AppCompatActivity {
+public class OfflineSetupActivity extends GameViewportActivity {
     static final int MIN_PLAYERS = 2;
     static final int MAX_PLAYERS = 8;
 

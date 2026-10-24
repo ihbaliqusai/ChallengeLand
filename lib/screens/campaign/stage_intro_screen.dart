@@ -1,3 +1,4 @@
+import '../../widgets/game_notice.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -122,7 +123,7 @@ class _StageIntroScreenState extends State<StageIntroScreen>
       _launching = false;
       _waitingForResult = false;
     });
-    ScaffoldMessenger.of(context)
+    GameNoticeMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         const SnackBar(
@@ -150,7 +151,7 @@ class _StageIntroScreenState extends State<StageIntroScreen>
     });
 
     final nativeBridge = context.read<NativeBridgeService>();
-    final messenger = ScaffoldMessenger.of(context);
+    final messenger = GameNoticeMessenger.of(context);
     final stage = widget.stage;
 
     try {

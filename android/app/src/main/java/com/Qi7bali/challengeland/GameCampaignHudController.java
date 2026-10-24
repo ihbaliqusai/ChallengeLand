@@ -3,11 +3,13 @@ package com.qi7bali.landchallengeonline;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.LayerDrawable;
+import android.util.DisplayMetrics;
 import android.util.TypedValue;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
+import android.widget.RelativeLayout;
 import android.widget.TextView;
 
 final class GameCampaignHudController {
@@ -127,8 +129,8 @@ final class GameCampaignHudController {
         if (activity.campaignBoard || isBossConfrontation()) {
             return;
         }
-        View root = activity.findViewById(android.R.id.content);
-        if (!(root instanceof FrameLayout)) {
+        ViewGroup scene = (ViewGroup) activity.llyQA.getParent();
+        if (!(scene instanceof RelativeLayout)) {
             return;
         }
 
@@ -140,12 +142,17 @@ final class GameCampaignHudController {
         activity.campaignHudPanel.setElevation(activity.dp(10));
         activity.campaignHudPanel.setVisibility(View.INVISIBLE);
 
-        FrameLayout.LayoutParams panelParams = new FrameLayout.LayoutParams(
-                activity.dp(activity.campaignBossBattle ? 268 : 228),
-                FrameLayout.LayoutParams.WRAP_CONTENT
+        DisplayMetrics metrics = GameViewportActivity.canvasMetrics(activity);
+        float heightDp = metrics.heightPixels / metrics.density;
+        float widthDp = metrics.widthPixels / metrics.density;
+        RelativeLayout.LayoutParams panelParams = new RelativeLayout.LayoutParams(
+                activity.dp(GameLayoutController.scoreBoardWidthDp(heightDp)),
+                ViewGroup.LayoutParams.WRAP_CONTENT
         );
-        panelParams.gravity = android.view.Gravity.TOP | android.view.Gravity.START;
-        panelParams.setMargins(activity.dp(78), activity.dp(12), activity.dp(10), activity.dp(10));
+        panelParams.addRule(RelativeLayout.ALIGN_PARENT_END);
+        panelParams.addRule(RelativeLayout.ALIGN_PARENT_TOP);
+        panelParams.topMargin = activity.dp(GameLayoutController.scoreBoardTopMarginDp(heightDp));
+        panelParams.setMarginEnd(activity.dp(GameLayoutController.scoreBoardEndMarginDp(widthDp)));
 
         activity.txtCampaignHudBattle = createText(14, Color.WHITE, true);
         activity.txtCampaignHudBattle.setGravity(android.view.Gravity.CENTER);
@@ -242,7 +249,7 @@ final class GameCampaignHudController {
         badgeParams.setMargins(0, activity.dp(7), 0, 0);
         activity.campaignHudPanel.addView(activity.txtCampaignHudBadge, badgeParams);
 
-        ((FrameLayout) root).addView(activity.campaignHudPanel, panelParams);
+        scene.addView(activity.campaignHudPanel, panelParams);
     }
 
     private TextView createText(int sizeSp, int color, boolean bold) {

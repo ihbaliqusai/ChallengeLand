@@ -43,6 +43,34 @@ public final class OnlineDuelStateTest {
         return session;
     }
 
+    private static void withdrawalChecks() {
+        Map<String, Object> board = board();
+        Map<String, Object> session = session(board, "away", "active");
+        check(OnlineDuelState.withdraw(session, "alice"), "explicit withdrawal commits");
+        check("bob".equals(board.get("winnerId")), "opponent wins explicit withdrawal");
+        check("left".equals(OnlineDuelState.map(session.get("alice")).get("status")), "withdrawal publishes absence");
+        check(OnlineDuelState.withdraw(session, "alice"), "withdrawal retries succeed");
+        check("bob".equals(board.get("winnerId")), "retry preserves the result");
+        board = board();
+        board.remove("ready");
+        board.remove("phase");
+        session = session(board, "active", "active");
+        check(OnlineDuelState.withdraw(session, "bob"), "withdrawal during category setup");
+        check("alice".equals(board.get("winnerId")), "owner wins joiner setup withdrawal");
+        check(!OnlineDuelState.withdraw(session, "outsider"), "outsider cannot withdraw another match");
+        board = board();
+        board.put("phase", "finished");
+        board.put("winnerId", "alice");
+        board.put("finishReason", "completed");
+        session = session(board, "finished", "finished");
+        check(OnlineDuelState.withdraw(session, "alice"), "completed match acknowledges withdrawal request");
+        check("alice".equals(board.get("winnerId")) && "completed".equals(board.get("finishReason")),
+                "existing result wins the withdrawal race");
+        board.put("winnerId", "");
+        board.put("finishReason", "draw");
+        check(OnlineDuelState.withdraw(session, "bob") && "".equals(board.get("winnerId")), "draw remains a draw");
+    }
+
     private static void disconnectChecks() {
         long now = 1_800_000_000_000L;
         Map<String, Object> board = board();
@@ -246,6 +274,7 @@ public final class OnlineDuelStateTest {
     }
 
     public static void main(String[] args) {
+        withdrawalChecks();
         disconnectChecks();
         Map<String, Object> board = board();
         check(!OnlineDuelState.claim(board, "bob", 0, 0, 0), "wrong picker");

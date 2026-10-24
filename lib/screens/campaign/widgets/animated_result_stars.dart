@@ -46,32 +46,33 @@ class _AnimatedResultStarsState extends State<AnimatedResultStars>
   @override
   Widget build(BuildContext context) {
     final earned = widget.stars.clamp(0, 3);
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, _) {
-        return SizedBox(
-          height: 132,
-          child: Stack(
-            clipBehavior: Clip.none,
-            alignment: Alignment.center,
-            children: [
-              for (var index = 0; index < 3; index += 1)
-                Positioned(
-                  left: _leftFor(index, MediaQuery.sizeOf(context).width),
-                  top: index == 1 ? 0 : 24,
-                  child: _AnimatedStar(
-                    index: index,
-                    earned: index < earned,
-                    center: index == 1,
-                    progress: _controller.value,
-                    fullGlow: earned == 3,
+    return LayoutBuilder(
+        builder: (context, constraints) => AnimatedBuilder(
+              animation: _controller,
+              builder: (context, _) {
+                return SizedBox(
+                  height: 132,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    alignment: Alignment.center,
+                    children: [
+                      for (var index = 0; index < 3; index += 1)
+                        Positioned(
+                          left: _leftFor(index, constraints.maxWidth),
+                          top: index == 1 ? 0 : 24,
+                          child: _AnimatedStar(
+                            index: index,
+                            earned: index < earned,
+                            center: index == 1,
+                            progress: _controller.value,
+                            fullGlow: earned == 3,
+                          ),
+                        ),
+                    ],
                   ),
-                ),
-            ],
-          ),
-        );
-      },
-    );
+                );
+              },
+            ));
   }
 
   double _leftFor(int index, double width) {

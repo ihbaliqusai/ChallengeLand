@@ -1,3 +1,4 @@
+import '../../widgets/game_notice.dart';
 import 'dart:math' as math;
 import 'dart:ui';
 
@@ -309,47 +310,8 @@ class _LoginScreenState extends State<LoginScreen>
 
   void _showSnack(String message, {bool isError = false}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(
-              isError
-                  ? Icons.error_outline_rounded
-                  : Icons.check_circle_outline_rounded,
-              color:
-                  isError ? const Color(0xFFF87171) : const Color(0xFF4ADE80),
-              size: 20,
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                message,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: const Color(0xFF0F172A),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-          side: BorderSide(
-            color: isError
-                ? const Color(0xFFEF4444).withValues(alpha: 0.5)
-                : const Color(0xFF22C55E).withValues(alpha: 0.5),
-            width: 1.2,
-          ),
-        ),
-        margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-        duration: const Duration(seconds: 4),
-      ),
-    );
+    GameNoticeMessenger.of(context).show(message,
+        tone: isError ? GameNoticeTone.error : GameNoticeTone.success);
   }
 
   @override

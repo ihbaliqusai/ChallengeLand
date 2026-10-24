@@ -1,6 +1,5 @@
 package com.qi7bali.landchallengeonline;
 
-import androidx.appcompat.app.AppCompatActivity;
 
 import android.content.Intent;
 import android.os.Bundle;
@@ -16,7 +15,7 @@ import com.google.android.gms.auth.api.signin.GoogleSignIn;
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
 import com.google.firebase.auth.FirebaseAuth;
 
-public class SettingsActivity extends AppCompatActivity {
+public class SettingsActivity extends GameViewportActivity {
 
     private Switch swSound;
     private Switch swDialogs;
@@ -45,7 +44,7 @@ public class SettingsActivity extends AppCompatActivity {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                 AppPrefs.setSoundEnabled(SettingsActivity.this, isChecked);
-                Toast.makeText(
+                GameNotice.makeText(
                         SettingsActivity.this,
                         isChecked ? "تم تشغيل الصوت" : "تم كتم الصوت",
                         Toast.LENGTH_SHORT

@@ -1,6 +1,5 @@
 package com.qi7bali.landchallengeonline;
 
-import androidx.appcompat.app.AppCompatActivity;
 
 import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
@@ -31,7 +30,7 @@ import org.json.JSONObject;
 
 import de.hdodenhof.circleimageview.CircleImageView;
 
-public class ResultActivity extends AppCompatActivity {
+public class ResultActivity extends GameViewportActivity {
     private InterstitialAd interstitialAd;
     private GameRewardedAdController rewardedAdController;
     private boolean homeNavigationRequested = false;
@@ -226,7 +225,7 @@ public class ResultActivity extends AppCompatActivity {
                     public void onClick(View view) {
                         if (rewardDoubled) return;
                         if (!Data.isNetworkAvailable(ResultActivity.this)) {
-                            Toast.makeText(ResultActivity.this, "لا يوجد اتصال بالإنترنت", Toast.LENGTH_SHORT).show();
+                            GameNotice.makeText(ResultActivity.this, "لا يوجد اتصال بالإنترنت", Toast.LENGTH_SHORT).show();
                             return;
                         }
                         btnDoubleReward.setEnabled(false);
@@ -241,7 +240,7 @@ public class ResultActivity extends AppCompatActivity {
                                     public void run() {
                                         btnDoubleReward.setText("تمت المضاعفة 2x ✓");
                                         btnDoubleReward.setEnabled(false);
-                                        Toast.makeText(ResultActivity.this, "مبروك! تمت إضافة 200 كوين إضافية بنجاح! 🎉", Toast.LENGTH_LONG).show();
+                                        GameNotice.makeText(ResultActivity.this, "مبروك! تمت إضافة 200 كوين إضافية بنجاح! 🎉", Toast.LENGTH_LONG).show();
                                     }
                                 });
                             }
@@ -266,7 +265,7 @@ public class ResultActivity extends AppCompatActivity {
                                     public void run() {
                                         btnDoubleReward.setEnabled(true);
                                         btnDoubleReward.setText("ضاعف الجائزة 2x 🎬 (+200)");
-                                        Toast.makeText(ResultActivity.this, errorReason, Toast.LENGTH_SHORT).show();
+                                        GameNotice.makeText(ResultActivity.this, errorReason, Toast.LENGTH_SHORT).show();
                                     }
                                 });
                             }
@@ -290,7 +289,7 @@ public class ResultActivity extends AppCompatActivity {
                         startActivity(intent);
                     }
                 } else {
-                    Toast.makeText(ResultActivity.this, "لا يوجد اتصال بالإنترنت", Toast.LENGTH_SHORT).show();
+                    GameNotice.makeText(ResultActivity.this, "لا يوجد اتصال بالإنترنت", Toast.LENGTH_SHORT).show();
                 }
             }
         });

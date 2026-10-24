@@ -1,3 +1,4 @@
+import '../../widgets/game_notice.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -214,15 +215,8 @@ class _StoreScreenState extends State<StoreScreen> {
 
   void _snack(String message, {bool error = false}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(
-        content: Text(message,
-            textDirection: _arabic ? TextDirection.rtl : TextDirection.ltr),
-        backgroundColor:
-            error ? const Color(0xFF863548) : const Color(0xFF17645B),
-        behavior: SnackBarBehavior.floating,
-      ));
+    GameNoticeMessenger.of(context).show(message,
+        tone: error ? GameNoticeTone.error : GameNoticeTone.success);
   }
 
   bool _owned(StoreProduct product, AppState app) =>
@@ -702,7 +696,7 @@ class _StoreScreenState extends State<StoreScreen> {
     if (_busy) return;
     final confirmed = await showDialog<bool>(
         context: context,
-        builder: (ctx) => AlertDialog(
+        builder: (ctx) => GameAlertDialog(
                 title: Center(
                     child: Text(category.name, textAlign: TextAlign.center)),
                 content: Text(description, textAlign: TextAlign.center),

@@ -5,6 +5,7 @@ abstract final class HomeArtwork {
   static const menu = 'assets/home/menu.webp';
   static const friends = 'assets/home/friends.webp';
   static const store = 'assets/home/store.webp';
+  static const help = 'assets/home/help.png';
   static const campaign = 'assets/home/campaign.webp';
   static const modes = 'assets/home/modes.webp';
   static const play = 'assets/home/play.png';

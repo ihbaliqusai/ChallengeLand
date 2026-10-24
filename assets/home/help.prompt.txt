@@ -1,0 +1,7 @@
+Tool: built-in image_gen (transparent_background: true).
+Edit target: assets/home/store.png.
+Supporting style reference: assets/home/friends.png.
+Output: assets/home/help.png, resized to 256x256 with alpha preserved.
+
+Final prompt:
+Use case: precise-object-edit. Asset type: transparent raster game UI help button for an existing Flutter game; displayed at only 52 by 52 logical pixels. Image 1 is the edit target: an existing round wooden store button. Image 2 is a supporting style reference of its neighboring stone friends button. Create ONE matching help button. In Image 1 replace ONLY the center basket emblem with one large, bold, clearly readable question mark '?' carved in raised warm ivory/beige material, with beveled edges, top-left highlights and the same subtle dark lower-right extrusion as the original basket. Remove the basket completely. Preserve the original round wooden plank backing, irregular segmented outer brown stone/wood rim, perspective, muted earthy palette, hand-painted cartoon game rendering, highlights and shadow style. Keep the new question mark centered and approximately the same visual footprint as the basket; it must remain instantly readable at 52 pixels. Match the neighboring reference buttons rather than inventing a new UI style. Frontal view, one isolated square icon, tight framing matching the references with only a small transparent margin. Preserve true alpha transparency outside the button. No glow, no green notification light, no text labels, no extra icons, no extra buttons, no watermark.

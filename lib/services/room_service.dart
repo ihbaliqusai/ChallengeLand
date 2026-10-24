@@ -219,6 +219,10 @@ class RoomService {
             // Allow a previously disconnected player to reconnect.
             final existingPlayer = room.players[userId];
             if (existingPlayer != null) {
+              if (existingPlayer.forfeited) {
+                throw StateError(
+                    'انسحبت من هذه المباراة ولا يمكنك العودة إليها.');
+              }
               if (existingPlayer.disconnected) {
                 _log('player_reconnected', data: {
                   'roomId': roomId,
@@ -1486,7 +1490,10 @@ class RoomService {
           final room = Room.fromSnapshot(snapshot);
           if (room.phase != Room.phasePlayingRound) return;
 
-          final activePlayers = room.players.entries.toList();
+          final activePlayers = room.players.entries
+              .where((entry) => !entry.value.forfeited)
+              .toList();
+          if (activePlayers.isEmpty) return;
           final allSubmitted =
               activePlayers.every((e) => e.value.completedAt != null);
           if (!allSubmitted) return;
@@ -1754,19 +1761,30 @@ class RoomService {
         });
       });
 
-  Future<void> leaveRoom({
+  Future<void> leaveRoom(
+      {required String roomId, required String userId}) async {
+    await _leaveRoom(roomId: roomId, userId: userId);
+  }
+
+  /// Returns the committed pre-withdrawal state so a simultaneous result wins.
+  Future<Room?> forfeitRoom({required String roomId, required String userId}) =>
+      _leaveRoom(roomId: roomId, userId: userId, forfeit: true);
+
+  Future<Room?> _leaveRoom({
     required String roomId,
     required String userId,
+    bool forfeit = false,
   }) =>
       _guard(() async {
         _log('player_left', data: {'roomId': roomId, 'userId': userId});
         final ref = _rooms.doc(roomId);
-        await _firestore.runTransaction((transaction) async {
+        return _firestore.runTransaction<Room?>((transaction) async {
           final snapshot = await transaction.get(ref);
-          if (!snapshot.exists) return;
+          if (!snapshot.exists) return null;
 
           final room = Room.fromSnapshot(snapshot);
-          if (!room.containsPlayer(userId)) return;
+          if (!room.containsPlayer(userId)) return room;
+          if (forfeit && room.phase == Room.phaseFinished) return room;
 
           // If the game is active, mark the player as disconnected instead of
           // removing them — they keep their slot and can rejoin while the game runs.
@@ -1785,12 +1803,17 @@ class RoomService {
                 'reason': 'last_human_left_during_game',
               });
               transaction.delete(ref);
-              return;
+              return room;
             }
 
             final player = room.players[userId]!;
             final updates = <String, dynamic>{
               'players.$userId.disconnected': true,
+              if (forfeit) 'players.$userId.forfeited': true,
+              if (forfeit &&
+                  (room.mode == Room.modeElimination ||
+                      room.mode == Room.modeSurvival))
+                'players.$userId.eliminated': true,
             };
 
             // Reassign host deterministically even on disconnect.
@@ -1844,7 +1867,7 @@ class RoomService {
             }
 
             transaction.update(ref, updates);
-            return;
+            return room;
           }
 
           // Lobby / finished: remove the player entirely.
@@ -1857,7 +1880,7 @@ class RoomService {
               'reason': 'all_players_left_lobby',
             });
             transaction.delete(ref);
-            return;
+            return room;
           }
 
           // Use a deterministic host selection: prefer existing host, otherwise
@@ -1883,6 +1906,7 @@ class RoomService {
             'hostId': nextHostId,
             'players.$userId': FieldValue.delete(),
           });
+          return room;
         });
       });
 
@@ -1915,7 +1939,7 @@ class RoomService {
       player.answeredCount > 0;
 
   static bool _isActiveSurvivalPlayer(RoomPlayer player) =>
-      !player.eliminated && player.lives > 0;
+      !player.forfeited && !player.eliminated && player.lives > 0;
 
   static RoomPlayer _answeredSurvivalPlayer(
     RoomPlayer player, {
@@ -1933,6 +1957,7 @@ class RoomService {
       lives: nextLives,
       roundWins: player.roundWins,
       teamId: player.teamId,
+      forfeited: player.forfeited,
     );
   }
 
@@ -1950,6 +1975,7 @@ class RoomService {
       lives: player.lives,
       roundWins: player.roundWins,
       teamId: player.teamId,
+      forfeited: player.forfeited,
     );
   }
 
@@ -2147,18 +2173,20 @@ class RoomService {
     int seriesTarget,
   ) {
     if (players.isEmpty) return null;
-    final sorted = players.entries.toList()
-      ..sort((a, b) {
-        final winsCmp = b.value.roundWins.compareTo(a.value.roundWins);
-        if (winsCmp != 0) return winsCmp;
-        final scoreCmp = b.value.score.compareTo(a.value.score);
-        if (scoreCmp != 0) return scoreCmp;
-        final answeredCmp =
-            b.value.answeredCount.compareTo(a.value.answeredCount);
-        if (answeredCmp != 0) return answeredCmp;
-        return _stableHash(a.key).compareTo(_stableHash(b.key));
-      });
+    final sorted =
+        players.entries.where((entry) => !entry.value.forfeited).toList()
+          ..sort((a, b) {
+            final winsCmp = b.value.roundWins.compareTo(a.value.roundWins);
+            if (winsCmp != 0) return winsCmp;
+            final scoreCmp = b.value.score.compareTo(a.value.score);
+            if (scoreCmp != 0) return scoreCmp;
+            final answeredCmp =
+                b.value.answeredCount.compareTo(a.value.answeredCount);
+            if (answeredCmp != 0) return answeredCmp;
+            return _stableHash(a.key).compareTo(_stableHash(b.key));
+          });
 
+    if (sorted.isEmpty) return null;
     final leader = sorted.first;
     if (leader.value.roundWins <= 0) return null;
     if (sorted.length > 1) {
@@ -2179,6 +2207,7 @@ class RoomService {
     required Map<String, RoomPlayer> players,
   }) {
     final activePlayers = players.entries.where((entry) {
+      if (entry.value.forfeited) return false;
       if (room.mode == Room.modeSurvival) {
         return !entry.value.eliminated && entry.value.lives > 0;
       }
@@ -2188,8 +2217,10 @@ class RoomService {
       return activePlayers.single.key;
     }
 
-    if (players.isEmpty) return null;
-    final sorted = players.entries.toList()
+    final eligible =
+        players.entries.where((entry) => !entry.value.forfeited).toList();
+    if (eligible.isEmpty) return null;
+    final sorted = eligible
       ..sort((a, b) {
         final scoreCmp = b.value.score.compareTo(a.value.score);
         if (scoreCmp != 0) return scoreCmp;
@@ -2232,27 +2263,28 @@ class RoomService {
   static String? _computeBlitzWinner(Map<String, RoomPlayer> players) {
     if (players.isEmpty) return null;
 
-    final sorted = players.entries.toList()
-      ..sort((a, b) {
-        final scoreCmp = b.value.score.compareTo(a.value.score);
-        if (scoreCmp != 0) return scoreCmp;
-        final answerCmp =
-            b.value.answeredCount.compareTo(a.value.answeredCount);
-        if (answerCmp != 0) return answerCmp;
-        final aAt = a.value.completedAt;
-        final bAt = b.value.completedAt;
-        if (aAt != null && bAt != null) {
-          final timeCmp = aAt.compareTo(bAt);
-          if (timeCmp != 0) return timeCmp;
-        } else if (aAt != null) {
-          return -1;
-        } else if (bAt != null) {
-          return 1;
-        }
-        return _stableHash(a.key).compareTo(_stableHash(b.key));
-      });
+    final sorted =
+        players.entries.where((entry) => !entry.value.forfeited).toList()
+          ..sort((a, b) {
+            final scoreCmp = b.value.score.compareTo(a.value.score);
+            if (scoreCmp != 0) return scoreCmp;
+            final answerCmp =
+                b.value.answeredCount.compareTo(a.value.answeredCount);
+            if (answerCmp != 0) return answerCmp;
+            final aAt = a.value.completedAt;
+            final bAt = b.value.completedAt;
+            if (aAt != null && bAt != null) {
+              final timeCmp = aAt.compareTo(bAt);
+              if (timeCmp != 0) return timeCmp;
+            } else if (aAt != null) {
+              return -1;
+            } else if (bAt != null) {
+              return 1;
+            }
+            return _stableHash(a.key).compareTo(_stableHash(b.key));
+          });
 
-    if (sorted.first.value.score == 0) return null;
+    if (sorted.isEmpty || sorted.first.value.score == 0) return null;
     return sorted.first.key;
   }
 

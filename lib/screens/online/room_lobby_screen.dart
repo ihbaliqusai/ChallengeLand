@@ -1,3 +1,4 @@
+import '../../widgets/game_notice.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -140,7 +141,7 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      GameNoticeMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(e.toString()),
           backgroundColor: const Color(0xFF7F1D1D),
@@ -178,7 +179,7 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
       }
       final shop = await showDialog<bool>(
           context: context,
-          builder: (ctx) => AlertDialog(
+          builder: (ctx) => GameAlertDialog(
                   title: const Text('تحتاج إلى مفتاح'),
                   content: Text(matchStarted
                       ? 'نفدت المفاتيح. فتح أرصدة اللعب سيُخرجك من هذه المباراة أولاً حتى يتمكن الآخرون من المتابعة.'
@@ -223,7 +224,7 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
     if (matchStarted) {
       setState(() => _launchKeyError = message);
     } else {
-      ScaffoldMessenger.of(context)
+      GameNoticeMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(message)));
     }
   }
@@ -255,7 +256,7 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
           );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      GameNoticeMessenger.of(context).showSnackBar(
         SnackBar(
             content: Text(e.toString()), behavior: SnackBarBehavior.floating),
       );
@@ -269,7 +270,7 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
     if (!mounted || context.read<AppState>().user?.uid != userId) return;
     // Capture service references before any async gaps.
     final roomService = context.read<RoomService>();
-    final messenger = ScaffoldMessenger.of(context);
+    final messenger = GameNoticeMessenger.of(context);
     setState(() => _starting = true);
 
     try {
@@ -306,7 +307,7 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
     final userId = context.read<AppState>().user?.uid;
     if (userId == null) return;
     final roomService = context.read<RoomService>();
-    final messenger = ScaffoldMessenger.of(context);
+    final messenger = GameNoticeMessenger.of(context);
     setState(() => _starting = true);
 
     try {
@@ -501,7 +502,7 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
       await Clipboard.setData(ClipboardData(text: code));
       HapticFeedback.mediumImpact();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      GameNoticeMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
             children: [
@@ -543,7 +544,7 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
       );
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      GameNoticeMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('تعذر فتح نافذة المشاركة على هذا الجهاز.'),
           behavior: SnackBarBehavior.floating,
@@ -1285,7 +1286,7 @@ class _LobbyHeader extends StatelessWidget {
                   onTap: () {
                     Clipboard.setData(ClipboardData(text: room.id));
                     HapticFeedback.selectionClick();
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    GameNoticeMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Row(
                           children: [
@@ -1978,7 +1979,7 @@ class _PlayerTile extends StatelessWidget {
                             );
                       } catch (error) {
                         if (!context.mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
+                        GameNoticeMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(error.toString()),
                             behavior: SnackBarBehavior.floating,

@@ -1,3 +1,4 @@
+import '../../widgets/game_notice.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -2987,7 +2988,7 @@ class _PlayerProfileModal extends StatelessWidget {
                         Clipboard.setData(
                             ClipboardData(text: player.friendCode!));
                         HapticFeedback.lightImpact();
-                        ScaffoldMessenger.of(context).showSnackBar(
+                        GameNoticeMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text('تم نسخ كود الصداقة بنجاح!'),
                             duration: Duration(seconds: 2),

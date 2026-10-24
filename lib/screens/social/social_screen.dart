@@ -1,3 +1,4 @@
+import '../../widgets/game_notice.dart';
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -72,15 +73,16 @@ class _SocialScreenState extends State<SocialScreen>
     try {
       await action();
       if (mounted && account == _account && successMessage.isNotEmpty) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(successMessage)));
+        GameNoticeMessenger.of(context)
+            .show(successMessage, tone: GameNoticeTone.success);
       }
     } catch (error) {
       if (mounted && account == _account) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(error is SocialException
+        GameNoticeMessenger.of(context).show(
+            error is SocialException
                 ? error.message
-                : 'تعذر تنفيذ الطلب. تحقق من الاتصال وحاول مجددًا.')));
+                : 'تعذر تنفيذ الطلب. تحقق من الاتصال وحاول مجددًا.',
+            tone: GameNoticeTone.error);
       }
     } finally {
       if (mounted && account == _account) setState(() => _busy.remove(key));
@@ -598,7 +600,7 @@ class _SocialScreenState extends State<SocialScreen>
     if (amount == null || !mounted || _account != uid) return;
     await service.sendStakedChallenge(uid, peer, amount);
     if (mounted && _account == uid) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      GameNoticeMessenger.of(context).showSnackBar(SnackBar(
           content: Text(
               'أُرسلت دعوة بـ$amount قطعة؛ الجائزة ${amount * 2} قطعة بعد قبول صديقك.')));
     }

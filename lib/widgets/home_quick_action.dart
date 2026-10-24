@@ -16,6 +16,7 @@ class HomeQuickAction extends StatelessWidget {
     this.isAvailable = true,
     this.animationPhase = 0,
     this.asset,
+    this.circular = false,
   });
 
   final String label;
@@ -27,6 +28,7 @@ class HomeQuickAction extends StatelessWidget {
   final bool isAvailable;
   final double animationPhase;
   final String? asset;
+  final bool circular;
 
   @override
   Widget build(BuildContext context) {
@@ -54,7 +56,10 @@ class HomeQuickAction extends StatelessWidget {
                             end: Alignment.bottomRight,
                             colors: [Color(0xFF122344), Color(0xFF081329)],
                           ),
-                          borderRadius: BorderRadius.circular(16),
+                          shape:
+                              circular ? BoxShape.circle : BoxShape.rectangle,
+                          borderRadius:
+                              circular ? null : BorderRadius.circular(16),
                           border: Border.all(
                             color: color.withValues(
                                 alpha: isAvailable ? 0.38 : 0.18),
@@ -73,9 +78,11 @@ class HomeQuickAction extends StatelessWidget {
                     padding: EdgeInsets.zero,
                     style: IconButton.styleFrom(
                       fixedSize: const Size.square(52),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
+                      shape: circular
+                          ? const CircleBorder()
+                          : RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
                       foregroundColor: color,
                     ),
                     icon: AnimatedBuilder(
