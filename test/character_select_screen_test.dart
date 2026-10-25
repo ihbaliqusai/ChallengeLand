@@ -244,7 +244,7 @@ void main() {
     expect(find.text('نبذة عن المتسابق'), findsNothing);
   });
 
-  testWidgets('preview and cancelled purchase keep the current character',
+  testWidgets('preview keeps selection and purchase unlocks directly',
       (tester) async {
     final state = _FakeAppState();
     await mount(tester, state: state);
@@ -257,16 +257,7 @@ void main() {
     final unlock = find.text('فتح وتفعيل (12K كوين)');
     await tester.tap(unlock);
     await tester.pumpAndSettle();
-    expect(find.text('فتح الشخصية'), findsOneWidget);
-    expect(find.textContaining('فهد'), findsNothing);
-    await tester.tap(find.text('إلغاء'));
-    await tester.pumpAndSettle();
-    expect(state.selectedCharacterIndex, 1);
-    expect(state.purchaseRequests, 0);
-    await tester.tap(unlock);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('فتح مقابل 12K'));
-    await tester.pumpAndSettle();
+    expect(find.text('فتح الشخصية'), findsNothing);
     expect(state.selectedCharacterIndex, 2);
     expect(state.purchaseRequests, 1);
     expect(tester.takeException(), isNull);
@@ -329,8 +320,6 @@ void main() {
       expect(tester.takeException(), isNull);
     }
     await tester.tap(find.text('فتح وتفعيل (16K كوين)'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('فتح مقابل 16K'));
     await tester.pumpAndSettle();
     expect(state.selectedCharacterIndex, 15);
     expect(state.purchaseRequests, 1);

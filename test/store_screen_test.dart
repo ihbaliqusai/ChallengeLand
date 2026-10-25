@@ -348,6 +348,13 @@ void main() {
     expect(tester.takeException(), isNull, reason: location);
   }
 
+  Future<void> assertCheckout(WidgetTester tester) async {
+    // The payment progress indicator keeps animating while native billing is open.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(tester.takeException(), isNull);
+  }
+
   void assertCenteredTitles(WidgetTester tester) {
     final titles = find.byWidgetPredicate((widget) =>
         widget is GameStoreText && widget.size == 23 && widget.maxLines == 2);
@@ -492,7 +499,7 @@ void main() {
   });
 
   testWidgets(
-      'supplied banner uses its live price and opens the matching review',
+      'supplied banner uses its live price and launches the matching billing',
       (tester) async {
     loadCatalog = () async {
       final catalog = availableCatalog();
@@ -507,11 +514,12 @@ void main() {
     await assertClean(tester, 'Explorer artwork price');
     expect(find.widgetWithText(FilledButton, '₺79,99'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('store-offer-pack_value')));
-    await assertClean(tester, 'Explorer review');
+    await assertCheckout(tester);
     expect(find.text('Explorer bundle'), findsWidgets);
-    expect(find.text('₺79,99'), findsWidgets);
-    expect(find.text('Continue to payment'), findsOneWidget);
-    expect(calls.where((call) => call.method == 'launchBilling'), isEmpty);
+    expect(find.text('Continue to payment'), findsNothing);
+    final launches = calls.where((call) => call.method == 'launchBilling');
+    expect(launches, hasLength(1));
+    expect(launches.single.arguments, {'productId': 'pack_value'});
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
@@ -731,7 +739,7 @@ void main() {
   });
 
   testWidgets(
-      'gem artwork uses the live price and opens its own purchase review',
+      'gem artwork uses the live price and launches billing once on purchase',
       (tester) async {
     loadCatalog = () async {
       final catalog = availableCatalog();
@@ -745,30 +753,30 @@ void main() {
     await assertClean(tester, 'Gem artwork live price');
     expect(find.widgetWithText(FilledButton, '₺99,99'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('store-product-gems_500')));
-    await assertClean(tester, 'Gem chest review');
-    expect(find.text('Gem chest'), findsOneWidget);
-    expect(find.text('₺99,99'), findsWidgets);
-    expect(find.text('Continue to payment'), findsOneWidget);
-    expect(calls.where((call) => call.method == 'launchBilling'), isEmpty);
+    await assertCheckout(tester);
+    expect(find.text('Continue to payment'), findsNothing);
+    final launches = calls.where((call) => call.method == 'launchBilling');
+    expect(launches, hasLength(1));
+    expect(launches.single.arguments, {'productId': 'gems_500'});
+    expect(purchases.status, PurchaseFlowStatus.launching);
+    expect(calls.where((call) => call.method == 'grantCurrency'), isEmpty);
+    await tester.tap(find.byKey(const ValueKey('store-product-gems_500')));
+    await assertCheckout(tester);
+    expect(launches, hasLength(1));
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets(
-      'coin card opens the matching review and cancellation skips billing',
+  testWidgets('coin card launches billing directly for the matching product',
       (tester) async {
     await mount(tester, const Size(800, 600),
         initialKind: StoreProductKind.coins);
     await assertClean(tester, 'Coin cards');
     await tester.tap(find.widgetWithText(FilledButton, '₺39,99').first);
-    await assertClean(tester, 'Coin review');
-    expect(find.text('Coin pouch'), findsOneWidget);
-    expect(find.text('Continue to payment'), findsOneWidget);
-    expect(calls.where((call) => call.method == 'launchBilling'), isEmpty);
-    final cancel = find.text('Cancel');
-    await tester.ensureVisible(cancel);
-    await tester.tap(cancel);
-    await assertClean(tester, 'Coin review cancelled');
-    expect(calls.where((call) => call.method == 'launchBilling'), isEmpty);
+    await assertCheckout(tester);
+    expect(find.text('Continue to payment'), findsNothing);
+    final launches = calls.where((call) => call.method == 'launchBilling');
+    expect(launches, hasLength(1));
+    expect(launches.single.arguments, {'productId': 'coins_5000'});
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
@@ -944,7 +952,7 @@ void main() {
   });
 
   testWidgets(
-      'subscription review explains price, renewal, access and cancellation before billing',
+      'subscription shows renewal details and launches billing directly',
       (tester) async {
     await mount(tester, const Size(800, 360),
         initialKind: StoreProductKind.subscription);
@@ -961,22 +969,15 @@ void main() {
     final price = find.text('₺149,99 / month');
     await Scrollable.ensureVisible(tester.element(price), alignment: 0.5);
     await tester.pumpAndSettle();
+    expect(find.textContaining('Renews automatically every month.'),
+        findsOneWidget);
     await tester.tap(price);
-    await assertClean(tester, 'Subscription review sheet');
-    expect(find.text('Continue to payment'), findsOneWidget);
-    expect(
-        find.text('No forced ads; reward ads remain optional'), findsOneWidget);
-    expect(find.textContaining('automatically renewing subscription'),
-        findsOneWidget);
-    expect(find.textContaining('paid period ends after cancellation'),
-        findsOneWidget);
-    expect(calls.where((call) => call.method == 'launchBilling'), isEmpty,
-        reason: 'Showing the review sheet must not charge or launch billing.');
-    final cancel = find.text('Cancel');
-    await tester.ensureVisible(cancel);
-    await tester.tap(cancel);
-    await assertClean(tester, 'Review cancelled');
-    expect(calls.where((call) => call.method == 'launchBilling'), isEmpty);
+    await assertCheckout(tester);
+    expect(find.text('Continue to payment'), findsNothing);
+    final launches = calls.where((call) => call.method == 'launchBilling');
+    expect(launches, hasLength(1));
+    expect(launches.single.arguments, {'productId': 'vip_monthly'});
+    expect(app.membershipActive, isFalse);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
@@ -1343,8 +1344,7 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets(
-      'rental confirmation includes category, duration, and exact price',
+  testWidgets('choosing a priced rental starts it without another confirmation',
       (tester) async {
     settings.dispose();
     settings = _StoreSettings(arabic: true);
@@ -1365,13 +1365,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('أسبوع (7 أيام) • 7000 قطعة'));
     await tester.pumpAndSettle();
-    expect(
-        find.text(
-            'استئجار تصنيف «سبيس تون» لمدة أسبوع (7 أيام) مقابل 7000 قطعة.\nتُضاف المدة إلى الاستئجار الحالي إن كان سارياً.'),
-        findsOneWidget);
-    expect(app.economyActions, isEmpty);
-    await tester.tap(find.text('تأكيد'));
-    await tester.pumpAndSettle();
+    expect(find.text('تأكيد'), findsNothing);
     expect(app.economyActions.single, {
       'action': 'rent',
       'duration': 'week',

@@ -22,6 +22,8 @@ import 'package:challenge_land/widgets/special_offer_badge.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:challenge_land/screens/auth/login_bottom_sheet.dart';
+import 'package:challenge_land/widgets/guide/guide_assistant_dialog.dart';
+import 'package:challenge_land/widgets/guide/home_guide_tour_overlay.dart';
 // Firebase's test harness accompanies the app's existing Firebase dependency.
 // ignore: depend_on_referenced_packages
 import 'package:firebase_core_platform_interface/test.dart';
@@ -52,6 +54,7 @@ class _HomeState extends ChangeNotifier implements AppState {
   _HomeState({this.online = false, this.signedIn = true});
   final bool online;
   final bool signedIn;
+
   int characterIndex = 1;
   @override
   int get selectedCharacterIndex => characterIndex;
@@ -194,9 +197,166 @@ Widget _shortcut({
 }
 
 void main() {
+  for (final size in [
+    const Size(960, 540),
+    const Size(800, 360),
+    const Size(390, 844),
+    const Size(1600, 826)
+  ]) {
+    testWidgets('home tour keeps every target and presenter clear at $size',
+        (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      await tester.binding.setSurfaceSize(size);
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      for (final font in {
+        'Baloo': 'assets/fonts/baloo.ttf',
+        'NotoSansArabic': 'assets/fonts/NotoSansArabic.ttf',
+        'MaterialIcons': 'fonts/MaterialIcons-Regular.otf',
+      }.entries) {
+        await (FontLoader(font.key)
+              ..addFont(SharedAssets.bundle.load(font.value)))
+            .load();
+      }
+      final state = _HomeState(online: true, signedIn: false);
+      addTearDown(state.dispose);
+      final previewKey = GlobalKey();
+      await tester.pumpWidget(MultiProvider(
+          providers: [
+            ChangeNotifierProvider<AppState>.value(value: state),
+            Provider<NativeBridgeService>.value(value: _NativeBridge()),
+          ],
+          child: MaterialApp(
+            builder: (context, child) => RepaintBoundary(
+                key: previewKey, child: GameViewport(child: child!)),
+            theme: ThemeData.dark(useMaterial3: true).copyWith(
+                textTheme: ThemeData.dark()
+                    .textTheme
+                    .apply(fontFamily: 'NotoSansArabic')),
+            home: const HomeScreen(),
+          )));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.byType(HomeGuideTourOverlay), findsOneWidget,
+          reason: 'A new guest should automatically see the tour');
+      final tour = tester
+          .widget<HomeGuideTourOverlay>(find.byType(HomeGuideTourOverlay));
+      await tester.runAsync(() => Future.wait([
+            for (final file
+                in Directory('assets/presenter').listSync().whereType<File>())
+              if (file.path.endsWith('.png'))
+                precacheImage(AssetImage(file.path.replaceAll('\\', '/')),
+                    tester.element(find.byType(HomeGuideTourOverlay))),
+          ]));
+      for (var index = 0; index < tour.steps.length; index++) {
+        // Let the previous bubble fade out before checking the new speech turn.
+        await tester.pump(const Duration(milliseconds: 200));
+        await tester.pump();
+        expect(tester.takeException(), isNull,
+            reason: 'Step $index: ${tour.steps[index].title}');
+        final stage = tester.getRect(find.byKey(const ValueKey('guide-stage')));
+        final scene =
+            tester.getRect(find.byKey(const ValueKey('guide-presenter-scene')));
+        final bubble =
+            tester.getRect(find.byKey(const ValueKey('guide-dialogue-panel')));
+        final host =
+            tester.getRect(find.byKey(const ValueKey('guide-presenter')));
+        final podium =
+            tester.getRect(find.byKey(const ValueKey('guide-podium')));
+        final navigation =
+            tester.getRect(find.byKey(const ValueKey('guide-navigation')));
+        expect(navigation.deflate(.5).overlaps(podium.deflate(.5)), isFalse,
+            reason:
+                'Step $index ${tour.steps[index].title}: navigation $navigation must not cover podium $podium');
+        expect(navigation.deflate(.5).overlaps(bubble.deflate(.5)), isFalse);
+        expect(bubble.bottom, lessThanOrEqualTo(host.top + .5),
+            reason: 'The speech bubble belongs above the presenter');
+        expect(podium.top, greaterThan(host.top + host.height * .85),
+            reason: 'The podium belongs below the full torso');
+        expect(host.height,
+            greaterThanOrEqualTo(size == const Size(960, 540) ? 139.5 : 129.5),
+            reason: 'The presenter should remain large enough to see speaking');
+        for (final part in [scene, bubble, host, podium]) {
+          expect(stage.inflate(.5).contains(part.topLeft), isTrue,
+              reason: 'Step $index must contain the entire presenter scene');
+          expect(stage.inflate(.5).contains(part.bottomRight), isTrue,
+              reason: 'Step $index must contain the entire presenter scene');
+        }
+        final screen = Offset.zero & size;
+        expect(screen.contains(stage.topLeft), isTrue);
+        expect(screen.contains(stage.bottomRight), isTrue);
+        final targetKey = tour.steps[index].targetKey;
+        if (targetKey != null) {
+          final target = tester.getRect(find.byKey(targetKey));
+          final paint = tester.widget<CustomPaint>(
+              find.byKey(const ValueKey('guide-spotlight')));
+          final painter = paint.painter! as SpotlightPainter;
+          expect(painter.targetRect, isNotNull,
+              reason: tour.steps[index].title);
+          final surface = tester.renderObject<RenderBox>(
+              find.byKey(const ValueKey('guide-spotlight')));
+          final actual = Rect.fromPoints(
+              surface.localToGlobal(painter.targetRect!.topLeft),
+              surface.localToGlobal(painter.targetRect!.bottomRight));
+          expect(actual.left, closeTo(target.left, .1));
+          expect(actual.top, closeTo(target.top, .1));
+          expect(actual.width, closeTo(target.width, .1));
+          expect(actual.height, closeTo(target.height, .1));
+          expect(stage.overlaps(target), isFalse,
+              reason: tour.steps[index].title);
+        }
+        if ([0, 1, 5, 12, 14, 17].contains(index)) {
+          // Capture a talking frame, then reveal the whole line for a readable
+          // reference image without changing the presenter/podium placement.
+          await tester.tap(find.byTooltip('إعادة الشرح'));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 450));
+          await tester.runAsync(() async {
+            final boundary = previewKey.currentContext!.findRenderObject()
+                as RenderRepaintBoundary;
+            final rendered = await boundary.toImage(pixelRatio: 1.5);
+            final bytes =
+                await rendered.toByteData(format: ui.ImageByteFormat.png);
+            await File(
+                    'build/guide-${size.width.toInt()}x${size.height.toInt()}-$index.png')
+                .writeAsBytes(bytes!.buffer.asUint8List());
+            rendered.dispose();
+          });
+          await tester.tap(find.byKey(const ValueKey('guide-speech-bubble')));
+          await tester.pump(const Duration(milliseconds: 180));
+          await tester.runAsync(() async {
+            final boundary = previewKey.currentContext!.findRenderObject()
+                as RenderRepaintBoundary;
+            final rendered = await boundary.toImage(pixelRatio: 1.5);
+            final bytes =
+                await rendered.toByteData(format: ui.ImageByteFormat.png);
+            await File(
+                    'build/guide-${size.width.toInt()}x${size.height.toInt()}-$index-full.png')
+                .writeAsBytes(bytes!.buffer.asUint8List());
+            rendered.dispose();
+          });
+        }
+        if (index < tour.steps.length - 1) {
+          await tester.tap(find.text(index == 0 ? 'ابدأ الجولة' : 'التالي'));
+          await tester.pump();
+        }
+      }
+      await tester.tap(find.text('استكشف الساحة'));
+      await tester.pump();
+      expect(find.byType(HomeGuideTourOverlay), findsNothing);
+      expect(
+          (await SharedPreferences.getInstance())
+              .getBool('has_completed_home_onboarding_guide'),
+          isTrue);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(seconds: 1));
+    });
+  }
   for (final online in [true, false]) {
     testWidgets('guest home requires sign-in for every control online=$online',
         (tester) async {
+      SharedPreferences.setMockInitialValues(
+          {'has_completed_home_onboarding_guide': true});
       await tester.binding.setSurfaceSize(const Size(1600, 826));
       addTearDown(() => tester.binding.setSurfaceSize(null));
       for (final font in {
@@ -248,13 +408,17 @@ void main() {
         await tester.tapAt(tester.getCenter(control));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 400));
-        expect(find.byType(LoginBottomSheet), findsOneWidget,
-            reason: control.toString());
+        final authPromptFinder = find.byType(LoginBottomSheet);
+        expect(authPromptFinder, findsOneWidget, reason: control.toString());
+        expect(find.byType(GuidePromptDialog), findsNothing);
+        expect(find.text('جرّب التحدي مجانًا'), findsNothing);
+        expect(find.byKey(const ValueKey('login-privacy-checkbox')),
+            findsOneWidget);
         expect(find.byType(HomeScreen), findsOneWidget);
         expect(find.byType(GameModesArtwork), findsNothing);
         expect(find.byType(CharacterSelectScreen), findsNothing);
         if (online && !previewSaved) {
-          final context = tester.element(find.byType(LoginBottomSheet));
+          final context = tester.element(authPromptFinder);
           await tester.runAsync(() => Future.wait([
                 for (final image
                     in tester.widgetList<Image>(find.byType(Image)))
@@ -276,7 +440,7 @@ void main() {
         await tester.tap(find.byKey(const ValueKey('close-login-sheet')));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 400));
-        expect(find.byType(LoginBottomSheet), findsNothing);
+        expect(authPromptFinder, findsNothing);
       }
       expect(state.mainChallengeRequests, 0);
       expect(state.offlineRequests, 0);

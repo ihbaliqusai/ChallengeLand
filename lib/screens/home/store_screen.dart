@@ -278,15 +278,6 @@ class _StoreScreenState extends State<StoreScreen> {
         StoreProductKind.categoryPass => _green,
       };
 
-  IconData _icon(StoreProduct product) => switch (product.kind) {
-        StoreProductKind.coins => Icons.monetization_on_rounded,
-        StoreProductKind.gems => Icons.diamond_rounded,
-        StoreProductKind.bundle => Icons.inventory_2_rounded,
-        StoreProductKind.resource => Icons.key_rounded,
-        StoreProductKind.subscription => Icons.workspace_premium_rounded,
-        StoreProductKind.categoryPass => Icons.auto_awesome_motion_rounded,
-      };
-
   Future<void> _buyProduct(StoreProduct product) async {
     final iap = context.read<InAppPurchaseService>();
     final app = context.read<AppState>();
@@ -302,8 +293,6 @@ class _StoreScreenState extends State<StoreScreen> {
     try {
       await context.read<AppSettings>().playHaptic();
       if (!mounted) return;
-      final confirmed = await _confirmProduct(product, details.price);
-      if (!confirmed || !mounted) return;
       // Only the delivery event may report success; opening billing is not delivery.
       final launched = await iap.buyProduct(product.id);
       if (!launched && mounted) {
@@ -321,145 +310,6 @@ class _StoreScreenState extends State<StoreScreen> {
     }
   }
 
-  Future<bool> _confirmProduct(StoreProduct product, String price) =>
-      _confirmSheet(
-        title: _title(product),
-        subtitle: _subtitle(product),
-        icon: _icon(product),
-        accent: _accent(product),
-        body: [
-          if (product.coins > 0 ||
-              product.gems > 0 ||
-              product.keys > 0 ||
-              product.tickets > 0 ||
-              product.hearts > 0)
-            _rewardSummary(product.coins, product.gems,
-                keys: product.keys,
-                tickets: product.tickets,
-                hearts: product.hearts),
-          if (product.kind == StoreProductKind.categoryPass)
-            _benefit(
-                Icons.lock_open_rounded,
-                _tr('فتح دائم لجميع الفئات المميزة الحالية',
-                    'Permanent access to all current premium categories')),
-          if (product.kind == StoreProductKind.subscription) ...[
-            _benefit(
-                Icons.card_giftcard_rounded,
-                _tr('حزمة مكافآت الانضمام: 100 جوهرة + 1000 قطعة + 3 مفاتيح وتذاكر وقلوب',
-                    'Welcome pack: 100 gems + 1,000 coins + 3 keys, tickets & hearts')),
-            _benefit(
-                Icons.category_rounded,
-                _tr('جميع الفئات المميزة طوال صلاحية الاشتراك',
-                    'All premium categories while your membership is active')),
-            _benefit(
-                Icons.block_rounded,
-                _tr('بدون إعلانات إجبارية؛ إعلانات المكافآت اختيارية',
-                    'No forced ads; reward ads remain optional')),
-            _benefit(
-                Icons.military_tech_rounded,
-                _tr('شارة العضوية المميزة VIP وهيبة الأبطال',
-                    'Prestige VIP badge and club status')),
-          ],
-          if (product.kind == StoreProductKind.resource) ...[
-            _benefit(
-                Icons.check_circle_outline_rounded,
-                _tr('إضافة رصيد الموارد فورياً إلى حسابك',
-                    'Resources added instantly to your balance')),
-            _benefit(
-                Icons.cloud_done_rounded,
-                _tr('رصيد دائم محفوظ بحسابك ومتاح دائماً',
-                    'Permanent balance saved to your account and ready anytime')),
-          ],
-          const SizedBox(height: 14),
-          _receiptRow(
-              _tr('المبلغ الإجمالي', 'Total'),
-              product.kind == StoreProductKind.subscription
-                  ? '$price / ${_tr('شهر', 'month')}'
-                  : price),
-          const SizedBox(height: 12),
-          Text(
-              product.kind == StoreProductKind.subscription
-                  ? _tr(
-                      'اشتراك شهري يتجدد تلقائياً. تُحصّل الدفعة عند التأكيد، ثم كل شهر ما لم تلغِ التجديد عبر اشتراكات Google Play قبل موعد التجديد. يظل الوصول متاحاً حتى نهاية الفترة المدفوعة بعد الإلغاء. راجع السعر والفترة في نافذة Google Play قبل الدفع.',
-                      'A monthly, automatically renewing subscription. Payment is charged at confirmation and every month until you cancel renewal in Google Play subscriptions before the renewal date. Access continues until the paid period ends after cancellation. Review the price and billing period in Google Play before paying.')
-                  : product.oneTime
-                      ? _tr(
-                          'شراء لمرة واحدة. راجع السعر النهائي في Google Play قبل التأكيد.',
-                          'One-time purchase. Review the final price in Google Play before confirming.')
-                      : _tr(
-                          'تُضاف العملات بعد تأكيد الدفع وتسليم العملية. راجع السعر النهائي في Google Play.',
-                          'Currency is added after payment confirmation and delivery. Review the final price in Google Play.'),
-              style: const TextStyle(color: _muted, fontSize: 12, height: 1.7)),
-        ],
-        button: _tr('المتابعة إلى الدفع', 'Continue to payment'),
-      );
-
-  Future<bool> _confirmSheet(
-          {required String title,
-          required String subtitle,
-          required IconData icon,
-          required Color accent,
-          required List<Widget> body,
-          required String button}) async =>
-      await showModalBottomSheet<bool>(
-        context: context,
-        isScrollControlled: true,
-        useSafeArea: true,
-        backgroundColor: _surface,
-        barrierColor: Colors.black.withValues(alpha: 0.72),
-        constraints: const BoxConstraints(maxWidth: 580),
-        shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(26))),
-        builder: (sheetContext) => Directionality(
-          textDirection: _arabic ? TextDirection.rtl : TextDirection.ltr,
-          child: SafeArea(
-              child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(24, 12, 24, 20),
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Center(
-                      child: Container(
-                          width: 36,
-                          height: 4,
-                          margin: const EdgeInsets.only(bottom: 20),
-                          decoration: BoxDecoration(
-                              color: _muted.withValues(alpha: 0.45),
-                              borderRadius: BorderRadius.circular(10)))),
-                  Center(child: _iconTile(icon, accent, size: 50)),
-                  const SizedBox(height: 12),
-                  Text(title,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 22)),
-                  const SizedBox(height: 10),
-                  Text(subtitle,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: _muted, height: 1.6)),
-                  const SizedBox(height: 20),
-                  ...body,
-                  const SizedBox(height: 20),
-                  _StoreButton(
-                      label: button,
-                      icon: Icons.lock_outline_rounded,
-                      accent: accent,
-                      onPressed: () => Navigator.of(sheetContext).pop(true)),
-                  const SizedBox(height: 6),
-                  Center(
-                    child: TextButton(
-                        onPressed: () => Navigator.of(sheetContext).pop(false),
-                        child: Text(_tr('إلغاء', 'Cancel'),
-                            style: const TextStyle(color: _muted))),
-                  ),
-                ]),
-          )),
-        ),
-      ) ??
-      false;
-
   Future<void> _exchange(CoinExchange exchange) async {
     if (_busy || context.read<InAppPurchaseService>().isPurchasing) return;
     final app = context.read<AppState>();
@@ -472,22 +322,6 @@ class _StoreScreenState extends State<StoreScreen> {
     }
     setState(() => _busy = true);
     try {
-      final confirmed = await _confirmSheet(
-        title: _tr('تحويل الجواهر إلى نقود', 'Exchange gems for coins'),
-        subtitle: _tr('سيُخصم المبلغ من رصيد جواهرك داخل اللعبة.',
-            'The cost will be deducted from your in-game gem balance.'),
-        icon: Icons.currency_exchange_rounded,
-        accent: _gold,
-        body: [
-          _receiptRow(_tr('الجواهر المطلوبة', 'Gem cost'),
-              '${_number(exchange.gemCost)} ${_tr('جوهرة', 'gems')}'),
-          const SizedBox(height: 12),
-          _receiptRow(_tr('النقود التي تحصل عليها', 'Coins received'),
-              '${_number(exchange.coins)} ${_tr('قطعة', 'coins')}')
-        ],
-        button: _tr('تأكيد التحويل', 'Confirm exchange'),
-      );
-      if (!confirmed || !mounted) return;
       final success = await context
           .read<NativeBridgeService>()
           .buyCurrency(coinAmount: exchange.coins, gemCost: exchange.gemCost);
@@ -534,30 +368,8 @@ class _StoreScreenState extends State<StoreScreen> {
           error: true);
       return;
     }
-    final grants = offer['grants'] is Map
-        ? Map<String, dynamic>.from(offer['grants'] as Map)
-        : <String, dynamic>{'${offer['resource']}': offer['amount']};
-    final grantSummary = _resourceGrantLabel(grants);
-
     setState(() => _busy = true);
     try {
-      final confirmed = await _confirmSheet(
-        title: _tr('تأكيد الشراء', 'Confirm Purchase'),
-        subtitle: _tr(
-            'شراء $grantSummary مقابل ${_number(price)} $currencyName.',
-            'Purchase $grantSummary for ${_number(price)} $currencyName.'),
-        icon: isCoins ? Icons.monetization_on_rounded : Icons.diamond_rounded,
-        accent: isCoins ? _gold : _cyan,
-        body: [
-          _receiptRow(
-              _tr('المبلغ المطلوب', 'Cost'), '${_number(price)} $currencyName'),
-          const SizedBox(height: 12),
-          _receiptRow(
-              _tr('المحتوى المستلم', 'Resources received'), grantSummary),
-        ],
-        button: _tr('تأكيد الشراء', 'Confirm Purchase'),
-      );
-      if (!confirmed || !mounted) return;
       await app.economyAction({
         'action': 'buy',
         'offerId': offerId,
@@ -604,21 +416,6 @@ class _StoreScreenState extends State<StoreScreen> {
     }
     setState(() => _busy = true);
     try {
-      final confirmed = await _confirmSheet(
-          title: category.name,
-          subtitle: _tr('امتلاك دائم لهذه الفئة، دون اشتراك.',
-              'Permanent ownership of this category, with no subscription.'),
-          icon: Icons.category_rounded,
-          accent: _cyan,
-          body: [
-            _receiptRow(_tr('التكلفة', 'Cost'),
-                '${category.gemCost} ${_tr('جوهرة', 'gems')}'),
-            const SizedBox(height: 10),
-            _receiptRow(_tr('رصيدك بعد الشراء', 'Balance after purchase'),
-                '${_number(app.gems - category.gemCost)} ${_tr('جوهرة', 'gems')}')
-          ],
-          button: _tr('امتلاك الفئة', 'Unlock category'));
-      if (!confirmed || !mounted) return;
       final success = await app.unlockCategoryWithGems(category.name,
           gemCost: category.gemCost);
       _snack(
@@ -692,24 +489,27 @@ class _StoreScreenState extends State<StoreScreen> {
 
   Future<void> _categoryAction(
       GameCategory category, Map<String, dynamic> data, String description,
-      {String successMessage = 'تم تفعيل التصنيف.'}) async {
+      {String successMessage = 'تم تفعيل التصنيف.',
+      bool requireConfirmation = true}) async {
     if (_busy) return;
-    final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => GameAlertDialog(
-                title: Center(
-                    child: Text(category.name, textAlign: TextAlign.center)),
-                content: Text(description, textAlign: TextAlign.center),
-                actionsAlignment: MainAxisAlignment.center,
-                actions: [
-                  TextButton(
-                      onPressed: () => Navigator.pop(ctx, false),
-                      child: const Text('إلغاء')),
-                  FilledButton(
-                      onPressed: () => Navigator.pop(ctx, true),
-                      child: const Text('تأكيد')),
-                ]));
-    if (confirmed != true || !mounted) return;
+    if (requireConfirmation) {
+      final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => GameAlertDialog(
+                  title: Center(
+                      child: Text(category.name, textAlign: TextAlign.center)),
+                  content: Text(description, textAlign: TextAlign.center),
+                  actionsAlignment: MainAxisAlignment.center,
+                  actions: [
+                    TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: const Text('إلغاء')),
+                    FilledButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: const Text('تأكيد')),
+                  ]));
+      if (confirmed != true || !mounted) return;
+    }
     setState(() => _busy = true);
     try {
       await context
@@ -996,6 +796,7 @@ class _StoreScreenState extends State<StoreScreen> {
           choice,
           _tr('استئجار تصنيف «${category.name}» لمدة $duration مقابل $price.\nتُضاف المدة إلى الاستئجار الحالي إن كان سارياً.',
               'Rent ${category.name} for $duration for $price.\nThe duration extends your current rental if it is still active.'),
+          requireConfirmation: choice['currency'] == 'voucher',
           successMessage: _tr(
               'تم استئجار تصنيف «${category.name}» لمدة $duration.',
               '${category.name} is rented for $duration.'));
@@ -3282,73 +3083,6 @@ class _StoreScreenState extends State<StoreScreen> {
                           color: _muted, fontSize: 11, height: 1.5)),
                 ],
               ]));
-
-  Widget _rewardSummary(int coins, int gems,
-          {int keys = 0,
-          int tickets = 0,
-          int hearts = 0,
-          bool centered = false}) =>
-      Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          alignment: centered ? WrapAlignment.center : WrapAlignment.start,
-          children: [
-            if (coins > 0)
-              _currencyReward(coins, Icons.monetization_on_rounded, _gold,
-                  _tr('نقود', 'coins')),
-            if (gems > 0)
-              _currencyReward(
-                  gems, Icons.diamond_rounded, _cyan, _tr('جوهرة', 'gems')),
-            if (keys > 0)
-              _currencyReward(keys, Icons.vpn_key_rounded,
-                  const Color(0xFFFFB74D), _tr('مفاتيح', 'keys')),
-            if (tickets > 0)
-              _currencyReward(tickets, Icons.confirmation_number_rounded,
-                  _purple, _tr('تذاكر', 'tickets')),
-            if (hearts > 0)
-              _currencyReward(
-                  hearts, Icons.favorite_rounded, _red, _tr('قلوب', 'hearts')),
-          ]);
-
-  Widget _currencyReward(
-          int amount, IconData icon, Color color, String label) =>
-      Container(
-          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
-          decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: color.withValues(alpha: 0.16))),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(icon, color: color, size: 17),
-            const SizedBox(width: 7),
-            Text(_number(amount),
-                style: TextStyle(
-                    color: color, fontWeight: FontWeight.w800, fontSize: 14)),
-            const SizedBox(width: 5),
-            Text(label, style: const TextStyle(color: _muted, fontSize: 11))
-          ]));
-
-  Widget _receiptRow(String label, String value) => Row(children: [
-        Expanded(
-            child: Text(label,
-                style: const TextStyle(color: _muted, fontSize: 13))),
-        const SizedBox(width: 14),
-        Flexible(
-            child: Text(value,
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 15)))
-      ]);
-
-  Widget _benefit(IconData icon, String text) => Row(children: [
-        Icon(icon, color: _green, size: 20),
-        const SizedBox(width: 10),
-        Expanded(
-            child: Text(text,
-                style: const TextStyle(
-                    color: Colors.white, fontSize: 13, height: 1.6)))
-      ]);
 
   Widget _pill(String label, Color color) => Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),

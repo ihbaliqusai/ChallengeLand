@@ -46,6 +46,10 @@ import '../../widgets/adaptive_asset_image.dart';
 import '../../widgets/online_match_recovery_card.dart';
 import '../../widgets/sign_in_required_action.dart';
 import '../../widgets/support_contact_sheet.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../widgets/guide/home_guide_tour_overlay.dart';
+import '../../widgets/guide/home_guide_steps.dart';
+import '../../widgets/guide/persistent_guide_button.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -62,6 +66,15 @@ class _HomeScreenState extends State<HomeScreen>
   bool _handlingNativeLaunchAction = false;
   bool _hasCheckedDailyRewardThisLaunch = false;
   String? _initializedUserId;
+
+  // ── Guide Tour & Navigation Keys ─────────────────────────────
+  final _guideTargets = {
+    for (final target in HomeGuideTarget.values) target: GlobalKey(),
+  };
+  bool _hasInitializedUser = false;
+
+  bool _showGuideTour = false;
+  bool _hasCheckedTourGuide = false;
 
   @override
   void initState() {
@@ -83,10 +96,20 @@ class _HomeScreenState extends State<HomeScreen>
   void didChangeDependencies() {
     super.didChangeDependencies();
     final uid = context.watch<AppState>().user?.uid;
-    if (_initializedUserId == uid) return;
+    if (_hasInitializedUser && _initializedUserId == uid) return;
+    _hasInitializedUser = true;
     _initializedUserId = uid;
     _hasCheckedDailyRewardThisLaunch = false;
-    if (uid == null) return;
+    if (uid == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _checkAndTriggerGuideTour();
+      });
+      return;
+    }
+    if (_showGuideTour) {
+      _showGuideTour = false;
+      unawaited(_persistGuideCompletion());
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || context.read<AppState>().user?.uid != uid) return;
       context.read<AppState>().loadCurrency();
@@ -103,6 +126,45 @@ class _HomeScreenState extends State<HomeScreen>
       });
       _checkAndShowDailyReward();
     });
+  }
+
+  Future<void> _checkAndTriggerGuideTour() async {
+    if (!mounted || _hasCheckedTourGuide) return;
+    _hasCheckedTourGuide = true;
+
+    final appState = context.read<AppState>();
+    if (appState.user != null) return;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final hasCompleted =
+          prefs.getBool('has_completed_home_onboarding_guide') ?? false;
+      if (!hasCompleted && mounted) {
+        // Wait briefly for layout and orientation to settle
+        await Future<void>.delayed(const Duration(milliseconds: 700));
+        if (mounted &&
+            context.read<AppState>().user == null &&
+            ModalRoute.of(context)?.isCurrent != false) {
+          setState(() => _showGuideTour = true);
+        }
+      }
+    } catch (_) {}
+  }
+
+  void _startGuideTour() {
+    setState(() => _showGuideTour = true);
+  }
+
+  Future<void> _completeGuideTour() async {
+    setState(() => _showGuideTour = false);
+    await _persistGuideCompletion();
+  }
+
+  Future<void> _persistGuideCompletion() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('has_completed_home_onboarding_guide', true);
+    } catch (_) {}
   }
 
   @override
@@ -531,6 +593,10 @@ class _HomeScreenState extends State<HomeScreen>
                     user: user,
                     idleCtrl: _idleCtrl,
                     onCampaignTap: () => unawaited(_openCampaignMap()),
+                    guideTargets: _guideTargets,
+                    showGuideTour: _showGuideTour,
+                    onStartGuideTour: _startGuideTour,
+                    onCompleteGuideTour: _completeGuideTour,
                   ),
                 ),
               ),
@@ -863,12 +929,20 @@ class _HomeLobbyLayout extends StatelessWidget {
     required this.user,
     required this.idleCtrl,
     required this.onCampaignTap,
+    required this.guideTargets,
+    required this.showGuideTour,
+    required this.onStartGuideTour,
+    required this.onCompleteGuideTour,
   });
   final AppState appState;
   final String username;
   final dynamic user;
   final AnimationController idleCtrl;
   final VoidCallback onCampaignTap;
+  final Map<HomeGuideTarget, GlobalKey> guideTargets;
+  final bool showGuideTour;
+  final VoidCallback onStartGuideTour;
+  final VoidCallback onCompleteGuideTour;
 
   void _openOnlineScreen(BuildContext context, Widget screen) {
     if (!appState.isOnline) {
@@ -894,7 +968,10 @@ class _HomeLobbyLayout extends StatelessWidget {
         final heroLeft = heroLeftInset + safeLeft;
         final heroWidth =
             portrait ? width - 80 : width - panelWidth - heroLeftInset - 40;
-        final heroBottom = portrait ? panelTop - 10 : height - 16;
+        // Leave room for the full-size presenter while explaining the contestant.
+        final heroBottom = portrait
+            ? math.min(panelTop - 10, showGuideTour ? height * .43 : height)
+            : height - 16;
         final characterTop = headerHeight + 62;
         final characterHeight = math.max(1.0, heroBottom - characterTop);
         final compact = height < 600;
@@ -933,45 +1010,56 @@ class _HomeLobbyLayout extends StatelessWidget {
                             compact: compact,
                             enabled: enabled,
                             onPressed: onPressed))));
-        final campaign = banner(
-            HomeArtwork.campaign, 'تحدي المراحل', onCampaignTap,
-            enabled: appState.isOnline);
-        final modes = banner(HomeArtwork.modes, 'أوضاع اللعب',
-            () => _showGameModesSheet(context));
+        final campaign = KeyedSubtree(
+            key: guideTargets[HomeGuideTarget.campaign],
+            child: banner(HomeArtwork.campaign, 'تحدي المراحل', onCampaignTap,
+                enabled: appState.isOnline));
+        final modes = KeyedSubtree(
+            key: guideTargets[HomeGuideTarget.modes],
+            child: banner(HomeArtwork.modes, 'أوضاع اللعب',
+                () => _showGameModesSheet(context)));
         final promotions = [
-          if (!appState.isVip) fitBadge(const SpecialOfferBadge()),
-          fitBadge(LobbyActionPanel(
-            key: const ValueKey('home-play-button'),
-            title: 'العب',
-            subtitle: 'اختر مبلغ المباراة ومنافسك',
-            icon: Icons.play_arrow_rounded,
-            gold: true,
-            showNotification: true,
-            notificationColor: const Color(0xFF34D399),
-            notificationAnimation: TweenSequence<double>([
-              TweenSequenceItem(
-                tween: Tween(begin: 1.0, end: 0.0)
-                    .chain(CurveTween(curve: Curves.easeInOut)),
-                weight: 50,
-              ),
-              TweenSequenceItem(
-                tween: Tween(begin: 0.0, end: 1.0)
-                    .chain(CurveTween(curve: Curves.easeInOut)),
-                weight: 50,
-              ),
-            ]).animate(idleCtrl),
-            onPressed: () {
-              HapticFeedback.lightImpact();
-              if (!appState.isOnline) {
-                _showOnlineRequiredToast(context);
-                return;
-              }
-              PlayStakeDialog.show(context);
-            },
-          )),
+          if (!appState.isVip)
+            KeyedSubtree(
+                key: guideTargets[HomeGuideTarget.offer],
+                child: fitBadge(const SpecialOfferBadge())),
+          KeyedSubtree(
+              key: guideTargets[HomeGuideTarget.play],
+              child: fitBadge(
+                LobbyActionPanel(
+                  key: const ValueKey('home-play-button'),
+                  title: 'العب',
+                  subtitle: 'اختر مبلغ المباراة ومنافسك',
+                  icon: Icons.play_arrow_rounded,
+                  gold: true,
+                  showNotification: true,
+                  notificationColor: const Color(0xFF34D399),
+                  notificationAnimation: TweenSequence<double>([
+                    TweenSequenceItem(
+                      tween: Tween(begin: 1.0, end: 0.0)
+                          .chain(CurveTween(curve: Curves.easeInOut)),
+                      weight: 50,
+                    ),
+                    TweenSequenceItem(
+                      tween: Tween(begin: 0.0, end: 1.0)
+                          .chain(CurveTween(curve: Curves.easeInOut)),
+                      weight: 50,
+                    ),
+                  ]).animate(idleCtrl),
+                  onPressed: () {
+                    HapticFeedback.lightImpact();
+                    if (!appState.isOnline) {
+                      _showOnlineRequiredToast(context);
+                      return;
+                    }
+                    PlayStakeDialog.show(context);
+                  },
+                ),
+              )),
         ];
         return Stack(children: [
           Positioned(
+              key: guideTargets[HomeGuideTarget.menu],
               top: 6,
               left: safeLeft + 6,
               child: SignInRequiredAction(
@@ -983,10 +1071,13 @@ class _HomeLobbyLayout extends StatelessWidget {
               width: walletWidth,
               height: 44,
               child: SignInRequiredAction(
-                  child: Row(textDirection: TextDirection.ltr, children: [
+                  child: KeyedSubtree(
+                      child: Row(textDirection: TextDirection.ltr, children: [
                 for (final gems in [false, true]) ...[
                   if (gems) const SizedBox(width: walletGap),
                   SizedBox(
+                      key: guideTargets[
+                          gems ? HomeGuideTarget.gems : HomeGuideTarget.coins],
                       width: balanceWidth,
                       child: HomeCurrencyArtwork(
                           key: ValueKey(gems
@@ -1001,6 +1092,7 @@ class _HomeLobbyLayout extends StatelessWidget {
                 ],
                 const SizedBox(width: walletGap),
                 SizedBox(
+                    key: guideTargets[HomeGuideTarget.keys],
                     width: keysWidth,
                     child: HomeResourceArtwork(
                         key: const ValueKey('home-keys-balance'),
@@ -1017,6 +1109,7 @@ class _HomeLobbyLayout extends StatelessWidget {
                                 initialKind: StoreProductKind.resource)))),
                 const SizedBox(width: walletGap),
                 SizedBox(
+                    key: guideTargets[HomeGuideTarget.tickets],
                     width: ticketsWidth,
                     child: HomeResourceArtwork(
                         key: const ValueKey('home-tickets-balance'),
@@ -1031,27 +1124,37 @@ class _HomeLobbyLayout extends StatelessWidget {
                             context,
                             const StoreScreen(
                                 initialKind: StoreProductKind.resource)))),
-              ]))),
+              ])))),
           Positioned(
               top: headerHeight + 2,
               left: heroLeft,
               width: heroWidth,
               height: 56,
-              child: Center(child: _LevelBadge(appState: appState))),
+              child: Center(
+                  child: KeyedSubtree(
+                      key: guideTargets[HomeGuideTarget.level],
+                      child: _LevelBadge(appState: appState)))),
           Positioned(
               top: characterTop,
               left: heroLeft,
               width: heroWidth,
               height: characterHeight,
               child: SignInRequiredAction(
-                  child: HomeCharacterArtwork(
-                      key: const ValueKey('home-selected-character'),
-                      character: appState.selectedCharacter,
-                      onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => const CharacterSelectScreen(),
-                            ),
-                          )))),
+                  child: Center(
+                      child: AspectRatio(
+                          aspectRatio: 720 / 1280,
+                          child: KeyedSubtree(
+                              key: guideTargets[HomeGuideTarget.character],
+                              child: HomeCharacterArtwork(
+                                  key:
+                                      const ValueKey('home-selected-character'),
+                                  character: appState.selectedCharacter,
+                                  onTap: () => Navigator.of(context).push(
+                                        MaterialPageRoute<void>(
+                                          builder: (_) =>
+                                              const CharacterSelectScreen(),
+                                        ),
+                                      ))))))),
           Positioned(
               bottom: portrait ? height - heroBottom : 12,
               left: heroLeft,
@@ -1060,8 +1163,10 @@ class _HomeLobbyLayout extends StatelessWidget {
           Positioned(
               top: portrait ? headerHeight + 12 : 74,
               left: safeLeft + 6,
-              child: Column(mainAxisSize: MainAxisSize.min, children: [
+              child: KeyedSubtree(
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
                 SignInRequiredAction(
+                    key: guideTargets[HomeGuideTarget.friends],
                     child: HomeQuickAction(
                         key: const ValueKey('home-friends-shortcut'),
                         asset: HomeArtwork.friends,
@@ -1075,6 +1180,7 @@ class _HomeLobbyLayout extends StatelessWidget {
                             _openOnlineScreen(context, const SocialScreen()))),
                 const SizedBox(height: 12),
                 SignInRequiredAction(
+                    key: guideTargets[HomeGuideTarget.store],
                     child: HomeQuickAction(
                         key: const ValueKey('home-store-shortcut'),
                         asset: HomeArtwork.store,
@@ -1088,6 +1194,7 @@ class _HomeLobbyLayout extends StatelessWidget {
                             _openOnlineScreen(context, const StoreScreen()))),
                 const SizedBox(height: 12),
                 SignInRequiredAction(
+                    key: guideTargets[HomeGuideTarget.support],
                     child: HomeQuickAction(
                         key: const ValueKey('home-help-shortcut'),
                         asset: HomeArtwork.help,
@@ -1097,7 +1204,7 @@ class _HomeLobbyLayout extends StatelessWidget {
                         animation: idleCtrl,
                         animationPhase: math.pi * 2 / 3,
                         onPressed: () => showSupportContact(context))),
-              ])),
+              ]))),
           Positioned(
               key: const ValueKey('home-actions-panel'),
               top: panelTop,
@@ -1126,6 +1233,28 @@ class _HomeLobbyLayout extends StatelessWidget {
                       const SizedBox(height: 6),
                       modes,
                     ])),
+
+          // Persistent Guide Button for unregistered players
+          if (user == null)
+            Positioned(
+              bottom: portrait ? 16 : 10,
+              left: safeLeft + (portrait ? 16 : 12),
+              child: PersistentGuideButton(
+                key: guideTargets[HomeGuideTarget.guide],
+                onRestartTour: onStartGuideTour,
+              ),
+            ),
+
+          // Guided Onboarding Tour Overlay
+          if (showGuideTour)
+            Positioned.fill(
+              child: HomeGuideTourOverlay(
+                steps: buildHomeGuideSteps(guideTargets,
+                    showOffer: !appState.isVip),
+                onComplete: onCompleteGuideTour,
+                onSkip: onCompleteGuideTour,
+              ),
+            ),
         ]);
       });
 }

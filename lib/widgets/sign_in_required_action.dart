@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import '../core/app_state.dart';
 import '../screens/auth/login_bottom_sheet.dart';
 
-/// Keeps lobby controls visible while requiring an account before using them.
+/// Keeps lobby controls visible and opens the shared guest sign-in sheet.
 class SignInRequiredAction extends StatelessWidget {
   const SignInRequiredAction({super.key, required this.child});
 
@@ -16,17 +16,17 @@ class SignInRequiredAction extends StatelessWidget {
       return child;
     }
 
-    void signIn() => LoginBottomSheet.show(context);
+    void promptLogin() => LoginBottomSheet.show(context);
 
     return MergeSemantics(
       child: Semantics(
         button: true,
-        hint: 'يتطلب تسجيل الدخول',
-        onTap: signIn,
+        hint: 'سجّل الدخول للمتابعة',
+        onTap: promptLogin,
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           excludeFromSemantics: true,
-          onTap: signIn,
+          onTap: promptLogin,
           child: ExcludeFocus(child: AbsorbPointer(child: child)),
         ),
       ),

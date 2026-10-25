@@ -130,9 +130,6 @@ class _CharacterSelectScreenState extends State<CharacterSelectScreen>
         return;
       }
 
-      final confirmed = await _confirmPurchase(character);
-      if (confirmed != true || !mounted) return;
-
       setState(() => _busy = true);
       final bought = await appState.purchaseCharacter(character);
       if (!mounted) return;
@@ -159,115 +156,6 @@ class _CharacterSelectScreenState extends State<CharacterSelectScreen>
     if (!widget.forced && Navigator.of(context).canPop()) {
       Navigator.of(context).pop();
     }
-  }
-
-  Future<bool?> _confirmPurchase(GameCharacter character) {
-    final isCoins = character.unlock.kind == CharacterUnlockKind.coins;
-    return showDialog<bool>(
-      context: context,
-      builder: (ctx) => Directionality(
-        textDirection: TextDirection.rtl,
-        child: GameAlertDialog(
-          backgroundColor: const Color(0xFF140D2B),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(22),
-            side: const BorderSide(
-              color: Color(0xFFFFD54F),
-              width: 1.5,
-            ),
-          ),
-          titlePadding: const EdgeInsets.fromLTRB(20, 24, 20, 10),
-          title: Column(
-            children: [
-              Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: character.color.withValues(alpha: 0.16),
-                  border: Border.all(
-                    color: const Color(0xFFFFD54F),
-                    width: 2,
-                  ),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x66FFD54F),
-                      blurRadius: 16,
-                    ),
-                  ],
-                ),
-                padding: const EdgeInsets.all(6),
-                child: ClipOval(
-                  child:
-                      adaptiveAssetImage(character.asset, fit: BoxFit.contain),
-                ),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'فتح الشخصية',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 20,
-                ),
-              ),
-            ],
-          ),
-          content: Text(
-            'هل تريد فتح هذه الشخصية بشكل دائم مقابل '
-            '${_compactNumber(character.unlock.value)} '
-            '${isCoins ? 'كوين' : 'جوهرة'}؟',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.85),
-              height: 1.5,
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          actionsAlignment: MainAxisAlignment.center,
-          actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.white60,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              ),
-              child: const Text(
-                'إلغاء',
-                style: TextStyle(fontWeight: FontWeight.w800),
-              ),
-            ),
-            FilledButton.icon(
-              onPressed: () => Navigator.of(ctx).pop(true),
-              icon: Icon(
-                isCoins ? Icons.monetization_on_rounded : Icons.diamond_rounded,
-                size: 20,
-              ),
-              style: FilledButton.styleFrom(
-                backgroundColor:
-                    isCoins ? const Color(0xFFFACC15) : const Color(0xFF38BDF8),
-                foregroundColor: const Color(0xFF111827),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                elevation: 4,
-              ),
-              label: Text(
-                'فتح مقابل ${_compactNumber(character.unlock.value)}',
-                style:
-                    const TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   void _openCharacterInspection() {

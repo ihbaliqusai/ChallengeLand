@@ -47,6 +47,8 @@ flutter:
     - assets/ui/logo.webp
 
     - assets/ui/person_welcome.webp
+    - assets/presenter/
+    - assets/presenter/podiumhost.png
     - assets/ui/home_menu.webp
     - assets/ui/game_modes.webp
     - assets/ui/play_stake_dialog.png

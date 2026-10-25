@@ -20,6 +20,7 @@ import '../../services/campaign_service.dart';
 import '../../services/native_bridge_service.dart';
 import '../../services/rate_game_service.dart';
 import '../../widgets/currency_reward_overlay.dart';
+import '../auth/login_bottom_sheet.dart';
 import 'campaign_map_screen.dart';
 import 'stage_play_screen.dart';
 import 'stage_leaderboard_screen.dart';
@@ -30,7 +31,6 @@ import 'widgets/result_reward_panel.dart';
 import 'widgets/result_replay_goal_card.dart';
 import 'widgets/result_ribbon_header.dart';
 import 'widgets/result_score_counter.dart';
-import 'widgets/save_guest_progress_dialog.dart';
 import 'widgets/stage_victory_scene.dart';
 
 class StageResultScreen extends StatefulWidget {
@@ -73,6 +73,7 @@ class _StageResultScreenState extends State<StageResultScreen>
   bool _showVictoryDetails = false;
   bool _collectingRewards = false;
   bool _rewardsCollected = false;
+  bool _guestLoginOpen = false;
   StageSubmissionResult? _savedSubmission;
   bool _rewardApplied = false;
   CampaignStage? _nextStage;
@@ -701,8 +702,8 @@ class _StageResultScreenState extends State<StageResultScreen>
     if (_savingResult || _collectingRewards || _rewardsCollected) return;
     final appState = context.read<AppState>();
     if (appState.currentUser == null) {
-      _openSaveGuestProgressModal(context);
-      return;
+      await _openSaveGuestProgressModal(context);
+      if (!mounted || appState.currentUser == null || _isUnsavedPreview) return;
     }
     if (_isUnsavedPreview) {
       await _retrySave(context);
@@ -813,32 +814,18 @@ class _StageResultScreenState extends State<StageResultScreen>
     return mode != CampaignMode.classic && mode != CampaignMode.noLifeline;
   }
 
-  void _openSaveGuestProgressModal(BuildContext context) {
-    final payload = rawNativeResult;
-    if (payload == null) {
-      _retrySave(context);
-      return;
+  Future<void> _openSaveGuestProgressModal(BuildContext context) async {
+    if (_guestLoginOpen) return;
+    _guestLoginOpen = true;
+    try {
+      await LoginBottomSheet.show(context);
+      if (!context.mounted || context.read<AppState>().currentUser == null) {
+        return;
+      }
+      if (_isUnsavedPreview) await _retrySave(context);
+    } finally {
+      _guestLoginOpen = false;
     }
-
-    SaveGuestProgressDialog.show(
-      context,
-      stage: stage,
-      submissionResult: submissionResult,
-      rawNativeResult: payload,
-      onSaved: (savedResult, rewardApplied) {
-        if (!mounted) return;
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute<void>(
-            builder: (_) => StageResultScreen(
-              stage: stage,
-              submissionResult: savedResult,
-              rawNativeResult: payload,
-              currencyRewardApplied: rewardApplied,
-            ),
-          ),
-        );
-      },
-    );
   }
 
   void _promptSaveBeforeExit(

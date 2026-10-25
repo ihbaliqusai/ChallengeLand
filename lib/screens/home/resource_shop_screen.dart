@@ -1,4 +1,3 @@
-import '../../widgets/game_notice.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/app_state.dart';
@@ -24,23 +23,8 @@ class _ResourceShopScreenState extends State<ResourceShopScreen> {
     });
   }
 
-  Future<void> _buy(Map<String, dynamic> data, String summary) async {
-    final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => GameAlertDialog(
-                title: const Center(
-                    child: Text('تأكيد الشراء', textAlign: TextAlign.center)),
-                content: Text(summary, textAlign: TextAlign.center),
-                actionsAlignment: MainAxisAlignment.center,
-                actions: [
-                  TextButton(
-                      onPressed: () => Navigator.pop(ctx, false),
-                      child: const Text('إلغاء')),
-                  FilledButton(
-                      onPressed: () => Navigator.pop(ctx, true),
-                      child: const Text('تأكيد')),
-                ]));
-    if (confirmed != true || !mounted) return;
+  Future<void> _buy(Map<String, dynamic> data) async {
+    if (_busy || context.read<InAppPurchaseService>().isPurchasing) return;
     setState(() {
       _busy = true;
       _message = null;
@@ -62,25 +46,9 @@ class _ResourceShopScreenState extends State<ResourceShopScreen> {
 
   Future<void> _iap(StoreProduct product) async {
     final iap = context.read<InAppPurchaseService>();
+    if (_busy || iap.isPurchasing) return;
     final details = iap.getProductDetails(product.id);
     if (details == null || !details.available) return;
-    final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => GameAlertDialog(
-                title: Center(
-                    child: Text(product.title, textAlign: TextAlign.center)),
-                content: Text('${product.subtitle}\n${details.price}',
-                    textAlign: TextAlign.center),
-                actionsAlignment: MainAxisAlignment.center,
-                actions: [
-                  TextButton(
-                      onPressed: () => Navigator.pop(ctx, false),
-                      child: const Text('إلغاء')),
-                  FilledButton(
-                      onPressed: () => Navigator.pop(ctx, true),
-                      child: const Text('متابعة للدفع')),
-                ]));
-    if (confirmed != true || !mounted) return;
     final started = await iap.buyProduct(product.id);
     if (!started && mounted) setState(() => _message = iap.error);
   }
@@ -265,7 +233,7 @@ class _ResourceShopScreenState extends State<ResourceShopScreen> {
                                                         'action': 'buy',
                                                         'offerId': entry.key,
                                                         'currency': currency
-                                                      }, '$title مقابل ${offer[currency]} ${currency == 'coins' ? 'قطعة' : 'جوهرة'}'),
+                                                      }),
                                               child: Text(
                                                   '${offer[currency]} ${currency == 'coins' ? 'قطعة' : 'جوهرة'}')),
                                       ]),

@@ -176,7 +176,7 @@ void main() {
   });
 
   testWidgets(
-      'resource exchange requires confirmation and refreshes displayed balance after delivery',
+      'resource exchange starts directly and refreshes balance after delivery',
       (tester) async {
     final wallet = _Wallet();
     final billing = _Billing();
@@ -190,9 +190,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('2400 قطعة'));
     await tester.pumpAndSettle();
-    expect(wallet.actions, isEmpty);
-    await tester.tap(find.text('تأكيد'));
-    await tester.pumpAndSettle();
+    expect(find.text('تأكيد'), findsNothing);
     expect(wallet.actions.single,
         {'action': 'buy', 'offerId': 'tickets_3', 'currency': 'coins'});
     await tester.drag(find.byType(ListView), const Offset(0, 600));
@@ -204,8 +202,7 @@ void main() {
     wallet.dispose();
     billing.dispose();
   });
-  testWidgets(
-      'mixed bundle shows every resource and cancellation cannot spend the wallet',
+  testWidgets('mixed bundle shows every resource and purchases directly',
       (tester) async {
     final wallet = _Wallet();
     wallet.economyWallet = EconomyWallet.fromMap({
@@ -237,16 +234,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('5100 قطعة'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('5100 قطعة'), findsNWidgets(2));
-    await tester.tap(find.text('إلغاء'));
-    await tester.pumpAndSettle();
-    expect(wallet.actions, isEmpty);
-    expect(wallet.economyWallet.tickets, 3);
-    await tester.scrollUntilVisible(
-        find.textContaining('هدية البداية • مرة واحدة'), 400,
-        maxScrolls: 60, scrollable: find.byType(Scrollable).first);
-    await tester.pumpAndSettle();
-    expect(find.textContaining('هدية البداية • مرة واحدة'), findsOneWidget);
+    expect(find.text('تأكيد الشراء'), findsNothing);
+    expect(wallet.actions.single,
+        {'action': 'buy', 'offerId': 'play_bundle', 'currency': 'coins'});
+    expect(wallet.economyWallet.tickets, 5);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
     wallet.dispose();
@@ -264,8 +255,6 @@ void main() {
         scrollable: find.byType(Scrollable).first);
     await tester.pumpAndSettle();
     await tester.tap(button);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('تأكيد'));
     await tester.pumpAndSettle();
     expect(wallet.economyWallet.tickets, 2);
     await tester.drag(find.byType(ListView), const Offset(0, 600));
