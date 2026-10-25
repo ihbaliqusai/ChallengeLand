@@ -7,6 +7,7 @@ const {
   normalizeSubscriptionReceipt, currentEntitlement,
 } = require("../src/domain");
 const { createCommerceService } = require("../src/commerce");
+const { createEconomyService } = require("../src/economy");
 const { createPlayVerifier } = require("../src/play");
 const { MemoryFirestore } = require("./memory-firestore");
 
@@ -41,6 +42,80 @@ function harness() {
     service.verifyPurchase(owner, { productId, purchaseToken: token, ...data });
   return { db, service, receipts, acknowledgements, consumptions, verifier, buy };
 }
+
+test("verified wheel packs bank exactly three spins once and settle after the durable grant", async () => {
+  const x = harness();
+  const consume = x.verifier.consume;
+  x.verifier.consume = async (product, token) => {
+    const purchase = x.db.read(`commerce_accounts/${uid}/transactions/${sha256(token)}`);
+    assert.equal(purchase.grant.wheelSpins, 3);
+    assert.equal(x.db.read(`economy_accounts/${uid}`).wheelSpins, 3);
+    await consume(product, token);
+  };
+  const result = await x.buy("wheel_spins_3", "wheel_pack", { wheelSpins: 99999, price: 0 });
+  assert.deepEqual(result.grant, { coins: 0, gems: 0, wheelSpins: 3 });
+  const replay = await x.buy("wheel_spins_3", "wheel_pack");
+  assert.deepEqual(replay.grant, result.grant);
+  assert.equal(x.db.read(`economy_accounts/${uid}`).wheelSpins, 3);
+  assert.equal(x.consumptions.length, 1);
+  const vault = x.db.read(`commerce_purchase_tokens/${sha256("wheel_pack")}`);
+  assert.equal(vault.resourceSettlementPending, false);
+  assert.equal(vault.resourceConsumedAtMillis, clock);
+});
+
+test("wheel pack checkout does not grant pending, revoked, or consumed unregistered purchases", async () => {
+  const x = harness();
+  x.receipts.set("pending_wheel", receipt({ state: "pending" }));
+  assert.equal((await x.buy("wheel_spins_3", "pending_wheel")).status, "pending");
+  x.receipts.set("revoked_wheel", receipt({ state: "revoked" }));
+  assert.equal((await x.buy("wheel_spins_3", "revoked_wheel")).status, "revoked");
+  x.receipts.set("already_spent_wheel", receipt({ consumed: true }));
+  await assert.rejects(x.buy("wheel_spins_3", "already_spent_wheel"), { code: "failed-precondition" });
+  assert.equal(x.db.read(`economy_accounts/${uid}`), undefined);
+  assert.equal(x.consumptions.length, 0);
+  x.receipts.set("pending_wheel", receipt());
+  await x.service.processNotification({ packageName, oneTimeProductNotification: { purchaseToken: "pending_wheel" } });
+  assert.equal(x.db.read(`economy_accounts/${uid}`).wheelSpins, 3);
+  assert.equal(x.consumptions.length, 1);
+});
+
+test("a verified pack funds three distinct extra prizes and purchase replay never restores spent spins", async () => {
+  const x = harness();
+  const wheel = createEconomyService({ db: x.db, now: () => clock, randomInt: () => 0 });
+  const spin = operationId => wheel.execute(uid, { action: "spinWheel", operationId });
+  await spin("today_free");
+  await x.buy("wheel_spins_3", "paid_pack");
+  for (let index = 0; index < 3; index++) {
+    const result = await spin(`paid_${index}`);
+    assert.equal(result.spin.usedFreeSpin, false);
+    assert.equal(result.state.wheelSpins, 2 - index);
+  }
+  await x.buy("wheel_spins_3", "paid_pack");
+  assert.equal(x.db.read(`economy_accounts/${uid}`).wheelSpins, 0);
+  await assert.rejects(spin("fourth_extra"), { code: "failed-precondition" });
+  await x.buy("wheel_spins_3", "another_pack");
+  assert.equal(x.db.read(`economy_accounts/${uid}`).wheelSpins, 3);
+  assert.equal((await spin("fourth_extra")).state.wheelSpins, 2);
+});
+
+test("wheel pack overflow and interrupted settlement never lose paid spins or grant them twice", async () => {
+  const x = harness();
+  await x.buy("wheel_spins_3", "first_pack");
+  const wallet = x.db.read(`economy_accounts/${uid}`);
+  x.db.seed(`economy_accounts/${uid}`, { ...wallet, wheelSpins: 2147483646 });
+  await assert.rejects(x.buy("wheel_spins_3", "overflow_pack"), { code: "failed-precondition" });
+  assert.equal(x.db.read(`economy_accounts/${uid}`).wheelSpins, 2147483646);
+  assert.equal(x.consumptions.length, 1);
+  x.db.seed(`economy_accounts/${uid}`, { ...wallet, wheelSpins: 0 });
+  const consume = x.verifier.consume;
+  x.verifier.consume = async () => { throw new Error("network failure"); };
+  await assert.rejects(x.buy("wheel_spins_3", "overflow_pack"), { code: "unavailable" });
+  assert.equal(x.db.read(`economy_accounts/${uid}`).wheelSpins, 3);
+  x.verifier.consume = consume;
+  await x.buy("wheel_spins_3", "overflow_pack");
+  assert.equal(x.db.read(`economy_accounts/${uid}`).wheelSpins, 3);
+  assert.equal(x.consumptions.length, 2);
+});
 
 test("server resource settlement follows the complete durable grant and never consumes legacy currency products", async () => {
   const x = harness();

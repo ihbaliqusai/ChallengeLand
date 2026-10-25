@@ -4,6 +4,7 @@ const { initializeApp } = require("firebase-admin/app");
 const { getFirestore } = require("firebase-admin/firestore");
 const { getDatabase } = require("firebase-admin/database");
 const { getMessaging } = require("firebase-admin/messaging");
+const { getAuth } = require("firebase-admin/auth");
 const { createDuelNotifications, InviteError } = require("./duel_notifications");
 const { setGlobalOptions } = require("firebase-functions/v2");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
@@ -20,6 +21,7 @@ const { createCommerceService } = require("./commerce");
 const { createEconomyService } = require("./economy");
 const { createFriendStakesService } = require("./friend_stakes");
 const { createQuestionHistoryService } = require("./question_history");
+const { createReferralService } = require("./referrals");
 
 initializeApp();
 setGlobalOptions({ region: "us-central1", maxInstances: 20, memory: "256MiB", timeoutSeconds: 60 });
@@ -70,6 +72,19 @@ exports.verifyPlayPurchase = protectedCallable((service, uid, data) => service.v
 exports.restoreCommercePurchases = protectedCallable((service, uid) => service.restorePurchases(uid));
 
 const economy = createEconomyService({ db: getFirestore() });
+const referrals = createReferralService({ db: getFirestore(), lookupAccount: async uid => {
+  const account = await getAuth().getUser(uid);
+  return { createdAtMillis: Date.parse(account.metadata.creationTime), disabled: account.disabled };
+} });
+exports.referrals = onCall({ enforceAppCheck }, async request => {
+  const uid = requireAccount(request);
+  try { return await referrals.execute(uid, request.data || {}); }
+  catch (error) {
+    const code = error instanceof CommerceError ? error.code : "internal";
+    logger.warn("Referral operation failed", { uid, code });
+    throw new HttpsError(code, error instanceof CommerceError ? error.message : "تعذّر تحديث دعوة الأصدقاء. حاول مجددًا.");
+  }
+});
 exports.gameEconomy = onCall({ enforceAppCheck }, async request => {
   const uid = requireAccount(request);
   try { return await economy.execute(uid, request.data || {}); }

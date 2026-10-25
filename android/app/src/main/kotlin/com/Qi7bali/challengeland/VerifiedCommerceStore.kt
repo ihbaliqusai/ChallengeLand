@@ -17,6 +17,7 @@ object VerifiedCommerceStore {
     private const val CATEGORIES = "${PREFIX}all_categories"
     private const val REMOVE_ADS = "${PREFIX}remove_ads"
     private const val STARTER = "${PREFIX}starter"
+    private const val REFERRAL_REVISION = "${PREFIX}referral_revision"
 
     private fun prefs(context: Context) =
         ProgressionAccount.preferences(context)
@@ -172,18 +173,35 @@ object VerifiedCommerceStore {
     }
 
     @JvmStatic
+    @JvmOverloads
     @Synchronized
     fun hydrateWallet(context: Context, accountUid: String, coins: Int, gems: Int,
-                      deliveryIds: List<String>): Boolean {
+                      deliveryIds: List<String>, referralRevision: Long? = null): Boolean {
         if (uid() != accountUid || accountUid.isBlank() || coins < 0 || gems < 0 ||
+            (referralRevision != null && referralRevision < 0) ||
             deliveryIds.any { !it.matches(Regex("[a-fA-F0-9]{64}")) }) return false
         val prefs = prefs(context)
+        if (referralRevision != null && referralRevision < prefs.getLong(REFERRAL_REVISION, 0)) return false
         val ledger = prefs.getStringSet(DELIVERIES, emptySet())!!.toMutableSet()
         val confirmed = prefs.getStringSet(CONFIRMED, emptySet())!!.toMutableSet()
         deliveryIds.forEach { ledger.add("$accountUid:$it"); confirmed.add("$accountUid:$it") }
-        return prefs.edit().putInt("coins", coins).putInt("gems", gems)
+        val editor = prefs.edit().putInt("coins", coins).putInt("gems", gems)
             .putString(WALLET_OWNER, accountUid).putStringSet(DELIVERIES, ledger)
-            .putStringSet(CONFIRMED, confirmed).commit()
+            .putStringSet(CONFIRMED, confirmed)
+        if (referralRevision != null) editor.putLong(REFERRAL_REVISION, referralRevision)
+        return editor.commit()
+    }
+
+    @JvmStatic
+    @Synchronized
+    fun applyServerCurrency(context: Context, accountUid: String, coins: Int, gems: Int,
+                            referralRevision: Long): Boolean {
+        if (uid() != accountUid || accountUid != ProgressionAccount.uid(context) ||
+            coins < 0 || gems < 0 || referralRevision < 0) return false
+        val prefs = prefs(context)
+        if (referralRevision < prefs.getLong(REFERRAL_REVISION, 0)) return false
+        return prefs.edit().putInt("coins", coins).putInt("gems", gems)
+            .putLong(REFERRAL_REVISION, referralRevision).commit()
     }
 
     fun isWalletHydrated(context: Context): Boolean {

@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:challenge_land/core/app_state.dart';
 import 'package:challenge_land/core/shared_assets.dart';
 import 'package:challenge_land/screens/auth/login_bottom_sheet.dart';
-import 'package:challenge_land/screens/legal/privacy_policy_screen.dart';
 import 'package:challenge_land/widgets/sign_in_required_action.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -75,23 +74,13 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
   }
 
-  Future<void> consent(WidgetTester tester) async {
-    await tester.tap(find.byKey(const ValueKey('login-privacy-checkbox')));
-    await tester.pump();
-  }
-
-  testWidgets('consent is required and Google sign-in unlocks the home action',
+  testWidgets('Google sign-in unlocks the home action directly',
       (tester) async {
     final state = _State();
     addTearDown(state.dispose);
     var actions = 0;
     await showSheet(tester, state, onAction: () => actions++);
     expect(actions, 0);
-    await tester.tap(find.byKey(const ValueKey('google-sign-in')));
-    await tester.pump();
-    expect(state.requests, 0);
-    expect(find.text('يرجى الموافقة على سياسة الخصوصية أولاً'), findsOneWidget);
-    await consent(tester);
     await tester.tap(find.byKey(const ValueKey('google-sign-in')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
@@ -108,7 +97,6 @@ void main() {
     final state = _State()..isOnline = false;
     addTearDown(state.dispose);
     await showSheet(tester, state);
-    await consent(tester);
     await tester.tap(find.byKey(const ValueKey('google-sign-in')));
     await tester.pump();
     expect(state.requests, 0);
@@ -126,7 +114,6 @@ void main() {
     final state = _State()..failure = FirebaseAuthException(code: 'cancelled');
     addTearDown(state.dispose);
     await showSheet(tester, state);
-    await consent(tester);
     await tester.tap(find.byKey(const ValueKey('google-sign-in')));
     await tester.pump();
     expect(find.byType(LoginBottomSheet), findsOneWidget);
@@ -146,7 +133,6 @@ void main() {
     final state = _State()..pending = Completer<void>();
     addTearDown(state.dispose);
     await showSheet(tester, state);
-    await consent(tester);
     final google = find.byKey(const ValueKey('google-sign-in'));
     await tester.tap(google);
     await tester.pump();
@@ -160,24 +146,6 @@ void main() {
     await tester.pump();
     expect(tester.takeException(), isNull);
     expect(find.byType(LoginBottomSheet), findsNothing);
-  });
-
-  testWidgets('privacy link opens the policy and preserves consent on return',
-      (tester) async {
-    final state = _State();
-    addTearDown(state.dispose);
-    await showSheet(tester, state);
-    await consent(tester);
-    await tester.tap(find.byKey(const ValueKey('login-privacy-link')));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-    expect(find.byType(PrivacyPolicyScreen), findsOneWidget);
-    Navigator.of(tester.element(find.byType(PrivacyPolicyScreen))).pop();
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-    expect(tester.widget<Checkbox>(find.byType(Checkbox)).value, isTrue);
-    expect(state.requests, 0);
-    expect(tester.takeException(), isNull);
   });
 
   testWidgets('sheet fits landscape and portrait windows at the bottom',

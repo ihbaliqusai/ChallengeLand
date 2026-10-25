@@ -70,6 +70,9 @@ void main() {
     EdgeInsets safe = EdgeInsets.zero,
     bool saving = false,
     bool doubled = false,
+    bool collected = false,
+    bool reducedMotion = false,
+    Duration elapsed = const Duration(seconds: 2),
     VoidCallback? onCollect,
   }) async {
     tester.view.devicePixelRatio = 1;
@@ -80,7 +83,8 @@ void main() {
       theme: ThemeData(
           fontFamily: 'Baloo', fontFamilyFallback: const ['NotoSansArabic']),
       builder: (context, child) => MediaQuery(
-        data: MediaQuery.of(context).copyWith(padding: safe, viewPadding: safe),
+        data: MediaQuery.of(context).copyWith(
+            padding: safe, viewPadding: safe, disableAnimations: reducedMotion),
         child: GameViewport(child: child!),
       ),
       home: Scaffold(
@@ -92,6 +96,7 @@ void main() {
           playerName: 'msa3ed alfouzan',
           gameplayXp: 15,
           saving: saving,
+          collected: collected,
           isDoubled: doubled,
           onCollect: onCollect ?? () {},
           onMap: () {},
@@ -102,7 +107,7 @@ void main() {
       )),
     ));
     await tester.pump();
-    await tester.pump(const Duration(seconds: 2));
+    await tester.pump(elapsed);
   }
 
   for (final (size, safe) in [
@@ -144,6 +149,47 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('rewards count up and successful collection disables the button',
+      (tester) async {
+    var collected = 0;
+    await mount(tester, elapsed: Duration.zero, onCollect: () => collected++);
+    expect(find.text('+0'), findsNWidgets(3));
+    await tester.pump(const Duration(milliseconds: 900));
+    expect(find.text('+100'), findsNothing);
+    expect(find.text('+0'), findsNothing);
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('+100'), findsOneWidget);
+    expect(find.text('+5'), findsOneWidget);
+    expect(find.text('+45'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('victory-collect')));
+    expect(collected, 1);
+    await mount(tester, collected: true, onCollect: () => collected++);
+    expect(find.text('تم جمع المكافآت'), findsOneWidget);
+    expect(find.text('تمت إضافة المكافآت إلى رصيدك'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('victory-collect')));
+    expect(collected, 1);
+    await tester.pumpWidget(const SizedBox.shrink());
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('reduced motion shows final rewards without decorative tickers',
+      (tester) async {
+    var collected = 0;
+    await mount(tester,
+        reducedMotion: true,
+        elapsed: Duration.zero,
+        onCollect: () => collected++);
+    expect(find.text('+100'), findsOneWidget);
+    expect(find.text('+5'), findsOneWidget);
+    expect(find.text('+45'), findsOneWidget);
+    expect(find.text('1400'), findsOneWidget);
+    expect(tester.binding.transientCallbackCount, 0);
+    await tester.tap(find.byKey(const ValueKey('victory-collect')));
+    expect(collected, 1);
+    await tester.pumpWidget(const SizedBox.shrink());
+    expect(tester.takeException(), isNull);
+  });
+
   test('score comparison uses each mode and never invents an opponent', () {
     final solo = VictoryScoreSummary(stage: stage, attempt: result().attempt);
     expect(solo.otherName, 'هدف المرحلة');
@@ -182,7 +228,10 @@ void main() {
       debugDisableShadows = false;
       addTearDown(() => debugDisableShadows = shadows);
     }
-    await mount(tester);
+    await mount(tester,
+        elapsed: const bool.fromEnvironment('VICTORY_PREVIEW')
+            ? Duration.zero
+            : const Duration(seconds: 2));
     final context = boundaryKey.currentContext!;
     final images = tester
         .widgetList<Image>(find.byType(Image))
@@ -194,16 +243,30 @@ void main() {
     expect(tester.takeException(), isNull);
     if (const bool.fromEnvironment('VICTORY_PREVIEW')) {
       final boundary = context.findRenderObject()! as RenderRepaintBoundary;
-      boundary.markNeedsPaint();
-      await tester.pump();
-      await tester.runAsync(() async {
-        final snapshot = await boundary.toImage(pixelRatio: 2);
-        final bytes = await snapshot.toByteData(format: ui.ImageByteFormat.png);
-        final file = File('build/stage-victory-preview.png');
-        await file.parent.create(recursive: true);
-        await file.writeAsBytes(bytes!.buffer.asUint8List());
-        snapshot.dispose();
-      });
+      Future<void> capture(String name) async {
+        boundary.markNeedsPaint();
+        await tester.pump();
+        await tester.runAsync(() async {
+          final snapshot = await boundary.toImage(pixelRatio: 2);
+          final bytes =
+              await snapshot.toByteData(format: ui.ImageByteFormat.png);
+          final file = File('build/$name.png');
+          await file.parent.create(recursive: true);
+          await file.writeAsBytes(bytes!.buffer.asUint8List());
+          snapshot.dispose();
+        });
+      }
+
+      var elapsed = 0;
+      for (final time in [300, 700, 1200, 2000, 6500]) {
+        await tester.pump(Duration(milliseconds: time - elapsed));
+        await capture(time == 2000
+            ? 'stage-victory-preview'
+            : 'stage-victory-entrance-$time');
+        elapsed = time;
+      }
+      await mount(tester, collected: true);
+      await capture('stage-victory-collected');
     }
     debugDisableShadows = shadows;
   });

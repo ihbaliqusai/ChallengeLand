@@ -9,6 +9,7 @@ public final class PlayProductRules {
         return canonicalId.startsWith("gems_") || canonicalId.startsWith("coins_")
                 || canonicalId.startsWith("keys_") || canonicalId.startsWith("hearts_")
                 || canonicalId.startsWith("tickets_") || canonicalId.startsWith("resources_")
+                || canonicalId.equals("wheel_spins_3")
                 || canonicalId.equals("pack_value") || canonicalId.equals("pack_champion");
     }
 }

@@ -17,10 +17,12 @@ void main() {
           ..addFont(SharedAssets.bundle.load('assets/fonts/baloo.ttf')))
         .load();
     await (FontLoader('NotoSansArabic')
-          ..addFont(SharedAssets.bundle.load('assets/fonts/NotoSansArabic.ttf')))
+          ..addFont(
+              SharedAssets.bundle.load('assets/fonts/NotoSansArabic.ttf')))
         .load();
     await (FontLoader('MaterialIcons')
-          ..addFont(SharedAssets.bundle.load('fonts/MaterialIcons-Regular.otf')))
+          ..addFont(
+              SharedAssets.bundle.load('fonts/MaterialIcons-Regular.otf')))
         .load();
   });
 
@@ -83,7 +85,7 @@ void main() {
       'الملف الشخصي': 'profile',
       'إغلاق': 'close',
       'الصدارة': 'leaderboard',
-      'المكافآت': 'rewards',
+      'دولاب الحظ': 'rewards',
       'الإحصائيات': 'stats',
       'الإنجازات': 'achievements',
       'الإعدادات': 'settings',
@@ -102,7 +104,7 @@ void main() {
       (tester) async {
     await mount(tester, online: false, badges: true);
     await tester.tap(find.byTooltip('الصدارة'));
-    await tester.tap(find.byTooltip('المكافآت'));
+    await tester.tap(find.byTooltip('دولاب الحظ'));
     expect(calls, ['offline', 'offline']);
     await tester.tap(find.byTooltip('الإحصائيات'));
     expect(calls.last, 'stats');
@@ -127,7 +129,7 @@ void main() {
       for (final label in [
         'إغلاق',
         'الصدارة',
-        'المكافآت',
+        'دولاب الحظ',
         'الإحصائيات',
         'الإنجازات',
         'الإعدادات'

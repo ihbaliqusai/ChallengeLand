@@ -10,6 +10,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.graphics.BitmapFactory;
+import android.graphics.drawable.Icon;
 import android.os.Build;
 import java.util.TimeZone;
 
@@ -72,11 +74,18 @@ public class DailyReminderReceiver extends BroadcastReceiver {
         String message = "التحدي بانتظارك! ادخل أرض التحدي، اختبر معلوماتك وتحدَّ أصدقاءك اليوم.";
         Notification.Builder builder = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
                 ? new Notification.Builder(context, CHANNEL_ID) : new Notification.Builder(context);
-        Notification notification = builder.setSmallIcon(R.mipmap.ic_launcher)
+        Notification notification = builder.setSmallIcon(R.drawable.ic_notification_challenge)
+                .setLargeIcon(Icon.createWithResource(context, R.mipmap.ic_launcher))
                 .setContentTitle("حان وقت اللعب في أرض التحدي!")
                 .setContentText(message)
-                .setStyle(new Notification.BigTextStyle().bigText(message))
+                .setStyle(new Notification.BigPictureStyle()
+                        .bigPicture(BitmapFactory.decodeResource(context.getResources(),
+                                R.drawable.daily_play_reminder))
+                        .setSummaryText(message))
                 .setContentIntent(content)
+                .addAction(new Notification.Action.Builder(
+                        Icon.createWithResource(context, android.R.drawable.ic_media_play),
+                        "العب الآن", content).build())
                 .setAutoCancel(true)
                 .setShowWhen(true)
                 .build();

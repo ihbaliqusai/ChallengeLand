@@ -90,28 +90,72 @@ class _OnlineMatchRecoveryCardState extends State<OnlineMatchRecoveryCard>
     }
   }
 
-  Future<void> _chooseMatch() async {
-    if (_matches.length == 1) return _resume(_matches.first);
+  Future<void> _confirmForfeit(Map<String, dynamic> match) async {
+    if (_busy) return;
+    final uid = widget.userId;
+    setState(() => _busy = true);
+    try {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => GameAlertDialog(
+          title: const Text('انسحاب من المباراة'),
+          content: const Text(
+              'هل تريد الانسحاب من المباراة؟ يُحسب الانسحاب خسارة وتُفقد قطع المباراة المحجوزة إن وجدت.'),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('إلغاء')),
+            TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('انسحاب من المباراة')),
+          ],
+        ),
+      );
+      if (!mounted || widget.userId != uid || confirmed != true) return;
+      await OnlineMatchFlow.forfeit(context, uid, [match]);
+      if (mounted && widget.userId == uid) await _refresh();
+    } catch (_) {
+      if (mounted && widget.userId == uid) {
+        GameNoticeMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text(
+              'تعذر الانسحاب من المباراة. تحقق من الاتصال ثم حاول مجددًا.'),
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _chooseMatch({bool forfeit = false}) async {
+    if (_busy) return;
+    final matches = _matches
+        .where((match) => !forfeit || match['finished'] != true)
+        .toList();
+    if (matches.isEmpty) return;
+    final action = forfeit ? _confirmForfeit : _resume;
+    if (matches.length == 1) return action(matches.first);
     final uid = widget.userId;
     final selected = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (context) => SimpleDialog(
-        title: const Text('مبارياتك السابقة'),
+        title: Text(forfeit ? 'اختر مباراة للانسحاب منها' : 'مبارياتك السابقة'),
         children: [
-          for (final match in _matches)
+          for (final match in matches)
             SimpleDialogOption(
               onPressed: () => Navigator.pop(context, match),
-              child: Text(match['finished'] == true
-                  ? 'عرض نتيجة المباراة'
-                  : (match['roomId'] as String? ?? '').isNotEmpty
-                      ? 'العودة إلى غرفة اللعب'
-                      : 'العودة إلى المباراة'),
+              child: Text(forfeit
+                  ? 'انسحاب من المباراة'
+                  : match['finished'] == true
+                      ? 'عرض نتيجة المباراة'
+                      : (match['roomId'] as String? ?? '').isNotEmpty
+                          ? 'العودة إلى غرفة اللعب'
+                          : 'العودة إلى المباراة'),
             ),
         ],
       ),
     );
     if (mounted && selected != null && widget.userId == uid) {
-      await _resume(selected);
+      await action(selected);
     }
   }
 
@@ -133,6 +177,8 @@ class _OnlineMatchRecoveryCardState extends State<OnlineMatchRecoveryCard>
       child: InkWell(
         key: const ValueKey('resume-online-match'),
         onTap: _busy ? null : _chooseMatch,
+        onLongPress:
+            _busy || finished ? null : () => _chooseMatch(forfeit: true),
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

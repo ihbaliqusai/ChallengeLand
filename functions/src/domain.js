@@ -13,6 +13,7 @@ class CommerceError extends Error {
 // These are delivered quantities, never client-supplied quantities or prices.
 // Preserve amounts sold by previous Android releases under the same SKU.
 const PRODUCTS = Object.freeze({
+  wheel_spins_3: { type: "consumable", coins: 0, gems: 0, wheelSpins: 3 },
   keys_1: { type: "consumable", coins: 0, gems: 0, keys: 1 },
   hearts_1: { type: "consumable", coins: 0, gems: 0, hearts: 1 },
   tickets_1: { type: "consumable", coins: 0, gems: 0, tickets: 1 },

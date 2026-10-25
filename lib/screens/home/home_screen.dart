@@ -30,6 +30,8 @@ import '../../services/native_bridge_service.dart';
 import '../../widgets/friend_challenge_modal.dart';
 import '../../widgets/incoming_invite_dialog.dart';
 import '../social/social_screen.dart';
+import '../social/invite_friends_page.dart';
+import '../../services/referral_service.dart';
 import '../../widgets/special_offer_dialog.dart';
 import '../../widgets/special_offer_badge.dart';
 import '../../widgets/daily_reward_dialog.dart';
@@ -47,9 +49,11 @@ import '../../widgets/online_match_recovery_card.dart';
 import '../../widgets/sign_in_required_action.dart';
 import '../../widgets/support_contact_sheet.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../widgets/guide/home_guide_tour_overlay.dart';
 import '../../widgets/guide/home_guide_steps.dart';
+import '../../widgets/guide/page_guide.dart';
+import '../../widgets/guide/page_guide_steps.dart';
 import '../../widgets/guide/persistent_guide_button.dart';
+import '../../widgets/guide/unified_guest_tour_overlay.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -64,7 +68,9 @@ class _HomeScreenState extends State<HomeScreen>
   late final AnimationController _bgCtrl;
   bool _syncingPendingRoomMatchResult = false;
   bool _handlingNativeLaunchAction = false;
-  bool _hasCheckedDailyRewardThisLaunch = false;
+  bool _checkingReferral = false;
+  String? _shownReferral;
+  bool _hasCheckedLuckyWheelThisLaunch = false;
   String? _initializedUserId;
 
   // ── Guide Tour & Navigation Keys ─────────────────────────────
@@ -99,7 +105,7 @@ class _HomeScreenState extends State<HomeScreen>
     if (_hasInitializedUser && _initializedUserId == uid) return;
     _hasInitializedUser = true;
     _initializedUserId = uid;
-    _hasCheckedDailyRewardThisLaunch = false;
+    _hasCheckedLuckyWheelThisLaunch = false;
     if (uid == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _checkAndTriggerGuideTour();
@@ -119,12 +125,13 @@ class _HomeScreenState extends State<HomeScreen>
         context: context,
       );
       _consumeNativeLaunchAction();
+      _checkPendingReferral();
       Future.delayed(const Duration(milliseconds: 600), () {
         if (mounted && context.read<AppState>().user?.uid == uid) {
           _checkClipboardForIncomingInvite();
         }
       });
-      _checkAndShowDailyReward();
+      _checkAndShowLuckyWheel();
     });
   }
 
@@ -138,7 +145,9 @@ class _HomeScreenState extends State<HomeScreen>
     try {
       final prefs = await SharedPreferences.getInstance();
       final hasCompleted =
-          prefs.getBool('has_completed_home_onboarding_guide') ?? false;
+          prefs.getBool(UnifiedGuestTourOverlay.completedPrefKey) ??
+          prefs.getBool(UnifiedGuestTourOverlay.legacyHomePrefKey) ??
+          false;
       if (!hasCompleted && mounted) {
         // Wait briefly for layout and orientation to settle
         await Future<void>.delayed(const Duration(milliseconds: 700));
@@ -163,7 +172,8 @@ class _HomeScreenState extends State<HomeScreen>
   Future<void> _persistGuideCompletion() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('has_completed_home_onboarding_guide', true);
+      await prefs.setBool(UnifiedGuestTourOverlay.completedPrefKey, true);
+      await prefs.setBool(UnifiedGuestTourOverlay.legacyHomePrefKey, true);
     } catch (_) {}
   }
 
@@ -180,6 +190,7 @@ class _HomeScreenState extends State<HomeScreen>
         context: context,
       );
       _consumeNativeLaunchAction();
+      _checkPendingReferral();
       _checkClipboardForIncomingInvite();
       final promo = context.read<CrossPromoService>();
       final uid = context.read<AppState>().currentUser?.uid;
@@ -188,24 +199,28 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-  Future<void> _checkAndShowDailyReward() async {
-    if (!mounted || _hasCheckedDailyRewardThisLaunch) return;
-    _hasCheckedDailyRewardThisLaunch = true;
+  Future<void> _checkAndShowLuckyWheel() async {
+    if (!mounted || _hasCheckedLuckyWheelThisLaunch) return;
+    _hasCheckedLuckyWheelThisLaunch = true;
 
     // مهلة قصيرة لإتاحة استقرار الشاشة وسلاسة الانتقال
     await Future<void>.delayed(const Duration(milliseconds: 800));
     if (!mounted) return;
 
     final appState = context.read<AppState>();
-    // انتظار تحميل بيانات السلسلة من Firestore إذا كانت لا تزال قيد التحميل
+    // انتظر تحميل حالة اللفة اليومية قبل عرض الدولاب.
     int waitCount = 0;
     while (!appState.dailyStreakLoaded && waitCount < 15 && mounted) {
       await Future<void>.delayed(const Duration(milliseconds: 200));
       waitCount++;
     }
-    if (!mounted) return;
+    if (!mounted ||
+        ModalRoute.of(context)?.isCurrent != true ||
+        _checkingReferral) {
+      return;
+    }
 
-    // إذا لم تكتمل عملية تحميل السلسلة بعد، أو لم يكن المستخدم متصلاً أو ليس مسجلاً، لا تظهر النافذة مطلقاً
+    // يُعرض الدولاب بعد تحميل الحالة ولحساب مسجل ومتصل فقط.
     if (!appState.dailyStreakLoaded ||
         !appState.isOnline ||
         appState.user == null) {
@@ -215,14 +230,14 @@ class _HomeScreenState extends State<HomeScreen>
       return;
     }
 
-    // تظهر النافذة فقط وفقط إذا لم يتم الاستلام اليوم (أي أن الصندوق متاح للتحصيل)
+    // افتح الدولاب عندما تكون اللفة المجانية لهذا اليوم متاحة.
     final shouldShow = !appState.claimedToday;
 
     if (shouldShow && mounted) {
       await DailyRewardDialog.show(context);
     }
 
-    // بعد الانتهاء من فحص/عرض المكافأة اليومية يتم التحقق من العرض الخاص
+    // بعد إغلاق دولاب الحظ يتم التحقق من العرض الخاص.
     // لضمان عدم ظهور نافذتين فوق بعضهما مطلقاً
     if (mounted) {
       _checkAndShowSpecialOffer();
@@ -230,7 +245,11 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _checkAndShowSpecialOffer() async {
-    if (!mounted) return;
+    if (!mounted ||
+        ModalRoute.of(context)?.isCurrent != true ||
+        _checkingReferral) {
+      return;
+    }
     final appState = context.read<AppState>();
     if (appState.user == null || appState.isVip) return;
     final shouldShow =
@@ -362,6 +381,34 @@ class _HomeScreenState extends State<HomeScreen>
       }
     } finally {
       _handlingNativeLaunchAction = false;
+    }
+  }
+
+  Future<void> _checkPendingReferral() async {
+    if (!mounted || _checkingReferral) return;
+    final app = context.read<AppState>();
+    final uid = app.user?.uid;
+    if (uid == null || !app.isOnline) return;
+    _checkingReferral = true;
+    try {
+      final pending = await const ReferralService().pending();
+      final code =
+          ReferralService.extractCode(pending['code'] as String? ?? '');
+      if (!mounted ||
+          context.read<AppState>().user?.uid != uid ||
+          code.isEmpty ||
+          _shownReferral == '$uid:$code') {
+        return;
+      }
+      // Keep the code pending when another route or dialog is in front.
+      if (ModalRoute.of(context)?.isCurrent != true) return;
+      _shownReferral = '$uid:$code';
+      await Navigator.of(context).push(MaterialPageRoute<void>(
+          builder: (_) => InviteFriendsPage(initialCode: code)));
+    } catch (_) {
+      // Offline/older native builds retain the manual code entry path.
+    } finally {
+      _checkingReferral = false;
     }
   }
 
@@ -641,10 +688,22 @@ Future<void> _showGameModesSheet(BuildContext context) {
   );
 }
 
-class _GameModesSheet extends StatelessWidget {
+class _GameModesSheet extends StatefulWidget {
   const _GameModesSheet({required this.rootContext});
 
   final BuildContext rootContext;
+
+  @override
+  State<_GameModesSheet> createState() => _GameModesSheetState();
+}
+
+class _GameModesSheetState extends State<_GameModesSheet> {
+  final _guideKey = GlobalKey<PageGuideState>();
+  final _guideTargets = {
+    for (final target in ModeGuideTarget.values) target: GlobalKey(),
+  };
+  bool _guiding = false;
+  BuildContext get rootContext => widget.rootContext;
 
   void _openOnlineRoute(
     BuildContext sheetContext,
@@ -670,34 +729,62 @@ class _GameModesSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final appState = context.watch<AppState>();
     final media = MediaQuery.of(context);
-    final width = math.min(
+    var width = math.min(
         900.0,
         math.min(
             media.size.width - media.padding.horizontal - 24,
             (media.size.height - media.padding.vertical - 24) *
                 GameModesArtwork.aspectRatio));
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      surfaceTintColor: Colors.transparent,
-      elevation: 0,
-      insetPadding: const EdgeInsets.all(12),
-      alignment: Alignment.center,
-      child: Center(
-        child: SizedBox(
-          width: width,
-          child: GameModesArtwork(
-            isOnline: appState.isOnline,
-            onClose: () => Navigator.of(context).pop(),
-            onMainChallenge: () => _runMode(context,
-                () => rootContext.read<AppState>().openMainChallenge()),
-            onGroupChallenge: () => _openOnlineRoute(
-                context, const RoomsScreen(), appState.isOnline),
-            onFriendChallenge: () => _openOnlineRoute(
-                context, const SocialScreen(), appState.isOnline),
-            onOffline: () => _runMode(
-                context, () => rootContext.read<AppState>().openOfflineGame()),
-            onUnavailable: () =>
-                _runMode(context, () => _showOnlineRequiredToast(rootContext)),
+    final landscape = media.size.width > media.size.height;
+    if (_guiding) {
+      width = math.min(
+          width,
+          landscape
+              ? media.size.width * .5
+              : media.size.height * .4 * GameModesArtwork.aspectRatio);
+    }
+    return PageGuide(
+      key: _guideKey,
+      id: 'modes',
+      steps: buildModeGuideSteps(_guideTargets),
+      completionLabel: 'اختر طريقة اللعب',
+      onStart: () => setState(() => _guiding = true),
+      onFinish: () => setState(() => _guiding = false),
+      child: Dialog(
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        insetPadding: const EdgeInsets.all(12),
+        alignment: _guiding
+            ? (landscape ? Alignment.centerRight : Alignment.topCenter)
+            : Alignment.center,
+        child: Center(
+          widthFactor: 1,
+          heightFactor: 1,
+          child: SizedBox(
+            width: width,
+            child: Stack(children: [
+              GameModesArtwork(
+                guideTargets: _guideTargets,
+                isOnline: appState.isOnline,
+                onClose: () => Navigator.of(context).pop(),
+                onMainChallenge: () => _runMode(context,
+                    () => rootContext.read<AppState>().openMainChallenge()),
+                onGroupChallenge: () => _openOnlineRoute(
+                    context, const RoomsScreen(), appState.isOnline),
+                onFriendChallenge: () => _openOnlineRoute(
+                    context, const SocialScreen(), appState.isOnline),
+                onOffline: () => _runMode(context,
+                    () => rootContext.read<AppState>().openOfflineGame()),
+                onUnavailable: () => _runMode(
+                    context, () => _showOnlineRequiredToast(rootContext)),
+              ),
+              Positioned(
+                  right: 10,
+                  top: 8,
+                  child: PageGuideHelpButton(
+                      onPressed: () => _guideKey.currentState?.start())),
+            ]),
           ),
         ),
       ),
@@ -1176,8 +1263,8 @@ class _HomeLobbyLayout extends StatelessWidget {
                         animation: idleCtrl,
                         showGreenDot: true,
                         isAvailable: appState.isOnline,
-                        onPressed: () =>
-                            _openOnlineScreen(context, const SocialScreen()))),
+                        onPressed: () => _openOnlineScreen(
+                            context, const InviteFriendsPage()))),
                 const SizedBox(height: 12),
                 SignInRequiredAction(
                     key: guideTargets[HomeGuideTarget.store],
@@ -1245,12 +1332,12 @@ class _HomeLobbyLayout extends StatelessWidget {
               ),
             ),
 
-          // Guided Onboarding Tour Overlay
+          // Unified Guided Onboarding Tour Overlay for Guests
           if (showGuideTour)
             Positioned.fill(
-              child: HomeGuideTourOverlay(
-                steps: buildHomeGuideSteps(guideTargets,
-                    showOffer: !appState.isVip),
+              child: UnifiedGuestTourOverlay(
+                rootContext: context,
+                homeTargets: guideTargets,
                 onComplete: onCompleteGuideTour,
                 onSkip: onCompleteGuideTour,
               ),

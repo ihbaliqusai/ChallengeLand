@@ -149,6 +149,146 @@ void main() {
     await tester.pump(const Duration(milliseconds: 350));
   }
 
+  Future<void> longPressReturn(WidgetTester tester) async {
+    await tester.longPress(find.byKey(const ValueKey('resume-online-match')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+  }
+
+  Future<void> confirmWithdrawal(WidgetTester tester) async {
+    await tester.tap(find.widgetWithText(TextButton, 'انسحاب من المباراة'));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('long press offers withdrawal and cancel preserves the match',
+      (tester) async {
+    saved = [
+      {'id': 'bot:old', 'finished': false}
+    ];
+    await mount(tester);
+    await longPressReturn(tester);
+    expect(
+        find.widgetWithText(TextButton, 'انسحاب من المباراة'), findsOneWidget);
+    expect(calls.where((c) => c.method == 'forfeitOnlineMatch'), isEmpty);
+    expect(calls.where((c) => c.method == 'resumeOnlineMatch'), isEmpty);
+    await tester.tap(find.text('إلغاء'));
+    await tester.pumpAndSettle();
+    expect(saved, hasLength(1));
+    await tapReturn(tester);
+    expect(calls.where((c) => c.method == 'resumeOnlineMatch'), hasLength(1));
+  });
+
+  for (final id in ['bot:old', 'duel:old', 'paid:old']) {
+    testWidgets('confirmed home withdrawal settles $id without resuming it',
+        (tester) async {
+      saved = [
+        {'id': id, 'finished': false}
+      ];
+      await mount(tester);
+      await longPressReturn(tester);
+      await confirmWithdrawal(tester);
+      expect(
+          calls.where((c) => c.method == 'forfeitOnlineMatch').single.arguments,
+          {'id': id, 'uid': 'alice'});
+      expect(calls.where((c) => c.method == 'resumeOnlineMatch'), isEmpty);
+      expect(saved, isEmpty);
+      expect(find.byKey(const ValueKey('resume-online-match')), findsNothing);
+    });
+  }
+
+  testWidgets('home withdrawal failure retains the match and allows retry',
+      (tester) async {
+    saved = [
+      {'id': 'duel:old', 'finished': false}
+    ];
+    forfeitFails = true;
+    await mount(tester);
+    await longPressReturn(tester);
+    await confirmWithdrawal(tester);
+    expect(
+        find.text('تعذر الانسحاب من المباراة. تحقق من الاتصال ثم حاول مجددًا.'),
+        findsOneWidget);
+    expect(saved, hasLength(1));
+    await tester.tap(find.byIcon(Icons.close_rounded));
+    await tester.pumpAndSettle();
+    forfeitFails = false;
+    await longPressReturn(tester);
+    await confirmWithdrawal(tester);
+    expect(saved, isEmpty);
+  });
+
+  testWidgets('switching account during home confirmation prevents withdrawal',
+      (tester) async {
+    saved = [
+      {'id': 'bot:old', 'finished': false}
+    ];
+    await mount(tester);
+    await longPressReturn(tester);
+    activeUid = 'bob';
+    await confirmWithdrawal(tester);
+    expect(calls.where((c) => c.method == 'forfeitOnlineMatch'), isEmpty);
+    expect(saved, hasLength(1));
+  });
+
+  testWidgets('home withdrawal leaves the room before settling recovery',
+      (tester) async {
+    saved = [
+      {'id': 'room:1', 'roomId': '1', 'finished': false}
+    ];
+    rooms.room = const Room(
+        id: '1',
+        hostId: 'bob',
+        maxPlayers: 2,
+        started: true,
+        players: {
+          'alice': RoomPlayer(score: 0, ready: true),
+          'bob': RoomPlayer(score: 0, ready: true),
+        });
+    await mount(tester);
+    await longPressReturn(tester);
+    await confirmWithdrawal(tester);
+    expect(rooms.forfeits, 1);
+    expect(rooms.joins, 0);
+    expect(saved, isEmpty);
+  });
+
+  testWidgets('home withdrawal preserves a match completed during confirmation',
+      (tester) async {
+    saved = [
+      {'id': 'duel:old', 'finished': false}
+    ];
+    await mount(tester);
+    await longPressReturn(tester);
+    saved.single['finished'] = true;
+    saved.single['message'] = 'فزت بالمباراة.';
+    await confirmWithdrawal(tester);
+    expect(calls.where((c) => c.method == 'forfeitOnlineMatch'), isEmpty);
+    expect(saved.single['message'], 'فزت بالمباراة.');
+    expect(find.text('نتيجة مباراتك السابقة'), findsOneWidget);
+    await longPressReturn(tester);
+    expect(find.widgetWithText(TextButton, 'انسحاب من المباراة'), findsNothing);
+  });
+
+  testWidgets('home withdrawal selects only the chosen unfinished match',
+      (tester) async {
+    saved = [
+      {'id': 'bot:first', 'finished': false},
+      {'id': 'duel:second', 'finished': false},
+      {'id': 'paid:done', 'finished': true},
+    ];
+    await mount(tester);
+    await longPressReturn(tester);
+    expect(find.byType(SimpleDialogOption), findsNWidgets(2));
+    await tester.tap(find.byType(SimpleDialogOption).last);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    await confirmWithdrawal(tester);
+    expect(
+        calls.where((c) => c.method == 'forfeitOnlineMatch').single.arguments,
+        {'id': 'duel:second', 'uid': 'alice'});
+    expect(saved.map((m) => m['id']), ['bot:first', 'paid:done']);
+  });
+
   testWidgets('no return button without a saved match', (tester) async {
     await mount(tester);
     expect(find.byKey(const ValueKey('resume-online-match')), findsNothing);

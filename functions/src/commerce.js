@@ -14,7 +14,7 @@ function createCommerceService({ db, verifier, packageName, legacyVipIds = [], n
   const entitlementRef = (uid) => db.doc(`commerce_accounts/${uid}/entitlements/current`);
   const transactionRef = (uid, hash) => db.doc(`commerce_accounts/${uid}/transactions/${hash}`);
   const tokenRef = (hash) => db.doc(`commerce_purchase_tokens/${hash}`);
-  const resources = ["keys", "hearts", "tickets"];
+  const resources = ["keys", "hearts", "tickets", "wheelSpins"];
   const serverResourceProduct = product => product.type === "consumable" &&
     !product.coins && !product.gems && resources.some(key => product[key] > 0);
 
@@ -141,7 +141,7 @@ function createCommerceService({ db, verifier, packageName, legacyVipIds = [], n
         createdAtMillis, updatedAtMillis: observedAtMillis,
         // Currencies remain local in this game. Store a refund record for reconciliation;
         // never falsely claim to have clawed back an already spent local balance.
-        ...(receipt.state === "revoked" && (grant.coins || grant.gems || grant.keys || grant.hearts || grant.tickets) ? { walletReviewRequired: true } : {}),
+        ...(receipt.state === "revoked" && (grant.coins || grant.gems || resources.some(key => grant[key])) ? { walletReviewRequired: true } : {}),
       });
       transaction.set(tokenRef(hash), {
         ...(previousToken || {}), uid, productId: product.id, storeId: product.storeId,

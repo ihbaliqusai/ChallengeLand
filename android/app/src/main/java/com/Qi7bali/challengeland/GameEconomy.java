@@ -263,11 +263,44 @@ public final class GameEconomy {
                     }
                     if (currentResponse && value.get("currency") instanceof Map) {
                         Map<?, ?> currency = (Map<?, ?>) value.get("currency");
-                        PlayerProgress.setCurrency(c, ((Number) currency.get("coins")).intValue(), ((Number) currency.get("gems")).intValue());
+                        long referralRevision = value.get("referralRevision") instanceof Number
+                                ? ((Number) value.get("referralRevision")).longValue() : 0;
+                        VerifiedCommerceStore.applyServerCurrency(c, uid,
+                                ((Number) currency.get("coins")).intValue(), ((Number) currency.get("gems")).intValue(),
+                                referralRevision);
+                    }
+                    if (currentResponse && value.get("purchasedCharacters") instanceof java.util.List) {
+                        Set<String> unlocked = AppPrefs.getUnlockedCharacters(c);
+                        for (Object raw : (java.util.List<?>) value.get("purchasedCharacters")) {
+                            if (!(raw instanceof Number)) continue;
+                            Number number = (Number) raw;
+                            int index = number.intValue();
+                            if (number.doubleValue() == index && CharacterUnlocks.isValid(index)) {
+                                unlocked.add(String.valueOf(index));
+                            }
+                        }
+                        // Merge verified wheel unlocks with purchases cached on this device.
+                        AppPrefs.setUnlockedCharacters(c, unlocked);
                     }
                     if (paid) accountPrefs.edit().remove("pendingPurchase").remove("purchaseSynced").commit();
                     callback.complete(value, null);
                 }).addOnFailureListener(e -> {
+                    if ("spinWheel".equals(request.get("action"))
+                            && e instanceof com.google.firebase.functions.FirebaseFunctionsException) {
+                        com.google.firebase.functions.FirebaseFunctionsException.Code code =
+                                ((com.google.firebase.functions.FirebaseFunctionsException) e).getCode();
+                        if (code == com.google.firebase.functions.FirebaseFunctionsException.Code.FAILED_PRECONDITION) {
+                            // This rejection follows the server receipt lookup: no spin committed.
+                            // Every other failure retains the journal for earlier-attempt recovery.
+                            Map<String, Object> rejection = new HashMap<>();
+                            rejection.put("code", code.name());
+                            rejection.put("message", errorMessage(e));
+                            Map<String, Object> value = new HashMap<>();
+                            value.put("wheelRejection", rejection);
+                            callback.complete(value, null);
+                            return;
+                        }
+                    }
                     if (paid && e instanceof com.google.firebase.functions.FirebaseFunctionsException) {
                         com.google.firebase.functions.FirebaseFunctionsException.Code code = ((com.google.firebase.functions.FirebaseFunctionsException)e).getCode();
                         if (code != com.google.firebase.functions.FirebaseFunctionsException.Code.UNAVAILABLE
@@ -282,10 +315,33 @@ public final class GameEconomy {
         // Legacy coins/gems still use the existing account snapshot; resource credits
         // and the debit are committed together by the callable, never by this client.
         if (paid && !accountPrefs.getBoolean("purchaseSynced", false)) {
+            Map<String, ?> localWallet = ProgressionAccount.preferences(c).getAll();
+            Object localRevision = localWallet.get("commerce_referral_revision");
+            long referralRevision = localRevision instanceof Number ? ((Number) localRevision).longValue() : 0;
             Map<String, Object> currency = new HashMap<>();
-            currency.put("coins", PlayerProgress.getCoins(c)); currency.put("gems", PlayerProgress.getGems(c));
-            FirebaseFirestore.getInstance().collection("users").document(uid).set(currency, com.google.firebase.firestore.SetOptions.merge())
-                    .addOnSuccessListener(v -> {
+            currency.put("coins", localWallet.get("coins") instanceof Number ? ((Number) localWallet.get("coins")).intValue() : 0);
+            currency.put("gems", localWallet.get("gems") instanceof Number ? ((Number) localWallet.get("gems")).intValue() : 0);
+            com.google.firebase.firestore.DocumentReference userRef = FirebaseFirestore.getInstance().collection("users").document(uid);
+            FirebaseFirestore.getInstance().runTransaction(transaction -> {
+                com.google.firebase.firestore.DocumentSnapshot remote = transaction.get(userRef);
+                if (!uid.equals(ProgressionAccount.uid(c))) throw new IllegalStateException("Account changed");
+                Long revision = remote.getLong("referralRevision");
+                long remoteRevision = revision == null ? 0 : revision;
+                // A referral can arrive while a native screen still holds an older balance.
+                // Refresh that wallet instead of writing over the server's new award.
+                if (remoteRevision != referralRevision) return remote;
+                transaction.set(userRef, currency, com.google.firebase.firestore.SetOptions.merge());
+                return null;
+            }).addOnSuccessListener(remote -> {
+                        if (!uid.equals(ProgressionAccount.uid(c))) { callback.complete(null, "تغيّر الحساب. حاول مجدداً."); return; }
+                        if (remote != null) {
+                            Long remoteCoins = remote.getLong("coins"), remoteGems = remote.getLong("gems");
+                            Long revision = remote.getLong("referralRevision");
+                            VerifiedCommerceStore.applyServerCurrency(c, uid,
+                                    (int) Math.max(0L, Math.min(Integer.MAX_VALUE, remoteCoins == null ? 0 : remoteCoins)),
+                                    (int) Math.max(0L, Math.min(Integer.MAX_VALUE, remoteGems == null ? 0 : remoteGems)),
+                                    revision == null ? 0 : revision);
+                        }
                         accountPrefs.edit().putBoolean("purchaseSynced", true).commit(); send.run();
                     }).addOnFailureListener(e -> callback.complete(null, "تعذر مزامنة المحفظة."));
         } else send.run();

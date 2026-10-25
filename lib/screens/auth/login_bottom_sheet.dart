@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 
 import '../../core/app_state.dart';
 import '../../widgets/adaptive_asset_image.dart';
-import '../legal/privacy_policy_screen.dart';
 
 class LoginBottomSheet extends StatefulWidget {
   const LoginBottomSheet({super.key});
@@ -36,16 +35,11 @@ class LoginBottomSheet extends StatefulWidget {
 
 class _LoginBottomSheetState extends State<LoginBottomSheet> {
   static const _purple = Color(0xFF7447F6);
-  bool _acceptedPrivacy = false;
   bool _signingIn = false;
   String? _error;
 
   Future<void> _signIn() async {
     if (_signingIn) return;
-    if (!_acceptedPrivacy) {
-      setState(() => _error = 'يرجى الموافقة على سياسة الخصوصية أولاً');
-      return;
-    }
     final state = context.read<AppState>();
     if (!state.isOnline) {
       setState(() => _error = 'تحقق من اتصال الإنترنت ثم حاول مجدداً');
@@ -163,64 +157,9 @@ class _LoginBottomSheetState extends State<LoginBottomSheet> {
                         ),
                 ),
               ),
-              const SizedBox(height: 10),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  SizedBox.square(
-                    dimension: 40,
-                    child: Checkbox(
-                      key: const ValueKey('login-privacy-checkbox'),
-                      value: _acceptedPrivacy,
-                      onChanged: busy
-                          ? null
-                          : (value) => setState(() {
-                                _acceptedPrivacy = value ?? false;
-                                _error = null;
-                              }),
-                      semanticLabel: 'أوافق على سياسة الخصوصية',
-                      activeColor: _purple,
-                      checkColor: Colors.white,
-                      side: const BorderSide(color: _purple, width: 1.2),
-                      visualDensity: VisualDensity.compact,
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                  ),
-                  const SizedBox(width: 2),
-                  Expanded(
-                    child: Wrap(
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        const Text('قرأت ',
-                            style: TextStyle(
-                                color: Color(0xFF161616), fontSize: 14)),
-                        InkWell(
-                          key: const ValueKey('login-privacy-link'),
-                          onTap: busy
-                              ? null
-                              : () => Navigator.of(context).push(
-                                    MaterialPageRoute<void>(
-                                        builder: (_) =>
-                                            const PrivacyPolicyScreen()),
-                                  ),
-                          child: const Text('سياسة الخصوصية',
-                              style: TextStyle(
-                                  color: _purple,
-                                  fontSize: 14,
-                                  decoration: TextDecoration.underline,
-                                  decorationColor: _purple)),
-                        ),
-                        const Text(' وأوافق عليها.',
-                            style: TextStyle(
-                                color: Color(0xFF161616), fontSize: 14)),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
               if (_error != null)
                 Padding(
-                  padding: const EdgeInsets.only(top: 6),
+                  padding: const EdgeInsets.only(top: 10),
                   child: Text(_error!,
                       textAlign: TextAlign.center,
                       style: const TextStyle(

@@ -17,9 +17,12 @@ import '../../widgets/cross_promo_millionaire_dialog.dart';
 import '../../widgets/currency_reward_overlay.dart';
 import '../../widgets/game_store_widgets.dart';
 import '../character/character_select_screen.dart';
+import 'daily_streak_screen.dart';
 import 'resource_shop_screen.dart';
 import '../legal/privacy_policy_screen.dart';
 import '../../widgets/adaptive_asset_image.dart';
+import '../../widgets/guide/page_guide.dart';
+import '../../widgets/guide/page_guide_steps.dart';
 
 const _background = storeNavy;
 const _surface = Color(0xFF26105C);
@@ -80,14 +83,25 @@ const _currencyArtwork = {
 enum _StoreSection { featured, gems, resources, coins, membership, collection }
 
 class StoreScreen extends StatefulWidget {
-  const StoreScreen({super.key, this.initialKind});
+  const StoreScreen({super.key, this.initialKind, this.guideController});
   final StoreProductKind? initialKind;
+  final GuidePageController? guideController;
+  bool get isGuidePreview => guideController != null;
 
   @override
   State<StoreScreen> createState() => _StoreScreenState();
 }
 
 class _StoreScreenState extends State<StoreScreen> {
+  bool get _isGuidePreview => widget.isGuidePreview;
+  final _guideKey = GlobalKey<PageGuideState>();
+  final _guideTargets = {
+    for (final target in StoreGuideTarget.values) target: GlobalKey(),
+  };
+  _StoreSection? _guideOriginalSection;
+  String _guideOriginalSearch = '';
+  bool _guideOriginalFilter = false;
+  double _guideOriginalOffset = 0;
   _StoreSection _section = _StoreSection.featured;
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
@@ -104,11 +118,13 @@ class _StoreScreenState extends State<StoreScreen> {
 
   void _startOfferAutoPlay() {
     _offerAutoPlayTimer?.cancel();
+    if (_isGuidePreview) return;
     _offerAutoPlayTimer = Timer.periodic(const Duration(seconds: 4), (_) {
       if (!mounted) return;
       if (_section != _StoreSection.featured) return;
       if (!_offerController.hasClients) return;
       if (_busy || ModalRoute.of(context)?.isCurrent != true) return;
+      if (_guideKey.currentState?.isShowing == true) return;
       if (MediaQuery.of(context).disableAnimations) return;
       if (_offerController.position.isScrollingNotifier.value) return;
       final offersCount = StoreCatalog.products
@@ -135,6 +151,7 @@ class _StoreScreenState extends State<StoreScreen> {
       StoreProductKind.categoryPass => _StoreSection.collection,
       _ => _StoreSection.featured,
     };
+    if (_isGuidePreview) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _purchaseService = context.read<InAppPurchaseService>();
@@ -161,6 +178,7 @@ class _StoreScreenState extends State<StoreScreen> {
   }
 
   Future<void> _refresh() async {
+    if (_isGuidePreview) return;
     final app = context.read<AppState>();
     CrossPromoService? promo;
     try {
@@ -185,6 +203,7 @@ class _StoreScreenState extends State<StoreScreen> {
   void _onDelivered(String id) => unawaited(_showDelivered(id));
 
   Future<void> _showDelivered(String id) async {
+    if (_isGuidePreview) return;
     if (!mounted) return;
     final app = context.read<AppState>();
     await Future.wait(
@@ -205,7 +224,9 @@ class _StoreScreenState extends State<StoreScreen> {
     if (_section == section) return;
     setState(() => _section = section);
     if (_scrollController.hasClients) _scrollController.jumpTo(0);
-    unawaited(context.read<AppSettings>().playHaptic());
+    if (!_isGuidePreview) {
+      unawaited(context.read<AppSettings>().playHaptic());
+    }
     if (section == _StoreSection.featured) {
       _startOfferAutoPlay();
     } else {
@@ -217,6 +238,59 @@ class _StoreScreenState extends State<StoreScreen> {
     if (!mounted) return;
     GameNoticeMessenger.of(context).show(message,
         tone: error ? GameNoticeTone.error : GameNoticeTone.success);
+  }
+
+  Widget _guideTarget(StoreGuideTarget target, Widget child) =>
+      KeyedSubtree(key: _guideTargets[target], child: child);
+
+  void _beginGuide() {
+    _offerAutoPlayTimer?.cancel();
+    setState(() {
+      _guideOriginalSection = _section;
+      _guideOriginalSearch = _searchController.text;
+      _guideOriginalFilter = _onlyUnowned;
+      _guideOriginalOffset =
+          _scrollController.hasClients ? _scrollController.offset : 0;
+      _searchController.clear();
+      _onlyUnowned = false;
+    });
+  }
+
+  Future<void> _prepareGuide(StoreGuideTarget target) async {
+    if (!mounted) return;
+    final section = switch (target) {
+      StoreGuideTarget.navigation => _section,
+      StoreGuideTarget.featured ||
+      StoreGuideTarget.rewards =>
+        _StoreSection.featured,
+      StoreGuideTarget.coins => _StoreSection.coins,
+      StoreGuideTarget.gems => _StoreSection.gems,
+      StoreGuideTarget.membership => _StoreSection.membership,
+      StoreGuideTarget.collection ||
+      StoreGuideTarget.characters ||
+      StoreGuideTarget.categories =>
+        _StoreSection.collection,
+      StoreGuideTarget.footer => _section,
+      _ => _StoreSection.resources,
+    };
+    _selectSection(section);
+    await revealGuideTarget(_guideTargets[target]!, alignment: 0);
+  }
+
+  void _finishGuide() {
+    if (_guideOriginalSection == null) return;
+    setState(() {
+      _section = _guideOriginalSection!;
+      _searchController.text = _guideOriginalSearch;
+      _onlyUnowned = _guideOriginalFilter;
+      _guideOriginalSection = null;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      _scrollController.jumpTo(_guideOriginalOffset.clamp(
+          0, _scrollController.position.maxScrollExtent));
+    });
+    if (_section == _StoreSection.featured) _startOfferAutoPlay();
   }
 
   bool _owned(StoreProduct product, AppState app) =>
@@ -279,6 +353,7 @@ class _StoreScreenState extends State<StoreScreen> {
       };
 
   Future<void> _buyProduct(StoreProduct product) async {
+    if (_isGuidePreview) return;
     final iap = context.read<InAppPurchaseService>();
     final app = context.read<AppState>();
     if (_busy ||
@@ -311,6 +386,7 @@ class _StoreScreenState extends State<StoreScreen> {
   }
 
   Future<void> _exchange(CoinExchange exchange) async {
+    if (_isGuidePreview) return;
     if (_busy || context.read<InAppPurchaseService>().isPurchasing) return;
     final app = context.read<AppState>();
     if (app.gems < exchange.gemCost) {
@@ -346,6 +422,7 @@ class _StoreScreenState extends State<StoreScreen> {
 
   Future<void> _buyResourceOffer(
       String offerId, Map<String, dynamic> offer, String currency) async {
+    if (_isGuidePreview) return;
     if (_busy || context.read<InAppPurchaseService>().isPurchasing) return;
     final app = context.read<AppState>();
     if (!app.economyLoaded || app.economyError != null) {
@@ -401,6 +478,7 @@ class _StoreScreenState extends State<StoreScreen> {
           GameCategory.normalize(category.name));
 
   Future<void> _unlockCategory(GameCategory category) async {
+    if (_isGuidePreview) return;
     final app = context.read<AppState>();
     if (_busy ||
         context.read<InAppPurchaseService>().isPurchasing ||
@@ -436,6 +514,7 @@ class _StoreScreenState extends State<StoreScreen> {
   }
 
   Future<void> _rentCategory(GameCategory category) async {
+    if (_isGuidePreview) return;
     final app = context.read<AppState>();
     if (_busy ||
         context.read<InAppPurchaseService>().isPurchasing ||
@@ -491,6 +570,7 @@ class _StoreScreenState extends State<StoreScreen> {
       GameCategory category, Map<String, dynamic> data, String description,
       {String successMessage = 'تم تفعيل التصنيف.',
       bool requireConfirmation = true}) async {
+    if (_isGuidePreview) return;
     if (_busy) return;
     if (requireConfirmation) {
       final confirmed = await showDialog<bool>(
@@ -524,6 +604,7 @@ class _StoreScreenState extends State<StoreScreen> {
   }
 
   Future<void> _rentalOptions(GameCategory category) async {
+    if (_isGuidePreview) return;
     final app = context.read<AppState>();
     await app.loadEconomy();
     if (!mounted) return;
@@ -1136,6 +1217,7 @@ class _StoreScreenState extends State<StoreScreen> {
   }
 
   Future<void> _watchAd() async {
+    if (_isGuidePreview) return;
     if (_busy) return;
     final ads = context.read<AdService>();
     if (!ads.canWatchAd) return;
@@ -1167,32 +1249,21 @@ class _StoreScreenState extends State<StoreScreen> {
     }
   }
 
-  Future<void> _claimDailyReward() async {
+  Future<void> _openLuckyWheel() async {
+    if (_isGuidePreview) return;
     if (_busy) return;
     final app = context.read<AppState>();
-    if (app.claimedToday ||
-        !app.dailyStreakLoaded ||
-        !app.isOnline ||
-        app.user == null) {
+    if (!app.dailyStreakLoaded || !app.isOnline || app.user == null) {
       return;
     }
     setState(() => _busy = true);
     try {
-      final reward = await app.claimDailyStreak();
-      if (!mounted) return;
-      if (reward != null) {
-        showCurrencyRewardOverlay(context,
-            coins: reward['coins'] ?? 0, gems: reward['gems'] ?? 0);
-      } else {
-        _snack(
-            _tr('تعذر استلام الهدية الآن. حاول مجدداً.',
-                'Could not claim your gift right now. Please try again.'),
-            error: true);
-      }
+      await Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => const DailyStreakScreen()));
     } catch (_) {
       _snack(
-          _tr('تعذر استلام الهدية الآن.',
-              'Could not claim your gift right now.'),
+          _tr('تعذر فتح دولاب الحظ الآن.',
+              'Could not open the lucky wheel right now.'),
           error: true);
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -1200,6 +1271,7 @@ class _StoreScreenState extends State<StoreScreen> {
   }
 
   Future<void> _restorePurchases() async {
+    if (_isGuidePreview) return;
     final iap = context.read<InAppPurchaseService>();
     if (_busy ||
         iap.isRestoring ||
@@ -1235,6 +1307,7 @@ class _StoreScreenState extends State<StoreScreen> {
   }
 
   Future<void> _manageSubscription() async {
+    if (_isGuidePreview) return;
     try {
       final success =
           await context.read<InAppPurchaseService>().manageSubscriptions();
@@ -1253,6 +1326,7 @@ class _StoreScreenState extends State<StoreScreen> {
   }
 
   Future<void> _retryPurchases() async {
+    if (_isGuidePreview) return;
     final iap = context.read<InAppPurchaseService>();
     final retryVerification = iap.status == PurchaseFlowStatus.failed;
     await iap.loadProducts();
@@ -1260,6 +1334,7 @@ class _StoreScreenState extends State<StoreScreen> {
   }
 
   Future<void> _openCharacters([int? initialIndex]) async {
+    if (_isGuidePreview) return;
     if (_busy) return;
     await Navigator.of(context).push<void>(MaterialPageRoute(
         builder: (_) => CharacterSelectScreen(initialIndex: initialIndex)));
@@ -1277,198 +1352,228 @@ class _StoreScreenState extends State<StoreScreen> {
     final disabled = _busy || iap.isPurchasing;
     return Directionality(
       textDirection: settings.isArabic ? TextDirection.rtl : TextDirection.ltr,
-      child: Scaffold(
-        backgroundColor: _background,
-        body: DecoratedBox(
-          decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                Color(0xFF100A32),
-                Color(0xFF171044),
-                Color(0xFF0C0829)
-              ])),
-          child: Column(children: [
-            _tabs(),
-            Expanded(
-                child: SafeArea(
-                    top: false,
-                    child: RefreshIndicator(
-                      color: _cyan,
-                      backgroundColor: _surface,
-                      onRefresh: _refresh,
-                      child: ListView(
-                        controller: _scrollController,
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.fromLTRB(12, 18, 12, 28),
-                        children: [
-                          Center(
-                              child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 960),
-                            child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  if (_showStatus(iap)) _purchaseStatus(iap),
-                                  if (_section == _StoreSection.featured) ...[
-                                    _sectionTitle(
-                                        _tr('عروض المتجر', 'SPECIAL OFFERS'),
-                                        _tr('باقات لمغامرتك القادمة',
-                                            'GEAR UP FOR YOUR NEXT ADVENTURE')),
-                                    const SizedBox(height: 12),
-                                    _featured(iap, app, disabled),
-                                    const SizedBox(height: 24),
-                                    _quickRewards(app, ads, disabled),
-                                    const SizedBox(height: 24),
-                                    _sectionTitle(_tr('النقود', 'COINS'), '',
-                                        action: Tooltip(
-                                            message: _tr('النقود', 'Coins'),
-                                            child: TextButton(
-                                                onPressed: () => _selectSection(
-                                                    _StoreSection.coins),
-                                                child: Text(
-                                                    _tr('عرض الكل', 'View all'),
-                                                    style: const TextStyle(
-                                                        color: _purple))))),
-                                    const SizedBox(height: 14),
-                                    _productGrid(
-                                        StoreCatalog.products
-                                            .where((p) =>
-                                                p.kind ==
-                                                StoreProductKind.coins)
-                                            .toList(),
-                                        iap,
-                                        app,
-                                        disabled),
-                                    const SizedBox(height: 24),
-                                    _sectionTitle(_tr('الجواهر', 'GEMS'), ''),
-                                    const SizedBox(height: 14),
-                                    _productGrid(
-                                        StoreCatalog.products
-                                            .where((p) =>
-                                                p.kind == StoreProductKind.gems)
-                                            .toList(),
-                                        iap,
-                                        app,
-                                        disabled),
-                                    const SizedBox(height: 24),
-                                    _sectionTitle(
-                                        _tr('أرصدة اللعب', 'PLAY RESOURCES'),
-                                        _tr('المفاتيح والقلوب وتذاكر التصنيفات',
-                                            'Keys, hearts and challenge tickets'),
-                                        action: Tooltip(
-                                            message: _tr('أرصدة اللعب',
-                                                'Play resources'),
-                                            child: TextButton(
-                                                onPressed: () => _selectSection(
-                                                    _StoreSection.resources),
-                                                child: Text(
-                                                    _tr('عرض الكل', 'View all'),
-                                                    style: const TextStyle(
-                                                        color: _purple))))),
-                                    const SizedBox(height: 14),
-                                    _featuredResources(iap, app, disabled),
-                                    const SizedBox(height: 24),
-                                    _sectionTitle(
-                                        _tr('عبّر عن نفسك', 'EXPRESS YOURSELF'),
-                                        ''),
-                                    const SizedBox(height: 14),
-                                    _characterShowcase(app, disabled),
-                                  ],
-                                  if (_section == _StoreSection.gems) ...[
-                                    _sectionTitle(
-                                        _tr('رصيدك من الجواهر، خيارات أكثر',
-                                            'More gems. More possibilities.'),
-                                        _tr('افتح الفئات واجمع شخصياتك المفضلة',
-                                            'Unlock categories and collect your favorites')),
-                                    const SizedBox(height: 16),
-                                    _productGrid(
-                                        StoreCatalog.products
-                                            .where((p) =>
-                                                p.kind == StoreProductKind.gems)
-                                            .toList(),
-                                        iap,
-                                        app,
-                                        disabled),
-                                    const SizedBox(height: 24),
-                                    _freeRewards(app, ads, disabled),
-                                    const SizedBox(height: 24),
-                                    _resourcesTeaser(app),
-                                  ],
-                                  if (_section == _StoreSection.resources) ...[
-                                    _sectionTitle(
-                                        _tr('أرصدة اللعب والتحديات',
-                                            'PLAY RESOURCES'),
-                                        _tr('مفاتيح المباريات وقلوب المراحل وتذاكر التصنيفات',
-                                            'Keys for matches, hearts for stages, tickets for categories')),
-                                    const SizedBox(height: 16),
-                                    _resourceBalancesHUD(app),
-                                    const SizedBox(height: 24),
-                                    if (app
-                                        .economyWallet.offers.isNotEmpty) ...[
-                                      _sectionTitle(
-                                          _tr('شحن بالنقود أو الجواهر',
-                                              'EXCHANGE CURRENCY'),
-                                          _tr('استبدل نقودك أو جواهرك بأرصدة اللعب',
-                                              'Use your in-game coins or gems')),
-                                      const SizedBox(height: 14),
-                                      _inGameExchangeGrid(app, disabled),
-                                      const SizedBox(height: 24),
-                                    ],
-                                    _sectionTitle(
-                                        _tr('باقات المتجر', 'STORE PACKS'),
-                                        _tr('شراء مباشر وآمن عبر Google Play',
-                                            'Direct, secure payment via Google Play')),
-                                    const SizedBox(height: 14),
-                                    _resourceGrid(
-                                        StoreCatalog.products
-                                            .where((p) =>
-                                                p.kind ==
-                                                StoreProductKind.resource)
-                                            .toList(),
-                                        iap,
-                                        app,
-                                        disabled),
-                                    const SizedBox(height: 24),
-                                    _loyaltyAndMilestonesPanel(app),
-                                  ],
-                                  if (_section == _StoreSection.coins) ...[
-                                    _sectionTitle(
-                                        _tr('نقود لتوسيع مجموعتك',
-                                            'Coins for your collection'),
-                                        _tr('شراء مباشر أو تحويل جواهرك',
-                                            'Buy directly or exchange your gems')),
-                                    const SizedBox(height: 16),
-                                    _productGrid(
-                                        StoreCatalog.products
-                                            .where((p) =>
-                                                p.kind ==
-                                                StoreProductKind.coins)
-                                            .toList(),
-                                        iap,
-                                        app,
-                                        disabled),
-                                    const SizedBox(height: 24),
-                                    _sectionTitle(
-                                        _tr('تحويل الجواهر إلى نقود',
-                                            'Exchange gems for coins'),
-                                        _tr('استخدم جواهرك داخل اللعبة',
-                                            'Use your in-game gems')),
-                                    const SizedBox(height: 14),
-                                    _exchanges(app, disabled),
-                                  ],
-                                  if (_section == _StoreSection.membership)
-                                    _membership(iap, app, disabled),
-                                  if (_section == _StoreSection.collection)
-                                    _collection(iap, app, disabled),
-                                  const SizedBox(height: 28),
-                                  _footer(iap),
-                                ]),
-                          ))
-                        ],
-                      ),
-                    ))),
-          ]),
+      child: PageGuide(
+        key: _guideKey,
+        id: 'store',
+        controller: widget.guideController,
+        enabled: settings.isArabic,
+        steps: buildStoreGuideSteps(_guideTargets, _prepareGuide,
+            hasExchange: app.economyWallet.offers.isNotEmpty),
+        onStart: _beginGuide,
+        onFinish: _finishGuide,
+        completionLabel: 'استكشف المتجر',
+        child: AbsorbPointer(
+          absorbing: _isGuidePreview,
+          child: Scaffold(
+            backgroundColor: _background,
+            body: DecoratedBox(
+              decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                    Color(0xFF100A32),
+                    Color(0xFF171044),
+                    Color(0xFF0C0829)
+                  ])),
+              child: Column(children: [
+                _guideTarget(StoreGuideTarget.navigation, _tabs()),
+                Expanded(
+                    child: SafeArea(
+                        top: false,
+                        child: RefreshIndicator(
+                          color: _cyan,
+                          backgroundColor: _surface,
+                          onRefresh: _refresh,
+                          child: ListView(
+                            controller: _scrollController,
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: const EdgeInsets.fromLTRB(12, 18, 12, 28),
+                            children: [
+                              Center(
+                                  child: ConstrainedBox(
+                                constraints:
+                                    const BoxConstraints(maxWidth: 960),
+                                child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      if (_showStatus(iap))
+                                        _purchaseStatus(iap),
+                                      if (_section ==
+                                          _StoreSection.featured) ...[
+                                        _sectionTitle(
+                                            _tr('عروض المتجر',
+                                                'SPECIAL OFFERS'),
+                                            _tr('باقات لمغامرتك القادمة',
+                                                'GEAR UP FOR YOUR NEXT ADVENTURE')),
+                                        const SizedBox(height: 12),
+                                        _featured(iap, app, disabled),
+                                        const SizedBox(height: 24),
+                                        _quickRewards(app, ads, disabled),
+                                        const SizedBox(height: 24),
+                                        _sectionTitle(
+                                            _tr('النقود', 'COINS'), '',
+                                            action: Tooltip(
+                                                message: _tr('النقود', 'Coins'),
+                                                child: TextButton(
+                                                    onPressed: () =>
+                                                        _selectSection(
+                                                            _StoreSection
+                                                                .coins),
+                                                    child: Text(
+                                                        _tr('عرض الكل',
+                                                            'View all'),
+                                                        style: const TextStyle(
+                                                            color: _purple))))),
+                                        const SizedBox(height: 14),
+                                        _productGrid(
+                                            StoreCatalog.products
+                                                .where((p) =>
+                                                    p.kind ==
+                                                    StoreProductKind.coins)
+                                                .toList(),
+                                            iap,
+                                            app,
+                                            disabled),
+                                        const SizedBox(height: 24),
+                                        _sectionTitle(
+                                            _tr('الجواهر', 'GEMS'), ''),
+                                        const SizedBox(height: 14),
+                                        _productGrid(
+                                            StoreCatalog.products
+                                                .where((p) =>
+                                                    p.kind ==
+                                                    StoreProductKind.gems)
+                                                .toList(),
+                                            iap,
+                                            app,
+                                            disabled),
+                                        const SizedBox(height: 24),
+                                        _sectionTitle(
+                                            _tr(
+                                                'أرصدة اللعب', 'PLAY RESOURCES'),
+                                            _tr('المفاتيح والقلوب وتذاكر التصنيفات',
+                                                'Keys, hearts and challenge tickets'),
+                                            action: Tooltip(
+                                                message: _tr(
+                                                    'أرصدة اللعب', 'Play resources'),
+                                                child: TextButton(
+                                                    onPressed: () =>
+                                                        _selectSection(
+                                                            _StoreSection
+                                                                .resources),
+                                                    child: Text(
+                                                        _tr('عرض الكل', 'View all'),
+                                                        style: const TextStyle(color: _purple))))),
+                                        const SizedBox(height: 14),
+                                        _featuredResources(iap, app, disabled),
+                                        const SizedBox(height: 24),
+                                        _sectionTitle(
+                                            _tr('عبّر عن نفسك',
+                                                'EXPRESS YOURSELF'),
+                                            ''),
+                                        const SizedBox(height: 14),
+                                        _characterShowcase(app, disabled),
+                                      ],
+                                      if (_section == _StoreSection.gems) ...[
+                                        _sectionTitle(
+                                            _tr('رصيدك من الجواهر، خيارات أكثر',
+                                                'More gems. More possibilities.'),
+                                            _tr('افتح الفئات واجمع شخصياتك المفضلة',
+                                                'Unlock categories and collect your favorites')),
+                                        const SizedBox(height: 16),
+                                        _productGrid(
+                                            StoreCatalog.products
+                                                .where((p) =>
+                                                    p.kind ==
+                                                    StoreProductKind.gems)
+                                                .toList(),
+                                            iap,
+                                            app,
+                                            disabled),
+                                        const SizedBox(height: 24),
+                                        _freeRewards(app, ads, disabled),
+                                        const SizedBox(height: 24),
+                                        _resourcesTeaser(app),
+                                      ],
+                                      if (_section ==
+                                          _StoreSection.resources) ...[
+                                        _sectionTitle(
+                                            _tr('أرصدة اللعب والتحديات',
+                                                'PLAY RESOURCES'),
+                                            _tr('مفاتيح المباريات وقلوب المراحل وتذاكر التصنيفات',
+                                                'Keys for matches, hearts for stages, tickets for categories')),
+                                        const SizedBox(height: 16),
+                                        _resourceBalancesHUD(app),
+                                        const SizedBox(height: 24),
+                                        if (app.economyWallet.offers
+                                            .isNotEmpty) ...[
+                                          _sectionTitle(
+                                              _tr('شحن بالنقود أو الجواهر',
+                                                  'EXCHANGE CURRENCY'),
+                                              _tr('استبدل نقودك أو جواهرك بأرصدة اللعب',
+                                                  'Use your in-game coins or gems')),
+                                          const SizedBox(height: 14),
+                                          _inGameExchangeGrid(app, disabled),
+                                          const SizedBox(height: 24),
+                                        ],
+                                        _sectionTitle(
+                                            _tr('باقات المتجر', 'STORE PACKS'),
+                                            _tr('شراء مباشر وآمن عبر Google Play',
+                                                'Direct, secure payment via Google Play')),
+                                        const SizedBox(height: 14),
+                                        _resourceGrid(
+                                            StoreCatalog.products
+                                                .where((p) =>
+                                                    p.kind ==
+                                                    StoreProductKind.resource)
+                                                .toList(),
+                                            iap,
+                                            app,
+                                            disabled),
+                                        const SizedBox(height: 24),
+                                        _loyaltyAndMilestonesPanel(app),
+                                      ],
+                                      if (_section == _StoreSection.coins) ...[
+                                        _sectionTitle(
+                                            _tr('نقود لتوسيع مجموعتك',
+                                                'Coins for your collection'),
+                                            _tr('شراء مباشر أو تحويل جواهرك',
+                                                'Buy directly or exchange your gems')),
+                                        const SizedBox(height: 16),
+                                        _productGrid(
+                                            StoreCatalog.products
+                                                .where((p) =>
+                                                    p.kind ==
+                                                    StoreProductKind.coins)
+                                                .toList(),
+                                            iap,
+                                            app,
+                                            disabled),
+                                        const SizedBox(height: 24),
+                                        _sectionTitle(
+                                            _tr('تحويل الجواهر إلى نقود',
+                                                'Exchange gems for coins'),
+                                            _tr('استخدم جواهرك داخل اللعبة',
+                                                'Use your in-game gems')),
+                                        const SizedBox(height: 14),
+                                        _exchanges(app, disabled),
+                                      ],
+                                      if (_section == _StoreSection.membership)
+                                        _membership(iap, app, disabled),
+                                      if (_section == _StoreSection.collection)
+                                        _collection(iap, app, disabled),
+                                      const SizedBox(height: 28),
+                                      _footer(iap),
+                                    ]),
+                              ))
+                            ],
+                          ),
+                        ))),
+              ]),
+            ),
+          ),
         ),
       ),
     );
@@ -1516,6 +1621,11 @@ class _StoreScreenState extends State<StoreScreen> {
                           ))),
                       for (final tab in tabs)
                         Expanded(child: _navigationTab(tab, height)),
+                      if (_arabic && !_isGuidePreview)
+                        Center(
+                            child: PageGuideHelpButton(
+                                onPressed: () =>
+                                    _guideKey.currentState?.start())),
                     ]))),
       ]),
     );
@@ -1715,10 +1825,16 @@ class _StoreScreenState extends State<StoreScreen> {
                                         excludeFromSemantics: true))),
                             Positioned.fromRect(
                                 rect: priceRect,
-                                child: _purchaseButton(product, iap, disabled,
-                                    owned: _owned(product, app),
-                                    compact: true,
-                                    glossy: true)),
+                                child: KeyedSubtree(
+                                    key: index == _offerIndex
+                                        ? _guideTargets[
+                                            StoreGuideTarget.featured]
+                                        : null,
+                                    child: _purchaseButton(
+                                        product, iap, disabled,
+                                        owned: _owned(product, app),
+                                        compact: true,
+                                        glossy: true))),
                             Positioned(
                                 right: 0,
                                 top: 0,
@@ -1827,6 +1943,13 @@ class _StoreScreenState extends State<StoreScreen> {
           children: [
             for (final product in products)
               SizedBox(
+                  key: product == products.first &&
+                          _section == _StoreSection.coins
+                      ? _guideTargets[StoreGuideTarget.coins]
+                      : product == products.first &&
+                              _section == _StoreSection.gems
+                          ? _guideTargets[StoreGuideTarget.gems]
+                          : null,
                   width: width,
                   child: _productCard(product, iap, app, disabled)),
           ],
@@ -1867,12 +1990,10 @@ class _StoreScreenState extends State<StoreScreen> {
   }
 
   Widget _quickRewards(AppState app, AdService ads, bool disabled) {
-    final dailyAvailable = app.dailyStreakLoaded &&
-        !app.claimedToday &&
-        app.isOnline &&
-        app.user != null;
+    final dailyAvailable =
+        app.dailyStreakLoaded && app.isOnline && app.user != null;
     final dailyLabel = app.claimedToday
-        ? _tr('تم', 'CLAIMED')
+        ? _tr('لفات إضافية', 'EXTRA SPINS')
         : !app.dailyStreakLoaded
             ? _tr('تحميل…', 'LOADING…')
             : app.user == null
@@ -1881,16 +2002,17 @@ class _StoreScreenState extends State<StoreScreen> {
                     ? _tr('اتصل', 'OFFLINE')
                     : _tr('مجاناً', 'FREE');
     final dailyHint = app.claimedToday
-        ? _tr('تم استلام هدية اليوم', 'Today’s gift claimed')
+        ? _tr('اشترِ لفات إضافية أو استخدم رصيدك',
+            'Buy extra spins or use your balance')
         : !app.dailyStreakLoaded
-            ? _tr('جارٍ تحميل الهدية اليومية', 'Loading your daily gift')
+            ? _tr('جارٍ تحميل دولاب الحظ', 'Loading the lucky wheel')
             : app.user == null
-                ? _tr(
-                    'سجّل الدخول لاستلام الهدية', 'Sign in to claim your gift')
+                ? _tr('سجّل الدخول لتدوير الدولاب', 'Sign in to spin the wheel')
                 : !app.isOnline
                     ? _tr(
                         'تحتاج اتصالاً بالإنترنت', 'Internet connection needed')
-                    : _tr('استلام الهدية اليومية', 'Claim your daily gift');
+                    : _tr(
+                        'لفة مجانية في دولاب الحظ', 'A free lucky wheel spin');
     final watchLabel = ads.watchesLeft == 0
         ? _tr('غداً', 'TOMORROW')
         : !ads.canWatchAd
@@ -1920,15 +2042,16 @@ class _StoreScreenState extends State<StoreScreen> {
                   width: width,
                   child: _rewardTicket(
                       id: 'daily',
-                      title: _tr('هدية يومية', 'Daily gift'),
+                      title: _tr('دولاب الحظ', 'Lucky wheel'),
                       asset: 'assets/store/reward_daily.webp',
                       frame: const Rect.fromLTRB(.10, .21, .90, .909),
                       button: const Rect.fromLTRB(.125, .291, .486, .780),
                       label: dailyLabel,
                       tooltip: dailyHint,
                       available: dailyAvailable && !disabled,
-                      onTap: _claimDailyReward)),
+                      onTap: _openLuckyWheel)),
               SizedBox(
+                  key: _guideTargets[StoreGuideTarget.rewards],
                   width: width,
                   child: _rewardTicket(
                       id: 'watch',
@@ -2073,7 +2196,8 @@ class _StoreScreenState extends State<StoreScreen> {
           textAlign: TextAlign.center,
           style: const TextStyle(color: _muted, fontSize: 11, height: 1.5)),
       TextButton.icon(
-          onPressed: disabled ? null : () => iap.loadProducts(),
+          onPressed:
+              disabled || _isGuidePreview ? null : () => iap.loadProducts(),
           icon: const Icon(Icons.refresh_rounded, size: 16),
           label: Text(_tr('تحديث المنتجات', 'Refresh products'))),
     ]);
@@ -2082,10 +2206,12 @@ class _StoreScreenState extends State<StoreScreen> {
   Widget _membership(InAppPurchaseService iap, AppState app, bool disabled) {
     final product = StoreCatalog.byId('vip_monthly')!;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      _sectionTitle(
-          _tr('تجربة أوسع، كل شهر', 'A richer experience, every month'),
-          _tr('مزايا واضحة طوال فترة العضوية',
-              'Clear benefits throughout your membership')),
+      _guideTarget(
+          StoreGuideTarget.membership,
+          _sectionTitle(
+              _tr('تجربة أوسع، كل شهر', 'A richer experience, every month'),
+              _tr('مزايا واضحة طوال فترة العضوية',
+                  'Clear benefits throughout your membership'))),
       const SizedBox(height: 16),
       LayoutBuilder(builder: (context, constraints) {
         final viewport = MediaQuery.sizeOf(context);
@@ -2241,6 +2367,7 @@ class _StoreScreenState extends State<StoreScreen> {
                 onPressed: disabled || _busy
                     ? null
                     : () async {
+                        if (_isGuidePreview) return;
                         setState(() => _busy = true);
                         try {
                           final ok = await app.claimVipBonus();
@@ -2585,7 +2712,11 @@ class _StoreScreenState extends State<StoreScreen> {
         _responsiveWrap(
             minWidth: 175,
             children: categories
-                .map((cat) => _categoryCard(cat, app, disabled))
+                .map((cat) => KeyedSubtree(
+                    key: cat == categories.first
+                        ? _guideTargets[StoreGuideTarget.categories]
+                        : null,
+                    child: _categoryCard(cat, app, disabled)))
                 .toList()),
     ]);
   }
@@ -2622,6 +2753,7 @@ class _StoreScreenState extends State<StoreScreen> {
       ])),
       const SizedBox(width: 12),
       TextButton(
+          key: _guideTargets[StoreGuideTarget.characters],
           onPressed: disabled ? null : _openCharacters,
           child: Text(_tr('استكشف', 'Explore'),
               style: const TextStyle(color: _purple))),
@@ -2778,22 +2910,18 @@ class _StoreScreenState extends State<StoreScreen> {
     try {
       promo = context.watch<CrossPromoService>();
     } catch (_) {}
-    final daily = app.todayReward;
-    final dailyAvailable = app.dailyStreakLoaded &&
-        !app.claimedToday &&
-        app.isOnline &&
-        app.user != null;
+    final dailyAvailable =
+        app.dailyStreakLoaded && app.isOnline && app.user != null;
     final dailyLabel = app.claimedToday
-        ? _tr('تم الاستلام • عد غداً', 'Claimed • Come back tomorrow')
+        ? _tr('لفات إضافية', 'EXTRA SPINS')
         : !app.dailyStreakLoaded
-            ? _tr('جارٍ تحميل الهدية…', 'Loading your gift…')
+            ? _tr('جارٍ تحميل الدولاب…', 'Loading the wheel…')
             : app.user == null
-                ? _tr(
-                    'سجّل الدخول لاستلام الهدية', 'Sign in to claim your gift')
+                ? _tr('سجّل الدخول لتدوير الدولاب', 'Sign in to spin the wheel')
                 : !app.isOnline
                     ? _tr(
                         'تحتاج اتصالاً بالإنترنت', 'Internet connection needed')
-                    : _tr('استلام الهدية', 'Claim gift');
+                    : _tr('لف مجاناً', 'Spin for free');
     final watchLabel = ads.watchesLeft == 0
         ? _tr('تم الوصول للحد اليومي', 'Daily limit reached')
         : !ads.canWatchAd
@@ -2803,8 +2931,8 @@ class _StoreScreenState extends State<StoreScreen> {
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       _sectionTitle(
           _tr('مكافآت تستحق العودة', 'A reason to come back'),
-          _tr('هدية يومية ومكافآت اختيارية، دون شراء',
-              'A daily gift and optional rewards, with no purchase')),
+          _tr('لفة مجانية كل يوم ومكافآت اختيارية',
+              'A free daily spin and optional rewards')),
       const SizedBox(height: 14),
       LayoutBuilder(builder: (context, constraints) {
         final columns = constraints.maxWidth < 600 ? 1 : 3;
@@ -2825,32 +2953,34 @@ class _StoreScreenState extends State<StoreScreen> {
                       id: 'daily',
                       asset: 'assets/store/return_daily.webp',
                       frame: const Rect.fromLTRB(.020, .027, .978, .980),
-                      title: _tr('هدية اليوم', 'Your daily gift'),
+                      title: _tr('دولاب الحظ', 'Lucky wheel'),
                       label: dailyLabel,
                       available: dailyAvailable && !disabled,
-                      onTap: _claimDailyReward,
+                      onTap: _openLuckyWheel,
                       labels: [
                         GameStoreArtworkLabel(
                             area: const Rect.fromLTRB(.12, .297, .711, .365),
                             cleanStrip:
                                 const Rect.fromLTRB(.12, .367, .711, .380),
                             child: _artworkText(
-                                _tr('اليوم ${app.streakDay > 0 ? app.streakDay : 1} من سلسلة العودة',
-                                    'Day ${app.streakDay > 0 ? app.streakDay : 1} of your streak'),
+                                app.claimedToday
+                                    ? _tr('اشترِ لفات إضافية أو استخدم رصيدك',
+                                        'Buy extra spins or use your balance')
+                                    : _tr('لفة مجانية كل يوم',
+                                        'A free spin every day'),
                                 size: 18)),
                         GameStoreArtworkLabel(
                             area: const Rect.fromLTRB(.145, .515, .352, .583),
                             cleanStrip:
                                 const Rect.fromLTRB(.129, .515, .140, .583),
-                            child: _artworkText(
-                                '${_number(daily['gems'] ?? 0)} ${_tr('جوهرة', 'gems')}',
+                            child: _artworkText(_tr('٦ جوائز', '6 prizes'),
                                 color: _cyan)),
                         GameStoreArtworkLabel(
                             area: const Rect.fromLTRB(.540, .515, .765, .583),
                             cleanStrip:
                                 const Rect.fromLTRB(.523, .515, .533, .583),
                             child: _artworkText(
-                                '${_number(daily['coins'] ?? 0)} ${_tr('نقود', 'coins')}',
+                                _tr('جرّب حظك', 'Try your luck'),
                                 color: _gold)),
                       ])),
               SizedBox(
@@ -2971,6 +3101,7 @@ class _StoreScreenState extends State<StoreScreen> {
   }
 
   Future<void> _claimPromoReward(CrossPromoService promo) async {
+    if (_isGuidePreview) return;
     if (_busy || promo.isClaiming || promo.isRewardClaimed) return;
     if (promo.isMillionaireInstalled) {
       final result = await promo.claimDownloadReward(context);
@@ -2992,6 +3123,7 @@ class _StoreScreenState extends State<StoreScreen> {
             runSpacing: 4,
             children: [
               TextButton.icon(
+                  key: _guideTargets[StoreGuideTarget.footer],
                   onPressed: _busy ||
                           iap.isRestoring ||
                           iap.status == PurchaseFlowStatus.launching ||
@@ -3007,9 +3139,11 @@ class _StoreScreenState extends State<StoreScreen> {
                   label: Text(_tr('إدارة الاشتراكات', 'Manage subscriptions')),
                   style: TextButton.styleFrom(foregroundColor: _muted)),
               TextButton.icon(
-                  onPressed: () => Navigator.of(context).push<void>(
-                      MaterialPageRoute(
-                          builder: (_) => const PrivacyPolicyScreen())),
+                  onPressed: _isGuidePreview
+                      ? null
+                      : () => Navigator.of(context).push<void>(
+                          MaterialPageRoute(
+                              builder: (_) => const PrivacyPolicyScreen())),
                   icon: const Icon(Icons.privacy_tip_outlined, size: 17),
                   label: Text(_tr('سياسة الخصوصية', 'Privacy policy')),
                   style: TextButton.styleFrom(foregroundColor: _muted)),
@@ -3159,6 +3293,7 @@ class _StoreScreenState extends State<StoreScreen> {
         children: [
           Expanded(
             child: _resourceCard(
+              guideKey: _guideTargets[StoreGuideTarget.keys],
               asset: 'assets/store/hud_keys.webp',
               title: _tr('المفاتيح', 'Keys'),
               value: app.economyLoaded ? '${wallet.totalKeys}' : '…',
@@ -3176,6 +3311,7 @@ class _StoreScreenState extends State<StoreScreen> {
           const SizedBox(width: 8),
           Expanded(
             child: _resourceCard(
+              guideKey: _guideTargets[StoreGuideTarget.hearts],
               asset: 'assets/store/hud_hearts.webp',
               title: _tr('القلوب', 'Hearts'),
               value: app.economyLoaded ? '${wallet.totalHearts}' : '…',
@@ -3193,6 +3329,7 @@ class _StoreScreenState extends State<StoreScreen> {
           const SizedBox(width: 8),
           Expanded(
             child: _resourceCard(
+              guideKey: _guideTargets[StoreGuideTarget.tickets],
               asset: 'assets/store/hud_tickets.webp',
               title: _tr('تذاكر التصنيفات', 'Tickets'),
               value: app.economyLoaded ? '${wallet.tickets}' : '…',
@@ -3223,6 +3360,7 @@ class _StoreScreenState extends State<StoreScreen> {
             ),
             const SizedBox(height: 12),
             Container(
+              key: _guideTargets[StoreGuideTarget.resources],
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
                 color: Colors.black.withValues(alpha: 0.25),
@@ -3238,7 +3376,7 @@ class _StoreScreenState extends State<StoreScreen> {
                     child: Text(
                       app.economyLoaded
                           ? _tr(
-                              'المفاتيح والقلوب اليومية تُستكمل إلى 3 عند منتصف الليل UTC. الأرصدة الإضافية محفوظة بحسابك دائماً.',
+                              'كل يوم يعود الرصيد اليومي إلى ٣ مفاتيح و٣ قلوب. مفاتيح وقلوب المتجر والمكافآت تُستخدم بعد اليومية، والباقي ينتقل لليوم التالي.',
                               'Daily keys and hearts replenish to 3 at midnight UTC. Extra balance remains saved permanently.')
                           : (app.economyError ??
                               _tr('جارٍ الاتصال بخدمة الأرصدة…',
@@ -3282,7 +3420,7 @@ class _StoreScreenState extends State<StoreScreen> {
             if (!app.economyLoaded && !app.isOnline) ...[
               const SizedBox(height: 10),
               TextButton.icon(
-                onPressed: app.loadEconomy,
+                onPressed: _isGuidePreview ? null : app.loadEconomy,
                 icon: const Icon(Icons.refresh_rounded, size: 16),
                 label: Text(_tr('إعادة محاولة الاتصال', 'Retry connection')),
               ),
@@ -3303,6 +3441,7 @@ class _StoreScreenState extends State<StoreScreen> {
     required String hint,
     required int defaultBakedValue,
     required String defaultBakedBadge,
+    Key? guideKey,
   }) {
     final needsValueOverlay = value != '$defaultBakedValue' || !_arabic;
     final needsBadgeOverlay = badgeText != defaultBakedBadge || !_arabic;
@@ -3325,6 +3464,13 @@ class _StoreScreenState extends State<StoreScreen> {
                     excludeFromSemantics: true,
                   ),
                 ),
+                if (guideKey != null)
+                  Positioned(
+                      top: h * .04,
+                      left: w * .18,
+                      width: w * .64,
+                      height: h * .43,
+                      child: IgnorePointer(child: SizedBox(key: guideKey))),
                 if (!_arabic)
                   Positioned(
                     top: h * 0.44,
@@ -3482,6 +3628,9 @@ class _StoreScreenState extends State<StoreScreen> {
         children: [
           for (final entry in offers)
             SizedBox(
+              key: entry == offers.first
+                  ? _guideTargets[StoreGuideTarget.exchange]
+                  : null,
               width: width,
               child: _inGameExchangeCard(entry.key, entry.value, app, disabled),
             ),
@@ -3833,6 +3982,10 @@ class _StoreScreenState extends State<StoreScreen> {
                 children: [
                   for (final product in bundles)
                     SizedBox(
+                      key: product == bundles.first &&
+                              _section == _StoreSection.resources
+                          ? _guideTargets[StoreGuideTarget.packs]
+                          : null,
                       width: bundleWidth,
                       child: _resourceProductCard(product, iap, app, disabled),
                     ),
@@ -3869,6 +4022,7 @@ class _StoreScreenState extends State<StoreScreen> {
       };
 
   Future<void> _claimResourceWithAd(String productId) async {
+    if (_isGuidePreview) return;
     if (_busy) return;
     final app = context.read<AppState>();
     AdService? adService;

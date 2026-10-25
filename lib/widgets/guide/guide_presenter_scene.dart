@@ -62,12 +62,14 @@ class GuidePresenterScene extends StatefulWidget {
   }
 
   static const _titleStyle = TextStyle(
+      inherit: false,
       fontFamily: 'NotoSansArabic',
       fontSize: 14,
       height: 1.5,
       fontWeight: FontWeight.w800,
       color: Color(0xFF263754));
   static const _textStyle = TextStyle(
+      inherit: false,
       fontFamily: 'NotoSansArabic',
       fontSize: 15,
       height: 1.55,

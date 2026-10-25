@@ -1,7 +1,20 @@
 "use strict";
 
 const { CommerceError, sha256 } = require("./domain");
+const { randomInt: secureRandomInt } = require("node:crypto");
 const DAY = 86400000;
+// Keep these indices in sync with LuckyWheelPrize.catalog in the client.
+const WHEEL_PRIZES = Object.freeze([
+  { id: "keys", grants: { keys: 1 } },
+  { id: "tickets", grants: { tickets: 1 } },
+  { id: "coins", grants: { coins: 500 } },
+  { id: "gems", grants: { gems: 10 } },
+  { id: "character", grants: {} },
+  { id: "chest", grants: { coins: 1000, gems: 20, keys: 2, tickets: 2 } },
+]);
+const WHEEL_CHARACTERS = Object.freeze([2, 4, 7, 9, 11, 12, 14, 15]);
+const timestampMillis = value => typeof value?.toMillis === "function" ? value.toMillis()
+  : value instanceof Date ? value.getTime() : -Infinity;
 // Category trials share the ticket allowance: they cannot bypass the ad cap.
 const AD_REWARD_LIMITS = Object.freeze({ keys: 2, hearts: 2, tickets: 2 });
 const weekId = at => Math.floor((Math.floor(at / DAY) + 3) / 7); // Monday, UTC.
@@ -34,7 +47,7 @@ function stable(value) {
 }
 function fresh(at) {
   return { version: 1, day: Math.floor(at / DAY), dailyKeys: 3, dailyHearts: 3,
-    keys: 0, hearts: 0, tickets: 3, categoryVouchers: 0, rentalVouchers: 0, claimedVipExpiry: 0,
+    keys: 0, hearts: 0, tickets: 3, wheelSpins: 0, categoryVouchers: 0, rentalVouchers: 0, claimedVipExpiry: 0,
     welcomeGrantedAt: at, rewardLog: [{ id: "welcome", kind: "welcome", at, grants: { keys: 3, tickets: 3, hearts: 3 } }],
     owned: [], rentals: {}, adPermits: {}, milestones: [], streak: 0, lastLoginDay: -1,
     week: weekId(at), weekDays: [], weekCorrect: 0, weekRewardClaimed: false, revision: 0, reservations: {}, adRewardCounts: {} };
@@ -43,6 +56,7 @@ function refresh(data, at) {
   const s = { ...fresh(at), ...data, owned: [...(data?.owned || [])], rentals: { ...(data?.rentals || {}) }, adPermits: { ...(data?.adPermits || {}) }, milestones: [...(data?.milestones || [])], reservations: { ...(data?.reservations || {}) } };
   s.rewardLog = [...(data?.rewardLog || (!data ? s.rewardLog : []))];
   s.claimedVipExpiry = Number(data?.claimedVipExpiry || 0);
+  s.wheelSpins = integer(data?.wheelSpins);
   s.adRewardCounts = Object.fromEntries(Object.keys(AD_REWARD_LIMITS).map(resource => [resource, integer(data?.adRewardCounts?.[resource])]));
   // Existing accounts receive the introduction once, without overwriting banked purchases.
   // The initial three keys/hearts are the first day's free allowance, not a second grant.
@@ -105,7 +119,7 @@ function weeklyProgress(s, day, correct, at) {
   }
 }
 
-function createEconomyService({ db, now = Date.now }) {
+function createEconomyService({ db, now = Date.now, randomInt = secureRandomInt }) {
   async function execute(uid, input = {}) {
     if (!uid || uid.includes("/")) throw new CommerceError("unauthenticated", "سجّل الدخول لحفظ أرصدتك.");
     if (!input || typeof input !== "object" || Array.isArray(input)) throw new CommerceError("invalid-argument", "الطلب غير صالح.");
@@ -135,7 +149,9 @@ function createEconomyService({ db, now = Date.now }) {
         const old = receipt.data();
         if (old.signature !== signature) throw new CommerceError("already-exists", "استُخدم معرّف العملية لطلب مختلف.");
         if (action === "begin" && (old.result.session?.status === "cancelled" || (old.result.session?.mode === "campaign" && old.result.session?.status !== "active"))) throw new CommerceError("failed-precondition", "انتهت هذه المباراة. ابدأ مباراة جديدة.");
-        return { ...old.result, ...(old.result.currency ? { currency: { coins: integer(u.coins), gems: integer(u.gems) } } : {}), state: view(s, at) };
+        return { ...old.result, referralRevision: integer(u.referralRevision),
+          ...(old.result.spin ? { spin: { ...old.result.spin, newlyGranted: false }, purchasedCharacters: [...new Set(u.purchasedCharacters || [])] } : {}),
+          ...(old.result.currency ? { currency: { coins: integer(u.coins), gems: integer(u.gems) } } : {}), state: view(s, at, u) };
       }
       // Existing campaign progress also receives milestones, so returning players
       // do not have to repeat completed stages. Rewards are not based on a supplied order.
@@ -214,6 +230,52 @@ function createEconomyService({ db, now = Date.now }) {
           const legacyExpiry = Object.entries(u.categoryRentals || {}).filter(([k]) => normalize(k) === key).reduce((latest, [, v]) => Math.max(latest, Number(v) || 0), 0);
           s.rentals[key] = Math.max(at, Number(s.rentals[key] || 0), legacyExpiry) + rental.days * DAY;
         }
+      } else if (action === "spinWheel") {
+        const day = Math.floor(at / DAY);
+        const purchased = [...new Set((u.purchasedCharacters || []).filter(index => Number.isInteger(index) && index >= 0 && index < 16))];
+        const previousClaim = timestampMillis(u.lastStreakClaimDate);
+        const usedFreeSpin = Number(s.lastWheelSpinDay ?? -1) < day && Math.floor(previousClaim / DAY) < day;
+        if (!usedFreeSpin && s.wheelSpins < 1) {
+          throw new CommerceError("failed-precondition", "استخدمت اللفة المجانية اليوم. اشترِ لفات إضافية أو عد غدًا.");
+        }
+        // The receipt branch above is the only replay path. Each new operation
+        // uses today's free opportunity first, then one banked purchased spin.
+        if (!usedFreeSpin) s.wheelSpins--;
+        const prizeIndex = randomInt(WHEEL_PRIZES.length);
+        const prize = WHEEL_PRIZES[prizeIndex];
+        const grants = { ...prize.grants };
+        let characterIndex = null;
+        let compensation = false;
+        if (prize.id === "character") {
+          const available = WHEEL_CHARACTERS.filter(index => !purchased.includes(index));
+          if (available.length) {
+            characterIndex = available[randomInt(available.length)];
+            purchased.push(characterIndex);
+          } else {
+            // Owning the whole roster must still produce a useful reward.
+            compensation = true;
+            grants.gems = 100;
+          }
+        }
+        for (const resource of ["keys", "tickets"]) {
+          if (grants[resource]) s[resource] = Math.min(2147483647, integer(s[resource]) + grants[resource]);
+        }
+        const currency = {
+          coins: Math.min(2147483647, integer(u.coins) + (grants.coins || 0)),
+          gems: Math.min(2147483647, integer(u.gems) + (grants.gems || 0)),
+        };
+        const savedDay = Math.min(30, Math.max(1, integer(u.streakDay) || 1));
+        const nextStreak = Math.floor(previousClaim / DAY) === day - 1 ? savedDay % 30 + 1 : 1;
+        userUpdate = { ...currency, purchasedCharacters: purchased,
+          lastLuckyWheelSpinDate: new Date(at),
+          ...(usedFreeSpin ? { streakDay: nextStreak, lastStreakClaimDate: new Date(at) } : {}) };
+        result.spin = { prizeId: prize.id, prizeIndex, grants, characterIndex, compensation, newlyGranted: true, usedFreeSpin };
+        if (usedFreeSpin) s.lastWheelSpinDay = day;
+        s.lastWheelSpin = result.spin;
+        recordReward(s, `wheel_${sha256(input.operationId)}`, "wheel", grants, at, { prizeId: prize.id, characterIndex, usedFreeSpin });
+        result.purchasedCharacters = purchased;
+        result.currency = { coins: integer(u.coins), gems: integer(u.gems),
+          ...(userUpdate ? { coins: userUpdate.coins, gems: userUpdate.gems } : {}) };
       } else if (action === "login") {
         const day = Math.floor(at / DAY);
         if (s.lastLoginDay !== day) {
@@ -345,7 +407,10 @@ function createEconomyService({ db, now = Date.now }) {
       for (const [ref, data] of deferredWrites) tx.set(ref, data);
       tx.set(accountRef, s);
       if (userUpdate) tx.set(userRef, userUpdate, { merge: true });
-      result.state = view(s, at);
+      result.state = view(s, at, { ...u, ...userUpdate });
+      // Native callers must not apply an out-of-order currency response over a
+      // wallet already hydrated from a newer referral credit.
+      result.referralRevision = integer(u.referralRevision);
       if (!readOnly) tx.set(receiptRef, { signature, result, createdAtMillis: at });
       return result;
     });
@@ -357,7 +422,9 @@ function refund(s, session) {
     if (s.day === session.day) s[session.source] = Math.min(3, s[session.source] + 1);
   } else s[session.source]++;
 }
-function view(s, at) {
-  return { ...s, keysTotal: s.dailyKeys + s.keys, heartsTotal: s.dailyHearts + s.hearts, serverTimeMillis: at, nextResetMillis: (s.day + 1) * DAY, offers: OFFERS, rentalPrices: RENTALS, adRewardLimits: AD_REWARD_LIMITS };
+function view(s, at, user = {}) {
+  const day = Math.floor(at / DAY);
+  const wheelClaimedToday = Number(s.lastWheelSpinDay ?? -1) >= day || Math.floor(timestampMillis(user.lastStreakClaimDate) / DAY) >= day;
+  return { ...s, wheelClaimedToday, keysTotal: s.dailyKeys + s.keys, heartsTotal: s.dailyHearts + s.hearts, serverTimeMillis: at, nextResetMillis: (s.day + 1) * DAY, offers: OFFERS, rentalPrices: RENTALS, adRewardLimits: AD_REWARD_LIMITS };
 }
-module.exports = { createEconomyService, refresh, fresh, normalize, canonical, free, allowsAd, OFFERS, RENTALS, AD_REWARD_LIMITS, milestone, streakReward };
+module.exports = { createEconomyService, refresh, fresh, normalize, canonical, free, allowsAd, OFFERS, RENTALS, AD_REWARD_LIMITS, WHEEL_PRIZES, WHEEL_CHARACTERS, milestone, streakReward };

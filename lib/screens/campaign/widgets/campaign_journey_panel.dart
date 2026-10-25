@@ -15,6 +15,8 @@ class CampaignJourneyBar extends StatelessWidget {
     required this.continueStage,
     required this.onContinue,
     this.compact = false,
+    this.continueGuideKey,
+    this.dailyGuideKey,
   });
 
   final CampaignDailyProgress daily;
@@ -22,6 +24,7 @@ class CampaignJourneyBar extends StatelessWidget {
   final CampaignStage? continueStage;
   final VoidCallback? onContinue;
   final bool compact;
+  final Key? continueGuideKey, dailyGuideKey;
 
   @override
   Widget build(BuildContext context) {
@@ -29,6 +32,7 @@ class CampaignJourneyBar extends StatelessWidget {
       children: [
         Expanded(
           child: FilledButton.icon(
+            key: continueGuideKey,
             onPressed: onContinue,
             style: FilledButton.styleFrom(
               backgroundColor: _gold,
@@ -52,6 +56,7 @@ class CampaignJourneyBar extends StatelessWidget {
         const SizedBox(width: 8),
         Expanded(
           child: FilledButton.icon(
+            key: dailyGuideKey,
             onPressed: onDailyTap,
             style: FilledButton.styleFrom(
               backgroundColor: compact

@@ -81,7 +81,7 @@ class _ResourceShopScreenState extends State<ResourceShopScreen> {
       }
       if (app.economyWallet.remainingAdRewards(resourceKey) == 0) {
         setState(() => _message =
-            'اكتملت إعلانات هذا المورد لليوم. تتجدد عند منتصف الليل UTC.');
+            'اكتملت إعلانات هذا المورد لليوم. تتجدد الفرص في موعد التجديد المعروض في الصفحة.');
         return;
       }
       AdService? adService;
@@ -165,7 +165,7 @@ class _ResourceShopScreenState extends State<ResourceShopScreen> {
                 const SizedBox(height: 12),
                 Text(
                     app.economyLoaded
-                        ? 'المفاتيح اليومية: ${wallet.dailyKeys} • الإضافية: ${wallet.keys}\nالقلوب اليومية: ${wallet.dailyHearts} • الإضافية: ${wallet.hearts}\nيُستكمل الرصيد اليومي إلى 3 عند منتصف الليل UTC. الأرصدة الإضافية محفوظة.'
+                        ? 'المفاتيح اليومية: ${wallet.dailyKeys} • من المتجر والمكافآت: ${wallet.keys}\nالقلوب اليومية: ${wallet.dailyHearts} • من المتجر والمكافآت: ${wallet.hearts}\nتُستخدم اليومية أولًا ويعود رصيدها إلى ٣ كل يوم. ما يتبقى من رصيد المتجر والمكافآت ينتقل لليوم التالي.'
                         : 'لم يتم تحميل رصيد الحساب بعد. ستظهر الأرصدة وعروض النقود والجواهر عند الاتصال بخدمة الأرصدة.',
                     textAlign: TextAlign.center,
                     style: const TextStyle(color: Colors.white70, height: 1.6)),

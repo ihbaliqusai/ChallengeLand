@@ -92,6 +92,7 @@ flutter:
     - assets/store/reward_watch.webp
     - assets/store/btn_rent_green.png
     - assets/social/friends_challenges.jfif
+    - assets/social/invite_friends_hero.png
     - assets/home/campaign.webp
     - assets/home/lobby_background.jfif
     - assets/home/level_badge.png
@@ -131,8 +132,14 @@ flutter:
     - assets/images/campaign/ui/victory_panel.png
 
     - assets/fonts/NotoSansArabic-OFL.txt
+    - assets/fonts/BarlowCondensed-OFL.txt
+    - assets/flags/
 
   fonts:
+    - family: Leaderboard
+      fonts:
+        - asset: assets/fonts/BarlowCondensed-SemiBold.ttf
+          weight: 600
     - family: NotoSansArabic
       fonts:
         - asset: assets/fonts/NotoSansArabic.ttf

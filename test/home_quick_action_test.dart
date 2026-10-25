@@ -412,8 +412,6 @@ void main() {
         expect(authPromptFinder, findsOneWidget, reason: control.toString());
         expect(find.byType(GuidePromptDialog), findsNothing);
         expect(find.text('جرّب التحدي مجانًا'), findsNothing);
-        expect(find.byKey(const ValueKey('login-privacy-checkbox')),
-            findsOneWidget);
         expect(find.byType(HomeScreen), findsOneWidget);
         expect(find.byType(GameModesArtwork), findsNothing);
         expect(find.byType(CharacterSelectScreen), findsNothing);
@@ -942,12 +940,122 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
   });
 
+  for (final guideSize in [const Size(960, 540), const Size(390, 780)]) {
+    testWidgets(
+        'mode guide explains each choice before allowing launch at $guideSize',
+        (tester) async {
+      setupFirebaseCoreMocks();
+      await Firebase.initializeApp();
+      SharedPreferences.setMockInitialValues(
+          {'has_rated_challenge_land': true, 'rate_reward_claimed': true});
+      for (final font in {
+        'NotoSansArabic': 'assets/fonts/NotoSansArabic.ttf',
+        'MaterialIcons': 'fonts/MaterialIcons-Regular.otf'
+      }.entries) {
+        await (FontLoader(font.key)
+              ..addFont(SharedAssets.bundle.load(font.value)))
+            .load();
+      }
+      await tester.binding.setSurfaceSize(guideSize);
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final state = _HomeState();
+      final promo = _Promo();
+      final previewKey = GlobalKey();
+      await tester.pumpWidget(MultiProvider(
+          providers: [
+            ChangeNotifierProvider<AppState>.value(value: state),
+            ChangeNotifierProvider<CrossPromoService>.value(value: promo),
+            Provider<NativeBridgeService>.value(value: _NativeBridge()),
+          ],
+          child: MaterialApp(
+              theme: ThemeData.dark().copyWith(
+                  textTheme: ThemeData.dark()
+                      .textTheme
+                      .apply(fontFamily: 'NotoSansArabic')),
+              builder: (_, child) =>
+                  RepaintBoundary(key: previewKey, child: child!),
+              home: const HomeScreen())));
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.tap(find.byTooltip('أوضاع اللعب'));
+      for (var frame = 0; frame < 5; frame++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      final tour = tester
+          .widget<HomeGuideTourOverlay>(find.byType(HomeGuideTourOverlay));
+      for (var index = 0; index < tour.steps.length; index++) {
+        for (var frame = 0; frame < 5; frame++) {
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+        expect(tester.takeException(), isNull, reason: tour.steps[index].title);
+        final speechScroll = tester.state<ScrollableState>(find
+            .descendant(
+                of: find.byKey(const ValueKey('guide-speech-bubble')),
+                matching: find.byType(Scrollable))
+            .first);
+        expect(speechScroll.position.maxScrollExtent, lessThanOrEqualTo(1),
+            reason:
+                '${tour.steps[index].title}: the short explanation must fit');
+        final painter = tester
+            .widget<CustomPaint>(find.byKey(const ValueKey('guide-spotlight')))
+            .painter! as SpotlightPainter;
+        if (tour.steps[index].targetKey != null) {
+          expect(painter.targetRect, isNotNull,
+              reason: tour.steps[index].title);
+          final stage =
+              tester.getRect(find.byKey(const ValueKey('guide-stage')));
+          expect(stage.overlaps(painter.targetRect!), isFalse,
+              reason: tour.steps[index].title);
+        }
+        if (const bool.fromEnvironment('GUIDE_PREVIEW')) {
+          await tester.tap(find.byKey(const ValueKey('guide-speech-bubble')));
+          await tester.pump();
+          final images = tester
+              .widgetList<Image>(find.byType(Image))
+              .map((image) => image.image)
+              .toSet();
+          await tester.runAsync(() => Future.wait(images.map(
+              (image) => precacheImage(image, previewKey.currentContext!))));
+          await tester.pump();
+          final boundary = previewKey.currentContext!.findRenderObject()!
+              as RenderRepaintBoundary;
+          await tester.runAsync(() async {
+            final snapshot = await boundary.toImage(pixelRatio: 1.5);
+            final bytes =
+                await snapshot.toByteData(format: ui.ImageByteFormat.png);
+            await File(
+                    'build/modes-guide-${guideSize.width.toInt()}-$index.png')
+                .writeAsBytes(bytes!.buffer.asUint8List());
+            snapshot.dispose();
+          });
+        }
+        await tester.tap(find.text(index == tour.steps.length - 1
+            ? 'اختر طريقة اللعب'
+            : index == 0
+                ? 'ابدأ الجولة'
+                : 'التالي'));
+        await tester.pump();
+      }
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.byType(HomeGuideTourOverlay), findsNothing);
+      expect(state.mainChallengeRequests, 0);
+      expect(state.offlineRequests, 0);
+      await tester.tap(find.byTooltip('أوفلاين'));
+      await tester.pump();
+      expect(state.offlineRequests, 1);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      state.dispose();
+      promo.dispose();
+    });
+  }
+
   testWidgets(
       'home game modes dismiss before launching or showing an offline notice',
       (tester) async {
     setupFirebaseCoreMocks();
     await Firebase.initializeApp();
     SharedPreferences.setMockInitialValues({
+      'has_completed_page_guide_modes_v1': true,
       'has_rated_challenge_land': true,
       'rate_reward_claimed': true,
     });

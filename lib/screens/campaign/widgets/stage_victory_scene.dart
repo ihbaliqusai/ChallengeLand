@@ -7,9 +7,10 @@ import '../../../services/campaign_service.dart';
 import '../../../services/native_bridge_service.dart';
 import '../../../widgets/adaptive_asset_image.dart';
 import 'animated_result_stars.dart';
+import 'victory_effects.dart';
 
 /// The supplied panel and its live contents share the artwork's coordinate space.
-class StageVictoryScene extends StatelessWidget {
+class StageVictoryScene extends StatefulWidget {
   const StageVictoryScene({
     super.key,
     required this.stage,
@@ -41,29 +42,102 @@ class StageVictoryScene extends StatelessWidget {
   final String nextLabel;
 
   @override
+  State<StageVictoryScene> createState() => _StageVictorySceneState();
+}
+
+class _StageVictorySceneState extends State<StageVictoryScene>
+    with TickerProviderStateMixin, WidgetsBindingObserver {
+  late final _entrance = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 1700));
+  late final _ambience =
+      AnimationController(vsync: this, duration: const Duration(seconds: 7));
+  late final _celebration = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 5600));
+  bool _reducedMotion = false, _routeActive = true, _appActive = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    _appActive = lifecycle == null || lifecycle == AppLifecycleState.resumed;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _reducedMotion = MediaQuery.disableAnimationsOf(context);
+    _routeActive = TickerMode.of(context);
+    _syncAnimations();
+  }
+
+  void _syncAnimations() {
+    if (_reducedMotion) {
+      _entrance.value = 1;
+      _celebration.value = 1;
+      _ambience.stop();
+    } else if (_appActive && _routeActive) {
+      if (!_entrance.isCompleted && !_entrance.isAnimating) _entrance.forward();
+      if (!_celebration.isCompleted && !_celebration.isAnimating) {
+        _celebration.forward();
+      }
+      if (!_ambience.isAnimating) _ambience.repeat();
+    } else {
+      _entrance.stop();
+      _celebration.stop();
+      _ambience.stop();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant StageVictoryScene oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!oldWidget.collected && widget.collected && !_reducedMotion) {
+      _celebration.reset();
+      _syncAnimations();
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _appActive = state == AppLifecycleState.resumed;
+    _syncAnimations();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _entrance.dispose();
+    _ambience.dispose();
+    _celebration.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final summary = VictoryScoreSummary(stage: stage, attempt: result.attempt);
-    final coins = result.rewardCoinsGranted * (isDoubled ? 2 : 1);
-    final gems = result.rewardGemsGranted * (isDoubled ? 2 : 1);
-    final xp = result.rewardXpGranted + gameplayXp;
+    final summary = VictoryScoreSummary(
+        stage: widget.stage, attempt: widget.result.attempt);
+    final coins = widget.result.rewardCoinsGranted * (widget.isDoubled ? 2 : 1);
+    final gems = widget.result.rewardGemsGranted * (widget.isDoubled ? 2 : 1);
+    final xp = widget.result.rewardXpGranted + widget.gameplayXp;
     final rewards = <Widget>[
       if (coins > 0)
         _RewardAmount(
-          amount: '+$coins',
+          amount: coins,
           color: const Color(0xFFFFD34C),
           asset: 'assets/home/coins.webp',
           semanticLabel: '$coins عملة',
         ),
       if (gems > 0)
         _RewardAmount(
-          amount: '+$gems',
+          amount: gems,
           color: const Color(0xFF76E9FF),
           asset: 'assets/home/gems.webp',
           semanticLabel: '$gems جوهرة',
         ),
       if (xp > 0)
         _RewardAmount(
-          amount: '+$xp',
+          amount: xp,
           color: const Color(0xFFEA8EFF),
           semanticLabel: '$xp نقطة خبرة',
         ),
@@ -79,261 +153,280 @@ class StageVictoryScene extends StatelessWidget {
           cacheWidth: 1920,
           excludeFromSemantics: true,
         ),
+        Positioned.fill(
+          child: VictoryBackdropEffects(
+            ambience: _ambience,
+            celebration: _celebration,
+            reducedMotion: _reducedMotion,
+          ),
+        ),
         SafeArea(
           child: Center(
             child: FittedBox(
               fit: BoxFit.contain,
               child: SizedBox.fromSize(
-                size: designSize,
+                size: StageVictoryScene.designSize,
                 child: Directionality(
                   textDirection: TextDirection.rtl,
-                  child: Stack(
-                    children: [
-                      Positioned.fill(
-                        child: Image.asset(
-                          'assets/images/campaign/ui/victory_panel.png',
-                          fit: BoxFit.fill,
-                          cacheWidth: 1920,
-                          excludeFromSemantics: true,
-                        ),
-                      ),
-                      const Positioned(
-                        left: 328,
-                        top: 142,
-                        width: 304,
-                        height: 90,
-                        child: _VictoryRibbon(),
-                      ),
-                      Positioned(
-                        left: 364,
-                        top: 60,
-                        width: 232,
-                        height: 108,
-                        child: FittedBox(
-                          child: SizedBox(
-                            width: 284,
-                            height: 132,
-                            child: AnimatedResultStars(
-                                stars: result.attempt.stars),
+                  child: VictoryReveal(
+                    animation: _entrance,
+                    end: .2,
+                    distance: 16,
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          child: Image.asset(
+                            'assets/images/campaign/ui/victory_panel.png',
+                            fit: BoxFit.fill,
+                            cacheWidth: 1920,
+                            excludeFromSemantics: true,
                           ),
                         ),
-                      ),
-                      Positioned(
-                        left: 218,
-                        top: 210,
-                        width: 117,
-                        height: 117,
-                        child: ResultPlayerPortrait(photoUrl: photoUrl),
-                      ),
-                      if (summary.isCompetition)
-                        const Positioned(
-                          left: 192,
-                          top: 194,
-                          width: 47,
-                          height: 58,
-                          child: _FirstPlaceMedal(),
+                        Positioned.fill(
+                          child: VictoryPanelEffects(animation: _ambience),
                         ),
-                      Positioned(
-                        left: 147,
-                        top: 340,
-                        width: 285,
-                        height: 43,
-                        child: _GoldText(playerName, fontSize: 31),
-                      ),
-                      Positioned(
-                        left: 507,
-                        top: 229,
-                        width: 303,
-                        height: 57,
-                        child: _ScoreRow(
-                          name: summary.playerLabel ?? playerName,
-                          score: summary.playerScore,
-                          gold: true,
-                          avatar: ResultPlayerPortrait(photoUrl: photoUrl),
-                        ),
-                      ),
-                      Positioned(
-                        left: 509,
-                        top: 299,
-                        width: 301,
-                        height: 42,
-                        child: _ScoreRow(
-                          name: summary.otherName,
-                          score: summary.otherScore,
-                          gold: false,
-                          avatar: Icon(
-                            summary.isCompetition
-                                ? Icons.person_rounded
-                                : Icons.flag_rounded,
-                            color: const Color(0xFFE1DAF7),
-                            size: 27,
+                        Positioned(
+                          left: 328,
+                          top: 142,
+                          width: 304,
+                          height: 90,
+                          child: VictoryReveal(
+                            animation: _entrance,
+                            start: .08,
+                            end: .48,
+                            pop: true,
+                            child: const _VictoryRibbon(),
                           ),
                         ),
-                      ),
-                      Positioned(
-                        left: 519,
-                        top: 371,
-                        width: 288,
-                        height: 55,
-                        child: saving
-                            ? const Center(
-                                child: CircularProgressIndicator(
-                                    color: Color(0xFFFFD34C), strokeWidth: 2))
-                            : rewards.isEmpty
-                                ? const Center(
-                                    child: Text('مكافآت النجوم محفوظة',
-                                        style: TextStyle(
-                                            color: Colors.white70,
-                                            fontSize: 17)))
-                                : FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    child: Row(
-                                      textDirection: TextDirection.ltr,
-                                      children: [
-                                        for (var index = 0;
-                                            index < rewards.length;
-                                            index++) ...[
-                                          if (index > 0)
-                                            const SizedBox(width: 18),
-                                          rewards[index],
-                                        ],
-                                      ],
-                                    ),
-                                  ),
-                      ),
-                      Positioned(
-                        left: 508,
-                        top: 428,
-                        width: 307,
-                        height: 17,
-                        child: Text(
-                          saving
-                              ? 'جارٍ الحفظ...'
-                              : onRetrySave != null
-                                  ? 'احفظ النتيجة لإضافة المكافآت'
-                                  : 'المرحلة ${stage.order} · ${summary.unit}',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                              color: Color(0xFFDFD5F3), fontSize: 10),
-                        ),
-                      ),
-                      Positioned(
-                        left: 340,
-                        top: 440,
-                        width: 281,
-                        height: 76,
-                        child: Semantics(
-                          button: true,
-                          enabled: !saving,
-                          label: saving
-                              ? 'جارٍ حفظ النتيجة'
-                              : collected
-                                  ? 'تم جمع المكافآت'
-                                  : 'اجمع المكافآت',
-                          child: Material(
-                            color: Colors.transparent,
-                            borderRadius: BorderRadius.circular(20),
-                            clipBehavior: Clip.antiAlias,
-                            child: InkWell(
-                              key: const ValueKey('victory-collect'),
-                              onTap: saving || collected ? null : onCollect,
-                              child: saving || collected
-                                  ? Container(
-                                      decoration: BoxDecoration(
-                                        border: Border.all(
-                                            color: const Color(0xFFFFD76B),
-                                            width: 2),
-                                        borderRadius: BorderRadius.circular(20),
-                                        gradient: const LinearGradient(
-                                          begin: Alignment.topCenter,
-                                          end: Alignment.bottomCenter,
-                                          colors: [
-                                            Color(0xFF12CBEE),
-                                            Color(0xFF0862D9)
-                                          ],
-                                        ),
-                                      ),
-                                      child: Center(
-                                          child: Text(
-                                        saving
-                                            ? 'جارٍ حفظ النتيجة...'
-                                            : 'تم جمع المكافآت ✓',
-                                        style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 22,
-                                            fontWeight: FontWeight.w900),
-                                      )),
-                                    )
-                                  : const SizedBox.expand(),
+                        Positioned(
+                          left: 364,
+                          top: 60,
+                          width: 232,
+                          height: 108,
+                          child: FittedBox(
+                            child: SizedBox(
+                              width: 284,
+                              height: 132,
+                              child: AnimatedResultStars(
+                                  stars: widget.result.attempt.stars),
                             ),
                           ),
                         ),
-                      ),
-                      Positioned(
-                        left: 12,
-                        top: 447,
-                        width: 78,
-                        height: 77,
-                        child: TextButton(
-                          onPressed: onMap,
-                          style: TextButton.styleFrom(
-                              foregroundColor: Colors.white,
-                              padding: EdgeInsets.zero),
-                          child: const FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(Icons.map_rounded,
-                                        color: Color(0xFFFFD989), size: 39),
-                                    Text('الخريطة',
-                                        style: TextStyle(
-                                            height: 1.2,
-                                            fontSize: 17,
-                                            fontWeight: FontWeight.w900)),
-                                  ])),
-                        ),
-                      ),
-                      Positioned(
-                        left: 16,
-                        top: 14,
-                        height: 35,
-                        child: _SceneAction(
-                            label: 'تفاصيل المرحلة',
-                            icon: Icons.bar_chart_rounded,
-                            onPressed: onDetails),
-                      ),
-                      Positioned(
-                        right: 16,
-                        top: 14,
-                        height: 35,
-                        child: _SceneAction(
-                            label: 'تحسين النجوم',
-                            icon: Icons.refresh_rounded,
-                            onPressed: onRetry),
-                      ),
-                      if (onRetrySave != null)
                         Positioned(
-                          right: 145,
+                          left: 218,
+                          top: 210,
+                          width: 117,
+                          height: 117,
+                          child: VictoryReveal(
+                            animation: _entrance,
+                            start: .12,
+                            end: .5,
+                            pop: true,
+                            child:
+                                ResultPlayerPortrait(photoUrl: widget.photoUrl),
+                          ),
+                        ),
+                        if (summary.isCompetition)
+                          Positioned(
+                            left: 192,
+                            top: 194,
+                            width: 47,
+                            height: 58,
+                            child: VictoryReveal(
+                              animation: _entrance,
+                              start: .22,
+                              end: .58,
+                              pop: true,
+                              child: const _FirstPlaceMedal(),
+                            ),
+                          ),
+                        Positioned(
+                          left: 147,
+                          top: 340,
+                          width: 285,
+                          height: 43,
+                          child: VictoryReveal(
+                            animation: _entrance,
+                            start: .2,
+                            end: .53,
+                            child: _GoldText(widget.playerName, fontSize: 31),
+                          ),
+                        ),
+                        Positioned(
+                          left: 507,
+                          top: 229,
+                          width: 303,
+                          height: 57,
+                          child: VictoryReveal(
+                            animation: _entrance,
+                            start: .24,
+                            end: .6,
+                            child: _ScoreRow(
+                              name: summary.playerLabel ?? widget.playerName,
+                              score: summary.playerScore,
+                              gold: true,
+                              avatar: ResultPlayerPortrait(
+                                  photoUrl: widget.photoUrl),
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          left: 509,
+                          top: 299,
+                          width: 301,
+                          height: 42,
+                          child: VictoryReveal(
+                            animation: _entrance,
+                            start: .32,
+                            end: .64,
+                            child: _ScoreRow(
+                              name: summary.otherName,
+                              score: summary.otherScore,
+                              gold: false,
+                              avatar: Icon(
+                                summary.isCompetition
+                                    ? Icons.person_rounded
+                                    : Icons.flag_rounded,
+                                color: const Color(0xFFE1DAF7),
+                                size: 27,
+                              ),
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          left: 519,
+                          top: 371,
+                          width: 288,
+                          height: 55,
+                          child: widget.saving
+                              ? const Center(
+                                  child: CircularProgressIndicator(
+                                      color: Color(0xFFFFD34C), strokeWidth: 2))
+                              : rewards.isEmpty
+                                  ? const Center(
+                                      child: Text('مكافآت النجوم محفوظة',
+                                          style: TextStyle(
+                                              color: Colors.white70,
+                                              fontSize: 17)))
+                                  : FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Row(
+                                        textDirection: TextDirection.ltr,
+                                        children: [
+                                          for (var index = 0;
+                                              index < rewards.length;
+                                              index++) ...[
+                                            if (index > 0)
+                                              const SizedBox(width: 18),
+                                            VictoryReveal(
+                                              animation: _entrance,
+                                              start: .40 + index * .09,
+                                              end: .78 + index * .09,
+                                              pop: true,
+                                              distance: 12,
+                                              child: rewards[index],
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                        ),
+                        Positioned(
+                          left: 508,
+                          top: 428,
+                          width: 307,
+                          height: 17,
+                          child: Text(
+                            widget.saving
+                                ? 'جارٍ الحفظ...'
+                                : widget.collected
+                                    ? 'تمت إضافة المكافآت إلى رصيدك'
+                                    : widget.onRetrySave != null
+                                        ? 'احفظ النتيجة لإضافة المكافآت'
+                                        : 'المرحلة ${widget.stage.order} · ${summary.unit}',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                                color: Color(0xFFDFD5F3), fontSize: 10),
+                          ),
+                        ),
+                        Positioned(
+                          left: 340,
+                          top: 440,
+                          width: 281,
+                          height: 76,
+                          child: VictoryCollectButton(
+                            animation: _ambience,
+                            saving: widget.saving,
+                            collected: widget.collected,
+                            onPressed: widget.onCollect,
+                          ),
+                        ),
+                        Positioned(
+                          left: 12,
+                          top: 447,
+                          width: 78,
+                          height: 77,
+                          child: TextButton(
+                            onPressed: widget.onMap,
+                            style: TextButton.styleFrom(
+                                foregroundColor: Colors.white,
+                                padding: EdgeInsets.zero),
+                            child: const FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.map_rounded,
+                                          color: Color(0xFFFFD989), size: 39),
+                                      Text('الخريطة',
+                                          style: TextStyle(
+                                              height: 1.2,
+                                              fontSize: 17,
+                                              fontWeight: FontWeight.w900)),
+                                    ])),
+                          ),
+                        ),
+                        Positioned(
+                          left: 16,
                           top: 14,
                           height: 35,
                           child: _SceneAction(
-                              label: 'إعادة حفظ النتيجة',
-                              icon: Icons.cloud_upload_rounded,
-                              onPressed: onRetrySave!),
+                              label: 'تفاصيل المرحلة',
+                              icon: Icons.bar_chart_rounded,
+                              onPressed: widget.onDetails),
                         ),
-                      if (onNext != null)
                         Positioned(
                           right: 16,
-                          bottom: 14,
-                          height: 36,
+                          top: 14,
+                          height: 35,
                           child: _SceneAction(
-                              label: nextLabel,
-                              icon: Icons.arrow_back_rounded,
-                              onPressed: onNext!),
+                              label: 'تحسين النجوم',
+                              icon: Icons.refresh_rounded,
+                              onPressed: widget.onRetry),
                         ),
-                    ],
+                        if (widget.onRetrySave != null)
+                          Positioned(
+                            right: 145,
+                            top: 14,
+                            height: 35,
+                            child: _SceneAction(
+                                label: 'إعادة حفظ النتيجة',
+                                icon: Icons.cloud_upload_rounded,
+                                onPressed: widget.onRetrySave!),
+                          ),
+                        if (widget.onNext != null)
+                          Positioned(
+                            right: 16,
+                            bottom: 14,
+                            height: 36,
+                            child: _SceneAction(
+                                label: widget.nextLabel,
+                                icon: Icons.arrow_back_rounded,
+                                onPressed: widget.onNext!),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -482,7 +575,14 @@ class _ScoreRow extends StatelessWidget {
           SizedBox(
               width: 58,
               child: gold
-                  ? _GoldText('$score', fontSize: 38)
+                  ? Semantics(
+                      label: '$score',
+                      excludeSemantics: true,
+                      child: _VictoryCount(
+                        value: score,
+                        builder: (value) => _GoldText('$value', fontSize: 38),
+                      ),
+                    )
                   : FittedBox(
                       fit: BoxFit.scaleDown,
                       child: Text('$score',
@@ -500,7 +600,8 @@ class _RewardAmount extends StatelessWidget {
       required this.color,
       required this.semanticLabel,
       this.asset});
-  final String amount, semanticLabel;
+  final int amount;
+  final String semanticLabel;
   final Color color;
   final String? asset;
 
@@ -509,19 +610,22 @@ class _RewardAmount extends StatelessWidget {
         label: semanticLabel,
         excludeSemantics: true,
         child: Row(textDirection: TextDirection.ltr, children: [
-          Text(amount,
-              textDirection: TextDirection.ltr,
-              style: TextStyle(
-                  fontFamily: 'NotoSansArabic',
-                  color: color,
-                  fontSize: 31,
-                  fontWeight: FontWeight.w900,
-                  shadows: const [
-                    Shadow(
-                        color: Colors.black54,
-                        blurRadius: 3,
-                        offset: Offset(0, 2))
-                  ])),
+          _VictoryCount(
+            value: amount,
+            builder: (value) => Text('+$value',
+                textDirection: TextDirection.ltr,
+                style: TextStyle(
+                    fontFamily: 'NotoSansArabic',
+                    color: color,
+                    fontSize: 31,
+                    fontWeight: FontWeight.w900,
+                    shadows: const [
+                      Shadow(
+                          color: Colors.black54,
+                          blurRadius: 3,
+                          offset: Offset(0, 2))
+                    ])),
+          ),
           const SizedBox(width: 5),
           if (asset != null)
             // The rest of this HUD image contains a sample balance and a shop button.
@@ -563,6 +667,22 @@ class _RewardAmount extends StatelessWidget {
                       fontWeight: FontWeight.w900)),
             ),
         ]),
+      );
+}
+
+class _VictoryCount extends StatelessWidget {
+  const _VictoryCount({required this.value, required this.builder});
+  final int value;
+  final Widget Function(int value) builder;
+
+  @override
+  Widget build(BuildContext context) => TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0, end: value.toDouble()),
+        duration: MediaQuery.disableAnimationsOf(context)
+            ? Duration.zero
+            : const Duration(milliseconds: 1450),
+        curve: Curves.easeOutCubic,
+        builder: (_, value, __) => builder(value.round()),
       );
 }
 

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:challenge_land/services/in_app_purchase_service.dart';
+import 'package:challenge_land/models/store_catalog.dart';
 import 'package:challenge_land/services/native_bridge_service.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -69,6 +70,44 @@ void main() {
     expect(await service.buyProduct('gems_80'), true);
     expect(calls.last.arguments, {'productId': 'gems80'});
     expect(service.status, PurchaseFlowStatus.launching);
+  });
+
+  test(
+      'wheel pack uses its live Play price and remains repeatable after delivery',
+      () async {
+    (catalog['products'] as List).add({
+      'id': 'wheelspins3',
+      'price': 'JOD 0.840',
+      'currencyCode': 'JOD',
+      'rawPrice': .840,
+    });
+    var deliveries = 0;
+    service.addDeliveryListener((id) {
+      expect(id, 'wheel_spins_3');
+      deliveries++;
+    });
+    await service.initialize();
+    expect(StoreCatalog.byId('wheelspins3')?.wheelSpins, 3);
+    expect(service.getProductDetails('wheel_spins_3')?.price, 'JOD 0.840');
+    expect(await service.buyProduct('wheel_spins_3'), true);
+    expect(calls.last.arguments, {'productId': 'wheelspins3'});
+    expect(deliveries, 0);
+    await nativeEvent(
+        'onPurchaseStatus', {'productId': 'wheelspins3', 'status': 'pending'});
+    expect(await service.buyProduct('wheel_spins_3'), false);
+    expect(deliveries, 0);
+    await nativeEvent('onPurchaseDelivered', {'productId': 'wheelspins3'});
+    expect(deliveries, 1);
+    expect(await service.buyProduct('wheel_spins_3'), true);
+    expect(calls.where((call) => call.method == 'launchBilling').length, 2);
+  });
+
+  test('missing wheel product cannot launch checkout or invent a price',
+      () async {
+    await service.initialize();
+    expect(service.getProductDetails('wheel_spins_3'), isNull);
+    expect(await service.buyProduct('wheel_spins_3'), false);
+    expect(calls.where((call) => call.method == 'launchBilling'), isEmpty);
   });
 
   test(

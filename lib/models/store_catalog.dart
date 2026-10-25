@@ -20,6 +20,7 @@ class StoreProduct {
     this.keys = 0,
     this.tickets = 0,
     this.hearts = 0,
+    this.wheelSpins = 0,
     this.oneTime = false,
     this.featured = false,
     this.badge = '',
@@ -34,6 +35,7 @@ class StoreProduct {
   final int keys;
   final int tickets;
   final int hearts;
+  final int wheelSpins;
   final bool oneTime;
   final bool featured;
   final String badge;
@@ -48,6 +50,14 @@ class CoinExchange {
 }
 
 abstract final class StoreCatalog {
+  /// Sold on the wheel page; credits are granted by the verified server wallet.
+  static const wheelSpinPack = StoreProduct(
+      id: 'wheel_spins_3',
+      title: '3 لفات لدولاب الحظ',
+      subtitle: 'ثلاث لفات إضافية محفوظة في حسابك',
+      kind: StoreProductKind.resource,
+      wheelSpins: 3);
+
   static const products = <StoreProduct>[
     StoreProduct(
         id: 'resources_3_each',
@@ -197,6 +207,9 @@ abstract final class StoreCatalog {
   static String canonicalId(String id) {
     final normalized = id.replaceAll('_', '').toLowerCase();
     if (normalized == 'vippass') return 'vip_monthly';
+    if (normalized == wheelSpinPack.id.replaceAll('_', '')) {
+      return wheelSpinPack.id;
+    }
     for (final product in products) {
       if (product.id.replaceAll('_', '') == normalized) return product.id;
     }
@@ -205,6 +218,7 @@ abstract final class StoreCatalog {
 
   static StoreProduct? byId(String id) {
     final canonical = canonicalId(id);
+    if (canonical == wheelSpinPack.id) return wheelSpinPack;
     for (final product in products) {
       if (product.id == canonical) return product;
     }

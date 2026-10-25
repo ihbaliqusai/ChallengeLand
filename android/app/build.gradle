@@ -119,6 +119,7 @@ dependencies {
     implementation 'com.google.firebase:firebase-firestore'
     implementation 'com.google.firebase:firebase-messaging'
     implementation 'com.google.firebase:firebase-functions'
+    implementation 'com.android.installreferrer:installreferrer:2.2'
     // Native LoginActivity and SettingsActivity use the legacy Google Sign-In API directly.
     implementation 'com.google.android.gms:play-services-auth:21.0.0'
     implementation 'com.github.HotBitmapGG:RingProgressBar:V1.2.2'

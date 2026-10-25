@@ -234,8 +234,6 @@ void main() {
     expect(find.byType(SaveGuestProgressDialog), findsNothing);
     expect(find.text('جرّب التحدي مجانًا'), findsNothing);
     expect(find.text('المتابعة بحساب Google'), findsNothing);
-    expect(
-        find.byKey(const ValueKey('login-privacy-checkbox')), findsOneWidget);
     expect(actions, 0);
     expect(wallet.balance, 0);
     await tester.pumpWidget(const SizedBox.shrink());
@@ -248,8 +246,6 @@ void main() {
     expect(find.byType(LoginBottomSheet), findsOneWidget);
     expect(find.byType(SaveGuestProgressDialog), findsNothing);
     expect(find.text('تسجيل دخول بواسطة جوجل'), findsOneWidget);
-    expect(
-        find.byKey(const ValueKey('login-privacy-checkbox')), findsOneWidget);
     await tester.runAsync(() => precacheImage(
         AssetImage('assets/ui/google.png', bundle: SharedAssets.bundle),
         tester.element(find.byType(LoginBottomSheet))));
@@ -263,11 +259,6 @@ void main() {
           .writeAsBytes(bytes!.buffer.asUint8List());
       image.dispose();
     });
-    await tester.tap(find.byKey(const ValueKey('google-sign-in')));
-    await tester.pump();
-    expect(wallet.logins, 0);
-    expect(campaign.saves, 0);
-    expect(find.text('يرجى الموافقة على سياسة الخصوصية أولاً'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('close-login-sheet')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
@@ -286,8 +277,6 @@ void main() {
       'Google cancellation keeps demo rewards and retry saves and collects them',
       (tester) async {
     await openRewards(tester);
-    await tester.tap(find.byKey(const ValueKey('login-privacy-checkbox')));
-    await tester.pump();
     wallet.signInError = FirebaseAuthException(code: 'cancelled');
     await tester.tap(find.byKey(const ValueKey('google-sign-in')));
     await tester.pump();
@@ -304,7 +293,7 @@ void main() {
     expect(campaign.savedPayload, _payload);
     expect(wallet.balance, 100);
     expect(wallet.earnedXp, 30);
-    expect(find.text('تم جمع المكافآت ✓'), findsOneWidget);
+    expect(find.text('تم جمع المكافآت'), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 }

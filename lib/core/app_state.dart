@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -8,9 +9,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/game_character.dart';
 import '../models/game_category.dart';
 import '../models/economy_wallet.dart';
+import '../models/lucky_wheel_prize.dart';
 import '../services/auth_service.dart';
 import '../services/achievement_reward_service.dart';
 import '../services/daily_reward_service.dart';
+import '../services/lucky_wheel_service.dart';
 import '../services/campaign_currency_service.dart';
 import '../services/native_bridge_service.dart';
 import '../services/progression_service.dart';
@@ -37,6 +40,7 @@ class AppState extends ChangeNotifier {
   Future<void> _refreshDeliveredPurchase() async {
     await loadCurrency();
     await loadCategoryState();
+    await refreshWheelPurchases();
     final uid = currentUser?.uid;
     if (uid != null) await _saveFullUserSnapshot(uid);
   }
@@ -67,6 +71,13 @@ class AppState extends ChangeNotifier {
   Future<void> loadEconomy() => _economyLoading ??=
       _loadEconomy().whenComplete(() => _economyLoading = null);
 
+  /// A purchase must be read after any request that began before its delivery.
+  Future<void> refreshWheelPurchases() async {
+    final previous = _economyLoading;
+    if (previous != null) await previous;
+    await loadEconomy();
+  }
+
   Future<void> _loadEconomy() async {
     final uid = currentUser?.uid;
     if (uid == null) return;
@@ -75,7 +86,13 @@ class AppState extends ChangeNotifier {
       if (_disposed || currentUser?.uid != uid) return;
       final next = EconomyWallet.fromMap(
           Map<String, dynamic>.from(result['state'] as Map? ?? {}));
-      if (next.revision >= economyWallet.revision) economyWallet = next;
+      if (next.revision >= economyWallet.revision) {
+        economyWallet = next;
+        if (next.wheelClaimedToday != null && !_dailyRewardWalletPending) {
+          claimedToday = next.wheelClaimedToday! ||
+              _localDailyClaimDate == _todayCalendarDateString();
+        }
+      }
       economyLoaded = true;
       economyError = null;
     } catch (error) {
@@ -114,6 +131,8 @@ class AppState extends ChangeNotifier {
   String? _localDailyClaimDate;
   bool _claimingStreak = false;
   bool _dailyRewardWalletPending = false;
+  String? _pendingWheelOperationId;
+  LuckyWheelSpin? lastLuckyWheelSpin;
   bool _achievementWalletPending = false;
   bool _achievementOperation = false;
   bool claimingAchievementRewards = false;
@@ -257,6 +276,9 @@ class AppState extends ChangeNotifier {
   final Set<String> ownedStoreProducts = <String>{};
   Timer? _vipExpiryTimer;
   String? _commerceHydratedUid;
+  Future<void>? _accountHydrationFuture;
+  String? _accountHydrationUid;
+  int? _accountHydrationGeneration;
   bool get isCommerceReady =>
       currentUser != null && _commerceHydratedUid == currentUser!.uid;
   bool _restoringCommerce = false;
@@ -430,6 +452,142 @@ class AppState extends ChangeNotifier {
 
   String? dailyRewardError;
   bool get claimingDailyReward => _claimingStreak;
+  bool get spinningLuckyWheel => _claimingStreak;
+  String? get luckyWheelError => dailyRewardError;
+  int get purchasedWheelSpins => economyWallet.wheelSpins;
+  bool get hasPendingLuckyWheelSpin => _pendingWheelOperationId != null;
+  bool get canSpinLuckyWheel =>
+      hasPendingLuckyWheelSpin || !claimedToday || purchasedWheelSpins > 0;
+
+  static String _newWheelOperationId() {
+    final random = math.Random.secure();
+    // Clock resolution differs across devices; time alone can replay two
+    // separate successful spins performed within the same clock tick.
+    return 'wheel_${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}_'
+        '${random.nextInt(0x7fffffff).toRadixString(36)}_'
+        '${random.nextInt(0x7fffffff).toRadixString(36)}';
+  }
+
+  /// The server chooses and commits the prize before the wheel lands on it.
+  Future<LuckyWheelSpin?> spinLuckyWheel() async {
+    if (_claimingStreak) return null;
+    final uid = currentUser?.uid;
+    if (uid == null) {
+      dailyRewardError = 'سجّل الدخول لتدوير دولاب الحظ.';
+      notifyListeners();
+      return null;
+    }
+    final generation = _authGeneration;
+    _claimingStreak = true;
+    dailyRewardError = null;
+    notifyListeners();
+    Completer<void>? deliveryFinished;
+    var syncingAccount = false;
+    bool active() =>
+        !_disposed && generation == _authGeneration && currentUser?.uid == uid;
+    final pendingKey = 'lucky_wheel_operation_$uid';
+    SharedPreferences? wheelPrefs;
+    try {
+      // A transient startup read can leave the wallet unbound even after the
+      // home screen opens. Retry that hydration instead of blocking every tap.
+      if (_commerceHydratedUid != uid) {
+        syncingAccount = true;
+        await _loadAndSyncUserData(uid, generation)
+            .timeout(const Duration(seconds: 12));
+        syncingAccount = false;
+      }
+      if (!active()) return null;
+      if (_commerceHydratedUid != uid) {
+        dailyRewardError =
+            'تعذّرت مزامنة حسابك. تحقق من الاتصال وأعد المحاولة.';
+        return null;
+      }
+      // Hydration may itself schedule a snapshot. Serialize behind that fresh
+      // snapshot, but never leave the wheel waiting forever for a cloud save.
+      final previousSnapshot = _snapshotTail;
+      final finished = Completer<void>();
+      deliveryFinished = finished;
+      _snapshotTail = previousSnapshot.then((_) => finished.future);
+      syncingAccount = true;
+      await previousSnapshot.timeout(const Duration(seconds: 10));
+      syncingAccount = false;
+      if (!active()) return null;
+      final prefs = await SharedPreferences.getInstance()
+          .timeout(const Duration(seconds: 3));
+      wheelPrefs = prefs;
+      if (!active()) return null;
+      _pendingWheelOperationId ??=
+          prefs.getString(pendingKey) ?? _newWheelOperationId();
+      final operationId = _pendingWheelOperationId!;
+      // Keep the exact receipt ID through process death before spending a spin.
+      if (!await prefs.setString(pendingKey, operationId)) {
+        throw StateError('Could not save wheel request');
+      }
+      if (!active()) return null;
+      // Block stale snapshots until an interrupted delivery has been recovered.
+      _dailyRewardWalletPending = true;
+      final delivery = await LuckyWheelService(bridge: _nativeBridgeService)
+          .spin(uid: uid, operationId: operationId)
+          .timeout(const Duration(seconds: 20));
+      if (!active()) return null;
+      // The native economy bridge applies only the newest wallet revision.
+      // Read its current totals so a delayed spin response cannot undo spending.
+      final balances = await _nativeBridgeService
+          .getUserCurrency()
+          .timeout(const Duration(seconds: 8));
+      if (!active()) return null;
+      // The bridge also caches verified unlocks without changing selection.
+      purchasedCharacters.addAll(delivery.purchasedCharacters);
+      final wallet = EconomyWallet.fromMap(delivery.state);
+      if (wallet.revision >= economyWallet.revision) economyWallet = wallet;
+      if (!await prefs.remove(pendingKey)) {
+        throw StateError('Could not finish wheel delivery');
+      }
+      if (!active()) return null;
+      economyLoaded = true;
+      coins = balances['coins']!;
+      gems = balances['gems']!;
+      claimedToday = delivery.state['wheelClaimedToday'] == true;
+      dailyStreakLoaded = true;
+      if (streakDay < 1) streakDay = 1;
+      _dailyRewardWalletPending = false;
+      _pendingWheelOperationId = null;
+      lastLuckyWheelSpin = delivery.spin;
+      if (claimedToday) unawaited(_saveLocalDailyRewardClaim(uid));
+      return delivery.spin;
+    } catch (error) {
+      if (active() &&
+          error is LuckyWheelRequestRejected &&
+          error.code == 'FAILED_PRECONDITION') {
+        // A proven rejection has no receipt to recover. Transport failures keep
+        // the journal so they can never spend a second credit on retry.
+        try {
+          await wheelPrefs?.remove(pendingKey);
+        } catch (_) {}
+        if (active()) {
+          _pendingWheelOperationId = null;
+          _dailyRewardWalletPending = false;
+          await loadEconomy();
+        }
+      }
+      if (active()) {
+        dailyRewardError = error is LuckyWheelRequestRejected
+            ? error.message
+            : error is EconomyOperationException
+                ? error.message
+                : error is TimeoutException && syncingAccount
+                    ? 'استغرقت مزامنة حسابك وقتًا أطول. أعد المحاولة بعد لحظات.'
+                    : 'تعذّر تدوير دولاب الحظ. تحقق من الاتصال وأعد المحاولة.';
+      }
+      return null;
+    } finally {
+      deliveryFinished?.complete();
+      if (generation == _authGeneration) {
+        _claimingStreak = false;
+        if (!_disposed) notifyListeners();
+      }
+    }
+  }
 
   Future<Map<String, int>?> claimDailyStreak() async {
     if (_claimingStreak) return null;
@@ -594,11 +752,13 @@ class AppState extends ChangeNotifier {
         const Duration(milliseconds: 300),
       );
       final saved = prefs.getString('daily_reward_claimed_date_$uid');
+      final pendingWheel = prefs.getString('lucky_wheel_operation_$uid');
       if (_disposed ||
           generation != _authGeneration ||
           currentUser?.uid != uid) {
         return;
       }
+      if (pendingWheel != null) _pendingWheelOperationId = pendingWheel;
       if (saved != null && saved == _todayCalendarDateString()) {
         _localDailyClaimDate = saved;
         claimedToday = true;
@@ -1100,7 +1260,28 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  Future<void> _loadAndSyncUserData(String uid, int generation) async {
+  Future<void> _loadAndSyncUserData(String uid, int generation) {
+    final pending = _accountHydrationFuture;
+    if (pending != null &&
+        _accountHydrationUid == uid &&
+        _accountHydrationGeneration == generation) {
+      return pending;
+    }
+    late final Future<void> operation;
+    operation = _performLoadAndSyncUserData(uid, generation).whenComplete(() {
+      if (identical(_accountHydrationFuture, operation)) {
+        _accountHydrationFuture = null;
+        _accountHydrationUid = null;
+        _accountHydrationGeneration = null;
+      }
+    });
+    _accountHydrationFuture = operation;
+    _accountHydrationUid = uid;
+    _accountHydrationGeneration = generation;
+    return operation;
+  }
+
+  Future<void> _performLoadAndSyncUserData(String uid, int generation) async {
     bool isActive() => generation == _authGeneration && currentUser?.uid == uid;
     try {
       // Account binding also works offline and must precede any wallet/stat
@@ -1182,6 +1363,7 @@ class AppState extends ChangeNotifier {
             accountUid: uid,
             coins: coins,
             gems: gems,
+            referralRevision: (data?['referralRevision'] as num?)?.toInt() ?? 0,
             deliveryIds: remoteDeliveryIds.toList(),
           )
           .timeout(const Duration(seconds: 3), onTimeout: () => true);
@@ -1298,6 +1480,12 @@ class AppState extends ChangeNotifier {
     return _snapshotTail;
   }
 
+  /// Reconciles server referral credits through the same guarded wallet writer.
+  Future<void> refreshReferralWallet() async {
+    final uid = currentUser?.uid;
+    if (uid != null) await _saveFullUserSnapshot(uid);
+  }
+
   Future<void> _writeFullUserSnapshot(String uid) async {
     try {
       // An interrupted reward delivery must not be erased by an older wallet.
@@ -1329,9 +1517,12 @@ class AppState extends ChangeNotifier {
         }
         final data = snapshot.data() ?? <String, dynamic>{};
         final revision = (data['friendStakeRevision'] as num?)?.toInt() ?? 0;
+        final referralRevision =
+            (data['referralRevision'] as num?)?.toInt() ?? 0;
         final held = (data['friendStakeMatchId'] as String? ?? '').isNotEmpty;
-        final refreshWallet =
-            held || revision != (_friendStakeRevisions[uid] ?? 0);
+        final refreshWallet = held ||
+            revision != (_friendStakeRevisions[uid] ?? 0) ||
+            referralRevision != (_referralRevisions[uid] ?? 0);
         transaction.set(
             userRef,
             <String, dynamic>{
@@ -1381,6 +1572,8 @@ class AppState extends ChangeNotifier {
           accountUid: uid,
           coins: restoredCoins,
           gems: restoredGems,
+          referralRevision:
+              (remoteWallet['referralRevision'] as num?)?.toInt() ?? 0,
           deliveryIds: remoteIds.toList(),
         );
         if (!hydrated ||
@@ -1391,6 +1584,8 @@ class AppState extends ChangeNotifier {
         }
         _friendStakeRevisions[uid] =
             (remoteWallet['friendStakeRevision'] as num?)?.toInt() ?? 0;
+        _referralRevisions[uid] =
+            (remoteWallet['referralRevision'] as num?)?.toInt() ?? 0;
         coins = restoredCoins;
         gems = restoredGems;
         notifyListeners();
@@ -1410,6 +1605,7 @@ class AppState extends ChangeNotifier {
   }
 
   final Map<String, int> _friendStakeRevisions = {};
+  final Map<String, int> _referralRevisions = {};
 
   Future<void> syncPublicProfile({
     int? level,
@@ -1484,6 +1680,8 @@ class AppState extends ChangeNotifier {
     _claimingStreak = false;
     dailyRewardError = null;
     _dailyRewardWalletPending = false;
+    _pendingWheelOperationId = null;
+    lastLuckyWheelSpin = null;
     _achievementWalletPending = false;
     _achievementOperation = false;
     claimingAchievementRewards = false;

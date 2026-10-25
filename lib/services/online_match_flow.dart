@@ -147,8 +147,24 @@ class OnlineMatchFlow {
         return false;
       }
       if (choice != 'forfeit') return false;
-      final leftRooms = <String, Room?>{};
-      for (final match in active) {
+      return await forfeit(context, uid, active);
+    } finally {
+      _preparing = false;
+    }
+  }
+
+  static Future<bool> forfeit(BuildContext context, String uid,
+      Iterable<Map<String, dynamic>> matches) async {
+    final native = context.read<NativeBridgeService>();
+    final leftRooms = <String, Room?>{};
+    for (final match in matches) {
+      if (!context.mounted || !await native.isOnlineMatchAccount(uid)) {
+        return false;
+      }
+      if (!context.mounted) return false;
+      final resolved = await inspect(context, uid, match);
+      if (!context.mounted) return false;
+      if (resolved['finished'] != true) {
         final previousRoom = match['roomId'] as String? ?? '';
         if (previousRoom.isNotEmpty) {
           if (!leftRooms.containsKey(previousRoom)) {
@@ -171,9 +187,7 @@ class OnlineMatchFlow {
         }
         if (!context.mounted) return false;
       }
-      return native.isOnlineMatchAccount(uid);
-    } finally {
-      _preparing = false;
     }
+    return native.isOnlineMatchAccount(uid);
   }
 }

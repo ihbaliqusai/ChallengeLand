@@ -11,12 +11,17 @@ import '../../models/store_catalog.dart';
 import '../home/store_screen.dart';
 import '../../widgets/adaptive_asset_image.dart';
 import '../../widgets/synchronized_character_animation.dart';
+import '../../widgets/guide/page_guide.dart';
+import '../../widgets/guide/page_guide_steps.dart';
 
 /// Character picker and showcase screen matching the dressing room studio
 /// reference with standing mirror reflection, 3D golden title, and neon character grid.
 class CharacterSelectScreen extends StatefulWidget {
   const CharacterSelectScreen(
-      {super.key, this.forced = false, this.initialIndex});
+      {super.key,
+      this.forced = false,
+      this.initialIndex,
+      this.guideController});
 
   /// When true, the screen is rendered by AuthGate as a mandatory initial step
   /// (no back button, primary action starts the journey). When false, it is
@@ -25,6 +30,8 @@ class CharacterSelectScreen extends StatefulWidget {
 
   /// Opens a store preview without committing the player's saved selection.
   final int? initialIndex;
+  final GuidePageController? guideController;
+  bool get isGuidePreview => guideController != null;
 
   @override
   State<CharacterSelectScreen> createState() => _CharacterSelectScreenState();
@@ -32,8 +39,19 @@ class CharacterSelectScreen extends StatefulWidget {
 
 class _CharacterSelectScreenState extends State<CharacterSelectScreen>
     with SingleTickerProviderStateMixin {
+  bool get _isGuidePreview => widget.isGuidePreview;
   int _focused = CharacterCatalog.defaultIndex;
   bool _busy = false;
+  final _guideKey = GlobalKey<PageGuideState>();
+  final _gridKey = GlobalKey<_CharacterGridState>();
+  final _guideTargets = {
+    for (final target in CharacterGuideTarget.values) target: GlobalKey(),
+  };
+  final _guideCardKeys = {
+    for (final character in CharacterCatalog.all) character.index: GlobalKey(),
+  };
+  int? _guideOriginalFocus;
+  double _guideOriginalOffset = 0;
 
   late final AnimationController _idleController;
   late final Animation<double> _idleAnimation;
@@ -41,7 +59,9 @@ class _CharacterSelectScreenState extends State<CharacterSelectScreen>
   @override
   void initState() {
     super.initState();
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    if (!_isGuidePreview) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    }
 
     final appState = context.read<AppState>();
     _focused = CharacterCatalog.byIndex(widget.initialIndex ??
@@ -78,6 +98,70 @@ class _CharacterSelectScreenState extends State<CharacterSelectScreen>
 
   GameCharacter get _character => CharacterCatalog.byIndex(_focused);
 
+  Map<CharacterGuideTarget, GameCharacter> _guideExamples(AppState app) {
+    final available = CharacterCatalog.all
+        .where((character) =>
+            app.isCharacterUnlocked(character) &&
+            character.index != app.selectedCharacterIndex)
+        .firstOrNull;
+    final locked = CharacterCatalog.all
+        .where((character) => !app.isCharacterUnlocked(character));
+    final level =
+        locked.where((character) => character.unlock.isLevelGated).firstOrNull;
+    final coins = locked
+        .where(
+            (character) => character.unlock.kind == CharacterUnlockKind.coins)
+        .firstOrNull;
+    final gems = locked
+        .where((character) => character.unlock.kind == CharacterUnlockKind.gems)
+        .firstOrNull;
+    return {
+      CharacterGuideTarget.preview:
+          available ?? CharacterCatalog.byIndex(app.selectedCharacterIndex),
+      CharacterGuideTarget.current:
+          CharacterCatalog.byIndex(app.selectedCharacterIndex),
+      if (level != null) CharacterGuideTarget.level: level,
+      if (coins != null) CharacterGuideTarget.coins: coins,
+      if (gems != null) CharacterGuideTarget.gems: gems,
+    };
+  }
+
+  void _beginGuide() {
+    _guideOriginalFocus = _focused;
+    final scroll = _gridKey.currentState?._scrollController;
+    _guideOriginalOffset = scroll?.hasClients == true ? scroll!.offset : 0;
+  }
+
+  Future<void> _prepareGuide(CharacterGuideTarget target) async {
+    if (!mounted) return;
+    final app = context.read<AppState>();
+    final examples = _guideExamples(app);
+    final example = examples[target];
+    if (example != null ||
+        target == CharacterGuideTarget.confirm ||
+        target == CharacterGuideTarget.inspect) {
+      setState(() => _focused =
+          (example ?? examples[CharacterGuideTarget.preview]!).index);
+    }
+    await revealGuideTarget(example != null
+        ? _guideCardKeys[example.index]!
+        : _guideTargets[target]!);
+  }
+
+  void _finishGuide() {
+    if (_guideOriginalFocus == null) return;
+    setState(() {
+      _focused = _guideOriginalFocus!;
+      _guideOriginalFocus = null;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final scroll = _gridKey.currentState?._scrollController;
+      if (!mounted || scroll?.hasClients != true) return;
+      scroll!.jumpTo(
+          _guideOriginalOffset.clamp(0, scroll.position.maxScrollExtent));
+    });
+  }
+
   void _showSnack(String message, {bool isError = false}) {
     if (!mounted) return;
     GameNoticeMessenger.of(context).show(message,
@@ -85,6 +169,7 @@ class _CharacterSelectScreenState extends State<CharacterSelectScreen>
   }
 
   Future<void> _onPrimary() async {
+    if (_isGuidePreview) return;
     if (_busy) return;
     final appState = context.read<AppState>();
     final character = _character;
@@ -159,6 +244,7 @@ class _CharacterSelectScreenState extends State<CharacterSelectScreen>
   }
 
   void _openCharacterInspection() {
+    if (_isGuidePreview) return;
     final appState = context.read<AppState>();
     final character = _character;
     final isSelected = appState.selectedCharacterIndex == _focused;
@@ -188,73 +274,96 @@ class _CharacterSelectScreenState extends State<CharacterSelectScreen>
     final character = _character;
     final unlocked = appState.isCharacterUnlocked(character);
     final isSelected = appState.selectedCharacterIndex == _focused;
+    final examples = _guideExamples(appState);
+    final guideTargets = {
+      ..._guideTargets,
+      for (final example in examples.entries)
+        example.key: _guideCardKeys[example.value.index]!,
+    };
 
     return Directionality(
       textDirection: TextDirection.rtl,
       child: RepaintBoundary(
         key: const ValueKey('character-select-screen'),
-        child: Scaffold(
-          backgroundColor: const Color(0xFF0F0B24),
-          resizeToAvoidBottomInset: false,
-          body: Stack(
-            fit: StackFit.expand,
-            children: [
-              // Studio dressing room background with mirror
-              Positioned.fill(
-                child: LayoutBuilder(builder: (context, constraints) {
-                  if (constraints.maxWidth < constraints.maxHeight) {
-                    return const DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [Color(0xFF241344), Color(0xFF11132E)],
+        child: PageGuide(
+          key: _guideKey,
+          id: 'characters',
+          controller: widget.guideController,
+          steps: buildCharacterGuideSteps(guideTargets, _prepareGuide,
+              forced: widget.forced,
+              hasSavedCharacter: appState.hasChosenCharacter,
+              levelRequired: examples[CharacterGuideTarget.level]?.unlock.value,
+              coinPrice: examples[CharacterGuideTarget.coins]?.unlock.value,
+              gemPrice: examples[CharacterGuideTarget.gems]?.unlock.value),
+          onStart: _beginGuide,
+          onFinish: _finishGuide,
+          completionLabel: 'اختر شخصيتك',
+          child: AbsorbPointer(
+            absorbing: _isGuidePreview,
+            child: Scaffold(
+              backgroundColor: const Color(0xFF0F0B24),
+              resizeToAvoidBottomInset: false,
+              body: Stack(
+                fit: StackFit.expand,
+                children: [
+                  // Studio dressing room background with mirror
+                  Positioned.fill(
+                    child: LayoutBuilder(builder: (context, constraints) {
+                      if (constraints.maxWidth < constraints.maxHeight) {
+                        return const DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [Color(0xFF241344), Color(0xFF11132E)],
+                            ),
+                          ),
+                        );
+                      }
+                      return adaptiveAssetImage(
+                        'assets/ui/character_select_room.webp',
+                        fit: BoxFit.fill,
+                        alignment: Alignment.center,
+                        errorBuilder: (_, __, ___) => Container(
+                          decoration: const BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [Color(0xFF261447), Color(0xFF0F0824)],
+                            ),
+                          ),
                         ),
-                      ),
-                    );
-                  }
-                  return adaptiveAssetImage(
-                    'assets/ui/character_select_room.webp',
-                    fit: BoxFit.fill,
-                    alignment: Alignment.center,
-                    errorBuilder: (_, __, ___) => Container(
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [Color(0xFF261447), Color(0xFF0F0824)],
-                        ),
-                      ),
-                    ),
-                  );
-                }),
-              ),
+                      );
+                    }),
+                  ),
 
-              // Main content
-              LayoutBuilder(
-                builder: (context, area) {
-                  final isLandscape = area.maxWidth > area.maxHeight;
+                  // Main content
+                  LayoutBuilder(
+                    builder: (context, area) {
+                      final isLandscape = area.maxWidth > area.maxHeight;
 
-                  if (isLandscape) {
-                    return _buildLandscapeLayout(
-                      appState: appState,
-                      character: character,
-                      unlocked: unlocked,
-                      isSelected: isSelected,
-                      area: area,
-                    );
-                  } else {
-                    return _buildPortraitLayout(
-                      appState: appState,
-                      character: character,
-                      unlocked: unlocked,
-                      isSelected: isSelected,
-                      area: area,
-                    );
-                  }
-                },
+                      if (isLandscape) {
+                        return _buildLandscapeLayout(
+                          appState: appState,
+                          character: character,
+                          unlocked: unlocked,
+                          isSelected: isSelected,
+                          area: area,
+                        );
+                      } else {
+                        return _buildPortraitLayout(
+                          appState: appState,
+                          character: character,
+                          unlocked: unlocked,
+                          isSelected: isSelected,
+                          area: area,
+                        );
+                      }
+                    },
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -298,6 +407,9 @@ class _CharacterSelectScreenState extends State<CharacterSelectScreen>
           top: height * 0.335,
           bottom: height * 0.15,
           child: _CharacterGrid(
+            key: _gridKey,
+            guideCardKeys: _guideCardKeys,
+            pagesGuideKey: _guideTargets[CharacterGuideTarget.pages],
             appState: appState,
             focused: _focused,
             compact: compact,
@@ -313,6 +425,8 @@ class _CharacterSelectScreenState extends State<CharacterSelectScreen>
           bottom: height * 0.035,
           height: height * 0.105,
           child: _ActionBar(
+            confirmGuideKey: _guideTargets[CharacterGuideTarget.confirm],
+            inspectGuideKey: _guideTargets[CharacterGuideTarget.inspect],
             forced: widget.forced,
             busy: _busy,
             character: character,
@@ -328,6 +442,9 @@ class _CharacterSelectScreenState extends State<CharacterSelectScreen>
           right: width * 0.04,
           top: height * 0.035,
           child: _TopBar(
+            onGuide:
+                _isGuidePreview ? null : () => _guideKey.currentState?.start(),
+            balancesGuideKey: _guideTargets[CharacterGuideTarget.balances],
             forced: widget.forced,
             appState: appState,
             compact: true,
@@ -347,6 +464,9 @@ class _CharacterSelectScreenState extends State<CharacterSelectScreen>
     return Column(
       children: [
         _TopBar(
+          onGuide:
+              _isGuidePreview ? null : () => _guideKey.currentState?.start(),
+          balancesGuideKey: _guideTargets[CharacterGuideTarget.balances],
           forced: widget.forced,
           appState: appState,
           compact: false,
@@ -369,6 +489,9 @@ class _CharacterSelectScreenState extends State<CharacterSelectScreen>
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: _CharacterGrid(
+              key: _gridKey,
+              guideCardKeys: _guideCardKeys,
+              pagesGuideKey: _guideTargets[CharacterGuideTarget.pages],
               appState: appState,
               focused: _focused,
               compact: false,
@@ -380,6 +503,8 @@ class _CharacterSelectScreenState extends State<CharacterSelectScreen>
           ),
         ),
         _ActionBar(
+          confirmGuideKey: _guideTargets[CharacterGuideTarget.confirm],
+          inspectGuideKey: _guideTargets[CharacterGuideTarget.inspect],
           forced: widget.forced,
           busy: _busy,
           character: character,
@@ -401,12 +526,16 @@ class _TopBar extends StatelessWidget {
   const _TopBar({
     required this.forced,
     required this.appState,
+    required this.onGuide,
+    this.balancesGuideKey,
     this.compact = false,
   });
 
   final bool forced;
   final AppState appState;
   final bool compact;
+  final VoidCallback? onGuide;
+  final Key? balancesGuideKey;
 
   @override
   Widget build(BuildContext context) {
@@ -423,22 +552,28 @@ class _TopBar extends StatelessWidget {
             )
           else
             SizedBox(width: compact ? 34 : 42),
+          if (onGuide != null) ...[
+            const SizedBox(width: 6),
+            PageGuideHelpButton(onPressed: onGuide!),
+          ],
           const Spacer(),
-          _CurrencyPill(
-            icon: Icons.monetization_on_rounded,
-            value: _compactNumber(appState.coins),
-            color: const Color(0xFFFACC15),
-            label: 'كوين',
-            compact: compact,
-          ),
-          const SizedBox(width: 8),
-          _CurrencyPill(
-            icon: Icons.diamond_rounded,
-            value: _compactNumber(appState.gems),
-            color: const Color(0xFF38BDF8),
-            label: 'جوهرة',
-            compact: compact,
-          ),
+          Row(key: balancesGuideKey, mainAxisSize: MainAxisSize.min, children: [
+            _CurrencyPill(
+              icon: Icons.monetization_on_rounded,
+              value: _compactNumber(appState.coins),
+              color: const Color(0xFFFACC15),
+              label: 'كوين',
+              compact: compact,
+            ),
+            const SizedBox(width: 8),
+            _CurrencyPill(
+              icon: Icons.diamond_rounded,
+              value: _compactNumber(appState.gems),
+              color: const Color(0xFF38BDF8),
+              label: 'جوهرة',
+              compact: compact,
+            ),
+          ]),
         ],
       ),
     );
@@ -845,16 +980,21 @@ class _FullBodyImage extends StatelessWidget {
 
 class _CharacterGrid extends StatefulWidget {
   const _CharacterGrid({
+    super.key,
     required this.appState,
     required this.focused,
     required this.onTap,
     this.compact = false,
+    required this.guideCardKeys,
+    this.pagesGuideKey,
   });
 
   final AppState appState;
   final int focused;
   final ValueChanged<int> onTap;
   final bool compact;
+  final Map<int, GlobalKey> guideCardKeys;
+  final Key? pagesGuideKey;
 
   @override
   State<_CharacterGrid> createState() => _CharacterGridState();
@@ -912,6 +1052,7 @@ class _CharacterGridState extends State<_CharacterGrid> {
       return Column(
         children: [
           SizedBox(
+            key: widget.pagesGuideKey,
             height: hintHeight,
             child: AnimatedBuilder(
               animation: _scrollController,
@@ -970,21 +1111,25 @@ class _CharacterGridState extends State<_CharacterGrid> {
                           for (var row = 0; row < 2; row++) ...[
                             if (row == 1) SizedBox(height: gap),
                             if (column * 2 + row < characters.length)
-                              _CharacterCard(
-                                key: ValueKey(
-                                    'character-rail-${characters[column * 2 + row].id}'),
-                                character: characters[column * 2 + row],
-                                unlocked: widget.appState.isCharacterUnlocked(
-                                    characters[column * 2 + row]),
-                                isSelected:
-                                    widget.appState.selectedCharacterIndex ==
-                                        characters[column * 2 + row].index,
-                                isFocused: widget.focused ==
-                                    characters[column * 2 + row].index,
-                                width: cardWidth,
-                                height: cardHeight,
-                                onTap: () => widget
-                                    .onTap(characters[column * 2 + row].index),
+                              KeyedSubtree(
+                                key: widget.guideCardKeys[
+                                    characters[column * 2 + row].index],
+                                child: _CharacterCard(
+                                  key: ValueKey(
+                                      'character-rail-${characters[column * 2 + row].id}'),
+                                  character: characters[column * 2 + row],
+                                  unlocked: widget.appState.isCharacterUnlocked(
+                                      characters[column * 2 + row]),
+                                  isSelected:
+                                      widget.appState.selectedCharacterIndex ==
+                                          characters[column * 2 + row].index,
+                                  isFocused: widget.focused ==
+                                      characters[column * 2 + row].index,
+                                  width: cardWidth,
+                                  height: cardHeight,
+                                  onTap: () => widget.onTap(
+                                      characters[column * 2 + row].index),
+                                ),
                               ),
                           ],
                         ],
@@ -1313,6 +1458,8 @@ class _ActionBar extends StatelessWidget {
     required this.onPressed,
     required this.onInspect,
     this.compact = false,
+    this.confirmGuideKey,
+    this.inspectGuideKey,
   });
 
   final bool forced;
@@ -1323,6 +1470,7 @@ class _ActionBar extends StatelessWidget {
   final VoidCallback onPressed;
   final VoidCallback onInspect;
   final bool compact;
+  final Key? confirmGuideKey, inspectGuideKey;
 
   @override
   Widget build(BuildContext context) {
@@ -1402,6 +1550,7 @@ class _ActionBar extends StatelessWidget {
 
           // Dedicated Inspect button
           Tooltip(
+            key: inspectGuideKey,
             message: 'استعراض كامل للتفاصيل',
             child: Material(
               color: const Color(0xFF1F0E38).withValues(alpha: 0.9),
@@ -1436,6 +1585,7 @@ class _ActionBar extends StatelessWidget {
             child: Opacity(
               opacity: enabled ? 1.0 : 0.55,
               child: GestureDetector(
+                key: confirmGuideKey,
                 onTap: enabled ? onPressed : null,
                 child: Container(
                   height: btnHeight,

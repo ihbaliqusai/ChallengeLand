@@ -12,10 +12,14 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:challenge_land/widgets/guide/page_guide.dart';
+import 'package:challenge_land/widgets/guide/home_guide_tour_overlay.dart';
 
 class _FakeAppState extends ChangeNotifier implements AppState {
   int _selected = 1;
   int purchaseRequests = 0;
+  bool chosen = true;
   final Set<int> _unlocked = {0, 1, 6}; // Khaled, Omar, Sarah unlocked
 
   @override
@@ -23,7 +27,7 @@ class _FakeAppState extends ChangeNotifier implements AppState {
       _unlocked.contains(character.index) || character.unlock.isFree;
 
   @override
-  bool get hasChosenCharacter => true;
+  bool get hasChosenCharacter => chosen;
 
   @override
   int get selectedCharacterIndex => _selected;
@@ -73,6 +77,10 @@ void main() {
     expect(artwork.lengthInBytes, greaterThan(0));
   });
 
+  setUp(() => SharedPreferences.setMockInitialValues({
+        PageGuide.preferenceKey('characters'): true,
+      }));
+
   Future<void> mount(
     WidgetTester tester, {
     Size size = const Size(800, 360),
@@ -80,6 +88,7 @@ void main() {
     double textScale = 1,
     int? initialIndex,
     bool fixedCanvas = false,
+    bool forced = false,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
@@ -101,7 +110,8 @@ void main() {
             textTheme:
                 ThemeData.dark().textTheme.apply(fontFamily: 'NotoSansArabic'),
           ),
-          home: CharacterSelectScreen(initialIndex: initialIndex),
+          home:
+              CharacterSelectScreen(initialIndex: initialIndex, forced: forced),
         ),
       ),
     );
@@ -112,6 +122,111 @@ void main() {
                 tester.element(find.byType(CharacterSelectScreen))),
         ]));
     await tester.pumpAndSettle();
+  }
+
+  for (final (size, forced) in [
+    (const Size(960, 540), false),
+    (const Size(640, 360), false),
+    (const Size(390, 780), false),
+    (const Size(960, 540), true),
+  ]) {
+    testWidgets(
+        'character guide explains real controls at $size forced=$forced',
+        (tester) async {
+      final state = _FakeAppState()..chosen = !forced;
+      await mount(tester,
+          size: size,
+          state: state,
+          initialIndex: 2,
+          fixedCanvas: true,
+          forced: forced);
+      final rail = tester
+          .widget<SingleChildScrollView>(
+              find.byKey(const ValueKey('character-scroll-rail')))
+          .controller!;
+      final originalOffset = rail.offset;
+      await tester.tap(find.byTooltip('شرح الصفحة'));
+      await tester.pump();
+      final tour = tester
+          .widget<HomeGuideTourOverlay>(find.byType(HomeGuideTourOverlay));
+      for (var index = 0; index < tour.steps.length; index++) {
+        for (var frame = 0; frame < 5; frame++) {
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+        expect(tester.takeException(), isNull, reason: tour.steps[index].title);
+        final speechScroll = tester.state<ScrollableState>(find
+            .descendant(
+                of: find.byKey(const ValueKey('guide-speech-bubble')),
+                matching: find.byType(Scrollable))
+            .first);
+        expect(speechScroll.position.maxScrollExtent, lessThanOrEqualTo(1),
+            reason: tour.steps[index].title);
+        final painter = tester
+            .widget<CustomPaint>(find.byKey(const ValueKey('guide-spotlight')))
+            .painter! as SpotlightPainter;
+        if (tour.steps[index].targetKey != null) {
+          expect(painter.targetRect, isNotNull,
+              reason: tour.steps[index].title);
+          final surface = tester.renderObject<RenderBox>(
+              find.byKey(const ValueKey('guide-spotlight')));
+          final visible = Rect.fromPoints(
+              surface.localToGlobal(painter.targetRect!.topLeft),
+              surface.localToGlobal(painter.targetRect!.bottomRight));
+          expect(
+              tester
+                  .getRect(find.byKey(const ValueKey('guide-stage')))
+                  .overlaps(visible),
+              isFalse,
+              reason: tour.steps[index].title);
+        }
+        expect(state.selectedCharacterIndex, 1);
+        expect(state.purchaseRequests, 0);
+        if (const bool.fromEnvironment('GUIDE_PREVIEW')) {
+          await tester.tap(find.byKey(const ValueKey('guide-speech-bubble')));
+          await tester.pump(const Duration(milliseconds: 200));
+          final images = tester
+              .widgetList<Image>(find.byType(Image))
+              .map((image) => image.image)
+              .toSet();
+          await tester.runAsync(() => Future.wait(images.map((image) =>
+              precacheImage(
+                  image, tester.element(find.byType(CharacterSelectScreen))))));
+          await tester.pump();
+          final boundary = tester.renderObject<RenderRepaintBoundary>(
+              find.byKey(const ValueKey('character-select-screen')));
+          await tester.runAsync(() async {
+            final snapshot = await boundary.toImage(pixelRatio: 1.5);
+            final bytes =
+                await snapshot.toByteData(format: ui.ImageByteFormat.png);
+            await File(
+                    'build/character-guide-${size.width.toInt()}-$forced-$index.png')
+                .writeAsBytes(bytes!.buffer.asUint8List());
+            snapshot.dispose();
+          });
+        }
+        await tester.tap(find.text(index == tour.steps.length - 1
+            ? 'اختر شخصيتك'
+            : index == 0
+                ? 'ابدأ الجولة'
+                : 'التالي'));
+        await tester.pump();
+      }
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pump();
+      expect(find.byType(HomeGuideTourOverlay), findsNothing);
+      expect(find.text('فتح وتفعيل (12K كوين)'), findsOneWidget);
+      expect(state.selectedCharacterIndex, 1);
+      expect(state.purchaseRequests, 0);
+      expect(rail.offset, closeTo(originalOffset, .1));
+      expect(state.hasChosenCharacter, !forced);
+      if (forced) expect(find.byTooltip('رجوع'), findsNothing);
+      expect(
+          (await SharedPreferences.getInstance())
+              .getBool(PageGuide.preferenceKey('characters')),
+          isTrue);
+      await tester.pumpWidget(const SizedBox.shrink());
+      state.dispose();
+    });
   }
 
   testWidgets(

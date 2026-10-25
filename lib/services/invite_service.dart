@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/player_profile.dart';
 import '../models/room.dart';
+import 'referral_service.dart';
 
 enum InviteType {
   friendChallenge,
@@ -275,6 +276,8 @@ class InviteService {
       }
 
       final text = clipData.text!.trim();
+      // Referral rewards use a separate acceptance flow, never a duel invite.
+      if (ReferralService.extractCode(text).isNotEmpty) return null;
 
       // Check if this full text or its code is already dismissed
       if (await isInviteDismissed(text)) {

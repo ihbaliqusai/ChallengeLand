@@ -2,12 +2,14 @@ import 'dart:async';
 
 import 'package:challenge_land/core/app_state.dart';
 import 'package:challenge_land/core/player_rank.dart';
+import 'package:challenge_land/models/economy_wallet.dart';
 import 'package:challenge_land/services/auth_service.dart';
 import 'package:challenge_land/services/native_bridge_service.dart';
 import 'package:challenge_land/services/progression_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -126,8 +128,15 @@ class _Native implements NativeBridgeService {
   List<Map<String, dynamic>> pendingSnapshotGrants = [];
   _CloudResponseGate? nextWalletResponse;
   Completer<Map<String, dynamic>>? nextEconomyResponse;
+  Future<Map<String, dynamic>> Function(Map<String, dynamic>)? wheelHandler;
+  final wheelRequests = <Map<String, dynamic>>[];
+  Map<String, dynamic> economyState = {'revision': 1};
+  Future<Map<String, dynamic>> Function()? economyReadHandler;
   Completer<void>? adRewardEntered;
   bool failWalletSync = false;
+  bool failLegacySync = false;
+  int legacySyncCalls = 0;
+  _CloudResponseGate? nextLegacySync;
   bool failAchievementSync = false;
   List<String> unlockedCategories = [];
   final achievements = <String, Map<String, dynamic>>{};
@@ -197,9 +206,17 @@ class _Native implements NativeBridgeService {
   @override
   Future<void> syncLegacyUser(
       {required String uid, String? username, String? photoUrl}) async {
+    legacySyncCalls++;
+    if (failLegacySync) throw StateError('Initial account binding interrupted');
     boundUid = uid;
     accounts.putIfAbsent(
         uid, () => _NativeAccount('installation-${++installation}', {}));
+    final gate = nextLegacySync;
+    nextLegacySync = null;
+    if (gate != null) {
+      gate.entered.complete();
+      await gate.release.future;
+    }
   }
 
   @override
@@ -252,18 +269,25 @@ class _Native implements NativeBridgeService {
 
   @override
   Future<Map<String, dynamic>> economy(Map<String, dynamic> data) async {
+    if (data['action'] == 'spinWheel') {
+      wheelRequests.add(Map.of(data));
+      return wheelHandler!(data);
+    }
     if (data['action'] == 'adReward') {
       adRewardEntered?.complete();
       final response = nextEconomyResponse;
       if (response != null) return response.future;
     }
-    return <String, dynamic>{'state': <String, dynamic>{'revision': 1}};
+    if (economyReadHandler != null) return economyReadHandler!();
+    return <String, dynamic>{'state': Map<String, dynamic>.of(economyState)};
   }
+
   @override
   Future<bool> hydrateCommerceWallet(
       {required String accountUid,
       required int coins,
       required int gems,
+      int? referralRevision,
       required List<String> deliveryIds}) async {
     if (boundUid != accountUid) return false;
     walletCoins = coins;
@@ -377,6 +401,474 @@ class _Harness {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  test('referral revision restores both currencies before a stale wallet save',
+      () async {
+    final h = _Harness();
+    addTearDown(h.close);
+    await h.seed('alice');
+    await h.signIn('alice');
+    await h.db.doc('users/alice').set({
+      'coins': 1500,
+      'gems': 20,
+      'referralRevision': 1,
+    }, SetOptions(merge: true));
+    expect(h.native.walletCoins, 500);
+    await h.state.refreshReferralWallet();
+    expect(h.native.walletCoins, 1500);
+    expect(h.native.walletGems, 20);
+    expect(h.state.coins, 1500);
+    expect(h.state.gems, 20);
+    await h.state.refreshReferralWallet();
+    final saved = await h.privateData('alice');
+    expect(saved['coins'], 1500);
+    expect(saved['gems'], 20);
+    expect(saved['referralRevision'], 1);
+  });
+
+  Map<String, dynamic> wheelDelivery({
+    bool claimed = true,
+    int revision = 2,
+    int wheelSpins = 0,
+    bool usedFreeSpin = true,
+  }) =>
+      {
+        'spin': {
+          'prizeId': 'chest',
+          'grants': {'coins': 1000, 'gems': 20, 'keys': 2, 'tickets': 2},
+          'newlyGranted': true,
+          'usedFreeSpin': usedFreeSpin,
+        },
+        'state': {
+          'revision': revision,
+          'keys': 2,
+          'tickets': 5,
+          'wheelSpins': wheelSpins,
+          'wheelClaimedToday': claimed
+        },
+        'currency': {'coins': 1500, 'gems': 30},
+        'purchasedCharacters': [2],
+      };
+
+  test(
+      'a wheel tap recovers account hydration after a transient startup failure',
+      () async {
+    final h = _Harness();
+    addTearDown(h.close);
+    await h.seed('alice');
+    h.native.failLegacySync = true;
+    h.state;
+    h.auth.emit('alice');
+    await _until(() => h.state.characterStateLoaded);
+    expect(h.state.isCommerceReady, isFalse);
+    h.native.failLegacySync = false;
+    h.native.wheelHandler = (_) async => wheelDelivery();
+
+    final prize = await h.state.spinLuckyWheel();
+
+    expect(prize, isNotNull);
+    expect(h.state.isCommerceReady, isTrue);
+    expect(h.native.wheelRequests, hasLength(1));
+    expect(h.state.luckyWheelError, isNull);
+  });
+
+  test(
+      'a wheel tap joins an in-flight account hydration instead of duplicating it',
+      () async {
+    final h = _Harness();
+    addTearDown(h.close);
+    await h.seed('alice');
+    final gate = _CloudResponseGate();
+    h.native.nextLegacySync = gate;
+    h.state;
+    h.auth.emit('alice');
+    await gate.entered.future;
+    h.native.wheelHandler = (_) async => wheelDelivery();
+
+    final prize = h.state.spinLuckyWheel();
+    await _drain();
+    expect(h.native.legacySyncCalls, 1);
+    expect(h.native.wheelRequests, isEmpty);
+    gate.release.complete();
+
+    expect(await prize, isNotNull);
+    expect(h.native.wheelRequests, hasLength(1));
+    expect(h.state.isCommerceReady, isTrue);
+  });
+
+  test('switching account during wheel hydration never sends the old spin',
+      () async {
+    final h = _Harness();
+    addTearDown(h.close);
+    await h.seed('alice');
+    await h.seed('bob');
+    h.native.failLegacySync = true;
+    h.state;
+    h.auth.emit('alice');
+    await _until(() => h.state.characterStateLoaded);
+    h.native.failLegacySync = false;
+    final gate = _CloudResponseGate();
+    h.native.nextLegacySync = gate;
+    h.native.wheelHandler = (_) async => wheelDelivery();
+    final prize = h.state.spinLuckyWheel();
+    await gate.entered.future;
+
+    h.auth.emit('bob');
+    await _until(() => h.state.isCommerceReady);
+    gate.release.complete();
+
+    expect(await prize, isNull);
+    expect(h.state.currentUser!.uid, 'bob');
+    expect(h.native.boundUid, 'bob');
+    expect(h.native.wheelRequests, isEmpty);
+    expect(h.state.coins, 500);
+  });
+
+  test('a stalled wallet snapshot releases the wheel for a safe retry',
+      () async {
+    final h = _Harness();
+    addTearDown(h.close);
+    await h.seed('alice');
+    await h.signIn('alice');
+    final gate = _CloudResponseGate();
+    h.db.nextResponse = gate;
+    final save = h.state.refreshReferralWallet();
+    await gate.entered.future;
+    h.native.wheelHandler = (_) async => wheelDelivery();
+
+    final prize = await h.state.spinLuckyWheel();
+
+    expect(prize, isNull);
+    expect(h.state.spinningLuckyWheel, isFalse);
+    expect(h.state.luckyWheelError, contains('استغرقت مزامنة حسابك'));
+    expect(h.native.wheelRequests, isEmpty);
+    expect(h.state.hasPendingLuckyWheelSpin, isFalse);
+    gate.release.complete();
+    await save;
+    expect(await h.state.spinLuckyWheel(), isNotNull);
+    expect(h.native.wheelRequests, hasLength(1));
+  });
+
+  test(
+      'same-day paid spins use fresh operation IDs and update the banked balance',
+      () async {
+    final h = _Harness();
+    addTearDown(h.close);
+    await h.seed('alice');
+    await h.signIn('alice');
+    h.state.claimedToday = true;
+    h.state.economyWallet = EconomyWallet.fromMap({
+      'revision': 1,
+      'wheelSpins': 2,
+    });
+    h.native.wheelHandler = (_) async => wheelDelivery(
+        revision: h.native.wheelRequests.length + 1,
+        wheelSpins: 2 - h.native.wheelRequests.length,
+        usedFreeSpin: false);
+    expect(h.state.canSpinLuckyWheel, isTrue);
+    final first = await h.state.spinLuckyWheel();
+    expect(first!.usedFreeSpin, isFalse);
+    expect(h.state.claimedToday, isTrue);
+    expect(h.state.purchasedWheelSpins, 1);
+    expect(h.state.canSpinLuckyWheel, isTrue);
+    final second = await h.state.spinLuckyWheel();
+    expect(second!.usedFreeSpin, isFalse);
+    expect(h.state.purchasedWheelSpins, 0);
+    expect(h.state.canSpinLuckyWheel, isFalse);
+    expect(h.native.wheelRequests[0]['operationId'],
+        isNot(h.native.wheelRequests[1]['operationId']));
+  });
+
+  test('an interrupted paid spin retries its original debit receipt', () async {
+    final h = _Harness();
+    addTearDown(h.close);
+    await h.seed('alice');
+    await h.signIn('alice');
+    h.state.claimedToday = true;
+    h.state.economyWallet = EconomyWallet.fromMap({
+      'revision': 1,
+      'wheelSpins': 1,
+    });
+    h.native.wheelHandler = (_) async {
+      if (h.native.wheelRequests.length == 1) {
+        throw StateError('The paid spin committed but its response was lost');
+      }
+      return wheelDelivery(wheelSpins: 0, usedFreeSpin: false);
+    };
+    expect(await h.state.spinLuckyWheel(), isNull);
+    expect(h.state.purchasedWheelSpins, 1);
+    expect(await h.state.spinLuckyWheel(), isNotNull);
+    expect(h.native.wheelRequests[0]['operationId'],
+        h.native.wheelRequests[1]['operationId']);
+    expect(h.state.purchasedWheelSpins, 0);
+  });
+
+  test(
+      'a proven no-credit rejection clears recovery and refreshes purchase availability',
+      () async {
+    final h = _Harness();
+    addTearDown(h.close);
+    await h.seed('alice');
+    await h.signIn('alice');
+    await h.db
+        .doc('users/alice')
+        .set({'lastStreakClaimDate': Timestamp.now()}, SetOptions(merge: true));
+    h.state.claimedToday = true;
+    h.state.economyWallet = EconomyWallet.fromMap({
+      'revision': 1,
+      'wheelSpins': 1,
+    });
+    h.native.economyState = {
+      'revision': 2,
+      'wheelSpins': 0,
+      'wheelClaimedToday': true,
+    };
+    h.native.wheelHandler = (_) async => {
+          'wheelRejection': {
+            'code': 'FAILED_PRECONDITION',
+            'message': 'لا توجد لفات إضافية. اشترِ المزيد للمتابعة.',
+          },
+        };
+    expect(await h.state.spinLuckyWheel(), isNull);
+    expect(h.state.purchasedWheelSpins, 0);
+    expect(h.state.hasPendingLuckyWheelSpin, isFalse);
+    expect(h.state.canSpinLuckyWheel, isFalse);
+    expect(
+        h.state.luckyWheelError, 'لا توجد لفات إضافية. اشترِ المزيد للمتابعة.');
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('lucky_wheel_operation_alice'), isNull);
+
+    // A rejected request must also release the wallet writer and daily refresh;
+    // only an uncertain committed delivery needs the stale-snapshot guard.
+    h.native.walletCoins = 700;
+    await h.state.loadCurrency();
+    await h.state.loadLevelData();
+    await _drain();
+    expect(h.state.claimedToday, isTrue);
+    expect((await h.privateData('alice'))['coins'], 700);
+    expect(h.state.canSpinLuckyWheel, isFalse);
+  });
+
+  test(
+      'a restarted account recovers the saved paid-spin operation before buying again',
+      () async {
+    final first = _Harness();
+    addTearDown(first.close);
+    await first.seed('alice');
+    await first.signIn('alice');
+    first.state.claimedToday = true;
+    first.state.economyWallet = EconomyWallet.fromMap({
+      'revision': 1,
+      'wheelSpins': 1,
+    });
+    first.native.wheelHandler = (_) async {
+      await first.db.doc('users/alice').set(
+          {'lastStreakClaimDate': Timestamp.now()}, SetOptions(merge: true));
+      throw StateError(
+          'Process stopped after the server consumed the paid spin');
+    };
+    expect(await first.state.spinLuckyWheel(), isNull);
+    final originalId = first.native.wheelRequests.single['operationId'];
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('lucky_wheel_operation_alice'), originalId);
+
+    final restarted = _Harness(firestore: first.db);
+    addTearDown(restarted.close);
+    await restarted.signIn('alice');
+    restarted.state.claimedToday = true;
+    expect(restarted.state.purchasedWheelSpins, 0);
+    expect(restarted.state.canSpinLuckyWheel, isTrue,
+        reason:
+            'An interrupted paid receipt stays recoverable at zero balance');
+    restarted.native.wheelHandler =
+        (_) async => wheelDelivery(wheelSpins: 0, usedFreeSpin: false);
+    expect(await restarted.state.spinLuckyWheel(), isNotNull);
+    expect(restarted.native.wheelRequests.single['operationId'], originalId);
+    expect(prefs.getString('lucky_wheel_operation_alice'), isNull);
+    expect(restarted.state.canSpinLuckyWheel, isFalse);
+  });
+
+  test('a delayed paid spin cannot restore an older purchased-spin balance',
+      () async {
+    final h = _Harness();
+    addTearDown(h.close);
+    await h.seed('alice');
+    await h.signIn('alice');
+    h.state.claimedToday = true;
+    h.state.economyWallet = EconomyWallet.fromMap({
+      'revision': 10,
+      'wheelSpins': 2,
+    });
+    h.native.wheelHandler = (_) async =>
+        wheelDelivery(revision: 5, wheelSpins: 3, usedFreeSpin: false);
+    expect(await h.state.spinLuckyWheel(), isNotNull);
+    expect(h.state.economyWallet.revision, 10);
+    expect(h.state.purchasedWheelSpins, 2);
+  });
+
+  test('a verified spin-pack delivery refreshes banked spins without spinning',
+      () async {
+    final h = _Harness();
+    addTearDown(h.close);
+    await h.seed('alice');
+    await h.signIn('alice');
+    h.state.claimedToday = true;
+    h.native.economyState = {
+      'revision': 8,
+      'wheelSpins': 3,
+      'wheelClaimedToday': true,
+    };
+    // Installs the real platform event dispatcher while the account bridge
+    // keeps all wallet calls local to this test.
+    NativeBridgeService();
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    final completed = Completer<void>();
+    await messenger.handlePlatformMessage(
+        'millionaire/native',
+        const StandardMethodCodec().encodeMethodCall(const MethodCall(
+            'onPurchaseDelivered', {'productId': 'wheel_spins_3'})),
+        (_) => completed.complete());
+    await completed.future;
+    await _until(() => h.state.purchasedWheelSpins == 3);
+    expect(h.state.claimedToday, isTrue);
+    expect(h.state.canSpinLuckyWheel, isTrue);
+    expect(h.native.wheelRequests, isEmpty);
+  });
+
+  test('spin-pack delivery reads again after an older zero-credit response',
+      () async {
+    final h = _Harness();
+    addTearDown(h.close);
+    await h.seed('alice');
+    await h.signIn('alice');
+    final oldRead = Completer<Map<String, dynamic>>();
+    var reads = 0;
+    h.native.economyReadHandler = () async {
+      reads++;
+      if (reads == 1) return oldRead.future;
+      return {
+        'state': {
+          'revision': 3,
+          'wheelSpins': 3,
+          'wheelClaimedToday': true,
+        }
+      };
+    };
+    final beforePurchase = h.state.loadEconomy();
+    await _until(() => reads == 1);
+
+    NativeBridgeService();
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    final completed = Completer<void>();
+    await messenger.handlePlatformMessage(
+        'millionaire/native',
+        const StandardMethodCodec().encodeMethodCall(const MethodCall(
+            'onPurchaseDelivered', {'productId': 'wheel_spins_3'})),
+        (_) => completed.complete());
+    await completed.future;
+    await _drain();
+    expect(reads, 1,
+        reason: 'The delivery waits for the in-flight pre-purchase read');
+    oldRead.complete({
+      'state': {
+        'revision': 2,
+        'wheelSpins': 0,
+        'wheelClaimedToday': true,
+      }
+    });
+    await beforePurchase;
+    await _until(() => h.state.purchasedWheelSpins == 3);
+    expect(reads, 2,
+        reason:
+            'A fresh read after delivery must observe the purchased credits');
+    expect(h.state.economyWallet.revision, 3);
+    expect(h.native.wheelRequests, isEmpty);
+  });
+
+  test('lost wheel delivery retries one receipt and protects cloud totals',
+      () async {
+    final h = _Harness();
+    addTearDown(h.close);
+    await h.seed('alice');
+    await h.signIn('alice');
+    h.native.wheelHandler = (_) async {
+      if (h.native.wheelRequests.length == 1) {
+        await h.db.doc('users/alice').set(
+            {'coins': 1500, 'gems': 30, 'lastStreakClaimDate': Timestamp.now()},
+            SetOptions(merge: true));
+        throw StateError('Committed response was lost');
+      }
+      h.native.walletCoins = 1500;
+      h.native.walletGems = 30;
+      return wheelDelivery();
+    };
+    expect(await h.state.spinLuckyWheel(), isNull);
+    await h.state.loadCurrency();
+    await h.state.loadLevelData();
+    await _drain();
+    expect((await h.privateData('alice'))['coins'], 1500);
+    expect(h.state.claimedToday, isFalse);
+    final retry = await h.state.spinLuckyWheel();
+    expect(retry!.prize.id, 'chest');
+    expect(h.native.wheelRequests[0]['operationId'],
+        h.native.wheelRequests[1]['operationId']);
+    expect(h.state.coins, 1500);
+    expect(h.state.purchasedCharacters, contains(2));
+    expect(h.state.claimedToday, isTrue);
+  });
+
+  test('wheel double taps and an account change cannot apply an old delivery',
+      () async {
+    final h = _Harness();
+    addTearDown(h.close);
+    await h.seed('alice');
+    await h.signIn('alice');
+    final response = Completer<Map<String, dynamic>>();
+    h.native.wheelHandler = (_) => response.future;
+    final spin = h.state.spinLuckyWheel();
+    await _until(() => h.native.wheelRequests.isNotEmpty);
+    expect(await h.state.spinLuckyWheel(), isNull);
+    expect(h.native.wheelRequests, hasLength(1));
+    h.state.user = _AccountUser('bob');
+    response.complete(wheelDelivery());
+    expect(await spin, isNull);
+    expect(h.state.coins, 500);
+    expect(h.state.purchasedCharacters, isEmpty);
+    expect(h.state.claimedToday, isFalse);
+  });
+
+  test('delayed wheel result reads the current native balance after spending',
+      () async {
+    final h = _Harness();
+    addTearDown(h.close);
+    await h.seed('alice');
+    await h.signIn('alice');
+    h.native.wheelHandler = (_) async {
+      // A newer purchase has already consumed the committed wheel coins.
+      h.native.walletCoins = 100;
+      h.native.walletGems = 25;
+      return wheelDelivery();
+    };
+    expect(await h.state.spinLuckyWheel(), isNotNull);
+    expect(h.state.coins, 100);
+    expect(h.state.gems, 25);
+    expect(h.native.walletCoins, 100);
+  });
+
+  test('recovering a previous day wheel receipt preserves today\'s free spin',
+      () async {
+    final h = _Harness();
+    addTearDown(h.close);
+    await h.seed('alice');
+    await h.signIn('alice');
+    h.native.wheelHandler = (_) async => wheelDelivery(claimed: false);
+    expect(await h.state.spinLuckyWheel(), isNotNull);
+    expect(h.state.claimedToday, isFalse);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('daily_reward_claimed_date_alice'), isNull);
+  });
 
   test('a committed ad reward is not reported as failed after account switch',
       () async {
@@ -586,6 +1078,8 @@ void main() {
 
   test('interrupted daily delivery survives wallet refresh and retries once',
       () async {
+    final reward = AppState.getRewardForDay(1);
+    final total = 500 + reward['coins']!;
     final h = _Harness();
     addTearDown(h.close);
     await h.seed('alice');
@@ -594,22 +1088,22 @@ void main() {
     expect(await h.state.claimDailyStreak(), isNull);
     expect(h.state.claimedToday, isFalse);
     expect(h.state.dailyRewardError, isNotNull);
-    expect((await h.privateData('alice'))['coins'], 600);
+    expect((await h.privateData('alice'))['coins'], total);
     await h.state.loadCurrency();
     await h.state.loadLevelData();
     await _drain();
-    expect((await h.privateData('alice'))['coins'], 600,
+    expect((await h.privateData('alice'))['coins'], total,
         reason: 'Stale native snapshots cannot erase the committed reward');
     expect(h.state.claimedToday, isFalse,
         reason: 'Interrupted delivery remains retryable');
     h.native.failWalletSync = false;
-    expect(await h.state.claimDailyStreak(), {'coins': 100, 'gems': 0});
-    expect(h.state.coins, 600);
-    expect(h.native.walletCoins, 600);
+    expect(await h.state.claimDailyStreak(), reward);
+    expect(h.state.coins, total);
+    expect(h.native.walletCoins, total);
     expect(h.state.claimedToday, isTrue);
     expect(h.state.dailyRewardError, isNull);
     await h.state.claimDailyStreak();
-    expect((await h.privateData('alice'))['coins'], 600);
+    expect((await h.privateData('alice'))['coins'], total);
   });
 
   test('weekly counter starts empty on day eight and ends at day thirty',
@@ -628,20 +1122,22 @@ void main() {
 
   test('lost daily cloud response can be replayed without a second grant',
       () async {
+    final reward = AppState.getRewardForDay(1);
+    final total = 500 + reward['coins']!;
     final h = _Harness();
     addTearDown(h.close);
     await h.seed('alice');
     await h.signIn('alice');
     h.db.failResponseNumber = h.db.transactions + 1;
     expect(await h.state.claimDailyStreak(), isNull);
-    expect((await h.privateData('alice'))['coins'], 600);
+    expect((await h.privateData('alice'))['coins'], total);
     expect(h.native.walletCoins, 500);
     await h.state.loadCurrency();
     await _drain();
-    expect((await h.privateData('alice'))['coins'], 600);
-    expect(await h.state.claimDailyStreak(), {'coins': 100, 'gems': 0});
-    expect(h.native.walletCoins, 600);
-    expect((await h.privateData('alice'))['coins'], 600);
+    expect((await h.privateData('alice'))['coins'], total);
+    expect(await h.state.claimDailyStreak(), reward);
+    expect(h.native.walletCoins, total);
+    expect((await h.privateData('alice'))['coins'], total);
   });
 
   test('native play and campaign receipts update real state once across reset',

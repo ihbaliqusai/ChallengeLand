@@ -13,6 +13,7 @@ import '../../models/stage_progress.dart';
 import '../../models/campaign_world.dart';
 import '../../services/campaign_result_handler.dart';
 import '../../services/campaign_service.dart';
+import '../../services/campaign_defaults.dart';
 import '../../services/campaign_engagement_service.dart';
 import '../../services/native_bridge_service.dart';
 import 'stage_play_screen.dart';
@@ -21,9 +22,15 @@ import '../home/store_screen.dart';
 import 'widgets/stage_node.dart';
 import 'widgets/campaign_journey_panel.dart';
 import '../../widgets/adaptive_asset_image.dart';
+import '../../widgets/guide/page_guide.dart';
+import '../../widgets/guide/page_guide_steps.dart';
 
 class CampaignMapScreen extends StatefulWidget {
-  const CampaignMapScreen({super.key});
+  const CampaignMapScreen(
+      {super.key, this.campaignService, this.guideController});
+
+  final CampaignService? campaignService;
+  final GuidePageController? guideController;
 
   static const routeName = '/campaign';
 
@@ -31,35 +38,58 @@ class CampaignMapScreen extends StatefulWidget {
   State<CampaignMapScreen> createState() => _CampaignMapScreenState();
 }
 
+/// The tour only needs these pure display calculations, not a Firestore client.
+class _GuideCampaignService implements CampaignService {
+  @override
+  bool isStageCompleted(StageProgress progress) => progress.stars > 0;
+
+  @override
+  int totalStars(Iterable<StageProgress> progress) =>
+      progress.fold<int>(0, (sum, stage) => sum + stage.stars);
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnsupportedError('Campaign guide previews cannot access services.');
+}
+
 class _CampaignMapScreenState extends State<CampaignMapScreen>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver, RouteAware {
-  final CampaignService _campaignService = CampaignService();
+  late final CampaignService _campaignService;
   late final AnimationController _pulseController;
   late final NativeBridgeService _nativeBridgeService;
   late Future<_CampaignMapData> _future;
   String? _loadedPlayerId;
   bool _openingStage = false;
+  bool get _guidePreview => widget.guideController != null;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    _nativeBridgeService = context.read<NativeBridgeService>();
-    _loadedPlayerId = context.read<AppState>().currentUser?.uid;
+    _campaignService = _guidePreview
+        ? _GuideCampaignService()
+        : widget.campaignService ?? CampaignService();
+    if (!_guidePreview) {
+      WidgetsBinding.instance.addObserver(this);
+      _nativeBridgeService = context.read<NativeBridgeService>();
+      _loadedPlayerId = context.read<AppState>().currentUser?.uid;
+    }
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1400),
     )..repeat(reverse: true);
     _future = _load();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(_playCampaignMapMusic());
-      _consumePendingCampaignResult();
-    });
+    if (!_guidePreview) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        unawaited(_playCampaignMapMusic());
+        _consumePendingCampaignResult();
+      });
+    }
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    if (_guidePreview) return;
     final route = ModalRoute.of(context);
     if (route is PageRoute<dynamic>) {
       campaignRouteObserver.subscribe(this, route);
@@ -82,13 +112,14 @@ class _CampaignMapScreenState extends State<CampaignMapScreen>
 
   @override
   void didPushNext() {
+    if (_guidePreview) return;
     _pulseController.stop();
     unawaited(_stopCampaignMapMusic());
   }
 
   @override
   void didPopNext() {
-    if (!mounted) return;
+    if (!mounted || _guidePreview) return;
     _pulseController.repeat(reverse: true);
     unawaited(_reload());
     unawaited(_playCampaignMapMusic());
@@ -96,6 +127,7 @@ class _CampaignMapScreenState extends State<CampaignMapScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (_guidePreview) return;
     if (state == AppLifecycleState.resumed) {
       unawaited(_playCampaignMapMusic());
       _consumePendingCampaignResult();
@@ -107,6 +139,7 @@ class _CampaignMapScreenState extends State<CampaignMapScreen>
   }
 
   Future<void> _playCampaignMapMusic() async {
+    if (_guidePreview) return;
     final route = ModalRoute.of(context);
     if (route != null && !route.isCurrent) return;
     try {
@@ -115,16 +148,18 @@ class _CampaignMapScreenState extends State<CampaignMapScreen>
   }
 
   Future<void> _stopCampaignMapMusic() async {
+    if (_guidePreview) return;
     try {
       await _nativeBridgeService.stopCampaignMapMusic();
     } catch (_) {}
   }
 
   Future<void> _consumePendingCampaignResult() async {
-    if (!mounted) return;
+    if (!mounted || _guidePreview) return;
     if (ModalRoute.of(context)?.isCurrent == false) return;
     await CampaignResultHandler.consumeAndHandlePendingCampaignResult(
       context: context,
+      service: _campaignService,
     );
     if (mounted) {
       await _reload();
@@ -132,6 +167,24 @@ class _CampaignMapScreenState extends State<CampaignMapScreen>
   }
 
   Future<_CampaignMapData> _load() async {
+    if (_guidePreview) {
+      final stages = CampaignDefaults.stages();
+      return _CampaignMapData(
+        stages: stages,
+        progress: [
+          for (var index = 0; index < stages.length; index++)
+            StageProgress.empty().copyWith(
+              campaignId: stages[index].campaignId,
+              stageId: stages[index].id,
+              status: index == 0
+                  ? StageProgressStatus.unlocked
+                  : StageProgressStatus.locked,
+            ),
+        ],
+        daily: CampaignDailyProgress(
+            dayKey: CampaignEngagementService.dayKey(DateTime.now())),
+      );
+    }
     final uid = context.read<AppState>().currentUser?.uid.trim();
     final dailyFuture = CampaignEngagementService()
         .load(
@@ -153,6 +206,7 @@ class _CampaignMapScreenState extends State<CampaignMapScreen>
   }
 
   Future<void> _reload() async {
+    if (_guidePreview) return;
     if (mounted) context.read<AppState>().loadEconomy();
     setState(() {
       _future = _load();
@@ -183,6 +237,7 @@ class _CampaignMapScreenState extends State<CampaignMapScreen>
               );
             }
             return _CampaignMapContent(
+              guideController: widget.guideController,
               data: data,
               campaignService: _campaignService,
               pulseAnimation: _pulseController,
@@ -197,6 +252,7 @@ class _CampaignMapScreenState extends State<CampaignMapScreen>
   }
 
   void _showLockedMessage(CampaignStage stage) {
+    if (_guidePreview) return;
     GameNoticeMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
@@ -214,7 +270,7 @@ class _CampaignMapScreenState extends State<CampaignMapScreen>
     CampaignStage stage,
     StageProgress progress,
   ) async {
-    if (_openingStage) return;
+    if (_openingStage || _guidePreview) return;
     _openingStage = true;
     try {
       await _stopCampaignMapMusic();
@@ -238,9 +294,11 @@ class _CampaignMapContent extends StatefulWidget {
     required this.onRefresh,
     required this.onLockedTap,
     required this.onStageTap,
+    this.guideController,
   });
 
   final _CampaignMapData data;
+  final GuidePageController? guideController;
   final CampaignService campaignService;
   final Animation<double> pulseAnimation;
   final Future<void> Function() onRefresh;
@@ -254,6 +312,11 @@ class _CampaignMapContent extends StatefulWidget {
 class _CampaignMapContentState extends State<_CampaignMapContent> {
   late final PageController _pageController;
   late int _selectedWorldIndex;
+  final _guideKey = GlobalKey<PageGuideState>();
+  final _guideTargets = {
+    for (final target in CampaignGuideTarget.values) target: GlobalKey(),
+  };
+  final Map<String, GlobalKey> _stageGuideKeys = {};
 
   @override
   void initState() {
@@ -284,12 +347,36 @@ class _CampaignMapContentState extends State<_CampaignMapContent> {
     final selectedWorld =
         campaignWorlds[_selectedWorldIndex.clamp(0, campaignWorlds.length - 1)];
     final continueStage = _continueStage();
+    final bundle = worlds[_selectedWorldIndex];
+    for (final stage in widget.data.stages) {
+      _stageGuideKeys.putIfAbsent(stage.id, () => GlobalKey());
+    }
+    final focusStage = bundle.stages
+            .where((stage) => stage.id == bundle.currentStageId)
+            .firstOrNull ??
+        bundle.stages.firstOrNull;
+    final locked = bundle.stages
+        .where((stage) =>
+            bundle.progress[bundle.stages.indexOf(stage)].status ==
+            StageProgressStatus.locked)
+        .firstOrNull;
+    final boss = bundle.stages.where((stage) => stage.isBossStage).firstOrNull;
+    final guideTargets = {
+      ..._guideTargets,
+      if (focusStage != null)
+        CampaignGuideTarget.stage: _stageGuideKeys[focusStage.id]!,
+      if (locked != null)
+        CampaignGuideTarget.locked: _stageGuideKeys[locked.id]!,
+      if (boss != null) CampaignGuideTarget.boss: _stageGuideKeys[boss.id]!,
+    };
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     final textScale = MediaQuery.textScalerOf(context).scale(14) / 14;
     final wide = MediaQuery.sizeOf(context).width >= 700 && textScale < 1.4;
     final footerHeight =
         (wide ? 74.0 : 124.0) + math.max(0, textScale - 1) * 60;
     final journeyBar = CampaignJourneyBar(
+      continueGuideKey: _guideTargets[CampaignGuideTarget.continueStage],
+      dailyGuideKey: _guideTargets[CampaignGuideTarget.journey],
       compact: true,
       daily: widget.data.daily,
       onDailyTap: () => _showJourney(worlds[_selectedWorldIndex]),
@@ -298,6 +385,7 @@ class _CampaignMapContentState extends State<_CampaignMapContent> {
           continueStage == null ? null : () => _openStage(continueStage),
     );
     final worldControls = _WorldPagerControls(
+      key: _guideTargets[CampaignGuideTarget.worlds],
       world: selectedWorld,
       selectedIndex: _selectedWorldIndex,
       completedStages: worlds[_selectedWorldIndex].completedStages,
@@ -314,62 +402,85 @@ class _CampaignMapContentState extends State<_CampaignMapContent> {
       onDotTap: _goToWorld,
     );
 
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: PageView.builder(
-            controller: _pageController,
-            physics: const BouncingScrollPhysics(),
-            itemCount: worlds.length,
-            onPageChanged: (index) {
-              setState(() {
-                _selectedWorldIndex = index;
-              });
-              _precacheWorld(index);
-            },
-            itemBuilder: (context, index) {
-              return _WorldMapPage(
-                bundle: worlds[index],
-                campaignService: widget.campaignService,
-                pulseAnimation: widget.pulseAnimation,
-                onLockedTap: widget.onLockedTap,
-                onStageTap: widget.onStageTap,
-                onRefresh: widget.onRefresh,
-                bottomOverlaySpace: bottomInset + footerHeight,
-              );
-            },
+    return PageGuide(
+      controller: widget.guideController,
+      key: _guideKey,
+      id: 'campaign',
+      completionLabel: 'ابدأ رحلتك',
+      steps: buildCampaignGuideSteps(guideTargets,
+          targetScore: focusStage == null || focusStage.isBossStage
+              ? 0
+              : focusStage.boardTargetScore,
+          hasStage: focusStage != null,
+          hasLockedStage: locked != null,
+          hasBoss: boss != null),
+      onFinish: () {
+        if (focusStage != null) {
+          unawaited(revealGuideTarget(_stageGuideKeys[focusStage.id]!));
+        }
+      },
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: PageView.builder(
+              controller: _pageController,
+              physics: const BouncingScrollPhysics(),
+              itemCount: worlds.length,
+              onPageChanged: (index) {
+                setState(() {
+                  _selectedWorldIndex = index;
+                });
+                _precacheWorld(index);
+              },
+              itemBuilder: (context, index) {
+                return _WorldMapPage(
+                  guideStageKeys: _stageGuideKeys,
+                  bundle: worlds[index],
+                  campaignService: widget.campaignService,
+                  pulseAnimation: widget.pulseAnimation,
+                  onLockedTap: widget.onLockedTap,
+                  onStageTap: widget.onStageTap,
+                  onRefresh: widget.onRefresh,
+                  bottomOverlaySpace: bottomInset + footerHeight,
+                );
+              },
+            ),
           ),
-        ),
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          child: _MapTopOverlay(
-            totalStars: totalStars,
-            completedStages: completedStages,
-            totalStages: widget.data.stages.length,
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: _MapTopOverlay(
+              guidePreview: widget.guideController != null,
+              starsGuideKey: _guideTargets[CampaignGuideTarget.stars],
+              heartsGuideKey: _guideTargets[CampaignGuideTarget.hearts],
+              onGuide: () => _guideKey.currentState?.start(),
+              totalStars: totalStars,
+              completedStages: completedStages,
+              totalStages: widget.data.stages.length,
+            ),
           ),
-        ),
-        Positioned(
-          left: 14,
-          right: 14,
-          bottom: 10,
-          child: SafeArea(
-            top: false,
-            child: wide
-                ? Row(children: [
-                    Expanded(flex: 5, child: journeyBar),
-                    const SizedBox(width: 12),
-                    Expanded(flex: 4, child: worldControls),
-                  ])
-                : Column(mainAxisSize: MainAxisSize.min, children: [
-                    journeyBar,
-                    const SizedBox(height: 6),
-                    worldControls,
-                  ]),
+          Positioned(
+            left: 14,
+            right: 14,
+            bottom: 10,
+            child: SafeArea(
+              top: false,
+              child: wide
+                  ? Row(children: [
+                      Expanded(flex: 5, child: journeyBar),
+                      const SizedBox(width: 12),
+                      Expanded(flex: 4, child: worldControls),
+                    ])
+                  : Column(mainAxisSize: MainAxisSize.min, children: [
+                      journeyBar,
+                      const SizedBox(height: 6),
+                      worldControls,
+                    ]),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -386,12 +497,14 @@ class _CampaignMapContentState extends State<_CampaignMapContent> {
   }
 
   void _openStage(CampaignStage stage) {
+    if (widget.guideController != null) return;
     final index = widget.data.stages.indexWhere((item) => item.id == stage.id);
     if (index < 0) return;
     widget.onStageTap(stage, widget.data.progress[index]);
   }
 
   Future<void> _showJourney(_WorldStageBundle bundle) async {
+    if (widget.guideController != null) return;
     final recommended = CampaignEngagementService().recommendedStage(
       stages: widget.data.stages,
       progress: widget.data.progress,
@@ -497,6 +610,7 @@ class _WorldMapPage extends StatefulWidget {
     required this.onStageTap,
     required this.onRefresh,
     required this.bottomOverlaySpace,
+    required this.guideStageKeys,
   });
 
   final _WorldStageBundle bundle;
@@ -506,6 +620,7 @@ class _WorldMapPage extends StatefulWidget {
   final void Function(CampaignStage stage, StageProgress progress) onStageTap;
   final Future<void> Function() onRefresh;
   final double bottomOverlaySpace;
+  final Map<String, GlobalKey> guideStageKeys;
 
   static const Size _backgroundSourceSize = Size(1672, 941);
 
@@ -630,6 +745,7 @@ class _WorldMapPageState extends State<_WorldMapPage> {
       left: position.dx - StageNode.hitWidth / 2,
       top: position.dy - StageNode.centerOffsetFor(stage),
       child: StageNode(
+        key: widget.guideStageKeys[stage.id],
         stage: stage,
         progress: progress,
         locked: progress.status == StageProgressStatus.locked,
@@ -713,6 +829,7 @@ class _WorldStageBundle {
 
 class _WorldPagerControls extends StatelessWidget {
   const _WorldPagerControls({
+    super.key,
     required this.world,
     required this.selectedIndex,
     required this.completedStages,
@@ -854,11 +971,18 @@ class _MapTopOverlay extends StatelessWidget {
     required this.totalStars,
     required this.completedStages,
     required this.totalStages,
+    required this.onGuide,
+    this.starsGuideKey,
+    this.heartsGuideKey,
+    this.guidePreview = false,
   });
 
   final int totalStars;
   final int completedStages;
   final int totalStages;
+  final VoidCallback onGuide;
+  final Key? starsGuideKey, heartsGuideKey;
+  final bool guidePreview;
 
   @override
   Widget build(BuildContext context) {
@@ -870,9 +994,15 @@ class _MapTopOverlay extends StatelessWidget {
           children: [
             _OverlayIconButton(
               icon: Icons.arrow_forward_rounded,
-              onTap: () => Navigator.of(context).maybePop(),
+              onTap: () {
+                if (!guidePreview) Navigator.of(context).maybePop();
+              },
             ),
             const SizedBox(width: 8),
+            if (!guidePreview) ...[
+              PageGuideHelpButton(onPressed: onGuide),
+              const SizedBox(width: 6),
+            ],
             const Expanded(
                 child: Text('تحدي المراحل',
                     maxLines: 1,
@@ -894,7 +1024,7 @@ class _MapTopOverlay extends StatelessWidget {
                       1.0,
                       MediaQuery.sizeOf(context).width -
                           MediaQuery.paddingOf(context).horizontal -
-                          110)),
+                          160)),
               child: FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -905,46 +1035,53 @@ class _MapTopOverlay extends StatelessWidget {
                   ),
                   const SizedBox(width: 7),
                   _OverlayChip(
+                    key: starsGuideKey,
                     icon: Icons.star_rounded,
                     label: '$totalStars',
                     color: const Color(0xFFFFD84D),
                   ),
                   const SizedBox(width: 7),
-                  Consumer<AppState>(builder: (context, app, _) {
-                    final balance = app.economyLoaded
-                        ? '${app.economyWallet.totalHearts}'
-                        : '…';
-                    void openShop() => Navigator.push(
-                        context,
-                        MaterialPageRoute<void>(
-                            builder: (_) => const StoreScreen(
-                                initialKind: StoreProductKind.resource)));
-                    return Semantics(
-                      key: const ValueKey('campaign-hearts-balance'),
-                      label:
-                          'رصيد القلوب: ${app.economyLoaded ? balance : 'جارٍ التحميل'}',
-                      hint: 'فتح أرصدة اللعب',
-                      button: true,
-                      onTap: openShop,
-                      excludeSemantics: true,
-                      child: Tooltip(
-                        message: '$balance قلوب',
-                        child: Material(
-                          color: Colors.transparent,
-                          borderRadius: BorderRadius.circular(999),
-                          child: InkWell(
-                            onTap: openShop,
-                            borderRadius: BorderRadius.circular(999),
-                            child: _OverlayChip(
-                              icon: Icons.favorite_rounded,
-                              label: balance,
-                              color: Colors.pinkAccent,
+                  KeyedSubtree(
+                      key: heartsGuideKey,
+                      child: Consumer<AppState>(builder: (context, app, _) {
+                        final balance = app.economyLoaded
+                            ? '${app.economyWallet.totalHearts}'
+                            : '…';
+                        void openShop() {
+                          if (guidePreview) return;
+                          Navigator.push(
+                              context,
+                              MaterialPageRoute<void>(
+                                  builder: (_) => const StoreScreen(
+                                      initialKind: StoreProductKind.resource)));
+                        }
+
+                        return Semantics(
+                          key: const ValueKey('campaign-hearts-balance'),
+                          label:
+                              'رصيد القلوب: ${app.economyLoaded ? balance : 'جارٍ التحميل'}',
+                          hint: 'فتح أرصدة اللعب',
+                          button: true,
+                          onTap: openShop,
+                          excludeSemantics: true,
+                          child: Tooltip(
+                            message: '$balance قلوب',
+                            child: Material(
+                              color: Colors.transparent,
+                              borderRadius: BorderRadius.circular(999),
+                              child: InkWell(
+                                onTap: openShop,
+                                borderRadius: BorderRadius.circular(999),
+                                child: _OverlayChip(
+                                  icon: Icons.favorite_rounded,
+                                  label: balance,
+                                  color: Colors.pinkAccent,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                      ),
-                    );
-                  }),
+                        );
+                      })),
                 ]),
               ),
             ),
@@ -995,6 +1132,7 @@ class _OverlayIconButton extends StatelessWidget {
 
 class _OverlayChip extends StatelessWidget {
   const _OverlayChip({
+    super.key,
     required this.icon,
     required this.label,
     required this.color,

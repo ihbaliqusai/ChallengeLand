@@ -1102,11 +1102,13 @@ class NativeBridgeService {
       {required String accountUid,
       required int coins,
       required int gems,
+      int? referralRevision,
       required List<String> deliveryIds}) async {
     return await _channel.invokeMethod<bool>('hydrateCommerceWallet', {
           'accountUid': accountUid,
           'coins': coins,
           'gems': gems,
+          if (referralRevision != null) 'referralRevision': referralRevision,
           'appliedDeliveryIds': deliveryIds,
         }) ??
         false;

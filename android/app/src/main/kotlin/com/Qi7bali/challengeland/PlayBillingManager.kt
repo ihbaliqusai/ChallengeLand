@@ -22,7 +22,8 @@ class PlayBillingManager(
             "gems_80", "gems_500", "gems_1200",
             "coins_5000", "coins_25000", "coins_100000",
             "vip_monthly", "category_all_access", "keys_10", "hearts_10", "tickets_10",
-            "keys_1", "hearts_1", "tickets_1", "resources_3_each", "resources_10_each"
+            "keys_1", "hearts_1", "tickets_1", "resources_3_each", "resources_10_each",
+            "wheel_spins_3"
         )
         private val INAPP_IDS = DISPLAY_IDS.filter { it != "vip_monthly" } +
             listOf("gems_2500", "gems_6500", "gems_14000", "noads")

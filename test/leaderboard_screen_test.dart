@@ -1,16 +1,36 @@
 import 'package:challenge_land/core/app_state.dart';
-import 'package:challenge_land/core/player_rank.dart';
 import 'package:challenge_land/screens/home/leaderboard_screen.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
-class _MockAppState extends ChangeNotifier implements AppState {
-  _MockAppState({this.trophyBalance = 1250, this.totalXp = 1500});
+class _MockUser implements User {
+  const _MockUser(this.uid);
 
+  @override
+  final String uid;
+
+  @override
+  String? get displayName => 'أنا المنافس';
+  @override
+  String? get email => 'player@example.test';
+  @override
+  String? get photoURL => null;
+  @override
+  bool get isAnonymous => false;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _MockAppState extends ChangeNotifier implements AppState {
+  _MockAppState({this.trophyBalance = 1250, String? uid = 'me'})
+      : _user = uid == null ? null : _MockUser(uid);
+
+  final User? _user;
   int trophyBalance;
-  int totalXp;
 
   void setTrophies(int value) {
     trophyBalance = value;
@@ -18,40 +38,62 @@ class _MockAppState extends ChangeNotifier implements AppState {
   }
 
   @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-
-  @override
   int get trophies => trophyBalance;
-
   @override
-  int get xp => totalXp;
-
+  int get xp => 1500;
   @override
   Map<String, int> get playerStats => const {'wins': 4};
-
   @override
   int get level => 8;
-
   @override
   String get friendCode => 'TESTCODE99';
-
   @override
-  get user => null;
-
+  User? get user => _user;
   @override
-  get currentUser => null;
-
-  @override
-  Future<void> checkAndAwardXpForGames() async {}
-
+  User? get currentUser => _user;
   @override
   Future<void> syncPublicProfile({int? level, int? trophies}) async {}
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 void main() {
-  Future<void> pumpBoard(WidgetTester tester, FakeFirebaseFirestore db,
-      _MockAppState state) async {
-    await tester.binding.setSurfaceSize(const Size(1000, 800));
+  Future<void> player(FakeFirebaseFirestore db, String uid, int trophies,
+          {String? country, String? name, int xp = 100, String? friendCode}) =>
+      db.doc('public_profiles/$uid').set({
+        'uid': uid,
+        'username': name ?? uid,
+        'trophies': trophies,
+        'xp': xp,
+        if (country != null) 'countryCode': country,
+        if (friendCode != null) 'friendCode': friendCode,
+      });
+
+  Future<void> link(FakeFirebaseFirestore db, String peer,
+          {String status = 'accepted'}) =>
+      db.doc('social_links/me:$peer').set({
+        'members': ['me', peer],
+        'status': status,
+      });
+
+  Future<void> globalWindow(FakeFirebaseFirestore db) async {
+    for (var i = 0; i < 201; i++) {
+      await player(db, 'global-$i', 4000 - i, country: 'US');
+    }
+  }
+
+  Finder row(String uid) => find.byKey(ValueKey('leaderboard-player-$uid'));
+
+  void expectRank(String uid, int rank) {
+    expect(find.descendant(of: row(uid), matching: find.text('$rank')),
+        findsOneWidget);
+  }
+
+  Future<void> pumpBoard(
+      WidgetTester tester, FakeFirebaseFirestore db, _MockAppState state,
+      {Size size = const Size(400, 900)}) async {
+    await tester.binding.setSurfaceSize(size);
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(MaterialApp(
       home: ChangeNotifierProvider<AppState>.value(
@@ -59,301 +101,254 @@ void main() {
         child: LeaderboardScreen(firestore: db),
       ),
     ));
-    await tester.pump();
-    await tester.pump(const Duration(seconds: 1));
-    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
   }
 
-  testWidgets(
-      'XP ladder includes zero-trophy leaders outside the trophy window',
+  Future<void> selectTab(WidgetTester tester, String scope) async {
+    await tester.tap(find.byKey(ValueKey('leaderboard-tab-$scope')));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('three top scope tabs rank trophies without a podium or XP tabs',
       (tester) async {
     final db = FakeFirebaseFirestore();
-    for (var i = 0; i < 201; i++) {
-      await db.collection('public_profiles').doc('p$i').set({
-        'username': 'منافس $i',
-        'trophies': 4000 - i,
-        'level': 2,
-        'xp': 150,
-      });
-    }
-    await db.collection('public_profiles').doc('knowledge').set({
-      'username': 'عالم المعرفة',
-      'trophies': 0,
-      'level': 1,
-      'xp': 50000,
-    });
-    await pumpBoard(tester, db, _MockAppState(trophyBalance: 10, totalXp: 10));
-    expect(find.text('عالم المعرفة'), findsNothing);
-    expect(find.text('خارج القائمة'), findsOneWidget);
-    expect(find.text('#201'), findsNothing);
+    await player(db, 'me', 300, country: 'JO', xp: 100000);
+    await player(db, 'trophy-leader', 1000, country: 'JO', xp: 10);
+    await link(db, 'trophy-leader');
+    await pumpBoard(tester, db, _MockAppState(trophyBalance: 300));
 
-    await tester.tap(find.text('أقوياء المستوى'));
-    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('أفضل اللاعبين'), findsOneWidget);
+    for (final scope in ['world', 'country', 'friends']) {
+      expect(find.byKey(ValueKey('leaderboard-tab-$scope')), findsOneWidget);
+    }
+    expect(find.text('العالم'), findsOneWidget);
+    expect(find.text('الأردن'), findsOneWidget);
+    expect(find.text('أصدقائي'), findsOneWidget);
+    expect(find.text('أقوياء المستوى'), findsNothing);
+    expect(find.text('خريطة الدوريات'), findsNothing);
+    expect(find.byKey(const ValueKey('leaderboard-podium-1')), findsNothing);
+    final banner = find.byKey(const ValueKey('leaderboard-title-banner'));
     expect(
-        find.descendant(
-          of: find.byKey(const ValueKey('leaderboard-podium-1')),
-          matching: find.text('عالم المعرفة'),
-        ),
-        findsOneWidget);
+        tester
+            .getBottomLeft(find.byKey(const ValueKey('leaderboard-tab-world')))
+            .dy,
+        lessThanOrEqualTo(tester.getTopLeft(banner).dy));
+
+    for (final scope in ['world', 'country', 'friends']) {
+      if (scope != 'world') await selectTab(tester, scope);
+      expectRank('trophy-leader', 1);
+      expectRank('me', 2);
+      expect(tester.getTopLeft(row('trophy-leader')).dy,
+          lessThan(tester.getTopLeft(row('me')).dy));
+    }
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets(
-      'legacy totalScore outside the level window stays on the XP ladder',
+  testWidgets('rows show sequential ranks and full comma-separated trophies',
       (tester) async {
     final db = FakeFirebaseFirestore();
-    for (var i = 0; i < 201; i++) {
-      await db.collection('public_profiles').doc('level-rival-$i').set({
-        'username': 'منافس المستوى $i',
-        'trophies': 4000 - i,
-        'level': 2,
-        'xp': 150,
-        'totalScore': 150,
-      });
-    }
-    await db.collection('public_profiles').doc('legacy').set({
-      'username': 'خبير سابق',
-      'trophies': 0,
-      'level': 1,
-      'totalScore': 5000,
-    });
-    await db.collection('public_profiles').doc('modern').set({
-      'username': 'منافس جديد',
-      'trophies': 100,
-      'level': 1,
-      'xp': 2000,
-    });
+    await player(db, 'third', 4500);
+    await player(db, 'first', 6133450);
+    await player(db, 'second', 5493385);
     await pumpBoard(tester, db, _MockAppState());
-    await tester.tap(find.text('أقوياء المستوى'));
-    await tester.pump(const Duration(milliseconds: 500));
-    final podium = find.byKey(const ValueKey('leaderboard-podium-1'));
-    expect(find.descendant(of: podium, matching: find.text('خبير سابق')),
+
+    expectRank('first', 1);
+    expectRank('second', 2);
+    expectRank('third', 3);
+    expect(find.descendant(of: row('first'), matching: find.text('6,133,450')),
         findsOneWidget);
-    expect(find.text('5.0K XP'), findsWidgets);
-    expect(find.text('≥ 5.0K XP'), findsNothing);
-    expect(
-        find.descendant(
-            of: podium,
-            matching: find.text('مستوى ${PlayerRank.levelForXp(5000)}')),
+    expect(find.descendant(of: row('second'), matching: find.text('5,493,385')),
         findsOneWidget);
+    expect(find.textContaining('6.1M'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('current trophy losses replace stale public trophy balances',
+  testWidgets('current trophy losses and gains immediately reorder player rows',
       (tester) async {
     final db = FakeFirebaseFirestore();
-    await db.collection('public_profiles').doc('me').set({
-      'username': 'أنا المنافس',
-      'friendCode': 'TESTCODE99',
-      'trophies': 3000,
-      'level': 8,
-      'xp': 1500,
-    });
-    await db.collection('public_profiles').doc('rival').set({
-      'username': 'المنافس المتقدم',
-      'trophies': 2000,
-      'level': 8,
-      'xp': 1600,
-    });
+    await player(db, 'me', 3000, friendCode: 'TESTCODE99');
+    await player(db, 'rival', 2000);
     final state = _MockAppState(trophyBalance: 1250);
     await pumpBoard(tester, db, state);
-    expect(
-        find.descendant(
-          of: find.byKey(const ValueKey('leaderboard-podium-1')),
-          matching: find.text('المنافس المتقدم'),
-        ),
+    expectRank('rival', 1);
+    expectRank('me', 2);
+    expect(find.descendant(of: row('me'), matching: find.text('1,250')),
         findsOneWidget);
+
     state.setTrophies(2500);
-    await tester.pump(const Duration(milliseconds: 500));
-    expect(
-        find.descendant(
-          of: find.byKey(const ValueKey('leaderboard-podium-1')),
-          matching: find.text('أنا المنافس'),
-        ),
+    await tester.pumpAndSettle();
+    expectRank('me', 1);
+    expectRank('rival', 2);
+    expect(find.descendant(of: row('me'), matching: find.text('2,500')),
         findsOneWidget);
+
+    state.setTrophies(0);
+    await tester.pumpAndSettle();
+    expect(row('me'), findsNothing);
+    expectRank('rival', 1);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('a loss below a full trophy window does not invent a rank',
+  testWidgets('loss below the full query window never invents a loaded rank',
       (tester) async {
     final db = FakeFirebaseFirestore();
-    for (var i = 0; i < 201; i++) {
-      await db.collection('public_profiles').doc('rival$i').set({
-        'username': 'منافس $i',
-        'trophies': 4000 - i,
-        'xp': 100,
-      });
-    }
-    await db.collection('public_profiles').doc('me').set({
-      'username': 'صاحب الخسارة',
-      'friendCode': 'TESTCODE99',
-      'trophies': 4500,
-      'xp': 1500,
-    });
+    await globalWindow(db);
+    await player(db, 'me', 4500, friendCode: 'TESTCODE99');
     final state = _MockAppState(trophyBalance: 1000);
     await pumpBoard(tester, db, state);
-    expect(find.text('خارج القائمة'), findsOneWidget);
-    expect(find.text('#200'), findsNothing);
-    expect(find.text('صاحب الخسارة'), findsNothing);
-    expect(tester.takeException(), isNull);
+    expect(row('me'), findsNothing);
+    expectRank('global-0', 1);
+    final list = tester
+        .widget<ListView>(find.byKey(const ValueKey('leaderboard-list-world')));
+    expect(list.childrenDelegate.estimatedChildCount, 397);
 
     state.setTrophies(4500);
-    await tester.pump(const Duration(milliseconds: 500));
-    expect(
-        find.descendant(
-          of: find.byKey(const ValueKey('leaderboard-podium-1')),
-          matching: find.text('صاحب الخسارة'),
-        ),
-        findsOneWidget);
+    await tester.pumpAndSettle();
+    expectRank('me', 1);
+    expectRank('global-0', 2);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('zero trophies remove a stale account from the trophy ladder',
+  testWidgets(
+      'country search saves selection and loads beyond the world window',
       (tester) async {
     final db = FakeFirebaseFirestore();
-    await db.collection('public_profiles').doc('me').set({
-      'username': 'صاحب الخبرة فقط',
-      'friendCode': 'TESTCODE99',
-      'trophies': 500,
-      'xp': 1500,
-    });
-    await db.collection('public_profiles').doc('rival').set({
-      'username': 'صاحب الكؤوس',
-      'trophies': 200,
-      'xp': 100,
-    });
-    await pumpBoard(tester, db, _MockAppState(trophyBalance: 0));
-    expect(find.text('خارج القائمة'), findsOneWidget);
-    expect(
-        find.descendant(
-          of: find.byKey(const ValueKey('leaderboard-podium-1')),
-          matching: find.text('صاحب الكؤوس'),
-        ),
-        findsOneWidget);
+    await globalWindow(db);
+    await player(db, 'me', 15);
+    await player(db, 'country-leader', 40, country: 'JO');
+    await player(db, 'country-third', 10, country: 'JO');
+    await pumpBoard(tester, db, _MockAppState(trophyBalance: 25));
+    expect(row('country-leader'), findsNothing);
+    await selectTab(tester, 'country');
+    expect(find.text('اختر بلدك للمنافسة مع لاعبيه'), findsOneWidget);
+    await tester.tap(find.text('اختيار البلد'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'zzzzzz');
+    await tester.pumpAndSettle();
+    expect(find.text('لا توجد نتائج'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), 'jo');
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('leaderboard-country-JO')));
+    await tester.pumpAndSettle();
 
-    await tester.tap(find.text('أقوياء المستوى'));
-    await tester.pump(const Duration(milliseconds: 500));
-    expect(
-        find.descendant(
-          of: find.byKey(const ValueKey('leaderboard-podium-1')),
-          matching: find.text('صاحب الخبرة فقط'),
-        ),
+    final saved = (await db.doc('public_profiles/me').get()).data()!;
+    expect(saved['countryCode'], 'JO');
+    expect(saved['trophies'], 15);
+    expect(find.byType(Dialog), findsNothing);
+    expect(find.text('الأردن'), findsOneWidget);
+    expectRank('country-leader', 1);
+    expectRank('me', 2);
+    expectRank('country-third', 3);
+    expect(row('global-0'), findsNothing);
+    expect(find.byKey(const ValueKey('leaderboard-change-country')),
         findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('XP within a level decides the experience podium',
+  testWidgets('friends ranks accepted peers outside world top 200 only',
       (tester) async {
     final db = FakeFirebaseFirestore();
-    await db.collection('public_profiles').doc('more-trophies').set({
-      'username': 'صاحب الكؤوس',
-      'trophies': 4000,
-      'level': 2,
-      'xp': 125,
+    await globalWindow(db);
+    await player(db, 'me', 15);
+    await player(db, 'friend', 40);
+    await player(db, 'new-friend', 0);
+    await player(db, 'pending', 60);
+    await player(db, 'blocked', 70);
+    await player(db, 'unrelated', 80);
+    await link(db, 'friend');
+    await link(db, 'new-friend');
+    await link(db, 'pending', status: 'pending');
+    await link(db, 'blocked');
+    await db.doc('social_blocks/me:blocked').set({
+      'ownerUid': 'me',
+      'targetUid': 'blocked',
     });
-    await db.collection('public_profiles').doc('more-xp').set({
-      'username': 'صاحب الخبرة',
-      'trophies': 10,
-      'level': 2,
-      'xp': 145,
-    });
-    await pumpBoard(tester, db, _MockAppState());
-    await tester.tap(find.text('أقوياء المستوى'));
-    await tester.pump(const Duration(milliseconds: 500));
-    expect(
-        find.descendant(
-          of: find.byKey(const ValueKey('leaderboard-podium-1')),
-          matching: find.text('صاحب الخبرة'),
-        ),
-        findsOneWidget);
+    await pumpBoard(tester, db, _MockAppState(trophyBalance: 25));
+    expect(row('friend'), findsNothing);
+    await selectTab(tester, 'friends');
+    expectRank('friend', 1);
+    expectRank('me', 2);
+    expectRank('new-friend', 3);
+    for (final excluded in ['pending', 'blocked', 'unrelated', 'global-0']) {
+      expect(row(excluded), findsNothing);
+    }
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('LeaderboardScreen renders top podium and players from firestore',
+  testWidgets('signed-out scopes explain how to access country and friends',
       (tester) async {
-    await tester.binding.setSurfaceSize(const Size(400, 900));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    final fakeFirestore = FakeFirebaseFirestore();
-
-    // Populate fake public profiles
-    await fakeFirestore.collection('public_profiles').doc('p1').set({
-      'uid': 'p1',
-      'username': 'فارس الأساطير',
-      'trophies': 3500,
-      'level': 25,
-      'friendCode': 'FARES123',
-    });
-    await fakeFirestore.collection('public_profiles').doc('p2').set({
-      'uid': 'p2',
-      'username': 'سيف التحدي',
-      'trophies': 2800,
-      'level': 18,
-      'friendCode': 'SAIF456',
-    });
-    await fakeFirestore.collection('public_profiles').doc('p3').set({
-      'uid': 'p3',
-      'username': 'صقر العرب',
-      'trophies': 2100,
-      'level': 14,
-      'friendCode': 'SAQR789',
-    });
-
-    final mockState = _MockAppState();
-
-    await tester.pumpWidget(
-      MaterialApp(
-        home: ChangeNotifierProvider<AppState>.value(
-          value: mockState,
-          child: LeaderboardScreen(firestore: fakeFirestore),
-        ),
-      ),
-    );
-
-    // Initial loading pump
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
-    await tester.pump(const Duration(milliseconds: 500));
-
-    // Verify Title and Tabs
-    expect(find.text('لوحة الصدارة'), findsOneWidget);
-    expect(find.text('سباق الكؤوس'), findsOneWidget);
-    expect(find.text('أقوياء المستوى'), findsOneWidget);
-    expect(find.text('خريطة الدوريات'), findsOneWidget);
-
-    // Verify top players appear on podium and list
-    expect(find.text('فارس الأساطير'), findsWidgets);
-    expect(find.text('سيف التحدي'), findsWidgets);
-    expect(find.text('صقر العرب'), findsWidgets);
-
-    // Verify switching to "أقوياء المستوى" tab
-    await tester.tap(find.text('أقوياء المستوى'));
-    await tester.pump(const Duration(milliseconds: 300));
-
-    // Verify switching to "خريطة الدوريات" tab
-    await tester.tap(find.text('خريطة الدوريات'));
-    await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('دليل ورتب الدوريات'), findsOneWidget);
-    expect(find.text('مسار الدوريات السبع'), findsOneWidget);
-
-    // Return to "سباق الكؤوس" tab
-    await tester.tap(find.text('سباق الكؤوس'));
-    await tester.pump(const Duration(milliseconds: 300));
-
-    // Open Trophy Rules Modal via info button
-    final infoButton = find.byIcon(Icons.info_outline_rounded);
-    expect(infoButton, findsOneWidget);
-    await tester.tap(infoButton);
-    for (int i = 0; i < 6; i++) {
-      await tester.pump(const Duration(milliseconds: 100));
-    }
-
-    expect(find.text('نظام احتساب الكؤوس'), findsOneWidget);
-    expect(find.text('حسناً، فهمت'), findsOneWidget);
-
-    // Close modal
-    await tester.tap(find.text('حسناً، فهمت'));
-    for (int i = 0; i < 6; i++) {
-      await tester.pump(const Duration(milliseconds: 100));
-    }
+    final db = FakeFirebaseFirestore();
+    await player(db, 'world-player', 100);
+    await pumpBoard(tester, db, _MockAppState(uid: null));
+    expectRank('world-player', 1);
+    await selectTab(tester, 'country');
+    expect(find.text('سجّل الدخول لاختيار بلدك وعرض ترتيبه'), findsOneWidget);
+    await selectTab(tester, 'friends');
+    expect(find.text('سجّل الدخول لعرض ترتيبك بين أصدقائك'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
+
+  testWidgets('country picker scrolls with a landscape software keyboard',
+      (tester) async {
+    final db = FakeFirebaseFirestore();
+    await player(db, 'me', 15);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetViewInsets);
+    await pumpBoard(tester, db, _MockAppState(trophyBalance: 15),
+        size: const Size(800, 360));
+    await selectTab(tester, 'country');
+    await tester.ensureVisible(find.text('اختيار البلد'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('اختيار البلد'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(TextField));
+    tester.view.viewInsets = const FakeViewPadding(bottom: 210);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    await tester.enterText(find.byType(TextField), 'jo');
+    await tester.pumpAndSettle();
+    final jordan = find.byKey(const ValueKey('leaderboard-country-JO'));
+    await tester.ensureVisible(jordan);
+    await tester.pumpAndSettle();
+    await tester.tap(jordan);
+    await tester.pumpAndSettle();
+    expect(find.byType(Dialog), findsNothing);
+    expect((await db.doc('public_profiles/me').get()).data()!['countryCode'],
+        'JO');
+    expectRank('me', 1);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final size in [
+    const Size(400, 900),
+    const Size(960, 540),
+    const Size(320, 568),
+  ]) {
+    testWidgets('rows and profile modal fit ${size.width}x${size.height}',
+        (tester) async {
+      final db = FakeFirebaseFirestore();
+      await player(db, 'long-name', 2147483647,
+          name: 'لاعب الأساطير صاحب الاسم الطويل جدًا للمنافسة العالمية',
+          country: 'JO',
+          friendCode: 'LONGPLAYER');
+      await player(db, 'second', 6133450);
+      await player(db, 'third', 3);
+      await pumpBoard(tester, db, _MockAppState(), size: size);
+      expectRank('long-name', 1);
+      expect(
+          find.descendant(
+              of: row('long-name'), matching: find.text('2,147,483,647')),
+          findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      await tester.tap(row('long-name'));
+      await tester.pumpAndSettle();
+      expect(find.text('المركز 1 • 2,147,483,647 كأس'), findsOneWidget);
+      expect(find.text('كود الصداقة: LONGPLAYER'), findsOneWidget);
+      expect(find.text('تحدي اللاعب'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
 }

@@ -13,17 +13,21 @@ class GuideStep {
       required this.text,
       this.chapter = 'اكتشف الساحة',
       this.targetKey,
+      this.onEnter,
+      this.pageLayout = false,
       this.isFinalChoiceStep = false});
   final String title, text, chapter;
   final GlobalKey? targetKey;
+  final Future<void> Function()? onEnter;
   final bool isFinalChoiceStep;
+  final bool pageLayout;
 }
 
 /// Geometry stays in the overlay's coordinates, including scaled artwork.
 class GuideTourPlacement {
   const GuideTourPlacement._();
   static Rect panelFor(Rect bounds, Rect? target,
-      {double unit = 1, bool finalStep = false}) {
+      {double unit = 1, bool finalStep = false, bool allowShortPanel = false}) {
     final gap = 24 * unit;
     final maxHeight = (finalStep ? 680.0 : 510.0) * unit;
     final compact = bounds.height / unit < 430 && bounds.width > bounds.height;
@@ -48,9 +52,12 @@ class GuideTourPlacement {
                 bounds.right,
                 bounds.bottom),
           ];
-    double score(Rect r) => r.width < 250 * unit || r.height < 300 * unit
-        ? 0
-        : math.min(r.width, maxWidth) * math.min(r.height, maxHeight);
+    final minimumHeight =
+        allowShortPanel && bounds.width > bounds.height ? 200.0 : 300.0;
+    double score(Rect r) =>
+        r.width < 250 * unit || r.height < minimumHeight * unit
+            ? 0
+            : math.min(r.width, maxWidth) * math.min(r.height, maxHeight);
     final region = candidates.reduce((a, b) => score(b) > score(a) ? b : a);
     final usable = score(region) > 0 ? region : bounds;
     return Rect.fromCenter(
@@ -132,11 +139,18 @@ class SpotlightPainter extends CustomPainter {
 
 class HomeGuideTourOverlay extends StatefulWidget {
   const HomeGuideTourOverlay(
-      {super.key, required this.steps, required this.onComplete, this.onSkip})
+      {super.key,
+      required this.steps,
+      required this.onComplete,
+      this.onSkip,
+      this.showFinalChoices = true,
+      this.completionLabel = 'استكشف الساحة'})
       : assert(steps.length > 0);
   final List<GuideStep> steps;
   final VoidCallback onComplete;
   final VoidCallback? onSkip;
+  final bool showFinalChoices;
+  final String completionLabel;
   @override
   State<HomeGuideTourOverlay> createState() => _HomeGuideTourOverlayState();
 }
@@ -149,8 +163,11 @@ class _HomeGuideTourOverlayState extends State<HomeGuideTourOverlay>
   int _index = 0;
   Rect? _target;
   bool _measurementPending = false, _signingIn = false, _finished = false;
+  bool _preparing = false;
+  bool get _busy => _signingIn || _preparing;
   String? _signInError;
   GuideStep get _step => widget.steps[_index];
+  bool get _usePageLayout => _step.pageLayout || !widget.showFinalChoices;
 
   @override
   void initState() {
@@ -213,10 +230,24 @@ class _HomeGuideTourOverlayState extends State<HomeGuideTourOverlay>
     return measured;
   }
 
-  void _move(int offset) {
-    if (_signingIn || _finished) return;
+  Future<void> _move(int offset) async {
+    if (_busy || _finished) return;
     final next = _index + offset;
     if (next < 0 || next >= widget.steps.length) return;
+    final prepare = widget.steps[next].onEnter;
+    if (prepare != null) {
+      setState(() {
+        _preparing = true;
+        _target = null;
+      });
+      try {
+        await prepare();
+      } catch (_) {
+        // The explanation still works when its optional control is unavailable.
+      }
+      if (!mounted) return;
+      _preparing = false;
+    }
     HapticFeedback.selectionClick();
     setState(() {
       _index = next;
@@ -227,7 +258,7 @@ class _HomeGuideTourOverlayState extends State<HomeGuideTourOverlay>
   }
 
   void _finish({bool skipped = false}) {
-    if (_finished || _signingIn) return;
+    if (_finished || _busy) return;
     _finished = true;
     HapticFeedback.lightImpact();
     (skipped ? widget.onSkip ?? widget.onComplete : widget.onComplete)();
@@ -308,7 +339,9 @@ class _HomeGuideTourOverlayState extends State<HomeGuideTourOverlay>
                           area.maxWidth - padding.right - 12 * unit,
                           area.maxHeight - 12 * unit);
                       final stage = GuideTourPlacement.panelFor(bounds, _target,
-                          unit: unit, finalStep: finalStep);
+                          unit: unit,
+                          allowShortPanel: _usePageLayout,
+                          finalStep: finalStep && widget.showFinalChoices);
                       return Stack(children: [
                         Positioned.fill(
                             child: AnimatedBuilder(
@@ -354,14 +387,17 @@ class _HomeGuideTourOverlayState extends State<HomeGuideTourOverlay>
   }
 
   Widget _buildStage(Size size, bool finalStep, bool flipped) {
+    final showChoices = finalStep && widget.showFinalChoices;
     final landscape =
         MediaQuery.sizeOf(context).width > MediaQuery.sizeOf(context).height;
     final compact = landscape && size.height < 430;
-    final sideBySide = finalStep && size.width >= 620;
+    final sideBySide = showChoices && size.width >= 620;
     final controlsWidth = compact
-        ? (finalStep
+        ? (showChoices
             ? math.min(300.0, size.width * .42)
-            : math.min(112.0, size.width * .30))
+            : !_usePageLayout
+                ? math.min(112.0, size.width * .30)
+                : 112.0)
         : 0.0;
     final sceneWidth = compact
         ? size.width - controlsWidth - 12
@@ -369,7 +405,7 @@ class _HomeGuideTourOverlayState extends State<HomeGuideTourOverlay>
             ? 340.0
             : size.width;
     const navigationHeight = 76.0;
-    final choicesHeight = finalStep && !sideBySide && !compact
+    final choicesHeight = showChoices && !sideBySide && !compact
         ? (_signInError == null ? 108.0 : 142.0)
         : 0.0;
     final available =
@@ -398,7 +434,7 @@ class _HomeGuideTourOverlayState extends State<HomeGuideTourOverlay>
             const SizedBox(width: 12),
             SizedBox(
                 width: controlsWidth,
-                child: finalStep
+                child: showChoices
                     ? Column(mainAxisSize: MainAxisSize.min, children: [
                         _buildFinalChoices(),
                         const SizedBox(height: 12),
@@ -406,7 +442,9 @@ class _HomeGuideTourOverlayState extends State<HomeGuideTourOverlay>
                             height: navigationHeight,
                             child: _buildNavigation(true)),
                       ])
-                    : _buildCompactNavigation())
+                    : !_usePageLayout
+                        ? _buildCompactNavigation(finalStep)
+                        : _buildPageCompactNavigation(finalStep))
           ]);
     }
     return Column(children: [
@@ -420,13 +458,92 @@ class _HomeGuideTourOverlayState extends State<HomeGuideTourOverlay>
                       Expanded(child: _buildFinalChoices()),
                     ])
               : Align(alignment: Alignment.center, child: scene)),
-      if (finalStep && !sideBySide)
+      if (showChoices && !sideBySide)
         SizedBox(height: choicesHeight, child: _buildFinalChoices()),
       SizedBox(height: navigationHeight, child: _buildNavigation(finalStep)),
     ]);
   }
 
-  Widget _buildCompactNavigation() => Container(
+  Widget _buildPageCompactNavigation(bool finalStep) => Container(
+      key: const ValueKey('guide-navigation'),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+      decoration: BoxDecoration(
+          color: const Color(0xF00D1B31),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0x887FA3CB))),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Row(children: [
+          Expanded(
+              child: Text('${_index + 1} من ${widget.steps.length}',
+                  textAlign: TextAlign.center,
+                  style:
+                      const TextStyle(color: Color(0xFFFFD878), fontSize: 10))),
+          SizedBox(
+              width: 44,
+              height: 44,
+              child: IconButton(
+                  tooltip: 'تخطي الجولة',
+                  onPressed: _busy ? null : () => _finish(skipped: true),
+                  color: Colors.white70,
+                  iconSize: 18,
+                  icon: const Icon(Icons.close_rounded))),
+        ]),
+        Text(_step.title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+                fontFamily: 'NotoSansArabic',
+                color: Colors.white,
+                fontSize: 10,
+                height: 1.4)),
+        const SizedBox(height: 6),
+        SizedBox(
+            height: 48,
+            width: double.infinity,
+            child: FilledButton(
+                onPressed: _busy
+                    ? null
+                    : finalStep
+                        ? _finish
+                        : () => _move(1),
+                style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    backgroundColor: const Color(0xFFFFD878),
+                    foregroundColor: const Color(0xFF142139)),
+                child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                        finalStep
+                            ? widget.completionLabel
+                            : _index == 0
+                                ? 'ابدأ الجولة'
+                                : 'التالي',
+                        style: const TextStyle(
+                            fontFamily: 'NotoSansArabic', fontSize: 13))))),
+        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          SizedBox(
+              width: 48,
+              height: 48,
+              child: IconButton(
+                  tooltip: 'السابق',
+                  onPressed: _index == 0 || _busy ? null : () => _move(-1),
+                  color: Colors.white70,
+                  iconSize: 20,
+                  icon: const Icon(Icons.arrow_forward_rounded))),
+          SizedBox(
+              width: 48,
+              height: 48,
+              child: IconButton(
+                  tooltip: 'إعادة الشرح',
+                  onPressed: _busy ? null : _speech.replay,
+                  color: Colors.white,
+                  iconSize: 20,
+                  icon: const Icon(Icons.replay_rounded))),
+        ]),
+      ]));
+
+  Widget _buildCompactNavigation(bool finalStep) => Container(
       key: const ValueKey('guide-navigation'),
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
       decoration: BoxDecoration(
@@ -449,33 +566,42 @@ class _HomeGuideTourOverlayState extends State<HomeGuideTourOverlay>
             height: 48,
             width: double.infinity,
             child: FilledButton(
-                onPressed: _signingIn ? null : () => _move(1),
+                onPressed: _busy
+                    ? null
+                    : finalStep
+                        ? _finish
+                        : () => _move(1),
                 style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     backgroundColor: const Color(0xFFFFD878),
                     foregroundColor: const Color(0xFF142139)),
                 child: FittedBox(
                     fit: BoxFit.scaleDown,
-                    child: Text(_index == 0 ? 'ابدأ الجولة' : 'التالي',
+                    child: Text(
+                        finalStep
+                            ? widget.completionLabel
+                            : _index == 0
+                                ? 'ابدأ الجولة'
+                                : 'التالي',
                         style: const TextStyle(
                             fontFamily: 'NotoSansArabic', fontSize: 14))))),
         SizedBox(
             height: 48,
             width: double.infinity,
             child: TextButton(
-                onPressed: _index == 0 || _signingIn ? null : () => _move(-1),
+                onPressed: _index == 0 || _busy ? null : () => _move(-1),
                 style: TextButton.styleFrom(foregroundColor: Colors.white70),
                 child: const Text('السابق',
                     style: TextStyle(
                         fontFamily: 'NotoSansArabic', fontSize: 13)))),
         IconButton(
             tooltip: 'إعادة الشرح',
-            onPressed: _signingIn ? null : _speech.replay,
+            onPressed: _busy ? null : _speech.replay,
             color: Colors.white,
             icon: const Icon(Icons.replay_rounded)),
         IconButton(
             tooltip: 'تخطي الجولة',
-            onPressed: _signingIn ? null : () => _finish(skipped: true),
+            onPressed: _busy ? null : () => _finish(skipped: true),
             color: Colors.white54,
             icon: const Icon(Icons.close_rounded)),
       ]));
@@ -486,7 +612,7 @@ class _HomeGuideTourOverlayState extends State<HomeGuideTourOverlay>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             FilledButton.icon(
-                onPressed: _signingIn ? null : _demo,
+                onPressed: _busy ? null : _demo,
                 style: FilledButton.styleFrom(
                     backgroundColor: const Color(0xFF137B61),
                     foregroundColor: Colors.white),
@@ -494,7 +620,7 @@ class _HomeGuideTourOverlayState extends State<HomeGuideTourOverlay>
                 label: const Text('جرّب التحدي مجانًا')),
             const SizedBox(height: 6),
             OutlinedButton.icon(
-                onPressed: _signingIn ? null : _signIn,
+                onPressed: _busy ? null : _signIn,
                 style: OutlinedButton.styleFrom(
                     backgroundColor: const Color(0xF0122138),
                     foregroundColor: Colors.white),
@@ -544,7 +670,7 @@ class _HomeGuideTourOverlayState extends State<HomeGuideTourOverlay>
               width: 64,
               height: 48,
               child: TextButton(
-                  onPressed: _index == 0 || _signingIn ? null : () => _move(-1),
+                  onPressed: _index == 0 || _busy ? null : () => _move(-1),
                   style: TextButton.styleFrom(
                       foregroundColor: Colors.white70,
                       minimumSize: Size.zero,
@@ -562,7 +688,7 @@ class _HomeGuideTourOverlayState extends State<HomeGuideTourOverlay>
                 height: 48,
                 child: IconButton(
                     tooltip: 'إعادة الشرح',
-                    onPressed: _signingIn ? null : _speech.replay,
+                    onPressed: _busy ? null : _speech.replay,
                     color: Colors.white,
                     icon: const Icon(Icons.replay_rounded, size: 19))),
             SizedBox(
@@ -570,7 +696,7 @@ class _HomeGuideTourOverlayState extends State<HomeGuideTourOverlay>
                 height: 48,
                 child: IconButton(
                     tooltip: 'تخطي الجولة',
-                    onPressed: _signingIn ? null : () => _finish(skipped: true),
+                    onPressed: _busy ? null : () => _finish(skipped: true),
                     color: Colors.white54,
                     icon: const Icon(Icons.close_rounded, size: 19))),
             const SizedBox(width: 4),
@@ -579,7 +705,7 @@ class _HomeGuideTourOverlayState extends State<HomeGuideTourOverlay>
                     width: finalStep ? 148 : 128,
                     height: 48,
                     child: FilledButton(
-                        onPressed: _signingIn
+                        onPressed: _busy
                             ? null
                             : finalStep
                                 ? _finish
@@ -595,7 +721,7 @@ class _HomeGuideTourOverlayState extends State<HomeGuideTourOverlay>
                             fit: BoxFit.scaleDown,
                             child: Text(
                                 finalStep
-                                    ? 'استكشف الساحة'
+                                    ? widget.completionLabel
                                     : _index == 0
                                         ? 'ابدأ الجولة'
                                         : 'التالي',

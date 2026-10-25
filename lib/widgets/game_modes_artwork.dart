@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'adaptive_asset_image.dart';
+import 'guide/page_guide_steps.dart';
 
 /// Original mode artwork with native, accessible controls and glowing
 /// ambient light around each game mode button.
@@ -16,6 +17,7 @@ class GameModesArtwork extends StatefulWidget {
     required this.onFriendChallenge,
     required this.onOffline,
     required this.onUnavailable,
+    this.guideTargets = const {},
   });
 
   static const asset = 'assets/ui/game_modes.webp';
@@ -29,6 +31,7 @@ class GameModesArtwork extends StatefulWidget {
   final VoidCallback onFriendChallenge;
   final VoidCallback onOffline;
   final VoidCallback onUnavailable;
+  final Map<ModeGuideTarget, GlobalKey> guideTargets;
 
   @override
   State<GameModesArtwork> createState() => _GameModesArtworkState();
@@ -101,6 +104,7 @@ class _GameModesArtworkState extends State<GameModesArtwork>
                 required Color glowColor,
                 required Color secondaryGlowColor,
                 bool isCircle = false,
+                Key? guideKey,
               }) {
                 final bounds = map(region);
                 final radius = isCircle
@@ -114,6 +118,7 @@ class _GameModesArtworkState extends State<GameModesArtwork>
                     height: math.max(48, bounds.height),
                   ),
                   child: Tooltip(
+                    key: guideKey,
                     message: title,
                     child: Semantics(
                       label: title,
@@ -313,6 +318,7 @@ class _GameModesArtworkState extends State<GameModesArtwork>
                       const Rect.fromLTRB(0.077, 0.098, 0.166, 0.218),
                       'إغلاق',
                       widget.onClose,
+                      guideKey: widget.guideTargets[ModeGuideTarget.close],
                       glowColor: const Color(0xFFFF5252),
                       secondaryGlowColor: const Color(0xFFFF7A00),
                       isCircle: true,
@@ -321,6 +327,7 @@ class _GameModesArtworkState extends State<GameModesArtwork>
                       const Rect.fromLTRB(0.076, 0.257, 0.923, 0.552),
                       'التحدي الرئيسي',
                       widget.onMainChallenge,
+                      guideKey: widget.guideTargets[ModeGuideTarget.main],
                       hint: 'فريقان على جهاز واحد',
                       glowColor: const Color(0xFFFFD54F),
                       secondaryGlowColor: const Color(0xFFFF8F00),
@@ -329,6 +336,7 @@ class _GameModesArtworkState extends State<GameModesArtwork>
                       const Rect.fromLTRB(0.657, 0.590, 0.924, 0.900),
                       'تحدي جماعي',
                       widget.onGroupChallenge,
+                      guideKey: widget.guideTargets[ModeGuideTarget.group],
                       hint: 'غرف ومنافسة أونلاين',
                       enabled: widget.isOnline,
                       glowColor: const Color(0xFF00E5FF),
@@ -338,6 +346,7 @@ class _GameModesArtworkState extends State<GameModesArtwork>
                       const Rect.fromLTRB(0.368, 0.590, 0.635, 0.900),
                       'تحدي صديق',
                       widget.onFriendChallenge,
+                      guideKey: widget.guideTargets[ModeGuideTarget.friend],
                       hint: '1 ضد 1 أو منافس عشوائي',
                       enabled: widget.isOnline,
                       glowColor: const Color(0xFF00E676),
@@ -347,6 +356,7 @@ class _GameModesArtworkState extends State<GameModesArtwork>
                       const Rect.fromLTRB(0.076, 0.590, 0.345, 0.900),
                       'أوفلاين',
                       widget.onOffline,
+                      guideKey: widget.guideTargets[ModeGuideTarget.offline],
                       hint: 'العب بدون اتصال',
                       glowColor: const Color(0xFFE040FB),
                       secondaryGlowColor: const Color(0xFF7C4DFF),

@@ -28,6 +28,22 @@ service cloud.firestore {
       }
     }
 
+    // Codes, device deduplication and acceptances are server authorities. Only
+    // the owner can inspect their referral summary; no client can mint rewards.
+    match /referral_accounts/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow write: if false;
+    }
+    match /referral_codes/{code} {
+      allow read, write: if false;
+    }
+    match /referral_devices/{deviceHash} {
+      allow read, write: if false;
+    }
+    match /referral_acceptances/{uid} {
+      allow read, write: if false;
+    }
+
     function isOwner(uid) {
       return signedIn() && request.auth.uid == uid;
     }
@@ -65,6 +81,7 @@ service cloud.firestore {
         'username',
         'photoUrl',
         'friendCode',
+        'countryCode',
         'createdAt',
         'lastSeenAt',
         'xp',
@@ -109,6 +126,8 @@ service cloud.firestore {
         data.get('username', '') is string &&
         (data.get('photoUrl', null) == null || data.photoUrl is string) &&
         data.get('friendCode', '') is string &&
+        (!('countryCode' in data) ||
+          (data.countryCode is string && data.countryCode.matches('^[A-Z]{2}$'))) &&
         (data.get('createdAt', null) == null || data.createdAt is timestamp) &&
         (data.get('lastSeenAt', null) == null || data.lastSeenAt is timestamp) &&
         nonnegativeInteger(data.get('xp', 0)) &&
@@ -401,10 +420,11 @@ service cloud.firestore {
       // stake cannot be overwritten by a stale client wallet snapshot, and its
       // revision/lock markers are exclusively owned by the settlement server.
       allow create: if isOwner(uid) &&
+        request.resource.data.get('referralRevision', 0) == 0 &&
         request.resource.data.get('friendStakeRevision', 0) == 0 &&
         request.resource.data.get('friendStakeMatchId', '') == '';
       allow update: if isOwner(uid) &&
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['friendStakeRevision', 'friendStakeMatchId']) &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['friendStakeRevision', 'friendStakeMatchId', 'referralRevision']) &&
         (resource.data.get('friendStakeMatchId', '') == '' ||
           !request.resource.data.diff(resource.data).affectedKeys().hasAny(['coins']));
       allow delete: if isOwner(uid) && resource.data.get('friendStakeMatchId', '') == '';

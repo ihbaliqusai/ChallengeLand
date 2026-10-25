@@ -28,12 +28,24 @@ class _AnimatedResultStarsState extends State<AnimatedResultStars>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _controller.value = 1;
+    }
+  }
+
+  @override
   void didUpdateWidget(covariant AnimatedResultStars oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.stars != widget.stars) {
-      _controller
-        ..reset()
-        ..forward();
+      if (MediaQuery.disableAnimationsOf(context)) {
+        _controller.value = 1;
+      } else {
+        _controller
+          ..reset()
+          ..forward();
+      }
     }
   }
 

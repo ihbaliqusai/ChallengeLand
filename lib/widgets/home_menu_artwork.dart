@@ -204,7 +204,7 @@ class HomeMenuArtwork extends StatelessWidget {
                       onLeaderboard,
                       enabled: isOnline),
                   action(const Rect.fromLTRB(.368, .366, .647, .546),
-                      'المكافآت', onRewards,
+                      'دولاب الحظ', onRewards,
                       enabled: isOnline, badge: dailyReady ? '!' : null),
                   action(const Rect.fromLTRB(.070, .366, .350, .546),
                       'الإحصائيات', onStats),

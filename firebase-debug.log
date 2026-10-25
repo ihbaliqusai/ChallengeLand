@@ -466,3 +466,85 @@
 [debug] [2026-10-23T15:13:25.600Z] Checked if tokens are valid: true, expires at: 1792770975060
 [debug] [2026-10-23T15:13:25.600Z] >>> [apiv2][query] GET https://cloudfunctions.googleapis.com/v2/projects/challengeland/locations/-/functions filter=environment%3D%22GEN_2%22
 [debug] [2026-10-23T15:13:26.668Z] <<< [apiv2][status] GET https://cloudfunctions.googleapis.com/v2/projects/challengeland/locations/-/functions 200
+[debug] [2026-10-25T16:44:14.236Z] ----------------------------------------------------------------------
+[debug] [2026-10-25T16:44:14.242Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\Qusai\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js functions:list --project challengeland --json
+[debug] [2026-10-25T16:44:14.242Z] CLI Version:   15.15.0
+[debug] [2026-10-25T16:44:14.242Z] Platform:      win32
+[debug] [2026-10-25T16:44:14.243Z] Node Version:  v24.15.0
+[debug] [2026-10-25T16:44:14.243Z] Time:          Sun Oct 25 2026 19:44:14 GMT+0300 (Türkiye Standard Time)
+[debug] [2026-10-25T16:44:14.243Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-10-25T16:44:14.537Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-10-25T16:44:14.537Z] > authorizing via signed-in user (ihbaliqusai@gmail.com)
+[debug] [2026-10-25T16:44:14.538Z] [iam] checking project challengeland for permissions ["cloudfunctions.functions.list","firebase.projects.get","run.services.list"]
+[debug] [2026-10-25T16:44:14.538Z] Checked if tokens are valid: false, expires at: 1792770975060
+[debug] [2026-10-25T16:44:14.539Z] Checked if tokens are valid: false, expires at: 1792770975060
+[debug] [2026-10-25T16:44:14.539Z] > refreshing access token with scopes: []
+[debug] [2026-10-25T16:44:14.540Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2026-10-25T16:44:14.540Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-10-25T16:44:14.791Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 200
+[debug] [2026-10-25T16:44:14.791Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-10-25T16:44:14.800Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/challengeland:testIamPermissions [none]
+[debug] [2026-10-25T16:44:14.800Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/challengeland:testIamPermissions  x-goog-user-project=challengeland
+[debug] [2026-10-25T16:44:14.800Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/challengeland:testIamPermissions {"permissions":["cloudfunctions.functions.list","firebase.projects.get","run.services.list"]}
+[debug] [2026-10-25T16:44:15.720Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/challengeland:testIamPermissions 200
+[debug] [2026-10-25T16:44:15.720Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/challengeland:testIamPermissions {"permissions":["cloudfunctions.functions.list","firebase.projects.get","run.services.list"]}
+[debug] [2026-10-25T16:44:15.721Z] Checked if tokens are valid: true, expires at: 1792950253791
+[debug] [2026-10-25T16:44:15.721Z] Checked if tokens are valid: true, expires at: 1792950253791
+[debug] [2026-10-25T16:44:15.721Z] >>> [apiv2][query] GET https://cloudfunctions.googleapis.com/v1/projects/challengeland/locations/-/functions [none]
+[debug] [2026-10-25T16:44:16.708Z] <<< [apiv2][status] GET https://cloudfunctions.googleapis.com/v1/projects/challengeland/locations/-/functions 200
+[debug] [2026-10-25T16:44:16.708Z] <<< [apiv2][body] GET https://cloudfunctions.googleapis.com/v1/projects/challengeland/locations/-/functions {}
+[debug] [2026-10-25T16:44:16.708Z] Checked if tokens are valid: true, expires at: 1792950253791
+[debug] [2026-10-25T16:44:16.708Z] Checked if tokens are valid: true, expires at: 1792950253791
+[debug] [2026-10-25T16:44:16.708Z] >>> [apiv2][query] GET https://cloudfunctions.googleapis.com/v2/projects/challengeland/locations/-/functions filter=environment%3D%22GEN_2%22
+[debug] [2026-10-25T16:44:17.811Z] <<< [apiv2][status] GET https://cloudfunctions.googleapis.com/v2/projects/challengeland/locations/-/functions 200
+[debug] [2026-10-25T16:45:31.780Z] ----------------------------------------------------------------------
+[debug] [2026-10-25T16:45:31.782Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\Qusai\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js functions:log --only gameEconomy --lines 100 --project challengeland --json
+[debug] [2026-10-25T16:45:31.782Z] CLI Version:   15.15.0
+[debug] [2026-10-25T16:45:31.782Z] Platform:      win32
+[debug] [2026-10-25T16:45:31.783Z] Node Version:  v24.15.0
+[debug] [2026-10-25T16:45:31.783Z] Time:          Sun Oct 25 2026 19:45:31 GMT+0300 (Türkiye Standard Time)
+[debug] [2026-10-25T16:45:31.783Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-10-25T16:45:31.964Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-10-25T16:45:31.964Z] > authorizing via signed-in user (ihbaliqusai@gmail.com)
+[debug] [2026-10-25T16:45:31.964Z] [iam] checking project challengeland for permissions ["firebase.projects.get","logging.logEntries.list","logging.logs.list"]
+[debug] [2026-10-25T16:45:31.965Z] Checked if tokens are valid: true, expires at: 1792950253791
+[debug] [2026-10-25T16:45:31.965Z] Checked if tokens are valid: true, expires at: 1792950253791
+[debug] [2026-10-25T16:45:31.966Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/challengeland:testIamPermissions [none]
+[debug] [2026-10-25T16:45:31.966Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/challengeland:testIamPermissions  x-goog-user-project=challengeland
+[debug] [2026-10-25T16:45:31.966Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/challengeland:testIamPermissions {"permissions":["firebase.projects.get","logging.logEntries.list","logging.logs.list"]}
+[debug] [2026-10-25T16:45:32.802Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/challengeland:testIamPermissions 200
+[debug] [2026-10-25T16:45:32.802Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/challengeland:testIamPermissions {"permissions":["firebase.projects.get","logging.logEntries.list","logging.logs.list"]}
+[debug] [2026-10-25T16:45:32.803Z] Checked if tokens are valid: true, expires at: 1792950253791
+[debug] [2026-10-25T16:45:32.803Z] Checked if tokens are valid: true, expires at: 1792950253791
+[debug] [2026-10-25T16:45:32.803Z] >>> [apiv2][query] POST https://logging.googleapis.com/v2/entries:list [none]
+[debug] [2026-10-25T16:45:32.803Z] >>> [apiv2][body] POST https://logging.googleapis.com/v2/entries:list {"resourceNames":["projects/challengeland"],"filter":"resource.type=\"cloud_function\" OR (resource.type=\"cloud_run_revision\" AND labels.\"goog-managed-by\"=\"cloudfunctions\")\n(resource.labels.function_name=\"gameEconomy\" OR resource.labels.service_name=\"gameEconomy\")","orderBy":"timestamp desc","pageSize":"100"}
+[debug] [2026-10-25T16:45:34.541Z] <<< [apiv2][status] POST https://logging.googleapis.com/v2/entries:list 200
+[debug] [2026-10-25T16:53:35.464Z] ----------------------------------------------------------------------
+[debug] [2026-10-25T16:53:35.466Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\Qusai\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js functions:list --project challengeland --json
+[debug] [2026-10-25T16:53:35.467Z] CLI Version:   15.15.0
+[debug] [2026-10-25T16:53:35.467Z] Platform:      win32
+[debug] [2026-10-25T16:53:35.467Z] Node Version:  v24.15.0
+[debug] [2026-10-25T16:53:35.467Z] Time:          Sun Oct 25 2026 19:53:35 GMT+0300 (Türkiye Standard Time)
+[debug] [2026-10-25T16:53:35.467Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-10-25T16:53:35.624Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-10-25T16:53:35.625Z] > authorizing via signed-in user (ihbaliqusai@gmail.com)
+[debug] [2026-10-25T16:53:35.625Z] [iam] checking project challengeland for permissions ["cloudfunctions.functions.list","firebase.projects.get","run.services.list"]
+[debug] [2026-10-25T16:53:35.626Z] Checked if tokens are valid: true, expires at: 1792950799203
+[debug] [2026-10-25T16:53:35.626Z] Checked if tokens are valid: true, expires at: 1792950799203
+[debug] [2026-10-25T16:53:35.626Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/challengeland:testIamPermissions [none]
+[debug] [2026-10-25T16:53:35.626Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/challengeland:testIamPermissions  x-goog-user-project=challengeland
+[debug] [2026-10-25T16:53:35.626Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/challengeland:testIamPermissions {"permissions":["cloudfunctions.functions.list","firebase.projects.get","run.services.list"]}
+[debug] [2026-10-25T16:53:36.439Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/challengeland:testIamPermissions 200
+[debug] [2026-10-25T16:53:36.440Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/challengeland:testIamPermissions {"permissions":["cloudfunctions.functions.list","firebase.projects.get","run.services.list"]}
+[debug] [2026-10-25T16:53:36.440Z] Checked if tokens are valid: true, expires at: 1792950799203
+[debug] [2026-10-25T16:53:36.440Z] Checked if tokens are valid: true, expires at: 1792950799203
+[debug] [2026-10-25T16:53:36.440Z] >>> [apiv2][query] GET https://cloudfunctions.googleapis.com/v1/projects/challengeland/locations/-/functions [none]
+[debug] [2026-10-25T16:53:37.236Z] <<< [apiv2][status] GET https://cloudfunctions.googleapis.com/v1/projects/challengeland/locations/-/functions 200
+[debug] [2026-10-25T16:53:37.236Z] <<< [apiv2][body] GET https://cloudfunctions.googleapis.com/v1/projects/challengeland/locations/-/functions {}
+[debug] [2026-10-25T16:53:37.236Z] Checked if tokens are valid: true, expires at: 1792950799203
+[debug] [2026-10-25T16:53:37.237Z] Checked if tokens are valid: true, expires at: 1792950799203
+[debug] [2026-10-25T16:53:37.237Z] >>> [apiv2][query] GET https://cloudfunctions.googleapis.com/v2/projects/challengeland/locations/-/functions filter=environment%3D%22GEN_2%22
+[debug] [2026-10-25T16:53:38.446Z] <<< [apiv2][status] GET https://cloudfunctions.googleapis.com/v2/projects/challengeland/locations/-/functions 200

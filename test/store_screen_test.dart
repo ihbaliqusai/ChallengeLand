@@ -10,6 +10,7 @@ import 'package:challenge_land/models/game_character.dart';
 import 'package:challenge_land/models/economy_wallet.dart';
 import 'package:challenge_land/models/store_catalog.dart';
 import 'package:challenge_land/screens/home/store_screen.dart';
+import 'package:challenge_land/screens/home/daily_streak_screen.dart';
 import 'package:challenge_land/services/ad_service.dart';
 import 'package:challenge_land/services/cross_promo_service.dart';
 import 'package:challenge_land/services/in_app_purchase_service.dart';
@@ -21,11 +22,30 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:challenge_land/widgets/guide/page_guide.dart';
+import 'package:challenge_land/widgets/guide/home_guide_tour_overlay.dart';
 
 // These providers exercise the real store without initializing a Firebase app,
 // real authentication, ads, or payment credentials.
+class _StoreUser implements User {
+  @override
+  String get uid => 'store-player';
+  @override
+  dynamic noSuchMethod(Invocation invocation) => null;
+}
+
+class _StoreRoutes extends NavigatorObserver {
+  Route<dynamic>? latest;
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    latest = route;
+  }
+}
+
 class _StoreAppState extends ChangeNotifier implements AppState {
   @override
   EconomyWallet economyWallet = EconomyWallet.fromMap({
@@ -100,6 +120,8 @@ class _StoreAppState extends ChangeNotifier implements AppState {
 
   bool commerceReady = true;
   bool claimedDaily = false;
+  bool signedIn = false;
+  int dailyClaimRequests = 0;
   bool membershipActive = false;
   @override
   bool get isCommerceReady => commerceReady;
@@ -130,9 +152,15 @@ class _StoreAppState extends ChangeNotifier implements AppState {
   @override
   int get streakDay => 3;
   @override
-  get user => null;
+  User? get user => signedIn ? _StoreUser() : null;
   @override
-  get currentUser => null;
+  User? get currentUser => user;
+  @override
+  Future<Map<String, int>?> claimDailyStreak() async {
+    dailyClaimRequests++;
+    return null;
+  }
+
   @override
   Map<String, int> get todayReward => const {'coins': 200, 'gems': 1};
   @override
@@ -236,6 +264,7 @@ void main() {
   late NativeBridgeService bridge;
   late InAppPurchaseService purchases;
   late _StoreAppState app;
+  late _StoreRoutes routes;
   late _StoreSettings settings;
   late AdService ads;
   late _StorePromo promo;
@@ -273,6 +302,8 @@ void main() {
   });
 
   setUp(() {
+    SharedPreferences.setMockInitialValues(
+        {PageGuide.preferenceKey('store'): true});
     calls = [];
     loadCatalog = () async => availableCatalog();
     messenger.setMockMethodCallHandler(channel, (call) async {
@@ -285,6 +316,7 @@ void main() {
     bridge = NativeBridgeService();
     purchases = InAppPurchaseService(nativeBridge: bridge);
     app = _StoreAppState();
+    routes = _StoreRoutes();
     settings = _StoreSettings();
     ads = _StoreAds();
     promo = _StorePromo();
@@ -318,6 +350,7 @@ void main() {
         Provider<NativeBridgeService>.value(value: bridge),
       ],
       child: MaterialApp(
+        navigatorObservers: [routes],
         locale: settings.locale,
         supportedLocales: const [Locale('en'), Locale('ar')],
         localizationsDelegates: const [
@@ -397,6 +430,101 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     }
   });
+
+  for (final guideSize in [
+    const Size(960, 540),
+    const Size(640, 360),
+    const Size(390, 780)
+  ]) {
+    testWidgets(
+        'store guide shows each real control and restores the section at $guideSize',
+        (tester) async {
+      settings.dispose();
+      settings = _StoreSettings(arabic: true);
+      final previewKey = GlobalKey();
+      await mount(tester, guideSize,
+          initialKind: StoreProductKind.resource,
+          repaintKey: previewKey,
+          fixedCanvas: true);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      final scroll = tester.widget<ListView>(find.byType(ListView)).controller!;
+      scroll.jumpTo(100);
+      await tester.pump();
+      await tester.tap(find.byTooltip('شرح الصفحة'));
+      await tester.pump();
+      final tour = tester
+          .widget<HomeGuideTourOverlay>(find.byType(HomeGuideTourOverlay));
+      for (var index = 0; index < tour.steps.length; index++) {
+        for (var frame = 0; frame < 5; frame++) {
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+        expect(tester.takeException(), isNull, reason: tour.steps[index].title);
+        final speechScroll = tester.state<ScrollableState>(find
+            .descendant(
+                of: find.byKey(const ValueKey('guide-speech-bubble')),
+                matching: find.byType(Scrollable))
+            .first);
+        expect(speechScroll.position.maxScrollExtent, lessThanOrEqualTo(1),
+            reason:
+                '${tour.steps[index].title}: the short explanation must fit');
+        final painter = tester
+            .widget<CustomPaint>(find.byKey(const ValueKey('guide-spotlight')))
+            .painter! as SpotlightPainter;
+        final target = tour.steps[index].targetKey;
+        if (target != null) {
+          expect(target.currentContext, isNotNull,
+              reason: tour.steps[index].title);
+          expect(painter.targetRect, isNotNull,
+              reason: tour.steps[index].title);
+          final surface = tester.renderObject<RenderBox>(
+              find.byKey(const ValueKey('guide-spotlight')));
+          final visible = Rect.fromPoints(
+              surface.localToGlobal(painter.targetRect!.topLeft),
+              surface.localToGlobal(painter.targetRect!.bottomRight));
+          final stage =
+              tester.getRect(find.byKey(const ValueKey('guide-stage')));
+          expect(stage.overlaps(visible), isFalse,
+              reason: tour.steps[index].title);
+        }
+        if (const bool.fromEnvironment('GUIDE_PREVIEW')) {
+          await tester.tap(find.byKey(const ValueKey('guide-speech-bubble')));
+          await tester.pump();
+          final images = tester
+              .widgetList<Image>(find.byType(Image))
+              .map((image) => image.image)
+              .toSet();
+          await tester.runAsync(() => Future.wait(images.map(
+              (image) => precacheImage(image, previewKey.currentContext!))));
+          await tester.pump();
+          final boundary = previewKey.currentContext!.findRenderObject()!
+              as RenderRepaintBoundary;
+          await tester.runAsync(() async {
+            final snapshot = await boundary.toImage(pixelRatio: 1.5);
+            final bytes =
+                await snapshot.toByteData(format: ui.ImageByteFormat.png);
+            await File(
+                    'build/store-guide-${guideSize.width.toInt()}-$index.png')
+                .writeAsBytes(bytes!.buffer.asUint8List());
+            snapshot.dispose();
+          });
+        }
+        await tester.tap(find.text(index == tour.steps.length - 1
+            ? 'استكشف المتجر'
+            : index == 0
+                ? 'ابدأ الجولة'
+                : 'التالي'));
+        await tester.pump();
+      }
+      await tester.pump();
+      expect(find.byType(HomeGuideTourOverlay), findsNothing);
+      expect(find.text('أرصدة اللعب والتحديات'), findsOneWidget);
+      expect(scroll.offset, closeTo(100, .1));
+      expect(calls.where((call) => call.method == 'launchBilling'), isEmpty);
+      expect((ads as _StoreAds).actionAdRequests, 0);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
 
   for (final viewport in <Size>[
     const Size(800, 360),
@@ -627,13 +755,15 @@ void main() {
         matching: find.byType(FilledButton));
     expect(tester.widget<FilledButton>(dailyButton).onPressed, isNull);
     expect(find.text('SIGN IN'), findsOneWidget);
-    expect(find.text('CLAIMED'), findsNothing);
+    expect(find.text('EXTRA SPINS'), findsNothing);
+    app.signedIn = true;
     app.claimedDaily = true;
     app.notifyListeners();
     rewardAds.available = false;
     rewardAds.notifyListeners();
     await assertClean(tester, 'Claimed and cooldown states');
-    expect(find.text('CLAIMED'), findsOneWidget);
+    expect(find.text('EXTRA SPINS'), findsOneWidget);
+    expect(tester.widget<FilledButton>(dailyButton).onPressed, isNotNull);
     expect(find.text('30 min'), findsOneWidget);
     final watchButton = find.descendant(
         of: find.byKey(const ValueKey('store-reward-action-watch')),
@@ -647,6 +777,29 @@ void main() {
     expect(calls.where((call) => call.method == 'grantCurrency'), isEmpty);
     await tester.pumpWidget(const SizedBox.shrink());
   });
+
+  for (final claimed in [false, true]) {
+    testWidgets(
+        'wheel entry opens after free spin claimed=$claimed without granting',
+        (tester) async {
+      app.signedIn = true;
+      app.claimedDaily = claimed;
+      await mount(tester, const Size(800, 600));
+      await assertClean(tester, 'Free wheel entry');
+      final action = find.byKey(const ValueKey('store-reward-action-daily'));
+      await Scrollable.ensureVisible(tester.element(action), alignment: .5);
+      await tester.pumpAndSettle();
+      await tester.tap(action);
+      expect(routes.latest, isA<MaterialPageRoute<void>>());
+      final route = routes.latest! as MaterialPageRoute<void>;
+      expect(route.builder(tester.element(find.byType(StoreScreen))),
+          isA<DailyStreakScreen>());
+      expect(app.dailyClaimRequests, 0);
+      expect(calls.where((call) => call.method == 'grantCurrency'), isEmpty);
+      expect(calls.where((call) => call.method == 'launchBilling'), isEmpty);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
 
   testWidgets('reward artwork launches ads without granting an unearned reward',
       (tester) async {
@@ -667,7 +820,7 @@ void main() {
   });
 
   testWidgets(
-      'return reward cards use live amounts, counters and claimed states',
+      'return reward cards show wheel availability and live reward counters',
       (tester) async {
     ads.dispose();
     final rewardAds = _StoreAds()..remaining = 3;
@@ -691,13 +844,16 @@ void main() {
       expect(bounds.height, closeTo(first.height, .001));
       expect(bounds.top, closeTo(first.top, .001));
     }
-    expect(find.text('Day 3 of your streak'), findsOneWidget);
-    expect(find.text('200 coins'), findsOneWidget);
+    expect(find.text('A free spin every day'), findsOneWidget);
+    expect(find.text('6 prizes'), findsOneWidget);
+    expect(find.text('Try your luck'), findsOneWidget);
+    expect(find.text('Day 3 of your streak'), findsNothing);
     expect(find.text('3 of 5 watches left today'), findsOneWidget);
     expect(find.text('50 coins'), findsOneWidget);
     expect(find.text('0 gems'), findsOneWidget);
     expect(find.text('Download & earn 80 gems'), findsOneWidget);
     expect(find.text('Reward claimed ✓'), findsNothing);
+    app.signedIn = true;
     app.claimedDaily = true;
     app.notifyListeners();
     promo.claimed = true;
@@ -705,14 +861,16 @@ void main() {
     rewardAds.available = false;
     rewardAds.notifyListeners();
     await assertClean(tester, 'Return reward account states');
-    expect(find.text('Claimed • Come back tomorrow'), findsOneWidget);
+    expect(find.text('EXTRA SPINS'), findsOneWidget);
+    expect(find.text('Buy extra spins or use your balance'), findsOneWidget);
     expect(find.text('Reward claimed ✓'), findsOneWidget);
     expect(find.text('Available in 30 min'), findsOneWidget);
     for (final id in ['daily', 'watch', 'download']) {
       final button = find.descendant(
           of: find.byKey(ValueKey('store-return-action-$id')),
           matching: find.byType(FilledButton));
-      expect(tester.widget<FilledButton>(button).onPressed, isNull);
+      expect(tester.widget<FilledButton>(button).onPressed,
+          id == 'daily' ? isNotNull : isNull);
     }
     expect(calls.where((call) => call.method == 'grantCurrency'), isEmpty);
     await tester.pumpWidget(const SizedBox.shrink());

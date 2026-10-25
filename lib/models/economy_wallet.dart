@@ -5,6 +5,7 @@ class EconomyWallet {
       this.dailyHearts = 0,
       this.hearts = 0,
       this.tickets = 0,
+      this.wheelSpins = 0,
       this.categoryVouchers = 0,
       this.rentalVouchers = 0,
       this.claimedVipExpiry = 0,
@@ -15,6 +16,7 @@ class EconomyWallet {
       this.weekPlayDays = 0,
       this.weekCorrect = 0,
       this.weekRewardClaimed = false,
+      this.wheelClaimedToday,
       this.rewardLog = const [],
       this.owned = const [],
       this.rentals = const {},
@@ -28,6 +30,7 @@ class EconomyWallet {
       dailyHearts,
       hearts,
       tickets,
+      wheelSpins,
       categoryVouchers,
       rentalVouchers,
       claimedVipExpiry,
@@ -36,6 +39,7 @@ class EconomyWallet {
       revision;
   final int welcomeGrantedAt, weekPlayDays, weekCorrect;
   final bool weekRewardClaimed;
+  final bool? wheelClaimedToday;
   final List<Map<String, dynamic>> rewardLog;
   final List<String> owned;
   final Map<String, int> rentals, adPermits;
@@ -58,6 +62,7 @@ class EconomyWallet {
         dailyHearts: count('dailyHearts'),
         hearts: count('hearts'),
         tickets: count('tickets'),
+        wheelSpins: count('wheelSpins').clamp(0, 2147483647),
         categoryVouchers: count('categoryVouchers'),
         rentalVouchers: count('rentalVouchers'),
         claimedVipExpiry: count('claimedVipExpiry'),
@@ -68,6 +73,9 @@ class EconomyWallet {
         weekPlayDays: (map['weekDays'] as List? ?? []).length,
         weekCorrect: count('weekCorrect'),
         weekRewardClaimed: map['weekRewardClaimed'] == true,
+        wheelClaimedToday: map['wheelClaimedToday'] is bool
+            ? map['wheelClaimedToday'] as bool
+            : null,
         rewardLog: (map['rewardLog'] as List? ?? [])
             .whereType<Map>()
             .map((r) => Map<String, dynamic>.from(r))

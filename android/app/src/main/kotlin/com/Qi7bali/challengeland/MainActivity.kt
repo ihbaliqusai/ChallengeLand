@@ -21,6 +21,7 @@ class MainActivity : FlutterActivity() {
     private var pendingLaunchAction: String? = null
     private var campaignMapMusicPlayer: MediaPlayer? = null
     private var playBillingManager: PlayBillingManager? = null
+    private val referralAttribution by lazy { ReferralAttribution(applicationContext) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
@@ -30,6 +31,7 @@ class MainActivity : FlutterActivity() {
         DuelNotifications.initialize(this)
         PlayerPresence.initialize(application)
         handleIntentData(intent)
+        try { referralAttribution.start() } catch (_: Exception) { /* Manual referral entry remains available. */ }
         syncDailyReminderSchedule()
     }
 
@@ -41,6 +43,7 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onDestroy() {
+        referralAttribution.close()
         playBillingManager?.close()
         stopCampaignMapMusic()
         super.onDestroy()
@@ -69,7 +72,8 @@ class MainActivity : FlutterActivity() {
         val recipient = intent?.getStringExtra("duelRecipientUid")
         if (recipient != null && recipient != com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid) return
         val uri = intent?.data
-        if (uri != null && uri.scheme == "challengeland") {
+        try { referralAttribution.captureLink(uri) } catch (_: Exception) { /* A bad invite cannot block launch. */ }
+        if (uri != null && !uri.isOpaque && uri.scheme == "challengeland") {
             val host = uri.host ?: uri.path.orEmpty()
             val code = uri.getQueryParameter("code") ?: uri.getQueryParameter("id") ?: ""
             if (host.contains("challenge") || host.contains("friend")) {
@@ -117,6 +121,67 @@ class MainActivity : FlutterActivity() {
         playBillingManager = PlayBillingManager(this, channel)
         channel.setMethodCallHandler { call, result ->
                 when (call.method) {
+                    "getPendingReferral" -> {
+                        try {
+                            referralAttribution.pending({ value -> result.success(value) }, {
+                                result.error("REFERRAL_STORAGE", "تعذر قراءة دعوة الصديق. حاول مجدداً.", null)
+                            })
+                        } catch (_: Exception) {
+                            result.error("REFERRAL_STORAGE", "تعذر قراءة دعوة الصديق. حاول مجدداً.", null)
+                        }
+                    }
+                    "getReferralInstallId" -> {
+                        try { result.success(referralAttribution.installId) }
+                        catch (_: Exception) {
+                            result.error("REFERRAL_STORAGE", "تعذر التحقق من تثبيت اللعبة. حاول مجدداً.", null)
+                        }
+                    }
+                    "clearPendingReferral" -> {
+                        val expectedUid = call.argument<String>("expectedUid")
+                        val currentUid = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
+                        if (expectedUid != null &&
+                            (expectedUid != currentUid || expectedUid != ProgressionAccount.uid(this))) {
+                            result.success(false)
+                        } else try { result.success(referralAttribution.clear(call.argument<String>("code") ?: "")) }
+                        catch (_: Exception) {
+                            result.error("REFERRAL_STORAGE", "تعذر حفظ حالة الدعوة. حاول مجدداً.", null)
+                        }
+                    }
+                    "referrals" -> {
+                        val user = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                        val uid = user?.uid
+                        val requestedUid = call.argument<String>("expectedUid")
+                        if (uid == null || user.isAnonymous || uid != ProgressionAccount.uid(this) ||
+                            (requestedUid != null && requestedUid != uid)) {
+                            result.error("UNAUTHENTICATED", "سجّل الدخول إلى حسابك للاستفادة من الدعوات.", null)
+                        } else {
+                            try {
+                                val data = (call.arguments as? Map<*, *>)?.entries
+                                    ?.filter { it.key is String && it.value != null }
+                                    ?.associate { it.key as String to it.value!! }?.toMutableMap() ?: mutableMapOf()
+                                data["expectedUid"] = uid
+                                data["installId"] = referralAttribution.installId
+                                com.google.firebase.functions.FirebaseFunctions.getInstance("us-central1")
+                                    .getHttpsCallable("referrals").call(data)
+                                    .addOnSuccessListener { response ->
+                                        if (uid != com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ||
+                                            uid != ProgressionAccount.uid(this)) {
+                                            result.error("ACCOUNT_CHANGED", "تغيّر الحساب. حاول مجدداً.", null)
+                                        } else {
+                                            // AppState hydrates the protected referral revision before writing a snapshot.
+                                            result.success(response.data)
+                                        }
+                                    }
+                                    .addOnFailureListener { error ->
+                                        val callableError = error as? com.google.firebase.functions.FirebaseFunctionsException
+                                        result.error(callableError?.code?.name ?: "REFERRALS_FAILED",
+                                            error.message, callableError?.details)
+                                    }
+                            } catch (_: Exception) {
+                                result.error("REFERRAL_STORAGE", "تعذر التحقق من تثبيت اللعبة. حاول مجدداً.", null)
+                            }
+                        }
+                    }
                     "gameEconomy" -> {
                         val data = (call.arguments as? Map<*, *>)?.entries
                             ?.filter { it.key is String && it.value != null }
@@ -811,7 +876,8 @@ class MainActivity : FlutterActivity() {
                     "hydrateCommerceWallet" -> result.success(VerifiedCommerceStore.hydrateWallet(
                         this, call.argument<String>("accountUid") ?: "",
                         call.argument<Int>("coins") ?: -1, call.argument<Int>("gems") ?: -1,
-                        call.argument<List<String>>("appliedDeliveryIds") ?: emptyList()
+                        call.argument<List<String>>("appliedDeliveryIds") ?: emptyList(),
+                        call.argument<Number>("referralRevision")?.toLong()
                     ))
                     "syncCommerceDeliveryIds" -> result.success(VerifiedCommerceStore.syncDeliveryIds(
                         this, call.argument<List<String>>("appliedDeliveryIds") ?: emptyList()

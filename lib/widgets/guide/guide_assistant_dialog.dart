@@ -107,7 +107,7 @@ class _GuideAssistantDialogState extends State<GuideAssistantDialog> {
               HostGuideBubble(
                 title: 'كيف أساعدك؟',
                 text:
-                    'أعد الجولة لشرح الأزرار والأرصدة، أو جرّب تحديًا مجانيًا لتتعرف على طريقة اللعب. سجّل الدخول عندما ترغب في حفظ تقدمك والمنافسة عبر الإنترنت.',
+                    'اختر «إعادة الجولة» لشرح الأوضاع والمراحل والمتجر والشخصيات، أو «جرّب التحدي» لتتعلم باللعب.',
                 hostHeight: isLandscape ? 170 : 190,
                 bubbleWidth: dialogWidth,
                 enableTypewriter: true,
@@ -176,7 +176,7 @@ class _GuideAssistantDialogState extends State<GuideAssistantDialog> {
                     _OptionButton(
                       icon: Icons.auto_stories_rounded,
                       title: 'إعادة الجولة التعريفية',
-                      subtitle: 'شرح الأزرار وأرصدة اللعبة خطوة بخطوة',
+                      subtitle: 'شرح الأوضاع والمراحل والمتجر والشخصيات خطوة بخطوة',
                       gradient: const LinearGradient(
                         colors: [Color(0xFF7C3AED), Color(0xFF8B5CF6)],
                       ),
@@ -312,7 +312,7 @@ class _GuidePromptDialogState extends State<GuidePromptDialog> {
               HostGuideBubble(
                 title: 'سجّل الدخول للمتابعة',
                 text:
-                    'تحتاج هذه الميزة إلى حساب لحفظ بياناتك. يمكنك المتابعة بحساب Google أو اختيار طريقة تسجيل أخرى، أو تجربة التحدي المجاني أولًا.',
+                    'سجّل الدخول لحفظ تقدمك واستخدام هذه الميزة. أو جرّب التحدي المجاني أولًا دون حساب.',
                 hostHeight: isLandscape ? 170 : 190,
                 bubbleWidth: dialogWidth,
                 enableTypewriter: true,
