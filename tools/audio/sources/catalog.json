@@ -1,0 +1,68 @@
+{
+  "retrievedAt": "2026-10-26",
+  "sources": [
+    {
+      "title": "Opening Theme [Action/Suspense]",
+      "author": "nene",
+      "url": "https://opengameart.org/content/opening-theme-actionsuspense",
+      "file": "opening-theme.flac",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "sourceSha256": "67515ac185e6bc170639a383ec37243fdef398be503b56addef5615fb3f877c0"
+    },
+    {
+      "title": "Interface Sounds / confirmation_002",
+      "author": "Kenney",
+      "url": "https://kenney.nl/assets/interface-sounds",
+      "file": "kenney_confirmation_002.ogg",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "sourceSha256": "33b17a9a9a2397c62b285c52c33a907fdffb476909c99e42dde603f6a7a8b12c"
+    },
+    {
+      "title": "Unsolved Investigation",
+      "author": "isaiah658",
+      "url": "https://opengameart.org/content/unsolved-investigation",
+      "file": "unsolved-investigation.ogg",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "sourceSha256": "2877e423ff90cb99b3082840e66cf79d69a809708466c6f27c750c0e1ce2a912"
+    },
+    {
+      "title": "Suspense",
+      "author": "wipics",
+      "url": "https://opengameart.org/content/suspense-0",
+      "file": "suspense.ogg",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "sourceSha256": "1b75b3eebb4a526cd7c337dc41aa5ca39d4dc0f44890a3a6c969e8edc205b8cf"
+    },
+    {
+      "title": "Interface Sounds / open_004",
+      "author": "Kenney",
+      "url": "https://kenney.nl/assets/interface-sounds",
+      "file": "kenney_open_004.ogg",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "sourceSha256": "4e02b8287bc4d9e7bf7a889cb9e48613c8eb22a310dfb0bf29c2bfd0a1e4bea5"
+    },
+    {
+      "title": "Interface Sounds / confirmation_001",
+      "author": "Kenney",
+      "url": "https://kenney.nl/assets/interface-sounds",
+      "file": "kenney_confirmation_001.ogg",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "sourceSha256": "063564703b6094d70718a3e787a55cc9141611e4ecd6b6637f8828f79b4a8c3a"
+    },
+    {
+      "title": "Interface Sounds / error_003",
+      "author": "Kenney",
+      "url": "https://kenney.nl/assets/interface-sounds",
+      "file": "kenney_error_003.ogg",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "sourceSha256": "885b28175c7b511118bcffab95675b48bbac9005cf6514656ebdad979276b3ab"
+    }
+  ]
+}

@@ -3,11 +3,12 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../models/lucky_wheel_prize.dart';
+import '../models/game_character.dart';
 import 'adaptive_asset_image.dart';
 
 /// Clockwise from the pointer. At zero turns the center of slot 0 is at 12
 /// o'clock. To land slot i, the wheel's final turn fraction is (12 - i) / 12.
-const luckyWheelSlots = <int>[5, 2, 0, 1, 3, 4, 5, 2, 0, 1, 3, 4];
+const luckyWheelSlots = <int>[5, 8, 0, 10, 1, 4, 9, 6, 3, 7, 2, 11];
 
 /// The velvet-curtain stage in the reference animation, drawn at any viewport.
 class LuckyWheelStageBackground extends StatelessWidget {
@@ -30,11 +31,15 @@ class LuckyWheelArtwork extends StatelessWidget {
     required this.turns,
     required this.pulse,
     this.winningSlot,
+    this.character,
+    this.characterCompensation = false,
   });
 
   final double turns;
   final double pulse;
   final int? winningSlot;
+  final GameCharacter? character;
+  final bool characterCompensation;
 
   @override
   Widget build(BuildContext context) => AspectRatio(
@@ -116,13 +121,19 @@ class LuckyWheelArtwork extends StatelessWidget {
           curve: Curves.easeOutBack,
           child: Column(
             children: [
-              Expanded(child: LuckyWheelPrizeIcon(prize: prize)),
+              Expanded(
+                  child: LuckyWheelPrizeIcon(
+                      prize: prize,
+                      character: character,
+                      characterCompensation: characterCompensation)),
               SizedBox(
                 height: side * .032,
                 child: FittedBox(
                   child: Text(
                     switch (prize.kind) {
-                      LuckyWheelPrizeKind.character => 'شخصية',
+                      LuckyWheelPrizeKind.character => characterCompensation
+                          ? '100'
+                          : character?.nameAr ?? 'شخصية',
                       LuckyWheelPrizeKind.chest => 'صندوق الحظ',
                       _ => '${prize.amount}',
                     },
@@ -154,8 +165,14 @@ class LuckyWheelArtwork extends StatelessWidget {
 /// Uses the existing game artwork, cropping currency/resource emblems from
 /// their source atlases instead of displaying the printed sample balances.
 class LuckyWheelPrizeIcon extends StatelessWidget {
-  const LuckyWheelPrizeIcon({super.key, required this.prize});
+  const LuckyWheelPrizeIcon(
+      {super.key,
+      required this.prize,
+      this.character,
+      this.characterCompensation = false});
   final LuckyWheelPrize prize;
+  final GameCharacter? character;
+  final bool characterCompensation;
 
   @override
   Widget build(BuildContext context) => switch (prize.kind) {
@@ -175,6 +192,11 @@ class LuckyWheelPrizeIcon extends StatelessWidget {
             asset: 'assets/home/gems.webp',
             crop: Rect.fromLTRB(.028, .11, .25, .87),
           ),
+        LuckyWheelPrizeKind.character when characterCompensation =>
+          const _EmblemCrop(
+            asset: 'assets/home/gems.webp',
+            crop: Rect.fromLTRB(.028, .11, .25, .87),
+          ),
         LuckyWheelPrizeKind.character => Container(
             padding: const EdgeInsets.all(2),
             decoration: BoxDecoration(
@@ -184,8 +206,10 @@ class LuckyWheelPrizeIcon extends StatelessWidget {
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(3),
-              child: adaptiveAssetImage('assets/characters/fahad.png',
-                  fit: BoxFit.contain, excludeFromSemantics: true),
+              child: adaptiveAssetImage(
+                  character?.asset ?? 'assets/characters/fahad.png',
+                  fit: BoxFit.contain,
+                  excludeFromSemantics: true),
             ),
           ),
         LuckyWheelPrizeKind.chest => adaptiveAssetImage('assets/ui/box1.png',

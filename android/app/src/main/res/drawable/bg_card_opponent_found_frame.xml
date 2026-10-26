@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Card outer ambient shadow -->
+    <item android:top="4dp">
+        <shape android:shape="rectangle">
+            <corners android:radius="22dp" />
+            <solid android:color="#99000000" />
+        </shape>
+    </item>
+
+    <!-- Card outer hot magenta glow halo -->
+    <item android:bottom="4dp">
+        <shape android:shape="rectangle">
+            <corners android:radius="22dp" />
+            <stroke
+                android:width="4.5dp"
+                android:color="#44FF1E76" />
+            <solid android:color="#00000000" />
+        </shape>
+    </item>
+
+    <!-- Card primary neon magenta squircle frame -->
+    <item android:bottom="4dp">
+        <shape android:shape="rectangle">
+            <corners android:radius="22dp" />
+            <stroke
+                android:width="3.5dp"
+                android:color="#FFFF1E76" />
+            <solid android:color="#00000000" />
+        </shape>
+    </item>
+
+    <!-- Card inner groove and deep crimson canvas -->
+    <item
+        android:left="3dp"
+        android:top="3dp"
+        android:right="3dp"
+        android:bottom="7dp">
+        <shape android:shape="rectangle">
+            <corners android:radius="19dp" />
+            <gradient
+                android:startColor="#FF380D27"
+                android:endColor="#FF1C0513"
+                android:angle="270" />
+            <stroke
+                android:width="2dp"
+                android:color="#FF730032" />
+        </shape>
+    </item>
+</layer-list>

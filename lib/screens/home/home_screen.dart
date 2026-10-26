@@ -779,11 +779,6 @@ class _GameModesSheetState extends State<_GameModesSheet> {
                 onUnavailable: () => _runMode(
                     context, () => _showOnlineRequiredToast(rootContext)),
               ),
-              Positioned(
-                  right: 10,
-                  top: 8,
-                  child: PageGuideHelpButton(
-                      onPressed: () => _guideKey.currentState?.start())),
             ]),
           ),
         ),
@@ -945,7 +940,9 @@ class _HomeMenuSheet extends StatelessWidget {
               _showOnlineRequiredToast(rootContext);
             },
             ratingEntry: FutureBuilder<bool>(
-              future: RateGameService.instance.shouldShowRatingEntry(),
+              future: RateGameService.instance.shouldShowRatingEntry(
+                uid: user?.uid ?? liveState.currentUser?.uid,
+              ),
               builder: (context, snapshot) {
                 if (snapshot.data != true) return const SizedBox.shrink();
                 return Tooltip(
@@ -954,8 +951,11 @@ class _HomeMenuSheet extends StatelessWidget {
                   child: InkWell(
                     onTap: () {
                       Navigator.of(context).pop();
-                      RateGameService.instance
-                          .showRateDialog(rootContext, isManual: true);
+                      RateGameService.instance.showRateDialog(
+                        rootContext,
+                        isManual: true,
+                        uid: user?.uid ?? liveState.currentUser?.uid,
+                      );
                     },
                     borderRadius: BorderRadius.circular(14),
                     child: Container(

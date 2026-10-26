@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Card Drop Shadow -->
+    <item
+        android:left="1dp"
+        android:top="2dp">
+        <shape android:shape="rectangle">
+            <corners android:radius="5dp" />
+            <solid android:color="#77000000" />
+        </shape>
+    </item>
+
+    <!-- Card Outer Crisp White Rim -->
+    <item
+        android:right="1dp"
+        android:bottom="2dp">
+        <shape android:shape="rectangle">
+            <corners android:radius="5dp" />
+            <solid android:color="#FFFFFFFF" />
+            <stroke
+                android:width="1.2dp"
+                android:color="#FFE8ECF4" />
+        </shape>
+    </item>
+
+    <!-- Card Inner Warm Golden / Tan Booster Canvas -->
+    <item
+        android:left="2.5dp"
+        android:top="2.5dp"
+        android:right="3.5dp"
+        android:bottom="4.5dp">
+        <shape android:shape="rectangle">
+            <corners android:radius="3.5dp" />
+            <gradient
+                android:startColor="#FFFDE9BA"
+                android:endColor="#FFF4BE5C"
+                android:angle="270" />
+            <stroke
+                android:width="0.8dp"
+                android:color="#44D97706" />
+        </shape>
+    </item>
+</layer-list>

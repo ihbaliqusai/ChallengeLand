@@ -1,4 +1,8 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Referral attribution and rewards are checked and committed by the server.
 class ReferralService {
@@ -8,6 +12,40 @@ class ReferralService {
 
   final MethodChannel _channel;
   static final _codePattern = RegExp(r'^CL-[A-F0-9]{12}$');
+  static final Map<String, Map<String, dynamic>> _stateMemoryCache = {};
+
+  static Map<String, dynamic>? getCachedStateSync(String uid) {
+    if (uid.isEmpty) return null;
+    return _stateMemoryCache[uid];
+  }
+
+  static Future<Map<String, dynamic>?> loadCachedState(String uid) async {
+    if (uid.isEmpty) return null;
+    final inMem = _stateMemoryCache[uid];
+    if (inMem != null) return inMem;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString('referral_state_v1_$uid');
+      if (raw != null && raw.isNotEmpty) {
+        final decoded = json.decode(raw);
+        if (decoded is Map<String, dynamic>) {
+          _stateMemoryCache[uid] = decoded;
+          return decoded;
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  static Future<void> saveCachedState(
+      String uid, Map<String, dynamic> data) async {
+    if (uid.isEmpty) return;
+    _stateMemoryCache[uid] = data;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('referral_state_v1_$uid', json.encode(data));
+    } catch (_) {}
+  }
 
   static String extractCode(String input) {
     final text = input.trim();
@@ -48,6 +86,7 @@ class ReferralService {
 
   Future<Map<String, dynamic>> load(String uid) async {
     final result = await _execute({'action': 'state', 'expectedUid': uid});
+    unawaited(saveCachedState(uid, result));
     final state = result['state'] as Map;
     if (state['canAccept'] == false || state['acceptedCode'] != null) {
       await _clearPending(uid);
@@ -71,6 +110,7 @@ class ReferralService {
       'code': code,
       'installationId': installId,
     });
+    unawaited(saveCachedState(uid, result));
     // A failed network request keeps attribution available for retry. Once this
     // account has accepted, any other pending code is no longer usable either.
     await _clearPending(uid);
@@ -79,13 +119,16 @@ class ReferralService {
 
   Future<void> _clearPending(String uid) async {
     try {
-      final stored = await pending();
+      final stored = await pending().timeout(
+        const Duration(milliseconds: 600),
+        onTimeout: () => const {},
+      );
       final code = extractCode(stored['code'] as String? ?? '');
       if (code.isNotEmpty) {
         await _channel.invokeMethod<bool>('clearPendingReferral', {
           'code': code,
           'expectedUid': uid,
-        });
+        }).timeout(const Duration(milliseconds: 600));
       }
     } catch (_) {
       // Clearing is best effort; it must never hide a committed server reward.
@@ -102,8 +145,15 @@ class ReferralService {
       throw StateError('سجّل الدخول للمشاركة في مكافآت الأصدقاء.');
     }
     try {
-      final result =
-          await _channel.invokeMapMethod<String, dynamic>('referrals', input);
+      final result = await _channel
+          .invokeMapMethod<String, dynamic>('referrals', input)
+          .timeout(const Duration(seconds: 10), onTimeout: () {
+        throw PlatformException(
+          code: 'DEADLINE_EXCEEDED',
+          message:
+              'تعذّر الاتصال بخدمة الدعوات. استغرق الطلب وقتًا أطول من المعتاد.',
+        );
+      });
       if (result == null || result['state'] is! Map) {
         throw const FormatException('تعذر تحميل بيانات الدعوات. حاول مجددًا.');
       }

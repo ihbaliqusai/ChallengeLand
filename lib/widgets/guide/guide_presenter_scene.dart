@@ -33,23 +33,27 @@ class GuidePresenterScene extends StatefulWidget {
       this.flipped = true,
       this.showTitle = true,
       this.controller,
-      this.onSpeakingChanged});
+      this.onSpeakingChanged,
+      this.bubbleHeader,
+      this.bubbleFooter});
 
   final String title, text;
   final double width, presenterHeight, bubbleHeight;
   final bool flipped, showTitle;
   final GuideSpeechController? controller;
   final ValueChanged<bool>? onSpeakingChanged;
+  final Widget? bubbleHeader;
+  final Widget? bubbleFooter;
 
   static const characterDelay = Duration(milliseconds: 18);
 
   static double bubbleHeightFor(String title, String text, double width,
-      {bool showTitle = true}) {
+      {bool showTitle = true, double extraHeight = 0.0}) {
     double measure(String value, TextStyle style) {
       final painter = TextPainter(
           text: TextSpan(text: value, style: style),
           textDirection: TextDirection.rtl)
-        ..layout(maxWidth: width - 32);
+        ..layout(maxWidth: math.max(1.0, width - 32));
       final height = painter.height;
       painter.dispose();
       return height;
@@ -57,8 +61,9 @@ class GuidePresenterScene extends StatefulWidget {
 
     return ((showTitle ? measure(title, _titleStyle) + 6 : 0) +
             measure(text, _textStyle) +
-            34)
-        .clamp(88.0, 168.0);
+            34 +
+            extraHeight)
+        .clamp(88.0 + extraHeight, 220.0 + extraHeight);
   }
 
   static const _titleStyle = TextStyle(
@@ -291,9 +296,16 @@ class _GuidePresenterSceneState extends State<GuidePresenterScene>
                               key: const ValueKey('guide-dialogue-panel'),
                               painter: _GameplayBubblePainter(tailX: headX),
                               child: Padding(
-                                  padding:
-                                      const EdgeInsets.fromLTRB(16, 10, 16, 24),
+                                  padding: EdgeInsets.fromLTRB(
+                                      14,
+                                      widget.bubbleHeader != null ? 8 : 10,
+                                      14,
+                                      widget.bubbleFooter != null ? 20 : 24),
                                   child: Column(children: [
+                                    if (widget.bubbleHeader != null) ...[
+                                      widget.bubbleHeader!,
+                                      const SizedBox(height: 6),
+                                    ],
                                     if (widget.showTitle) ...[
                                       Text(_title,
                                           textAlign: TextAlign.center,
@@ -318,6 +330,10 @@ class _GuidePresenterSceneState extends State<GuidePresenterScene>
                                                 textAlign: TextAlign.center,
                                                 style: GuidePresenterScene
                                                     ._textStyle))),
+                                    if (widget.bubbleFooter != null) ...[
+                                      const SizedBox(height: 6),
+                                      widget.bubbleFooter!,
+                                    ],
                                   ]))))))),
         ]));
   }

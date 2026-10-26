@@ -2,7 +2,6 @@ package com.qi7bali.landchallengeonline;
 
 
 import android.content.Intent;
-import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.os.Handler;
 import android.util.DisplayMetrics;
@@ -30,7 +29,7 @@ public class WinnerActivity extends GameViewportActivity {
     int height;
     int interval;
     boolean animMoney = false;
-    MediaPlayer mpSound;
+    private GameSoundController soundController;
 
     String amount;
 
@@ -61,10 +60,8 @@ public class WinnerActivity extends GameViewportActivity {
 
         amount = getIntent().getStringExtra("amount");
 
-        if (AppPrefs.isMusicEnabled(this)) {
-            mpSound = MediaPlayer.create(this, R.raw.main_theme_4);
-            mpSound.start();
-        }
+        soundController = new GameSoundController(this);
+        soundController.play(GameAudioProfile.victoryMusic(amount), false, false, false);
         showDialog("ألف مبروك\nأنت الفائز بمبلغ "+amount, "", 0, 3000, 0);
         animMoney = true;
         final Handler handler = new Handler();
@@ -283,7 +280,7 @@ public class WinnerActivity extends GameViewportActivity {
     protected void onPause() {
         presenterDialogue.pause();
         animMoney=false;
-        if (mpSound != null) mpSound.stop();
+        if (soundController != null) soundController.releaseCurrent();
         super.onPause();
     }
 
@@ -295,6 +292,7 @@ public class WinnerActivity extends GameViewportActivity {
 
     @Override
     protected void onDestroy() {
+        if (soundController != null) soundController.releaseCurrent();
         presenterDialogue.dispose();
         presenterHandler.removeCallbacksAndMessages(null);
         super.onDestroy();

@@ -1,6 +1,6 @@
 {
-  "version": "2026-10-25",
-  "updatedAt": "25 أكتوبر 2026",
+  "version": "2026-10-26",
+  "updatedAt": "26 أكتوبر 2026",
   "appName": "أرض التحدي",
   "publisher": "Qi7bali — فريق تطوير أرض التحدي",
   "contactEmail": "IhbaliQusai@gmail.com",
@@ -182,6 +182,7 @@
       "هذا الملحق خاص باعتمادات المحتوى، ولا يغير ممارسات معالجة البيانات الواردة في السياسة.",
       "الشخصيات الكرتونية: Set of Businessmen Saudi Arab Man Cartoon Character Design للمؤلف ridjam، العنصر 21822749، وفق شهادة Envato Market Regular License باسم kaka ankidu بتاريخ 22 سبتمبر 2020.",
       "الموسيقى: Main Theme (Overture) | The Grand Score للمؤلف Alexander Nakarada، عبر Chosic، برخصة CC BY 4.0. والمقطوعة Sneaky Snitch للمؤلف Kevin MacLeod، عبر Chosic، برخصة CC BY 3.0.",
+      "الصوتيات البديلة: Interface Sounds للمؤلف Kenney، وUnsolved Investigation للمؤلف isaiah658، وSuspense للمؤلف wipics، وOpening Theme [Action/Suspense] للمؤلف nene، برخصة CC0 1.0. عُدلت المقاطع بالقص والتكرار والمزج وضبط المستوى. صُممت مؤثرات إضافية بتوليد رقمي برمجي خصيصًا لأرض التحدي دون تسجيلات لأشخاص أو استنساخ أصواتهم.",
       "تعود العلامات التجارية والمواد المملوكة للغير إلى أصحابها، ويخضع استخدامها لشروط التراخيص ذات الصلة. للاستفسارات المتعلقة بالحقوق، تواصل مع بريد الفريق."
     ],
     "links": [
@@ -190,7 +191,12 @@
       {"label": "Kevin MacLeod", "url": "https://incompetech.com/"},
       {"label": "Chosic", "url": "https://www.chosic.com/free-music/all/"},
       {"label": "Creative Commons BY 4.0", "url": "https://creativecommons.org/licenses/by/4.0/"},
-      {"label": "Creative Commons BY 3.0", "url": "https://creativecommons.org/licenses/by/3.0/"}
+      {"label": "Creative Commons BY 3.0", "url": "https://creativecommons.org/licenses/by/3.0/"},
+      {"label": "Kenney — Interface Sounds", "url": "https://kenney.nl/assets/interface-sounds"},
+      {"label": "Unsolved Investigation — isaiah658", "url": "https://opengameart.org/content/unsolved-investigation"},
+      {"label": "Suspense — wipics", "url": "https://opengameart.org/content/suspense-0"},
+      {"label": "Opening Theme — nene", "url": "https://opengameart.org/content/opening-theme-actionsuspense"},
+      {"label": "Creative Commons CC0 1.0", "url": "https://creativecommons.org/publicdomain/zero/1.0/"}
     ]
   }
 }

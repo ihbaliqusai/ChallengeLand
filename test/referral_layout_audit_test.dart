@@ -132,9 +132,9 @@ void main() {
         ),
       ));
       await tester.pumpAndSettle();
-      await tester.runAsync(() => precacheImage(
-          const AssetImage('assets/social/invite_friends_hero.png'),
-          tester.element(find.byType(InviteFriendsScreen))));
+      final artwork = tester.widget<Image>(find.byType(Image));
+      await tester.runAsync(() =>
+          precacheImage(artwork.image, tester.element(find.byType(Image))));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       if (scenario.keyboard == 0) {

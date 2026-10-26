@@ -1621,11 +1621,6 @@ class _StoreScreenState extends State<StoreScreen> {
                           ))),
                       for (final tab in tabs)
                         Expanded(child: _navigationTab(tab, height)),
-                      if (_arabic && !_isGuidePreview)
-                        Center(
-                            child: PageGuideHelpButton(
-                                onPressed: () =>
-                                    _guideKey.currentState?.start())),
                     ]))),
       ]),
     );

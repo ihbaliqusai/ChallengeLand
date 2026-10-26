@@ -1,8 +1,92 @@
 import 'dart:async';
 
 import 'package:challenge_land/services/leaderboard_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+class _DeferredCountryFirestore extends FakeFirebaseFirestore {
+  final writeGate = Completer<void>();
+  final transactionStarted = Completer<void>();
+  final transactionFinished = Completer<void>();
+  bool failWrite = false;
+
+  @override
+  Future<T> runTransaction<T>(TransactionHandler<T> transactionHandler,
+      {Duration timeout = const Duration(seconds: 30),
+      int maxAttempts = 5}) async {
+    if (!transactionStarted.isCompleted) transactionStarted.complete();
+    await writeGate.future;
+    try {
+      if (failWrite) {
+        throw FirebaseException(plugin: 'cloud_firestore', code: 'unavailable');
+      }
+      return await super.runTransaction(transactionHandler,
+          timeout: timeout, maxAttempts: maxAttempts);
+    } finally {
+      if (!transactionFinished.isCompleted) transactionFinished.complete();
+    }
+  }
+}
+
+class _PendingProfileFirestore extends FakeFirebaseFirestore {
+  final subscribed = Completer<void>();
+  int canceled = 0;
+
+  @override
+  CollectionReference<Map<String, dynamic>> collection(String path) =>
+      _PendingProfileCollection(super.collection(path), this);
+}
+
+// Transport test double for a listener that never receives its first snapshot.
+// ignore: subtype_of_sealed_class
+class _PendingProfileCollection
+    implements CollectionReference<Map<String, dynamic>> {
+  _PendingProfileCollection(this.delegate, this.owner);
+  final CollectionReference<Map<String, dynamic>> delegate;
+  final _PendingProfileFirestore owner;
+
+  @override
+  DocumentReference<Map<String, dynamic>> doc([String? path]) =>
+      _PendingProfileDocument(delegate.doc(path), owner);
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+// ignore: subtype_of_sealed_class
+class _PendingProfileDocument
+    implements DocumentReference<Map<String, dynamic>> {
+  _PendingProfileDocument(this.delegate, this.owner);
+  final DocumentReference<Map<String, dynamic>> delegate;
+  final _PendingProfileFirestore owner;
+
+  @override
+  Stream<DocumentSnapshot<Map<String, dynamic>>> snapshots({
+    bool includeMetadataChanges = false,
+    ListenSource source = ListenSource.defaultSource,
+  }) =>
+      StreamController<DocumentSnapshot<Map<String, dynamic>>>(
+        onListen: () {
+          if (!owner.subscribed.isCompleted) owner.subscribed.complete();
+        },
+        onCancel: () => owner.canceled++,
+      ).stream;
+
+  @override
+  Future<DocumentSnapshot<Map<String, dynamic>>> get([GetOptions? options]) =>
+      delegate.get(options);
+
+  @override
+  Future<void> set(Map<String, dynamic> data, [SetOptions? options]) =>
+      delegate.set(data, options);
+
+  @override
+  Future<void> update(Map<Object, Object?> data) => delegate.update(data);
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
 
 void main() {
   late FakeFirebaseFirestore db;
@@ -10,7 +94,8 @@ void main() {
 
   setUp(() {
     db = FakeFirebaseFirestore();
-    service = LeaderboardService(firestore: db);
+    service =
+        LeaderboardService(firestore: db, detectCountry: () async => null);
   });
 
   test('legacy profiles resolve an email prefix after empty or generic names',
@@ -52,7 +137,8 @@ void main() {
     await player('leader', 100, country: 'JO');
     expect(service.cached(scope: LeaderboardScope.world, uid: 'me'), isNull);
     final loaded = await service.load(scope: LeaderboardScope.world, uid: 'me');
-    final reopened = LeaderboardService(firestore: db);
+    final reopened =
+        LeaderboardService(firestore: db, detectCountry: () async => null);
     final cached = reopened.cached(scope: LeaderboardScope.world, uid: 'me');
     expect(cached, same(loaded));
     expect(cached!.single.uid, 'leader');
@@ -79,8 +165,11 @@ void main() {
         isNull);
     expect(service.cached(scope: LeaderboardScope.world, uid: 'me'), isNull);
     expect(
-        LeaderboardService(firestore: FakeFirebaseFirestore()).cached(
-            scope: LeaderboardScope.country, uid: 'me', countryCode: 'JO'),
+        LeaderboardService(
+                firestore: FakeFirebaseFirestore(),
+                detectCountry: () async => null)
+            .cached(
+                scope: LeaderboardScope.country, uid: 'me', countryCode: 'JO'),
         isNull);
     final empty = await service.load(
         scope: LeaderboardScope.country, uid: 'me', countryCode: 'SA');
@@ -109,7 +198,10 @@ void main() {
     await player('me', 10, country: 'JO');
     expect(service.cachedCountry('me'), isNull);
     await service.loadCountry('me');
-    expect(LeaderboardService(firestore: db).cachedCountry('me'), 'JO');
+    expect(
+        LeaderboardService(firestore: db, detectCountry: () async => null)
+            .cachedCountry('me'),
+        'JO');
     await service.saveCountry('me', 'SA');
     expect(service.cachedCountry('me'), 'SA');
     expect(service.cachedCountry('other'), isNull);
@@ -298,6 +390,258 @@ void main() {
     expect((await db.doc('public_profiles/new-player').get()).data(), {
       'uid': 'new-player',
       'countryCode': 'TR',
+    });
+  });
+
+  test(
+      'detected country returns before persistence and preserves existing scores',
+      () async {
+    final deferred = _DeferredCountryFirestore();
+    await deferred.doc('public_profiles/me').set({
+      'uid': 'me',
+      'username': 'Competitor',
+      'trophies': 1250,
+      'xp': 4000,
+    });
+    final automatic = LeaderboardService(
+        firestore: deferred, detectCountry: () async => ' tr ');
+    expect(
+        await automatic.loadCountry('me').timeout(const Duration(seconds: 1)),
+        'TR');
+    expect(automatic.cachedCountry('me'), 'TR');
+    expect(deferred.transactionStarted.isCompleted, isTrue);
+    expect(
+        (await deferred.doc('public_profiles/me').get()).data()!['countryCode'],
+        isNull);
+    deferred.writeGate.complete();
+    await deferred.transactionFinished.future;
+    await Future<void>.delayed(Duration.zero);
+    expect((await deferred.doc('public_profiles/me').get()).data(), {
+      'uid': 'me',
+      'username': 'Competitor',
+      'trophies': 1250,
+      'xp': 4000,
+      'countryCode': 'TR',
+    });
+  });
+
+  test('unknown device countries do not create a guessed profile', () async {
+    final candidates = <String?>[null, '', 'Jordan', 'ZZ', '001', 'EU'];
+    for (var index = 0; index < candidates.length; index++) {
+      final automatic = LeaderboardService(
+          firestore: db, detectCountry: () async => candidates[index]);
+      final uid = 'unknown-$index';
+      expect(await automatic.loadCountry(uid), isNull);
+      expect(automatic.cachedCountry(uid), isNull);
+      expect((await db.doc('public_profiles/$uid').get()).exists, isFalse);
+    }
+  });
+
+  test(
+      'stored valid country skips detection and invalid placeholders are filled',
+      () async {
+    await player('saved', 90, country: 'JO');
+    await player('placeholder', 70, country: 'ZZ');
+    var detections = 0;
+    final automatic = LeaderboardService(
+        firestore: db,
+        detectCountry: () async {
+          detections++;
+          return 'TR';
+        });
+    expect(await automatic.loadCountry('saved'), 'JO');
+    expect(detections, 0);
+    final persisted = db
+        .doc('public_profiles/placeholder')
+        .snapshots()
+        .firstWhere((profile) => profile.data()?['countryCode'] == 'TR');
+    expect(await automatic.loadCountry('placeholder'), 'TR');
+    await persisted.timeout(const Duration(seconds: 2));
+    expect(detections, 1);
+    expect(
+        (await db.doc('public_profiles/placeholder').get()).data()!['trophies'],
+        70);
+  });
+
+  test('manual country choice during detection wins across service instances',
+      () async {
+    await player('me', 100);
+    final detectionStarted = Completer<void>();
+    final detected = Completer<String?>();
+    final automatic = LeaderboardService(
+        firestore: db,
+        detectCountry: () {
+          detectionStarted.complete();
+          return detected.future;
+        });
+    final resolution = automatic.loadCountry('me');
+    await detectionStarted.future;
+    await service.saveCountry('me', 'SA');
+    detected.complete('TR');
+    expect(await resolution, 'SA');
+    expect(automatic.cachedCountry('me'), 'SA');
+    expect((await db.doc('public_profiles/me').get()).data()!['countryCode'],
+        'SA');
+  });
+
+  test('manual country choice wins while an automatic transaction is pending',
+      () async {
+    final deferred = _DeferredCountryFirestore();
+    await deferred.doc('public_profiles/me').set({'uid': 'me', 'trophies': 40});
+    final automatic = LeaderboardService(
+        firestore: deferred, detectCountry: () async => 'TR');
+    expect(await automatic.loadCountry('me'), 'TR');
+    await automatic.saveCountry('me', 'JO');
+    deferred.writeGate.complete();
+    await deferred.transactionFinished.future;
+    await Future<void>.delayed(Duration.zero);
+    expect(
+        (await deferred.doc('public_profiles/me').get()).data()!['countryCode'],
+        'JO');
+    expect(automatic.cachedCountry('me'), 'JO');
+  });
+
+  test('transaction preserves a country saved by a different client', () async {
+    final deferred = _DeferredCountryFirestore();
+    await deferred.doc('public_profiles/me').set({'uid': 'me', 'trophies': 40});
+    final automatic = LeaderboardService(
+        firestore: deferred, detectCountry: () async => 'TR');
+    expect(await automatic.loadCountry('me'), 'TR');
+    await deferred.doc('public_profiles/me').update({'countryCode': 'SA'});
+    deferred.writeGate.complete();
+    await deferred.transactionFinished.future;
+    await Future<void>.delayed(Duration.zero);
+    expect((await deferred.doc('public_profiles/me').get()).data(),
+        {'uid': 'me', 'trophies': 40, 'countryCode': 'SA'});
+    expect(automatic.cachedCountry('me'), 'SA');
+  });
+
+  test('inactive accounts cannot cache or write a pending device detection',
+      () async {
+    final detectionStarted = Completer<void>();
+    final detected = Completer<String?>();
+    var active = true;
+    final automatic = LeaderboardService(
+        firestore: db,
+        detectCountry: () {
+          detectionStarted.complete();
+          return detected.future;
+        });
+    final resolution = automatic.ensureCountry('me', isActive: () => active);
+    await detectionStarted.future;
+    active = false;
+    detected.complete('TR');
+    expect(await resolution, isNull);
+    expect(automatic.cachedCountry('me'), isNull);
+    expect((await db.doc('public_profiles/me').get()).exists, isFalse);
+  });
+
+  test('inactive accounts cannot finish a deferred automatic write', () async {
+    final deferred = _DeferredCountryFirestore();
+    var active = true;
+    final automatic = LeaderboardService(
+        firestore: deferred, detectCountry: () async => 'TR');
+    expect(await automatic.ensureCountry('me', isActive: () => active), 'TR');
+    active = false;
+    deferred.writeGate.complete();
+    await deferred.transactionFinished.future;
+    expect((await deferred.doc('public_profiles/me').get()).exists, isFalse);
+  });
+
+  test('failed automatic persistence never fails or delays country resolution',
+      () async {
+    final deferred = _DeferredCountryFirestore()..failWrite = true;
+    final automatic = LeaderboardService(
+        firestore: deferred, detectCountry: () async => 'TR');
+    expect(
+        await automatic.loadCountry('me').timeout(const Duration(seconds: 1)),
+        'TR');
+    deferred.writeGate.complete();
+    await deferred.transactionFinished.future;
+    await Future<void>.delayed(Duration.zero);
+    expect(automatic.cachedCountry('me'), 'TR');
+    expect((await deferred.doc('public_profiles/me').get()).exists, isFalse);
+  });
+
+  test('a detector failure and an inactive call cannot invent a country',
+      () async {
+    var attempts = 0;
+    final automatic = LeaderboardService(
+        firestore: db,
+        detectCountry: () async {
+          attempts++;
+          throw StateError('Country is unavailable');
+        });
+    expect(await automatic.ensureCountry('inactive', isActive: () => false),
+        isNull);
+    expect(attempts, 0);
+    expect(await automatic.loadCountry('unknown'), isNull);
+    expect(attempts, 1);
+    expect((await db.doc('public_profiles/unknown').get()).exists, isFalse);
+  });
+
+  test(
+      'a stalled profile read times out to device detection and cancels its listener',
+      () async {
+    final stalled = _PendingProfileFirestore();
+    final automatic = LeaderboardService(
+      firestore: stalled,
+      detectCountry: () async => 'TR',
+      countryReadTimeout: const Duration(milliseconds: 20),
+    );
+    expect(
+        await automatic.loadCountry('me').timeout(const Duration(seconds: 1)),
+        'TR');
+    expect(stalled.canceled, 1);
+    expect(automatic.cachedCountry('me'), 'TR');
+    await Future<void>.delayed(Duration.zero);
+    expect(
+        (await stalled.doc('public_profiles/me').get()).data()?['countryCode'],
+        'TR');
+  });
+
+  test('an inactive pending profile read cancels before detection or writing',
+      () async {
+    final stalled = _PendingProfileFirestore();
+    var active = true;
+    var detections = 0;
+    final automatic = LeaderboardService(
+        firestore: stalled,
+        detectCountry: () async {
+          detections++;
+          return 'TR';
+        });
+    final resolution = automatic.ensureCountry('me', isActive: () => active);
+    await stalled.subscribed.future;
+    active = false;
+    expect(await resolution.timeout(const Duration(seconds: 1)), isNull);
+    expect(stalled.canceled, 1);
+    expect(detections, 0);
+    expect((await stalled.doc('public_profiles/me').get()).exists, isFalse);
+  });
+
+  test(
+      'legacy profiles without uid retain their scores when country is detected',
+      () async {
+    await db.doc('public_profiles/legacy').set({
+      'username': 'Legacy competitor',
+      'trophies': 1200,
+      'xp': 4000,
+    });
+    final automatic =
+        LeaderboardService(firestore: db, detectCountry: () async => 'TR');
+    final persisted = db
+        .doc('public_profiles/legacy')
+        .snapshots()
+        .firstWhere((profile) => profile.data()?['countryCode'] == 'TR');
+    expect(await automatic.loadCountry('legacy'), 'TR');
+    await persisted.timeout(const Duration(seconds: 1));
+    expect((await db.doc('public_profiles/legacy').get()).data(), {
+      'uid': 'legacy',
+      'countryCode': 'TR',
+      'username': 'Legacy competitor',
+      'trophies': 1200,
+      'xp': 4000,
     });
   });
 }

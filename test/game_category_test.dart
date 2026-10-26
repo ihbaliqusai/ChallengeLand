@@ -19,6 +19,43 @@ void main() {
       expect(CategoryCatalog.allowsAd(category.name), isFalse);
     }
   });
+
+  test('new categories are properly integrated into CategoryCatalog', () {
+    expect(CategoryCatalog.premiumCategories, hasLength(55));
+    const newCategories = [
+      'دوري أبطال أوروبا',
+      'NBA',
+      'بنات وبس',
+      'باب الحارة',
+      'مسلسلات تركية',
+      'دراما خليجية',
+      'دراما سورية',
+      'دراما مصرية',
+      'Game Of Thrones',
+      'Breaking Bad',
+      'Harry Potter',
+      'Pokémon',
+      'Demon Slayer',
+      'Hunter × Hunter',
+      'One Piece',
+      'Attack on Titan',
+      'Naruto',
+    ];
+    for (final name in newCategories) {
+      expect(CategoryCatalog.isCategoryPremium(name), isTrue, reason: name);
+      final cat = GameCategory(name: name, isPremium: true);
+      expect(cat.assetPath, 'assets/categories/$name.png');
+    }
+    expect(GameCategory.normalize('Pokémon'), 'pokemon');
+    expect(GameCategory.normalize('Hunter × Hunter'), 'hunter x hunter');
+    expect(GameCategory.normalize('Hunter x Hunter'), 'hunter x hunter');
+    expect(CategoryCatalog.allowsAd('دوري أبطال أوروبا'), isTrue);
+    expect(CategoryCatalog.allowsAd('NBA'), isTrue);
+    expect(CategoryCatalog.allowsAd('بنات وبس'), isTrue);
+    expect(CategoryCatalog.allowsAd('باب الحارة'), isFalse);
+    expect(CategoryCatalog.allowsAd('One Piece'), isFalse);
+    expect(CategoryCatalog.allowsAd('Naruto'), isFalse);
+  });
   const aliases = ['أنمي', 'الأنمي', 'انمي', 'الانمي'];
 
   test('anime store and question labels share the same canonical category', () {

@@ -102,5 +102,40 @@ void main() {
       expect(prefs.getInt('rate_prompt_count'), equals(1));
       expect(prefs.getInt('rate_last_prompt_timestamp'), isNotNull);
     });
+
+    test('per-uid rating and claim flags hide rating entry', () async {
+      const uid = 'test_user_123';
+      SharedPreferences.setMockInitialValues({
+        RateGameService.userRatedKey(uid): true,
+      });
+
+      expect(
+          await RateGameService.instance.shouldShowRatingEntry(uid: uid), isFalse);
+      expect(await RateGameService.instance.hasRated(uid: uid), isTrue);
+    });
+
+    test('per-uid reward claim flag prevents duplicate showing', () async {
+      const uid = 'test_user_456';
+      SharedPreferences.setMockInitialValues({
+        RateGameService.userRewardKey(uid): true,
+      });
+
+      expect(
+          await RateGameService.instance.shouldShowRatingEntry(uid: uid), isFalse);
+      expect(await RateGameService.instance.hasClaimedReward(uid: uid), isTrue);
+    });
+
+    test('markRated with uid sets both global and per-uid preference keys',
+        () async {
+      const uid = 'test_user_789';
+      final service = RateGameService.instance;
+      await service.markRated(uid: uid);
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool('has_rated_challenge_land'), isTrue);
+      expect(prefs.getBool(RateGameService.userRatedKey(uid)), isTrue);
+      expect(await service.hasRated(uid: uid), isTrue);
+      expect(await service.shouldShowRatingEntry(uid: uid), isFalse);
+    });
   });
 }

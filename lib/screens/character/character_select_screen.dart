@@ -552,10 +552,6 @@ class _TopBar extends StatelessWidget {
             )
           else
             SizedBox(width: compact ? 34 : 42),
-          if (onGuide != null) ...[
-            const SizedBox(width: 6),
-            PageGuideHelpButton(onPressed: onGuide!),
-          ],
           const Spacer(),
           Row(key: balancesGuideKey, mainAxisSize: MainAxisSize.min, children: [
             _CurrencyPill(

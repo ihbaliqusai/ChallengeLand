@@ -16,7 +16,7 @@ import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.StandardMethodCodec
 
 class MainActivity : FlutterActivity() {
-    private val campaignMapMusicVolume = 0.5f
+    private val campaignMapMusicVolume = GameAudioProfile.musicVolume(R.raw.sneaky_snitch)
 
     private var pendingLaunchAction: String? = null
     private var campaignMapMusicPlayer: MediaPlayer? = null
@@ -343,6 +343,13 @@ class MainActivity : FlutterActivity() {
                         result.success(null)
                     }
                     "getSocialServerTime" -> result.success(PlayerPresence.serverTime())
+                    "getDeviceCountryCode" -> {
+                        val appContext = applicationContext
+                        Thread({
+                            val countryCode = DeviceCountry.getCountryCode(appContext)
+                            runOnUiThread { result.success(countryCode) }
+                        }, "device-country").start()
+                    }
                     "launchFriendChallenge" -> {
                         PlayerProgress.recordFriendMatchPlayed(this)
                         val friendCode = call.argument<String>("friendCode") ?: ""
@@ -810,7 +817,7 @@ class MainActivity : FlutterActivity() {
                         result.success(true)
                     }
                     "setMusicEnabled" -> {
-                        val enabled = call.argument<Boolean>("enabled") ?: true
+                        val enabled = call.argument<Boolean>("enabled") ?: false
                         AppPrefs.setMusicEnabled(this, enabled)
                         result.success(true)
                     }

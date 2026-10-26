@@ -99,6 +99,23 @@ final class SharedAssetStore {
             case "assets/ui/user.png": return context.getResources().openRawResource(R.drawable.user);
             case "assets/ui/google.png": return context.getResources().openRawResource(R.drawable.google);
             case "assets/categories/مسيرة لاعب.png": return context.getAssets().open("categories/مسيرة لاعب.png");
+            case "assets/categories/دوري أبطال أوروبا.png": return context.getAssets().open("categories/دوري أبطال أوروبا.png");
+            case "assets/categories/NBA.png": return context.getAssets().open("categories/NBA.png");
+            case "assets/categories/بنات وبس.png": return context.getAssets().open("categories/بنات وبس.png");
+            case "assets/categories/باب الحارة.png": return context.getAssets().open("categories/باب الحارة.png");
+            case "assets/categories/مسلسلات تركية.png": return context.getAssets().open("categories/مسلسلات تركية.png");
+            case "assets/categories/دراما خليجية.png": return context.getAssets().open("categories/دراما خليجية.png");
+            case "assets/categories/دراما سورية.png": return context.getAssets().open("categories/دراما سورية.png");
+            case "assets/categories/دراما مصرية.png": return context.getAssets().open("categories/دراما مصرية.png");
+            case "assets/categories/Game Of Thrones.png": return context.getAssets().open("categories/Game Of Thrones.png");
+            case "assets/categories/Breaking Bad.png": return context.getAssets().open("categories/Breaking Bad.png");
+            case "assets/categories/Harry Potter.png": return context.getAssets().open("categories/Harry Potter.png");
+            case "assets/categories/Pokémon.png": return context.getAssets().open("categories/Pokémon.png");
+            case "assets/categories/Demon Slayer.png": return context.getAssets().open("categories/Demon Slayer.png");
+            case "assets/categories/Hunter × Hunter.png": return context.getAssets().open("categories/Hunter × Hunter.png");
+            case "assets/categories/One Piece.png": return context.getAssets().open("categories/One Piece.png");
+            case "assets/categories/Attack on Titan.png": return context.getAssets().open("categories/Attack on Titan.png");
+            case "assets/categories/Naruto.png": return context.getAssets().open("categories/Naruto.png");
             default: throw new IOException("Unknown shared asset: " + key);
         }
     }

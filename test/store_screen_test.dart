@@ -451,7 +451,8 @@ void main() {
       final scroll = tester.widget<ListView>(find.byType(ListView)).controller!;
       scroll.jumpTo(100);
       await tester.pump();
-      await tester.tap(find.byTooltip('شرح الصفحة'));
+      expect(find.byTooltip('شرح الصفحة'), findsNothing);
+      tester.state<PageGuideState>(find.byType(PageGuide)).start();
       await tester.pump();
       final tour = tester
           .widget<HomeGuideTourOverlay>(find.byType(HomeGuideTourOverlay));

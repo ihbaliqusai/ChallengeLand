@@ -7,6 +7,7 @@ import 'package:challenge_land/core/app_state.dart';
 import 'package:challenge_land/core/shared_assets.dart';
 import 'package:challenge_land/models/lucky_wheel_prize.dart';
 import 'package:challenge_land/models/economy_wallet.dart';
+import 'package:challenge_land/models/game_character.dart';
 import 'package:challenge_land/services/in_app_purchase_service.dart';
 import 'package:challenge_land/screens/home/daily_streak_screen.dart';
 import 'package:challenge_land/screens/home/lucky_wheel_screen.dart';
@@ -37,6 +38,11 @@ class _Rewards extends ChangeNotifier implements AppState {
   int gems = 80;
   int paidSpins = 0;
   int? serverPaidSpins;
+  int? previewCharacterIndex = 2;
+  @override
+  GameCharacter? get wheelPrizeCharacter => previewCharacterIndex == null
+      ? null
+      : CharacterCatalog.byIndex(previewCharacterIndex!);
   @override
   bool get isCommerceReady => true;
   @override
@@ -187,10 +193,99 @@ void main() {
     }
   });
 
-  test('the visible wedges give every server prize the same two slots', () {
+  test('the visible wedges give each quantity variant one equal slot', () {
+    expect(LuckyWheelPrize.catalog.length, 12);
     for (final prize in LuckyWheelPrize.catalog) {
-      expect(luckyWheelSlots.where((index) => index == prize.index).length, 2);
+      expect(luckyWheelSlots.where((index) => index == prize.index).length, 1);
     }
+  });
+
+  testWidgets(
+      'winning character stays visible until reveal closes, then advances',
+      (tester) async {
+    final state = _Rewards()..response = Completer();
+    addTearDown(state.dispose);
+    await tester.pumpWidget(_app(state));
+    await tester.pump();
+    expect(
+        tester
+            .widget<LuckyWheelArtwork>(find.byType(LuckyWheelArtwork))
+            .character
+            ?.index,
+        2);
+    await tester.tap(find.byKey(const ValueKey('lucky-wheel-spin')));
+    // Simulates a server result newer than the preview because of another device.
+    state.previewCharacterIndex = 9;
+    state.response!.complete(LuckyWheelSpin(
+        prize: LuckyWheelPrize.catalog[4],
+        grants: const {},
+        newlyGranted: true,
+        characterIndex: 7));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(
+        tester
+            .widget<LuckyWheelArtwork>(find.byType(LuckyWheelArtwork))
+            .character
+            ?.index,
+        7);
+    await tester.pump(const Duration(milliseconds: 3900));
+    await tester.pump(const Duration(milliseconds: 700));
+    expect(find.text('شخصية تاليا'), findsOneWidget);
+    expect(
+        tester
+            .widget<LuckyWheelArtwork>(find.byType(LuckyWheelArtwork))
+            .character
+            ?.index,
+        7);
+    await tester.tap(find.text('رائع، متابعة'));
+    await tester.pump();
+    expect(
+        tester
+            .widget<LuckyWheelArtwork>(find.byType(LuckyWheelArtwork))
+            .character
+            ?.index,
+        9);
+    await _capture(tester, 'next-character');
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets(
+      'prize details disclose exact quantity odds and guaranteed chest contents',
+      (tester) async {
+    final state = _Rewards();
+    addTearDown(state.dispose);
+    await tester.pumpWidget(_app(state));
+    await tester.pump();
+    await tester.tap(find.text('الجوائز وفرص الفوز'));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('كل خانة لها فرصة متساوية: 1 من 12 (نحو 8.33%).'),
+        findsOneWidget);
+    expect(find.text('8.33%'), findsNWidgets(12));
+    expect(
+        find.text('1000 نقود + 20 جوهرة + مفتاحان + تذكرتان'), findsOneWidget);
+    expect(find.text('250 نقود'), findsOneWidget);
+    expect(find.text('20 جوهرة'), findsOneWidget);
+    expect(find.text('شخصية فهد'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets(
+      'complete character roster shows the100-gem replacement on the wheel',
+      (tester) async {
+    final state = _Rewards()..previewCharacterIndex = null;
+    addTearDown(state.dispose);
+    await tester.pumpWidget(_app(state));
+    await tester.pump();
+    final wheel =
+        tester.widget<LuckyWheelArtwork>(find.byType(LuckyWheelArtwork));
+    expect(wheel.character, isNull);
+    expect(wheel.characterCompensation, isTrue);
+    await tester.tap(find.text('الجوائز وفرص الفوز'));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('100 جوهرة — اكتملت الشخصيات'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
   });
 
   testWidgets(

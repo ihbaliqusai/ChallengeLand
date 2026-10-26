@@ -21,8 +21,8 @@ class PrivacyPolicySection {
 }
 
 abstract final class PrivacyPolicyContent {
-  static const version = "2026-10-25";
-  static const updatedAt = "25 أكتوبر 2026";
+  static const version = "2026-10-26";
+  static const updatedAt = "26 أكتوبر 2026";
   static const appName = "أرض التحدي";
   static const publisher = "Qi7bali — فريق تطوير أرض التحدي";
   static const contactEmail = "IhbaliQusai@gmail.com";
@@ -225,6 +225,7 @@ abstract final class PrivacyPolicyContent {
         "هذا الملحق خاص باعتمادات المحتوى، ولا يغير ممارسات معالجة البيانات الواردة في السياسة.",
         "الشخصيات الكرتونية: Set of Businessmen Saudi Arab Man Cartoon Character Design للمؤلف ridjam، العنصر 21822749، وفق شهادة Envato Market Regular License باسم kaka ankidu بتاريخ 22 سبتمبر 2020.",
         "الموسيقى: Main Theme (Overture) | The Grand Score للمؤلف Alexander Nakarada، عبر Chosic، برخصة CC BY 4.0. والمقطوعة Sneaky Snitch للمؤلف Kevin MacLeod، عبر Chosic، برخصة CC BY 3.0.",
+        "الصوتيات البديلة: Interface Sounds للمؤلف Kenney، وUnsolved Investigation للمؤلف isaiah658، وSuspense للمؤلف wipics، وOpening Theme [Action/Suspense] للمؤلف nene، برخصة CC0 1.0. عُدلت المقاطع بالقص والتكرار والمزج وضبط المستوى. صُممت مؤثرات إضافية بتوليد رقمي برمجي خصيصًا لأرض التحدي دون تسجيلات لأشخاص أو استنساخ أصواتهم.",
         "تعود العلامات التجارية والمواد المملوكة للغير إلى أصحابها، ويخضع استخدامها لشروط التراخيص ذات الصلة. للاستفسارات المتعلقة بالحقوق، تواصل مع بريد الفريق.",
       ],
       links: [
@@ -234,6 +235,11 @@ abstract final class PrivacyPolicyContent {
         PrivacyPolicyLink("Chosic", "https://www.chosic.com/free-music/all/"),
         PrivacyPolicyLink("Creative Commons BY 4.0", "https://creativecommons.org/licenses/by/4.0/"),
         PrivacyPolicyLink("Creative Commons BY 3.0", "https://creativecommons.org/licenses/by/3.0/"),
+        PrivacyPolicyLink("Kenney — Interface Sounds", "https://kenney.nl/assets/interface-sounds"),
+        PrivacyPolicyLink("Unsolved Investigation — isaiah658", "https://opengameart.org/content/unsolved-investigation"),
+        PrivacyPolicyLink("Suspense — wipics", "https://opengameart.org/content/suspense-0"),
+        PrivacyPolicyLink("Opening Theme — nene", "https://opengameart.org/content/opening-theme-actionsuspense"),
+        PrivacyPolicyLink("Creative Commons CC0 1.0", "https://creativecommons.org/publicdomain/zero/1.0/"),
       ],
     );
 }

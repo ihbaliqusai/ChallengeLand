@@ -10,9 +10,10 @@ import 'adaptive_asset_image.dart';
 
 /// نافذة تقييم اللعبة بتصميم عالمي فاخر وموجه بذكاء (5-Star Smart Routing)
 class RateGameDialog extends StatefulWidget {
-  const RateGameDialog({super.key, this.isManual = false});
+  const RateGameDialog({super.key, this.isManual = false, this.uid});
 
   final bool isManual;
+  final String? uid;
 
   @override
   State<RateGameDialog> createState() => _RateGameDialogState();
@@ -47,7 +48,7 @@ class _RateGameDialogState extends State<RateGameDialog>
       duration: const Duration(seconds: 4),
     )..repeat();
 
-    RateGameService.instance.hasClaimedReward().then((claimed) {
+    RateGameService.instance.hasClaimedReward(uid: widget.uid).then((claimed) {
       if (mounted) {
         setState(() => _alreadyClaimedReward = claimed);
       }
@@ -85,10 +86,13 @@ class _RateGameDialogState extends State<RateGameDialog>
 
     final service = RateGameService.instance;
     await service.openStore(context);
-    await service.markRated();
+    await service.markRated(uid: widget.uid);
 
     if (mounted) {
-      final rewardGranted = await service.grantRatingReward(context);
+      bool rewardGranted = false;
+      if (!_alreadyClaimedReward) {
+        rewardGranted = await service.grantRatingReward(context);
+      }
       if (mounted) {
         Navigator.of(context).pop();
         GameNoticeMessenger.of(context).showSnackBar(
@@ -740,7 +744,9 @@ class _RateGameDialogState extends State<RateGameDialog>
                 Text(
                   _submitting
                       ? 'جارٍ الفتح...'
-                      : 'تقييم في المتجر واستلام الهدية 🌟',
+                      : (_alreadyClaimedReward
+                          ? 'تقييم في المتجر 🌟'
+                          : 'تقييم في المتجر واستلام الهدية 🌟'),
                   style: const TextStyle(
                     color: Color(0xFF451A03),
                     fontSize: 13.5,

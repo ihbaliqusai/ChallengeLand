@@ -145,7 +145,8 @@ void main() {
               find.byKey(const ValueKey('character-scroll-rail')))
           .controller!;
       final originalOffset = rail.offset;
-      await tester.tap(find.byTooltip('شرح الصفحة'));
+      expect(find.byTooltip('شرح الصفحة'), findsNothing);
+      tester.state<PageGuideState>(find.byType(PageGuide)).start();
       await tester.pump();
       final tour = tester
           .widget<HomeGuideTourOverlay>(find.byType(HomeGuideTourOverlay));

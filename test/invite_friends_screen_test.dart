@@ -24,10 +24,12 @@ const _data = InviteFriendsData(
 
 Widget _app({
   Future<InviteFriendsData> Function()? load,
+  Future<InviteFriendsData?> Function()? loadCached,
   Future<InviteFriendsData> Function(String)? accept,
   Future<void> Function(String)? share,
   VoidCallback? play,
   String? initialCode,
+  InviteFriendsData? initialData,
   Key? boundaryKey,
 }) =>
     MaterialApp(
@@ -39,10 +41,12 @@ Widget _app({
         key: boundaryKey,
         child: InviteFriendsScreen(
           load: load ?? () async => _data,
+          loadCached: loadCached,
           accept: accept ?? (_) async => _data,
           share: share ?? (_) async {},
           onPlayWithFriends: play ?? () {},
           initialCode: initialCode,
+          initialData: initialData,
         ),
       ),
     );
@@ -247,6 +251,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       if (Platform.environment['INVITE_PREVIEW'] == '1') {
+        final artwork = tester.widget<Image>(find.byType(Image));
+        await tester.runAsync(() =>
+            precacheImage(artwork.image, tester.element(find.byType(Image))));
+        await tester.pumpAndSettle();
         await tester.runAsync(() async {
           final boundary = tester
               .renderObject<RenderRepaintBoundary>(find.byKey(boundaryKey));
@@ -271,4 +279,53 @@ void main() {
       }
     });
   }
+
+  test('InviteFriendsData toJson and fromJson round trip accurately', () {
+    final json = _data.toJson();
+    final decoded = InviteFriendsData.fromJson(json);
+    expect(decoded.code, _data.code);
+    expect(decoded.qualifiedCount, _data.qualifiedCount);
+    expect(decoded.earnedCoins, _data.earnedCoins);
+    expect(decoded.earnedGems, _data.earnedGems);
+    expect(decoded.canAccept, _data.canAccept);
+    expect(decoded.acceptedCode, _data.acceptedCode);
+    expect(decoded.milestones.length, _data.milestones.length);
+    for (var i = 0; i < decoded.milestones.length; i++) {
+      expect(decoded.milestones[i].count, _data.milestones[i].count);
+      expect(decoded.milestones[i].coins, _data.milestones[i].coins);
+      expect(decoded.milestones[i].gems, _data.milestones[i].gems);
+      expect(decoded.milestones[i].claimed, _data.milestones[i].claimed);
+    }
+  });
+
+  testWidgets(
+      'cached initialData renders code and stats instantly while load is in-flight',
+      (tester) async {
+    final completer = Completer<InviteFriendsData>();
+    await tester.pumpWidget(_app(
+      initialData: _data,
+      load: () => completer.future,
+    ));
+    await tester.pump();
+    expect(find.text(_data.code), findsOneWidget);
+    expect(find.text('جارٍ تجهيز كود دعوتك ومكافآتك…'), findsNothing);
+    expect(find.byKey(const Key('share-referral')), findsOneWidget);
+    completer.complete(_data);
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets(
+      'loadCached populates initialData before long network request finishes',
+      (tester) async {
+    final completer = Completer<InviteFriendsData>();
+    await tester.pumpWidget(_app(
+      loadCached: () async => _data,
+      load: () => completer.future,
+    ));
+    await tester.pump();
+    expect(find.text(_data.code), findsOneWidget);
+    expect(find.text('جارٍ تجهيز كود دعوتك ومكافآتك…'), findsNothing);
+    completer.complete(_data);
+    await tester.pumpAndSettle();
+  });
 }

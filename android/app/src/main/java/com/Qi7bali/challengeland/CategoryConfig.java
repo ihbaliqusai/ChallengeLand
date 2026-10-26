@@ -19,7 +19,9 @@ public final class CategoryConfig {
     private static final Set<String> FREE_CATEGORIES = new HashSet<>(Arrays.asList(
             "جغرافيا", "حيوانات", "دين واسلاميات", "عواصم", "دول", "اختراعات", "عملات", "لغة وادب"));
     private static final Set<String> NO_AD_CATEGORIES = new HashSet<>(Arrays.asList(
-            "أنمي", "مسلسل Friends", "مسلسلات أجنبية", "مسلسلات عربية", "أفلام أجنبية", "أفلام عربية", "سبيس تون"));
+            "أنمي", "مسلسل Friends", "مسلسلات أجنبية", "مسلسلات عربية", "أفلام أجنبية", "أفلام عربية", "سبيس تون",
+            "باب الحارة", "Game Of Thrones", "Breaking Bad", "Harry Potter", "Pokémon", "Demon Slayer",
+            "Hunter × Hunter", "One Piece", "Attack on Titan", "Naruto"));
 
     public static boolean allowsAd(String category) {
         if (isCoreFree(category)) return false;
@@ -50,10 +52,14 @@ public final class CategoryConfig {
             "مسلسل Friends",
             "مسلسلات أجنبية",
             "مسلسلات عربية",
-            "وضح شوي"
-            , "معلومات عامة", "تاريخ", "رياضة", "علوم وفضاء", "ألغاز", "أمثال",
+            "وضح شوي",
+            "معلومات عامة", "تاريخ", "رياضة", "علوم وفضاء", "ألغاز", "أمثال",
             "تقنية", "جسم الإنسان", "نباتات", "لغات", "صحة", "طعام وشراب", "سياحة وسفر",
-            "سيرة ذاتية", "قصص الأنبياء", "منوعات"
+            "سيرة ذاتية", "قصص الأنبياء", "منوعات",
+            "دوري أبطال أوروبا", "NBA", "بنات وبس", "باب الحارة", "مسلسلات تركية",
+            "دراما خليجية", "دراما سورية", "دراما مصرية", "Game Of Thrones", "Breaking Bad",
+            "Harry Potter", "Pokémon", "Demon Slayer", "Hunter × Hunter", "One Piece",
+            "Attack on Titan", "Naruto"
     )));
 
     public static boolean isPremium(String rawCategory) {
@@ -78,7 +84,9 @@ public final class CategoryConfig {
                 .replace("إ", "ا")
                 .replace("آ", "ا")
                 .replace("ة", "ه")
-                .replace("ى", "ي");
+                .replace("ى", "ي")
+                .replace("é", "e")
+                .replace("×", "x");
         normalized = normalized.replaceAll("\\s+", " ").toLowerCase(java.util.Locale.ROOT);
         return normalized.equals("الانمي") || normalized.equals("الانيمي") || normalized.equals("انيمي") ? "انمي" : normalized;
     }

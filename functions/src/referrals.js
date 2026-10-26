@@ -46,13 +46,33 @@ function credit(user, grant) {
 function createReferralService({ db, lookupAccount, now = Date.now,
   makeCode = () => `CL-${randomBytes(6).toString("hex").toUpperCase()}` }) {
   async function ensureAccount(uid, installationHash, at) {
+    const accountRef = db.doc(`referral_accounts/${uid}`);
+    const existingAccountDoc = await accountRef.get();
+    if (existingAccountDoc.exists) {
+      const userRef = db.doc(`users/${uid}`);
+      const deviceRef = installationHash ? db.doc(`referral_devices/${installationHash}`) : null;
+      const [userDoc, deviceDoc] = await Promise.all([
+        userRef.get(),
+        deviceRef ? deviceRef.get() : Promise.resolve(null),
+      ]);
+      if (deviceRef && !deviceDoc?.exists) {
+        try { await db.runTransaction(async tx => {
+          const freshDev = await tx.get(deviceRef);
+          if (!freshDev.exists) tx.set(deviceRef, { firstUid: uid, createdAt: at });
+        }); } catch (_) {}
+      }
+      return {
+        account: existingAccountDoc.data(),
+        user: userDoc.data() || {},
+        deviceAvailable: !deviceDoc?.exists || deviceDoc.data().firstUid === uid,
+      };
+    }
     // A separate, bounded code-allocation transaction makes a rare collision
     // retry safe, including when Firestore retries a transaction callback.
     for (let attempt = 0; attempt < 8; attempt++) {
       const candidate = makeCode();
       if (!/^CL-[A-F0-9]{12}$/.test(candidate)) throw new Error("Invalid generated referral code");
       const result = await db.runTransaction(async tx => {
-        const accountRef = db.doc(`referral_accounts/${uid}`);
         const accountDoc = await tx.get(accountRef);
         const candidateRef = db.doc(`referral_codes/${candidate}`);
         const candidateDoc = accountDoc.exists ? null : await tx.get(candidateRef);

@@ -1,0 +1,27 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="28dp"
+    android:height="28dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Coin Shadow / Outer Rim -->
+    <path
+        android:fillColor="#FFB45309"
+        android:pathData="M12,12m-10.5,0a10.5,10.5 0,1,1 21,0a10.5,10.5 0,1,1 -21,0" />
+    <!-- Coin Face -->
+    <path
+        android:fillColor="#FFFBBF24"
+        android:pathData="M12,11.5m-9.5,0a9.5,9.5 0,1,1 19,0a9.5,9.5 0,1,1 -19,0" />
+    <!-- Inner Rim -->
+    <path
+        android:strokeColor="#FFD97706"
+        android:strokeWidth="1.2"
+        android:pathData="M12,11.5m-7.5,0a7.5,7.5 0,1,1 15,0a7.5,7.5 0,1,1 -15,0" />
+    <!-- Star in Center -->
+    <path
+        android:fillColor="#FFFFFBEB"
+        android:pathData="M12,7 L13.3,10 L16.5,10.2 L14,12.3 L14.8,15.4 L12,13.7 L9.2,15.4 L10,12.3 L7.5,10.2 L10.7,10 Z" />
+    <!-- Specular Crescent Shine -->
+    <path
+        android:fillColor="#44FFFFFF"
+        android:pathData="M5,11.5 C5,7.5 8,4 12,3.5 C9,4.5 7,7.5 7,11.5 C7,14 8,16 9.5,17.5 C6.8,16 5,14 5,11.5 Z" />
+</vector>

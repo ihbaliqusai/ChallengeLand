@@ -9,7 +9,7 @@ class AppSettings extends ChangeNotifier {
 
   bool loading = true;
   bool sfx = true;
-  bool music = true;
+  bool music = false;
   bool haptic = true;
   bool hapticAvailable = true;
   bool notifications = true;
@@ -104,7 +104,7 @@ class AppSettings extends ChangeNotifier {
   Future<void> _refreshFromNative({bool notify = true}) async {
     final settings = await _nativeBridgeService.getSettings();
     sfx = settings['sfx'] as bool? ?? true;
-    music = settings['music'] as bool? ?? true;
+    music = settings['music'] as bool? ?? false;
     haptic = settings['haptic'] as bool? ?? true;
     hapticAvailable = settings['hapticAvailable'] as bool? ?? true;
     notifications = settings['notifications'] as bool? ?? true;

@@ -13,25 +13,12 @@ their existing behavior.
 
 ## Referral invitation hero
 
-`invite_friends_hero.png` was created for the invitation screen with the built-in
-image generation tool, in transparent PNG format (1536 × 1024). It is bundled
-locally and contains no labels or controls; Flutter supplies all live text.
+`invite_friends_hero.png` is the user-supplied image from
+`C:\Users\Qusai\Downloads\New folder (4)\1.png`, copied unchanged on
+26 October 2026. It replaces the earlier animal illustration with three human
+friends and preserves the original 2528 × 1686 pixels and transparency.
 
-Final generation prompt:
-
-> Use case: illustration-story. Asset type: polished mobile cartoon game
-> invite-friends hero, landscape 3:2 composition, transparent PNG. Primary
-> request: three cheerful original cartoon animal friends shoulder-to-shoulder
-> enthusiastically inviting the viewer to play a colorful mobile quiz game.
-> A smiling peach pink pig in white shirt on left holding a blue smartphone,
-> happy grey wolf in turquoise jacket in center holding smartphone and raising
-> fist, friendly bright green crocodile on right holding smartphone. Big
-> expressive eyes and joyful broad smiles. Bold clean dark purple outlines,
-> smooth cel shading, playful premium casual mobile game illustration.
-> Scene/backdrop: genuinely transparent background, a few small gold sparkles
-> and turquoise swooshes behind the characters only. Composition: waist-up trio,
-> silhouettes overlap in a cohesive group, entire heads and hands visible with
-> generous padding, no cropping. Warm celebratory lighting. Palette: turquoise,
-> purple, gold, peach and emerald. Constraints: artwork only, no text, no buttons,
-> no social network logos, no Facebook branding, no watermark, no rectangular
-> background, no UI. Must read well against a deep purple game screen.
+The screen fits the complete illustration above the invitation button, using
+its original aspect ratio and a height limit that keeps the main actions
+visible in landscape. Portrait sizing follows the available width. The artwork
+dimension registry lets Flutter decode it near its display size.

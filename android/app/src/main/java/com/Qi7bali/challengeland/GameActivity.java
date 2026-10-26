@@ -387,7 +387,7 @@ public class GameActivity extends GameViewportActivity implements ProgressionMat
             EXITING = false,
             ACTIVITY_PAUSED = false,
             SOUND_ON = true,
-            MUSIC_ON = true,
+            MUSIC_ON = false,
             campaignMode = false,
             campaignResultPersisted = false,
             modeOnline = false,
@@ -495,7 +495,6 @@ public class GameActivity extends GameViewportActivity implements ProgressionMat
     private CountDownTimer boardSelectTimer;
     private TextView boardSelectCountdownView;
     private boolean categorySelectMusicPlaying = false;
-    private boolean questionMusicStarted = false;
 
     // ---- Board typed-answer mode (human turn) ----
     // The human types the answer for full value; revealing the four options first
@@ -731,6 +730,73 @@ public class GameActivity extends GameViewportActivity implements ProgressionMat
     float scoreboardNameTextSp = 8f;
     float scoreboardValueTextSp = 14f;
 
+    private void setupMatchSplitDoorsEntranceTransition() {
+        if (!getIntent().getBooleanExtra("openSplitDoorsTransition", false)) {
+            return;
+        }
+
+        try {
+            final ViewGroup decor = (ViewGroup) getWindow().getDecorView();
+            final FrameLayout wipeOverlay = new FrameLayout(this);
+            wipeOverlay.setLayoutParams(new ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            wipeOverlay.setClickable(true);
+            wipeOverlay.setFocusable(false);
+
+            final ImageView splitLeft = new ImageView(this);
+            splitLeft.setLayoutParams(new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            splitLeft.setScaleType(ImageView.ScaleType.FIT_XY);
+            splitLeft.setImageResource(R.drawable.bg_split_left_purple);
+
+            final ImageView splitRight = new ImageView(this);
+            splitRight.setLayoutParams(new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            splitRight.setScaleType(ImageView.ScaleType.FIT_XY);
+            splitRight.setImageResource(R.drawable.bg_split_right_orange);
+
+            wipeOverlay.addView(splitLeft);
+            wipeOverlay.addView(splitRight);
+            decor.addView(wipeOverlay);
+
+            final Runnable safetyCleanup = () -> {
+                try {
+                    decor.removeView(wipeOverlay);
+                } catch (Exception ignored) {}
+            };
+            decor.postDelayed(safetyCleanup, 2500);
+
+            decor.post(() -> {
+                if (isFinishing() || isDestroyed()) {
+                    decor.removeView(wipeOverlay);
+                    return;
+                }
+                decor.postDelayed(() -> {
+                    if (isFinishing() || isDestroyed()) {
+                        decor.removeView(wipeOverlay);
+                        return;
+                    }
+                    final int screenW = Math.max(1200, getResources().getDisplayMetrics().widthPixels) + 160;
+                    splitLeft.animate()
+                            .translationX(-screenW)
+                            .setDuration(400)
+                            .setInterpolator(new AccelerateInterpolator(2.0f))
+                            .start();
+
+                    splitRight.animate()
+                            .translationX(screenW)
+                            .setDuration(400)
+                            .setInterpolator(new AccelerateInterpolator(2.0f))
+                            .withEndAction(() -> {
+                                decor.removeCallbacks(safetyCleanup);
+                                decor.removeView(wipeOverlay);
+                            })
+                            .start();
+                }, 80);
+            });
+        } catch (Exception ignored) {}
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         supportRequestWindowFeature(Window.FEATURE_NO_TITLE);
@@ -761,6 +827,7 @@ public class GameActivity extends GameViewportActivity implements ProgressionMat
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_HIDE_NAVIGATION);
         setContentView(R.layout.activity_game);
         if (getSupportActionBar() != null) getSupportActionBar().hide();
+        setupMatchSplitDoorsEntranceTransition();
         backgroundVideoController = new GameBackgroundVideoController(this, R.id.gameBackgroundVideo, R.raw.bkgame);
         backgroundVideoController.setup();
         soundController = new GameSoundController(this);
@@ -1485,6 +1552,10 @@ public class GameActivity extends GameViewportActivity implements ProgressionMat
         MUSIC_ON = AppPrefs.isMusicEnabled(this);
         applyVolumeUi();
 
+        if (categorySelectMusicPlaying && MUSIC_ON && !EXITING && !backgroundParticipationEnded) {
+            playSound(R.raw.main_theme_320bit_chosic, false, true);
+        }
+
         if (mpBeep == null) {
             try { mpBeep = MediaPlayer.create(this, R.raw.beep); } catch (Exception ignored) {}
         }
@@ -1524,6 +1595,8 @@ public class GameActivity extends GameViewportActivity implements ProgressionMat
                     txtProgress.setText(String.valueOf(pbText));
                 }
                 startTimer(false);
+                if (CAN_PLAY && isQuestionTimerRunning && !EXITING
+                        && !backgroundParticipationEnded) playQuestionMusic();
             }
         }
 
@@ -4073,9 +4146,11 @@ public class GameActivity extends GameViewportActivity implements ProgressionMat
     }
 
     private void playQuestionMusic() {
-        if (questionMusicStarted) return;
-        questionMusicStarted = true;
-        playSound(R.raw.s_1000000, true, true);
+        categorySelectMusicPlaying = false;
+        int resource = boardMode
+                ? GameAudioProfile.boardQuestionMusic(currentBoardCellValue())
+                : GameAudioProfile.questionMusic(currentQuestion);
+        playSound(resource, true, true);
     }
 
     private void showCategorySelect() {
@@ -8052,8 +8127,8 @@ public class GameActivity extends GameViewportActivity implements ProgressionMat
         if (boardLocalTeams && offlineContestants != null) {
             offlineContestants.setLocalTeamsActiveQuestionSlot(boardPickerSlot);
         }
-        playQuestionMusic();
         boardCurrentQuestion = question;
+        playQuestionMusic();
         bindBoardQuestionVisual(question);
         applyQuestionTextSize(question.Q);
 

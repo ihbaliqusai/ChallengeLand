@@ -3,19 +3,22 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const { MemoryFirestore } = require("./memory-firestore");
-const { createEconomyService, WHEEL_PRIZES, WHEEL_CHARACTERS } = require("../src/economy");
+const { sha256 } = require("../src/domain");
+const { createEconomyService, WHEEL_PRIZES, WHEEL_PRIZES_V2, WHEEL_CHARACTERS } = require("../src/economy");
 
-function setup(prizeIndex = 0, user = {}) {
+function setup(prizeIndex = 0, user = {}, catalogVersion = 1) {
   const db = new MemoryFirestore();
   let time = Date.UTC(2026, 9, 25, 12);
   let selections = 0;
   const service = createEconomyService({ db, now: () => time, randomInt: max => {
     selections++;
-    return max === WHEEL_PRIZES.length && selections === 1 ? prizeIndex : 0;
+    const catalogLength = catalogVersion === 2 ? WHEEL_PRIZES_V2.length : WHEEL_PRIZES.length;
+    return max === catalogLength && (catalogVersion === 2 || selections === 1) ? prizeIndex : 0;
   } });
   db.seed("users/player", { coins: 100, gems: 5, username: "Player", ...user });
   return { db, call: input => service.execute("player", input),
-    spin: operationId => service.execute("player", { action: "spinWheel", operationId }),
+    spin: operationId => service.execute("player", { action: "spinWheel", operationId,
+      ...(catalogVersion === 2 ? { wheelCatalogVersion: 2 } : {}) }),
     at: () => time, advance: milliseconds => { time += milliseconds; },
     selections: () => selections };
 }
@@ -214,4 +217,116 @@ test("wheel operation IDs retain the economy account and payload checks", async 
   await assert.rejects(x.call({ action: "spinWheel" }), { code: "invalid-argument" });
   await x.spin("payload_bound");
   await assert.rejects(x.call({ action: "buy", operationId: "payload_bound", offerId: "keys_1", currency: "coins" }), { code: "already-exists" });
+});
+
+test("v2 discloses twelve equal sectors and delivers every displayed quantity", async () => {
+  for (let index = 0; index < WHEEL_PRIZES_V2.length; index++) {
+    const x = setup(index, {}, 2);
+    const before = (await x.call({ action: "state" })).state;
+    assert.equal(before.wheelCatalogVersion, 2);
+    assert.equal(before.wheelCharacterIndex, WHEEL_CHARACTERS[0]);
+    assert.equal(before.wheelPrizesV2.length, 12);
+    assert.equal(before.wheelPrizesV2.reduce((sum, prize) => sum + prize.probabilityNumerator, 0), 12);
+    assert.ok(before.wheelPrizesV2.every(prize => prize.probabilityDenominator === 12));
+    const result = await x.spin(`varied_sector_${index}`);
+    const prize = WHEEL_PRIZES_V2[index];
+    assert.equal(result.spin.catalogVersion, 2);
+    assert.equal(result.spin.prizeIndex, index);
+    assert.equal(result.spin.prizeId, prize.id);
+    assert.deepEqual(result.spin.grants, prize.grants);
+    assert.equal(result.spin.probabilityNumerator, 1);
+    assert.equal(result.spin.probabilityDenominator, 12);
+    assert.deepEqual(before.wheelPrizesV2[index], {
+      id: prize.id, index, grants: prize.grants,
+      probabilityNumerator: 1, probabilityDenominator: 12,
+    });
+    assert.equal(result.state.keys - before.keys, prize.grants.keys || 0);
+    assert.equal(result.state.tickets - before.tickets, prize.grants.tickets || 0);
+    assert.equal(result.currency.coins, 100 + (prize.grants.coins || 0));
+    assert.equal(result.currency.gems, 5 + (prize.grants.gems || 0));
+  }
+});
+
+test("v2 category chances and chest contents match the advertised twelve slots", async () => {
+  const x = setup(5, {}, 2);
+  const state = (await x.call({ action: "state" })).state;
+  const counts = {};
+  for (const prize of state.wheelPrizesV2) {
+    const kind = prize.id.split("_")[0];
+    counts[kind] = (counts[kind] || 0) + prize.probabilityNumerator;
+  }
+  assert.deepEqual(counts, { keys: 2, tickets: 2, coins: 3, gems: 3, character: 1, chest: 1 });
+  const chest = state.wheelPrizesV2.find(prize => prize.id === "chest");
+  assert.deepEqual(chest.grants, { coins: 1000, gems: 20, keys: 2, tickets: 2 });
+  assert.deepEqual((await x.spin("chest_contents")).spin.grants, chest.grants);
+});
+
+test("v2 grants the previewed unowned character and then advances its replacement", async () => {
+  const x = setup(4, { purchasedCharacters: [WHEEL_CHARACTERS[0]] }, 2);
+  const before = (await x.call({ action: "state" })).state;
+  x.db.seed("economy_accounts/player", { ...x.db.read("economy_accounts/player"), wheelSpins: 2 });
+  assert.equal(before.wheelCharacterIndex, WHEEL_CHARACTERS[1]);
+  for (let offset = 1; offset < 4; offset++) {
+    const result = await x.spin(`new_character_${offset}`);
+    assert.equal(result.spin.characterIndex, WHEEL_CHARACTERS[offset]);
+    assert.equal(result.spin.compensation, false);
+    assert.equal(result.state.wheelCharacterIndex, WHEEL_CHARACTERS[offset + 1]);
+    assert.deepEqual(result.purchasedCharacters, WHEEL_CHARACTERS.slice(0, offset + 1));
+    const retry = await x.spin(`new_character_${offset}`);
+    assert.equal(retry.spin.characterIndex, WHEEL_CHARACTERS[offset]);
+    assert.equal(retry.state.wheelCharacterIndex, WHEEL_CHARACTERS[offset + 1]);
+    assert.equal(retry.state.wheelSpins, result.state.wheelSpins);
+  }
+});
+
+test("v2 does not repeat legacy string character unlocks and compensates a complete roster", async () => {
+  const x = setup(4, { purchasedCharacters: ["2", 4, "bad", -1, 20, 4] }, 2);
+  assert.equal((await x.call({ action: "state" })).state.wheelCharacterIndex, WHEEL_CHARACTERS[2]);
+  const result = await x.spin("legacy_character_unlocks");
+  assert.equal(result.spin.characterIndex, WHEEL_CHARACTERS[2]);
+  assert.deepEqual(result.purchasedCharacters, WHEEL_CHARACTERS.slice(0, 3));
+  const full = setup(4, { purchasedCharacters: WHEEL_CHARACTERS.map(String) }, 2);
+  assert.equal((await full.call({ action: "state" })).state.wheelCharacterIndex, null);
+  const compensation = await full.spin("full_v2_roster");
+  assert.equal(compensation.spin.characterIndex, null);
+  assert.equal(compensation.spin.compensation, true);
+  assert.equal(compensation.state.wheelCharacterIndex, null);
+  assert.deepEqual(compensation.spin.grants, { gems: 100 });
+  assert.equal(compensation.currency.gems, 105);
+});
+
+test("an outstanding pre-v2 receipt survives catalog upgrade without another debit or grant", async () => {
+  const x = setup(2);
+  const first = await x.spin("legacy_pending");
+  const path = `economy_accounts/player/operations/${sha256("legacy_pending")}`;
+  const oldReceipt = x.db.read(path);
+  delete oldReceipt.result.spin.catalogVersion;
+  delete oldReceipt.result.spin.probabilityNumerator;
+  delete oldReceipt.result.spin.probabilityDenominator;
+  x.db.seed(path, oldReceipt);
+  const replay = await x.call({ action: "spinWheel", operationId: "legacy_pending", wheelCatalogVersion: 2 });
+  assert.equal(replay.spin.newlyGranted, false);
+  assert.equal(replay.spin.prizeId, first.spin.prizeId);
+  assert.deepEqual(replay.spin.grants, first.spin.grants);
+  assert.deepEqual(replay.currency, first.currency);
+  assert.equal(replay.state.wheelSpins, 0);
+  assert.equal(x.selections(), 1);
+  await assert.rejects(x.call({ action: "spinWheel", operationId: "legacy_pending",
+    wheelCatalogVersion: 2, grants: { gems: 9999 } }), { code: "already-exists" });
+});
+
+test("legacy clients retain their six-sector draw and random unowned character behavior", async () => {
+  const db = new MemoryFirestore();
+  const draws = [];
+  const service = createEconomyService({ db, now: () => Date.UTC(2026, 9, 26), randomInt: max => {
+    draws.push(max);
+    return max === WHEEL_PRIZES.length ? 4 : max - 1;
+  } });
+  db.seed("users/old_client", { coins: 10, gems: 0 });
+  const result = await service.execute("old_client", { action: "spinWheel", operationId: "old_client_draw" });
+  assert.deepEqual(draws, [6, 8]);
+  assert.equal(result.spin.catalogVersion, 1);
+  assert.equal(result.spin.probabilityDenominator, 6);
+  assert.equal(result.spin.characterIndex, WHEEL_CHARACTERS.at(-1));
+  assert.equal(result.state.wheelCharacterIndex, WHEEL_CHARACTERS[0]);
 });

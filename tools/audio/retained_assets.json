@@ -1,0 +1,18 @@
+[
+  {
+    "file": "drum1.mp3",
+    "role": "صوت الترقب السابق قبل كشف الإجابة",
+    "durationSeconds": 12.61,
+    "sampleRate": 44100,
+    "channels": 2,
+    "bytes": 83579,
+    "sha256": "938b05161304bbb2fc40514faa7b9822ce1191f5d5dfac9653cc0d64cc2c7fd8",
+    "sources": [],
+    "originalProceduralDesign": false,
+    "licenseStatus": "unverified",
+    "sourceStatus": "restored-previous-recording",
+    "restoredFrom": "tools/backup_audio/originals/drum1.mp3",
+    "restoredAt": "2026-10-26",
+    "reason": "Restored at the publisher's explicit request; no new license evidence supplied."
+  }
+]

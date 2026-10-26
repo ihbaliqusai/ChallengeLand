@@ -1,12 +1,20 @@
 package com.qi7bali.landchallengeonline;
 
-
+import android.animation.ValueAnimator;
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.media.MediaPlayer;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
 import android.view.View;
 import android.view.WindowManager;
+import android.view.animation.AccelerateInterpolator;
+import android.view.animation.DecelerateInterpolator;
+import android.view.animation.OvershootInterpolator;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -22,6 +30,7 @@ import org.json.JSONObject;
 import java.util.Random;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.Locale;
 
 public class OpponentActivity extends GameViewportActivity {
 
@@ -33,6 +42,8 @@ public class OpponentActivity extends GameViewportActivity {
     boolean launchingGame = false;
     private boolean resolvingOpponent = false;
     private boolean closed = false;
+    private boolean audioPaused = false;
+    private MediaPlayer matchmakingSound;
     private String duelSessionId = "";
     private String stakeMatchId = "";
     private boolean stakeCancelling = false;
@@ -57,7 +68,20 @@ public class OpponentActivity extends GameViewportActivity {
 
     ImageView imgPhoto1, imgPhoto2, imgPhoto21, imgPhoto22;
     TextView txtOpponent1, txtOpponent2, txtLevel1, txtLevel2, txtStatus;
-    Button btnCancel;
+    View btnCancel;
+
+    MatchmakingVersusBadgeView vsBadgeView;
+    View cardPlayer, cardOpponent;
+    ImageView imgPlayerFrameOverlay, imgOpponentFrameOverlay;
+    ImageView imgSearchBackground, imgSplitLeft, imgSplitRight;
+    View layoutArena;
+    ImageView imgSearchGlass, imgPlayerFlag, imgOpponentFlag;
+    TextView txtPlayerSubtitle, txtOpponentSubtitle;
+    View layoutPlayerTrophy, layoutOpponentTrophy;
+    private ValueAnimator searchGlassAnim;
+    private ValueAnimator statusPulseAnim;
+    private final Handler shuffleHandler = new Handler();
+    private Runnable shuffleRunnable;
 
     private final Handler matchmakingHandler = new Handler();
     private Runnable matchmakingRunnable;
@@ -75,10 +99,17 @@ public class OpponentActivity extends GameViewportActivity {
             finish();
             return;
         }
+        GameViewportActivity.configureWindow(getWindow());
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
                 WindowManager.LayoutParams.FLAG_FULLSCREEN);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_HIDE_NAVIGATION);
+        getWindow().getDecorView().setSystemUiVisibility(
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                        | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                        | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                        | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                        | View.SYSTEM_UI_FLAG_FULLSCREEN
+                        | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
         setContentView(R.layout.activity_opponent);
 
         imgPhoto1 = findViewById(R.id.imgPhoto1);
@@ -91,6 +122,28 @@ public class OpponentActivity extends GameViewportActivity {
         txtLevel2 = findViewById(R.id.txtLevel2);
         txtStatus = findViewById(R.id.txtStatus);
         btnCancel = findViewById(R.id.btnCancel);
+
+        imgSearchBackground = findViewById(R.id.imgSearchBackground);
+        imgSplitLeft = findViewById(R.id.imgSplitLeft);
+        imgSplitRight = findViewById(R.id.imgSplitRight);
+        if (imgSplitLeft != null) imgSplitLeft.setVisibility(View.INVISIBLE);
+        if (imgSplitRight != null) imgSplitRight.setVisibility(View.INVISIBLE);
+
+        vsBadgeView = findViewById(R.id.vsBadgeView);
+        cardPlayer = findViewById(R.id.cardPlayer);
+        cardOpponent = findViewById(R.id.cardOpponent);
+        layoutArena = findViewById(R.id.layoutArena);
+        imgPlayerFrameOverlay = findViewById(R.id.imgPlayerFrameOverlay);
+        imgOpponentFrameOverlay = findViewById(R.id.imgOpponentFrameOverlay);
+        imgSearchGlass = findViewById(R.id.imgSearchGlass);
+        imgPlayerFlag = findViewById(R.id.imgPlayerFlag);
+        imgOpponentFlag = findViewById(R.id.imgOpponentFlag);
+        txtPlayerSubtitle = findViewById(R.id.txtPlayerSubtitle);
+        txtOpponentSubtitle = findViewById(R.id.txtOpponentSubtitle);
+        layoutPlayerTrophy = findViewById(R.id.layoutPlayerTrophy);
+        layoutOpponentTrophy = findViewById(R.id.layoutOpponentTrophy);
+
+        btnCancel.setVisibility(View.VISIBLE);
         btnCancel.setOnClickListener(v -> {
             if (!stakeMatchId.isEmpty()) { leaveStakeIntro(); return; }
             if (!randomStakeId.isEmpty()) { cancelRandomSearch(); return; }
@@ -145,12 +198,24 @@ public class OpponentActivity extends GameViewportActivity {
 
         txtOpponent1.setText(userName);
         Data.setImageSource(this, imgPhoto1, userPhoto);
-        txtLevel1.setText(String.valueOf(userLevel));
+
+        int myTrophies = PlayerStats.getTrophies(this);
+        if (myTrophies <= 0) myTrophies = userScore;
+        if (myTrophies <= 0) myTrophies = 50;
+        txtLevel1.setText(String.format(Locale.getDefault(), "%,d", myTrophies));
+
+        if (txtPlayerSubtitle != null) {
+            txtPlayerSubtitle.setText("أنت  •  المستوى " + userLevel);
+        }
+
+        setupPlayerFlag();
+        setupStakeBanner();
+        startStatusPulseAnimation();
+        startMagnifyingGlassSearchAnimation();
 
         Data.syncUserProfile(userID, userName, userPhoto, userLevel, userScore);
         Data.setUserActive(userID);
 
-        scheduleCancelButton();
         startBrowsingOpponents();
         if (!stakeMatchId.isEmpty()) {
             requestAccepted = true;
@@ -532,106 +597,383 @@ public class OpponentActivity extends GameViewportActivity {
         matchmakingHandler.postDelayed(matchmakingRunnable, 2000);
     }
 
+    private void setupPlayerFlag() {
+        try {
+            if (imgPlayerFlag == null) return;
+            String country = DeviceCountry.getCountryCode(this);
+            int flag = R.drawable.ic_flag_palestine;
+            if ("SA".equalsIgnoreCase(country)) flag = R.drawable.ic_flag_saudi;
+            else if ("EG".equalsIgnoreCase(country)) flag = R.drawable.ic_flag_egypt;
+            imgPlayerFlag.setImageResource(flag);
+            imgPlayerFlag.setVisibility(View.VISIBLE);
+        } catch (Exception ignored) {}
+    }
+
+    private void setupOpponentFlag() {
+        try {
+            if (imgOpponentFlag == null) return;
+            int[] flagDrawables = {
+                    R.drawable.ic_flag_palestine,
+                    R.drawable.ic_flag_saudi,
+                    R.drawable.ic_flag_egypt
+            };
+            int flag = flagDrawables[(new Random()).nextInt(flagDrawables.length)];
+            imgOpponentFlag.setImageResource(flag);
+            imgOpponentFlag.setVisibility(View.VISIBLE);
+        } catch (Exception ignored) {}
+    }
+
+    private void setupStakeBanner() {
+        // Bottom stake banner removed per user request
+    }
+
+    private void startStatusPulseAnimation() {
+        if (txtStatus == null) return;
+        if (statusPulseAnim != null) statusPulseAnim.cancel();
+        statusPulseAnim = ValueAnimator.ofFloat(0.65f, 1.0f);
+        statusPulseAnim.setDuration(900);
+        statusPulseAnim.setRepeatCount(ValueAnimator.INFINITE);
+        statusPulseAnim.setRepeatMode(ValueAnimator.REVERSE);
+        statusPulseAnim.addUpdateListener(anim -> {
+            if (!launchingGame && txtStatus != null) {
+                txtStatus.setAlpha((float) anim.getAnimatedValue());
+            }
+        });
+        statusPulseAnim.start();
+    }
+
+    private void startMagnifyingGlassSearchAnimation() {
+        if (imgSearchGlass == null) return;
+        if (searchGlassAnim != null) searchGlassAnim.cancel();
+        searchGlassAnim = ValueAnimator.ofFloat(0f, 1f);
+        searchGlassAnim.setDuration(1100);
+        searchGlassAnim.setRepeatCount(ValueAnimator.INFINITE);
+        searchGlassAnim.setRepeatMode(ValueAnimator.REVERSE);
+        searchGlassAnim.addUpdateListener(anim -> {
+            if (!launchingGame && imgSearchGlass != null) {
+                float f = (float) anim.getAnimatedValue();
+                imgSearchGlass.setScaleX(0.92f + 0.16f * f);
+                imgSearchGlass.setScaleY(0.92f + 0.16f * f);
+                imgSearchGlass.setRotation(-8f + 16f * f);
+            }
+        });
+        searchGlassAnim.start();
+    }
+
+    private void playSoundEffect(int rawResId) {
+        try {
+            if (audioPaused || closed || isFinishing() || isDestroyed()
+                    || !AppPrefs.isSoundEnabled(this)) return;
+            stopMatchmakingSound();
+            MediaPlayer player = MediaPlayer.create(this, rawResId);
+            if (player != null) {
+                matchmakingSound = player;
+                float gain = GameAudioProfile.effectVolume(rawResId);
+                player.setVolume(gain, gain);
+                player.setOnCompletionListener(completed -> {
+                    if (matchmakingSound == completed) matchmakingSound = null;
+                    GameSoundController.release(completed);
+                });
+                player.setOnErrorListener((failed, what, extra) -> {
+                    if (matchmakingSound == failed) matchmakingSound = null;
+                    GameSoundController.release(failed);
+                    return true;
+                });
+                player.start();
+            }
+        } catch (Exception ignored) { stopMatchmakingSound(); }
+    }
+
+    private void stopMatchmakingSound() {
+        MediaPlayer player = matchmakingSound;
+        matchmakingSound = null;
+        GameSoundController.release(player);
+    }
+
+    private void playOpponentFoundSound() {
+        playSoundEffect(R.raw.match_opponent_found);
+    }
+
+    private void playVersusSlamSound() {
+        playSoundEffect(R.raw.match_versus_slam);
+    }
+
+    private void performHapticImpact() {
+        try {
+            if (!AppPrefs.isHapticEnabled(this)) return;
+            Vibrator v = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+            if (v != null && v.hasVibrator()) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    v.vibrate(VibrationEffect.createOneShot(70, VibrationEffect.DEFAULT_AMPLITUDE));
+                } else {
+                    v.vibrate(70);
+                }
+            }
+        } catch (Exception ignored) {}
+    }
+
     private void startBrowsingOpponents() {
-        final int margin = 180;
-        final int duration = 500;
-
         browsingOpponents = true;
+        final int duration = 150;
 
-        setRandomOpponentImage(imgPhoto21, 14);
-        Animations.animOpponent(imgPhoto21, duration, margin);
-
-        final Handler handler = new Handler();
-        Runnable runnable = new Runnable() {
-            boolean photo1 = true;
+        shuffleRunnable = new Runnable() {
+            private boolean toggle = false;
 
             @Override
             public void run() {
-                if (browsingOpponents) {
-                    if (photo1) {
-                        setRandomOpponentImage(imgPhoto22, 14);
-                        Animations.animOpponent(imgPhoto22, duration, margin);
-                        photo1 = false;
-                    } else {
-                        setRandomOpponentImage(imgPhoto21, 14);
-                        Animations.animOpponent(imgPhoto21, duration, margin);
-                        photo1 = true;
-                    }
-                    handler.postDelayed(this, duration / 2);
-                }
+                if (!browsingOpponents || closed || isFinishing()) return;
+                ImageView activeView = toggle ? imgPhoto21 : imgPhoto22;
+                ImageView inactiveView = toggle ? imgPhoto22 : imgPhoto21;
+                setRandomOpponentImage(activeView, 14);
+
+                activeView.setAlpha(0f);
+                activeView.setTranslationY(16f);
+                activeView.setVisibility(View.VISIBLE);
+                activeView.animate().alpha(1f).translationY(0f).setDuration(duration).start();
+
+                inactiveView.animate().alpha(0f).translationY(-16f).setDuration(duration)
+                        .withEndAction(() -> inactiveView.setVisibility(View.INVISIBLE)).start();
+
+                toggle = !toggle;
+                shuffleHandler.postDelayed(this, duration);
             }
         };
-        handler.postDelayed(runnable, duration / 2);
+        shuffleHandler.post(shuffleRunnable);
+    }
+
+    /**
+     * Exact 4-stage visual & auditory transition matching 1.mp4:
+     * Stage 1 (0ms): Chime audio, cancel/glass pop away, opponent card collapses to small glowing square (frame_012).
+     * Stage 2 (140ms): Opponent revealed with double magenta frame, zooms forward with punchy overshoot (frame_013), trophy pill pops.
+     * Stage 3 (480ms): Sword slash & impact slam sound, diagonal split screen sweeps in, comic golden 3D VS explodes with speed slashes (frame_014).
+     * Stage 4 (1900ms): Showdown hold and seamless launch into GameActivity.
+     */
+    private void playOpponentFoundTransition(String oppName, String oppPhoto, int oppLevel, int oppScore, boolean isBot, Runnable onFinish) {
+        browsingOpponents = false;
+        shuffleHandler.removeCallbacksAndMessages(null);
+
+        // Stage 1 (t = 0ms):
+        // 1. Hide cancel button smoothly
+        if (btnCancel != null) {
+            btnCancel.animate().alpha(0f).scaleX(0.7f).scaleY(0.7f).setDuration(160)
+                    .withEndAction(() -> btnCancel.setVisibility(View.GONE)).start();
+        }
+
+        // 2. Stop and pop magnifying glass
+        if (searchGlassAnim != null) {
+            searchGlassAnim.cancel();
+            searchGlassAnim = null;
+        }
+        if (imgSearchGlass != null) {
+            imgSearchGlass.animate().scaleX(0f).scaleY(0f).alpha(0f).setDuration(150)
+                    .withEndAction(() -> imgSearchGlass.setVisibility(View.GONE)).start();
+        }
+
+        // 3. Status text celebration bounce
+        if (statusPulseAnim != null) {
+            statusPulseAnim.cancel();
+            statusPulseAnim = null;
+        }
+        if (txtStatus != null) {
+            txtStatus.setText("تم العثور على منافس!");
+            txtStatus.setTextColor(0xFFFFE600);
+            txtStatus.setAlpha(1f);
+            txtStatus.setScaleX(0.6f);
+            txtStatus.setScaleY(0.6f);
+            txtStatus.animate().scaleX(1.15f).scaleY(1.15f).setDuration(260)
+                    .setInterpolator(new OvershootInterpolator(2.4f))
+                    .withEndAction(() -> txtStatus.animate().scaleX(1.0f).scaleY(1.0f).setDuration(120).start())
+                    .start();
+        }
+
+        // 4. Play authentic opponent found chime
+        playOpponentFoundSound();
+
+        // 5. Card collapse to tiny glowing square (frame_012.png)
+        if (cardOpponent != null) {
+            cardOpponent.animate().scaleX(0.18f).scaleY(0.18f).setDuration(140)
+                    .withEndAction(() -> {
+                        // Stage 2 (t = 140ms): Reveal opponent and zoom forward punch!
+                        if (imgPhoto21 != null) { imgPhoto21.clearAnimation(); imgPhoto21.setVisibility(View.INVISIBLE); }
+                        if (imgPhoto22 != null) { imgPhoto22.clearAnimation(); imgPhoto22.setVisibility(View.INVISIBLE); }
+
+                        cardOpponent.setBackgroundResource(R.drawable.bg_card_opponent_found_frame);
+                        if (imgOpponentFrameOverlay != null) {
+                            imgOpponentFrameOverlay.setImageResource(R.drawable.img_frame_opponent_found);
+                        }
+
+                        if (imgPhoto2 != null) {
+                            imgPhoto2.setVisibility(View.VISIBLE);
+                            if (isBot || oppPhoto == null || oppPhoto.isEmpty()) {
+                                setRandomOpponentImage(imgPhoto2, 14);
+                            } else {
+                                Data.setImageSource(OpponentActivity.this, imgPhoto2, oppPhoto);
+                            }
+                            imgPhoto2.setAlpha(1f);
+                            imgPhoto2.setScaleX(1f);
+                            imgPhoto2.setScaleY(1f);
+                        }
+
+                        if (txtOpponent2 != null) {
+                            txtOpponent2.setText(oppName);
+                        }
+                        if (txtOpponentSubtitle != null) {
+                            txtOpponentSubtitle.setText("المستوى " + oppLevel);
+                            txtOpponentSubtitle.setTextColor(0xFFD4F038);
+                        }
+                        if (txtLevel2 != null) {
+                            int oppTrophies = oppScore > 0 ? oppScore : Math.max(50, oppLevel * 25 + (new Random()).nextInt(30));
+                            txtLevel2.setText(String.format(Locale.getDefault(), "%,d", oppTrophies));
+                        }
+                        setupOpponentFlag();
+
+                        // Zoom forward punch (frame_013.png)
+                        cardOpponent.animate().scaleX(1.15f).scaleY(1.15f).alpha(1.0f).setDuration(280)
+                                .setInterpolator(new OvershootInterpolator(2.4f))
+                                .withEndAction(() -> cardOpponent.animate().scaleX(1.0f).scaleY(1.0f).setDuration(120).start())
+                                .start();
+
+                        // Opponent trophy pill pops in
+                        if (layoutOpponentTrophy != null) {
+                            layoutOpponentTrophy.setVisibility(View.VISIBLE);
+                            layoutOpponentTrophy.setScaleX(0.2f);
+                            layoutOpponentTrophy.setScaleY(0.2f);
+                            layoutOpponentTrophy.setAlpha(0f);
+                            layoutOpponentTrophy.animate().scaleX(1.0f).scaleY(1.0f).alpha(1.0f).setDuration(240)
+                                    .setInterpolator(new OvershootInterpolator(2.0f)).start();
+                        }
+                    }).start();
+        }
+
+        // Stage 3 (t = 450ms): Shutters Slam Shut (Doors Close), Versus Slam Sound, Haptics, Golden VS Explosion!
+        new Handler().postDelayed(() -> {
+            if (closed || isFinishing()) return;
+
+            final int screenW = Math.max(1000, getResources().getDisplayMetrics().widthPixels);
+
+            // Close the two split shutters (Purple from left, Orange from right)
+            if (imgSplitLeft != null && imgSplitRight != null) {
+                imgSplitLeft.setVisibility(View.VISIBLE);
+                imgSplitRight.setVisibility(View.VISIBLE);
+                imgSplitLeft.setTranslationX(-screenW);
+                imgSplitRight.setTranslationX(screenW);
+
+                imgSplitLeft.animate()
+                        .translationX(0f)
+                        .setDuration(340)
+                        .setInterpolator(new DecelerateInterpolator(2.2f))
+                        .start();
+
+                imgSplitRight.animate()
+                        .translationX(0f)
+                        .setDuration(340)
+                        .setInterpolator(new DecelerateInterpolator(2.2f))
+                        .withEndAction(() -> {
+                            playVersusSlamSound();
+                            performHapticImpact();
+                        })
+                        .start();
+            } else {
+                playVersusSlamSound();
+                performHapticImpact();
+            }
+
+            // Central Comic Golden VS Explosion
+            if (vsBadgeView != null) {
+                vsBadgeView.explodeToGoldenVersus();
+            }
+
+            // Impact punches on cards
+            if (cardPlayer != null) {
+                cardPlayer.animate().scaleX(1.08f).scaleY(1.08f).setDuration(140)
+                        .withEndAction(() -> cardPlayer.animate().scaleX(1.0f).scaleY(1.0f).setDuration(100).start())
+                        .start();
+            }
+            if (cardOpponent != null) {
+                cardOpponent.animate().scaleX(1.08f).scaleY(1.08f).setDuration(140)
+                        .withEndAction(() -> cardOpponent.animate().scaleX(1.0f).scaleY(1.0f).setDuration(100).start())
+                        .start();
+            }
+
+            // Top status text fades out (matching frame_014.png)
+            if (txtStatus != null) {
+                txtStatus.animate().alpha(0f).setDuration(200).start();
+            }
+        }, 450);
+
+        // Stage 4 (t = 1550ms): Conclude showdown presentation while keeping split doors firmly closed!
+        new Handler().postDelayed(() -> {
+            if (closed || isFinishing()) return;
+
+            // Fade foreground elements smoothly into the closed shutters
+            if (layoutArena != null) {
+                layoutArena.animate().scaleX(1.06f).scaleY(1.06f).alpha(0f).setDuration(220).start();
+            }
+
+            // NOTE: We keep imgSplitLeft and imgSplitRight firmly closed at translationX = 0f.
+            // This guarantees the empty cosmic background is NEVER revealed during transition.
+            // GameActivity will slide the doors open as its entrance wipe once gameplay is rendered underneath.
+            new Handler().postDelayed(() -> {
+                if (!closed && !isFinishing()) {
+                    onFinish.run();
+                }
+            }, 240);
+        }, 1550);
     }
 
     private void stopBrowsingOpponents(final User opponent, final boolean meOwner) {
         if (launchingGame || closed || !activateRandomStake()) return;
         launchingGame = true;
         requestAccepted = true;
-        browsingOpponents = false;
         botFallbackHandler.removeCallbacksAndMessages(null);
         cancelButtonHandler.removeCallbacks(cancelButtonRunnable);
-        if (btnCancel != null) btnCancel.setVisibility(View.GONE);
         matchmakingHandler.removeCallbacksAndMessages(null);
         if (ownRequestInserted) {
             ownRequestInserted = false;
         }
-        imgPhoto22.clearAnimation();
-        imgPhoto21.clearAnimation();
-        imgPhoto21.setVisibility(View.INVISIBLE);
-        imgPhoto22.setVisibility(View.INVISIBLE);
-        imgPhoto2.setVisibility(View.VISIBLE);
-        Data.setImageSource(this, imgPhoto2, opponent.photo);
-        txtOpponent2.setText(opponent.name);
-        txtLevel2.setText(String.valueOf(opponent.level));
-        setStatus("تم العثور على منافس. جاري بدء المباراة...");
 
-        Handler handler = new Handler();
-        Runnable runnable = new Runnable() {
-            @Override
-            public void run() {
-                if (closed || isFinishing()) return;
-                Intent intent = new Intent(OpponentActivity.this, GameActivity.class);
-                intent.putExtra("mode", "online");
-                intent.putExtra("meOwner", meOwner);
-                intent.putExtra("duelSessionId", duelSessionId);
-                if (!stakeMatchId.isEmpty()) {
-                    intent.putExtra("stakeMatchId", stakeMatchId);
-                    intent.putExtra("stakeGameplayVersion", 2);
-                }
-                int stakeCoins = getIntent().getIntExtra("stakeCoins", 0);
-                if (stakeCoins > 0) {
-                    intent.putExtra("stakeCoins", stakeCoins);
-                    intent.putExtra("randomStakeId", randomStakeId);
-                }
-                intent.putExtra("matchMode", "board");
-                intent.putExtra("characterIndex", AppPrefs.getEffectiveCharacter(OpponentActivity.this));
-                try {
-                    JSONObject opponentJson = new JSONObject();
-                    opponentJson.put("id", opponent.id);
-                    opponentJson.put("name", opponent.name);
-                    opponentJson.put("photo", opponent.photo != null ? opponent.photo : "");
-                    opponentJson.put("level", opponent.level);
-                    opponentJson.put("score", opponent.score);
-                    opponentJson.put("bot", false);
-                    JSONArray opponentsArray = new JSONArray();
-                    opponentsArray.put(opponentJson);
-                    intent.putExtra("opponentsJson", opponentsArray.toString());
-                } catch (Exception e) {
-                    intent.putExtra("opponentsJson", "[]");
-                }
-                startActivity(intent);
-                finish();
+        playOpponentFoundTransition(opponent.name, opponent.photo, opponent.level, opponent.score, false, () -> {
+            if (closed || isFinishing()) return;
+            Intent intent = new Intent(OpponentActivity.this, GameActivity.class);
+            intent.putExtra("openSplitDoorsTransition", true);
+            intent.putExtra("mode", "online");
+            intent.putExtra("meOwner", meOwner);
+            intent.putExtra("duelSessionId", duelSessionId);
+            if (!stakeMatchId.isEmpty()) {
+                intent.putExtra("stakeMatchId", stakeMatchId);
+                intent.putExtra("stakeGameplayVersion", 2);
             }
-        };
-        handler.postDelayed(runnable, 1000);
+            int stakeCoins = getIntent().getIntExtra("stakeCoins", 0);
+            if (stakeCoins > 0) {
+                intent.putExtra("stakeCoins", stakeCoins);
+                intent.putExtra("randomStakeId", randomStakeId);
+            }
+            intent.putExtra("matchMode", "board");
+            intent.putExtra("characterIndex", AppPrefs.getEffectiveCharacter(OpponentActivity.this));
+            try {
+                JSONObject opponentJson = new JSONObject();
+                opponentJson.put("id", opponent.id);
+                opponentJson.put("name", opponent.name);
+                opponentJson.put("photo", opponent.photo != null ? opponent.photo : "");
+                opponentJson.put("level", opponent.level);
+                opponentJson.put("score", opponent.score);
+                opponentJson.put("bot", false);
+                JSONArray opponentsArray = new JSONArray();
+                opponentsArray.put(opponentJson);
+                intent.putExtra("opponentsJson", opponentsArray.toString());
+            } catch (Exception e) {
+                intent.putExtra("opponentsJson", "[]");
+            }
+            startActivity(intent);
+            overridePendingTransition(0, 0);
+            finish();
+        });
     }
 
     private void launchBotMatch() {
         if (launchingGame || closed || !activateRandomStake()) return;
         launchingGame = true;
         requestAccepted = true;
-        browsingOpponents = false;
         botFallbackHandler.removeCallbacksAndMessages(null);
         cancelButtonHandler.removeCallbacks(cancelButtonRunnable);
         matchmakingHandler.removeCallbacksAndMessages(null);
@@ -661,50 +1003,39 @@ public class OpponentActivity extends GameViewportActivity {
             botLevel = 10;
         }
 
-        imgPhoto22.clearAnimation();
-        imgPhoto21.clearAnimation();
-        imgPhoto21.setVisibility(View.INVISIBLE);
-        imgPhoto22.setVisibility(View.INVISIBLE);
-        imgPhoto2.setVisibility(View.VISIBLE);
-        setRandomOpponentImage(imgPhoto2, 14);
-        txtOpponent2.setText("الكمبيوتر");
-        txtLevel2.setText(String.valueOf(botLevel));
-        setStatus("لم نجد لاعباً متاحاً الآن. سنبدأ ضد خصم آلي...");
+        int botTrophies = Math.max(50, botLevel * 25 + (new Random()).nextInt(30));
 
-        Handler handler = new Handler();
-        Runnable runnable = new Runnable() {
-            @Override
-            public void run() {
-                if (closed || isFinishing()) return;
-                Intent intent = new Intent(OpponentActivity.this, GameActivity.class);
-                intent.putExtra("mode", "online");
-                intent.putExtra("meOwner", true);
-                intent.putExtra("matchMode", "board");
-                if (stakeCoins > 0) {
-                    intent.putExtra("stakeCoins", stakeCoins);
-                    intent.putExtra("randomStakeId", randomStakeId);
-                }
-                intent.putExtra("characterIndex", AppPrefs.getEffectiveCharacter(OpponentActivity.this));
-                try {
-                    JSONObject opponentJson = new JSONObject();
-                    opponentJson.put("id", "fictitious");
-                    opponentJson.put("name", "الكمبيوتر");
-                    opponentJson.put("photo", "");
-                    opponentJson.put("level", botLevel);
-                    opponentJson.put("score", 0);
-                    opponentJson.put("intelligence", botIntel);
-                    opponentJson.put("bot", true);
-                    JSONArray opponentsArray = new JSONArray();
-                    opponentsArray.put(opponentJson);
-                    intent.putExtra("opponentsJson", opponentsArray.toString());
-                } catch (Exception e) {
-                    intent.putExtra("opponentsJson", "[]");
-                }
-                startActivity(intent);
-                finish();
+        playOpponentFoundTransition("الكمبيوتر", "", botLevel, botTrophies, true, () -> {
+            if (closed || isFinishing()) return;
+            Intent intent = new Intent(OpponentActivity.this, GameActivity.class);
+            intent.putExtra("openSplitDoorsTransition", true);
+            intent.putExtra("mode", "online");
+            intent.putExtra("meOwner", true);
+            intent.putExtra("matchMode", "board");
+            if (stakeCoins > 0) {
+                intent.putExtra("stakeCoins", stakeCoins);
+                intent.putExtra("randomStakeId", randomStakeId);
             }
-        };
-        handler.postDelayed(runnable, 800);
+            intent.putExtra("characterIndex", AppPrefs.getEffectiveCharacter(OpponentActivity.this));
+            try {
+                JSONObject opponentJson = new JSONObject();
+                opponentJson.put("id", "fictitious");
+                opponentJson.put("name", "الكمبيوتر");
+                opponentJson.put("photo", "");
+                opponentJson.put("level", botLevel);
+                opponentJson.put("score", 0);
+                opponentJson.put("intelligence", botIntel);
+                opponentJson.put("bot", true);
+                JSONArray opponentsArray = new JSONArray();
+                opponentsArray.put(opponentJson);
+                intent.putExtra("opponentsJson", opponentsArray.toString());
+            } catch (Exception e) {
+                intent.putExtra("opponentsJson", "[]");
+            }
+            startActivity(intent);
+            overridePendingTransition(0, 0);
+            finish();
+        });
     }
 
     private void setRandomOpponentImage(ImageView img, int maxNumber) {
@@ -769,6 +1100,15 @@ public class OpponentActivity extends GameViewportActivity {
         cancelButtonHandler.removeCallbacks(cancelButtonRunnable);
         matchmakingHandler.removeCallbacksAndMessages(null);
         botFallbackHandler.removeCallbacksAndMessages(null);
+        shuffleHandler.removeCallbacksAndMessages(null);
+        if (searchGlassAnim != null) {
+            searchGlassAnim.cancel();
+            searchGlassAnim = null;
+        }
+        if (statusPulseAnim != null) {
+            statusPulseAnim.cancel();
+            statusPulseAnim = null;
+        }
         if (ownRequestInserted && !launchingGame) {
             Data.cancelRequest(userID);
             ownRequestInserted = false;
@@ -783,8 +1123,22 @@ public class OpponentActivity extends GameViewportActivity {
 
     @Override
     protected void onDestroy() {
+        stopMatchmakingSound();
         cleanupPendingRequest();
         super.onDestroy();
+    }
+
+    @Override
+    protected void onPause() {
+        audioPaused = true;
+        stopMatchmakingSound();
+        super.onPause();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        audioPaused = false;
     }
 
     @Override

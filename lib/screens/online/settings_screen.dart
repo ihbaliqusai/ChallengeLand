@@ -120,9 +120,15 @@ class _SettingsScreenState extends State<SettingsScreen>
     await settings.refreshNotificationStatus();
   }
 
-  void _openRateGame() {
+  Future<void> _openRateGame() async {
     _feedback();
-    RateGameService.instance.showRateDialog(context, isManual: true);
+    final uid = context.read<AppState>().currentUser?.uid ??
+        context.read<AppState>().user?.uid;
+    await RateGameService.instance
+        .showRateDialog(context, isManual: true, uid: uid);
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   void _openPrivacyPolicy() {
@@ -818,7 +824,9 @@ class _ActionsPanel extends StatelessWidget {
             ),
             SizedBox(height: compact ? 8 : 10),
             FutureBuilder<bool>(
-              future: RateGameService.instance.shouldShowRatingEntry(),
+              future: RateGameService.instance.shouldShowRatingEntry(
+                uid: appState.currentUser?.uid ?? appState.user?.uid,
+              ),
               builder: (context, snapshot) {
                 if (snapshot.data != true) {
                   return const SizedBox.shrink();

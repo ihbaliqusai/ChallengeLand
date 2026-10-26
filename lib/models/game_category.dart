@@ -28,6 +28,8 @@ class GameCategory {
         .replaceAll('آ', 'ا')
         .replaceAll('ة', 'ه')
         .replaceAll('ى', 'ي')
+        .replaceAll('é', 'e')
+        .replaceAll('×', 'x')
         .replaceAll(RegExp(r'\s+'), ' ')
         .toLowerCase();
     // The store uses "أنمي" while the question pool uses "الأنمي".
@@ -116,6 +118,23 @@ class CategoryCatalog {
     GameCategory(name: 'سيرة ذاتية', isPremium: true),
     GameCategory(name: 'قصص الأنبياء', isPremium: true),
     GameCategory(name: 'منوعات', isPremium: true),
+    GameCategory(name: 'دوري أبطال أوروبا', isPremium: true),
+    GameCategory(name: 'NBA', isPremium: true),
+    GameCategory(name: 'بنات وبس', isPremium: true),
+    GameCategory(name: 'باب الحارة', isPremium: true),
+    GameCategory(name: 'مسلسلات تركية', isPremium: true),
+    GameCategory(name: 'دراما خليجية', isPremium: true),
+    GameCategory(name: 'دراما سورية', isPremium: true),
+    GameCategory(name: 'دراما مصرية', isPremium: true),
+    GameCategory(name: 'Game Of Thrones', isPremium: true),
+    GameCategory(name: 'Breaking Bad', isPremium: true),
+    GameCategory(name: 'Harry Potter', isPremium: true),
+    GameCategory(name: 'Pokémon', isPremium: true),
+    GameCategory(name: 'Demon Slayer', isPremium: true),
+    GameCategory(name: 'Hunter × Hunter', isPremium: true),
+    GameCategory(name: 'One Piece', isPremium: true),
+    GameCategory(name: 'Attack on Titan', isPremium: true),
+    GameCategory(name: 'Naruto', isPremium: true),
   ];
 
   static const List<GameCategory> coreFreeCategories = [
@@ -139,7 +158,17 @@ class CategoryCatalog {
       'مسلسلات عربية',
       'أفلام أجنبية',
       'أفلام عربية',
-      'سبيس تون'
+      'سبيس تون',
+      'باب الحارة',
+      'Game Of Thrones',
+      'Breaking Bad',
+      'Harry Potter',
+      'Pokémon',
+      'Demon Slayer',
+      'Hunter × Hunter',
+      'One Piece',
+      'Attack on Titan',
+      'Naruto',
     ].any((value) => GameCategory.normalize(value) == name);
   }
 

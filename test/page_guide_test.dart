@@ -169,7 +169,8 @@ void main() {
                     CampaignService(firestore: FakeFirebaseFirestore())),
           )));
       await _settleStep(tester);
-      await tester.tap(find.byTooltip('شرح الصفحة'));
+      expect(find.byTooltip('شرح الصفحة'), findsNothing);
+      tester.state<PageGuideState>(find.byType(PageGuide)).start();
       await _settleStep(tester);
       expect(find.byType(HomeGuideTourOverlay), findsOneWidget);
       final tour = tester
@@ -215,7 +216,8 @@ void main() {
       await _settleStep(tester);
       expect(find.byType(HomeGuideTourOverlay), findsNothing);
       expect(find.byType(StagePlayScreen), findsNothing);
-      await tester.tap(find.byTooltip('شرح الصفحة'));
+      expect(find.byTooltip('شرح الصفحة'), findsNothing);
+      tester.state<PageGuideState>(find.byType(PageGuide)).start();
       await _settleStep(tester);
       expect(find.byType(HomeGuideTourOverlay), findsOneWidget);
       await tester.pumpWidget(const SizedBox.shrink());

@@ -38,6 +38,7 @@ class LuckyWheelService {
       'action': 'spinWheel',
       'expectedUid': uid,
       'operationId': operationId,
+      'wheelCatalogVersion': LuckyWheelPrize.currentCatalogVersion,
     });
     if (result['wheelRejection'] is Map) {
       final rejection =

@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../core/leaderboard_countries.dart';
+import 'device_country_service.dart';
 import 'progression_service.dart';
 
 enum LeaderboardScope { world, country, friends }
@@ -75,10 +77,18 @@ class LeaderboardPlayer {
 /// Each scope is loaded independently so its ranks are never inferred from
 /// the global top-player window.
 class LeaderboardService {
-  LeaderboardService({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+  LeaderboardService(
+      {FirebaseFirestore? firestore,
+      Future<String?> Function()? detectCountry,
+      Duration countryReadTimeout = const Duration(seconds: 2)})
+      : _firestore = firestore ?? FirebaseFirestore.instance,
+        _detectCountry =
+            detectCountry ?? DeviceCountryService().detectCountryCode,
+        _countryReadTimeout = countryReadTimeout;
 
   final FirebaseFirestore _firestore;
+  final Future<String?> Function() _detectCountry;
+  final Duration _countryReadTimeout;
   static const maxPlayers = 200;
   static const _profileBatchSize = 30;
   static final _caches = Expando<_LeaderboardCache>();
@@ -111,20 +121,115 @@ class LeaderboardService {
 
   static String? normalizeCountryCode(dynamic value) {
     final code = value?.toString().trim().toUpperCase() ?? '';
-    return RegExp(r'^[A-Z]{2}$').hasMatch(code) ? code : null;
+    return leaderboardCountries.containsKey(code) ? code : null;
   }
 
-  Future<String?> loadCountry(String uid) async {
-    if (uid.trim().isEmpty) return null;
-    final profile = await _firestore
+  Future<String?> loadCountry(String uid) =>
+      _resolveCountry(uid, isActive: () => true);
+
+  /// Authentication can change while a stored profile or device hint is read.
+  /// The caller's guard also protects the deferred write after this returns.
+  Future<String?> ensureCountry(String uid,
+          {required bool Function() isActive}) =>
+      _resolveCountry(uid, isActive: isActive);
+
+  Future<DocumentSnapshot<Map<String, dynamic>>?> _countryProfile(String uid,
+      {required bool Function() isActive}) {
+    final result = Completer<DocumentSnapshot<Map<String, dynamic>>?>();
+    StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? subscription;
+    Timer? deadline, activityCheck;
+    void cancel() {
+      deadline?.cancel();
+      activityCheck?.cancel();
+      unawaited(subscription?.cancel().catchError((_) {}));
+    }
+
+    void finish(DocumentSnapshot<Map<String, dynamic>>? snapshot) {
+      if (result.isCompleted) return;
+      result.complete(snapshot);
+      cancel();
+    }
+
+    deadline = Timer(_countryReadTimeout, () => finish(null));
+    activityCheck = Timer.periodic(const Duration(milliseconds: 100), (_) {
+      if (!isActive()) finish(null);
+    });
+    subscription = _firestore
         .collection('public_profiles')
         .doc(uid)
         .snapshots(includeMetadataChanges: true)
-        .firstWhere(
-            (snapshot) => snapshot.exists || !snapshot.metadata.isFromCache);
-    final code = normalizeCountryCode(profile.data()?['countryCode']);
-    _cache.rememberCountry(uid, code);
-    return code;
+        .listen((snapshot) {
+      if (result.isCompleted ||
+          (!snapshot.exists && snapshot.metadata.isFromCache)) {
+        return;
+      }
+      // First usable data is available before listener teardown finishes.
+      finish(snapshot);
+    }, onError: (Object error, StackTrace stack) {
+      if (!result.isCompleted) result.completeError(error, stack);
+      cancel();
+    }, onDone: () => finish(null));
+    // Also handle streams whose first event arrives synchronously in listen().
+    if (result.isCompleted) cancel();
+    return result.future;
+  }
+
+  Future<String?> _resolveCountry(String uid,
+      {required bool Function() isActive}) async {
+    if (uid.trim().isEmpty || uid.contains('/') || !isActive()) return null;
+    final version = _cache.countryVersion(uid);
+    bool current() =>
+        isActive() && identical(_cache.countryVersions[uid], version);
+    final profile = await _countryProfile(uid, isActive: current);
+    if (!isActive()) return null;
+    if (!current()) return cachedCountry(uid);
+    final stored = normalizeCountryCode(profile?.data()?['countryCode']);
+    if (stored != null) {
+      _cache.rememberCountry(uid, stored);
+      return stored;
+    }
+    String? detected;
+    try {
+      detected = normalizeCountryCode(await _detectCountry());
+    } catch (_) {
+      // Device hints can be unavailable; never substitute an invented country.
+      return current() ? cachedCountry(uid) : null;
+    }
+    if (!isActive()) return null;
+    if (!current()) return cachedCountry(uid);
+    if (detected == null || !leaderboardCountries.containsKey(detected)) {
+      return null;
+    }
+    _cache.rememberCountry(uid, detected);
+    unawaited(_persistDetectedCountry(uid, detected, isCurrent: current));
+    return detected;
+  }
+
+  Future<void> _persistDetectedCountry(String uid, String country,
+      {required bool Function() isCurrent}) async {
+    try {
+      final reference = _firestore.collection('public_profiles').doc(uid);
+      final stored =
+          await _firestore.runTransaction<String?>((transaction) async {
+        if (!isCurrent()) return null;
+        final profile = await transaction.get(reference);
+        if (!isCurrent()) return null;
+        final previous = normalizeCountryCode(profile.data()?['countryCode']);
+        if (previous != null) return previous;
+        if (!isCurrent()) return null;
+        // A retry sees a concurrent manual choice and leaves it intact.
+        if (profile.exists) {
+          transaction.update(reference, {'uid': uid, 'countryCode': country});
+        } else {
+          transaction.set(reference, {'uid': uid, 'countryCode': country});
+        }
+        return country;
+      });
+      if (isCurrent() && stored != null) _cache.rememberCountry(uid, stored);
+    } catch (_) {
+      // Country detection remains useful offline. A later resolution retries
+      // persistence; no network transaction belongs on the UI's critical path.
+    }
   }
 
   Future<void> saveCountry(String uid, String code) async {
@@ -135,12 +240,17 @@ class LeaderboardService {
     if (normalized == null) {
       throw ArgumentError.value(code, 'code', 'Use a two-letter country code');
     }
+    // Invalidate an automatic hint as soon as a manual choice starts, including
+    // automatic work owned by another service instance for the same database.
+    final version = _cache.beginCountryEdit(uid);
     // Merge only identity fields. Never publish screen-cached score totals.
     await _firestore.collection('public_profiles').doc(uid).set({
       'uid': uid,
       'countryCode': normalized,
     }, SetOptions(merge: true));
-    _cache.rememberCountry(uid, normalized);
+    if (identical(_cache.countryVersions[uid], version)) {
+      _cache.rememberCountry(uid, normalized);
+    }
   }
 
   Query<Map<String, dynamic>>? _query(
@@ -355,6 +465,17 @@ class _LeaderboardCache {
   static const capacity = 8;
   final boards = <_LeaderboardCacheKey, List<LeaderboardPlayer>>{};
   final countries = <String, String?>{};
+  final countryVersions = <String, Object>{};
+
+  Object countryVersion(String uid) {
+    if (!countries.containsKey(uid)) rememberCountry(uid, null);
+    return countryVersions.putIfAbsent(uid, Object.new);
+  }
+
+  Object beginCountryEdit(String uid) {
+    rememberCountry(uid, countries[uid]);
+    return countryVersions[uid] = Object();
+  }
 
   List<LeaderboardPlayer>? read(_LeaderboardCacheKey key) {
     final players = boards.remove(key);
@@ -374,6 +495,10 @@ class _LeaderboardCache {
   void rememberCountry(String uid, String? country) {
     countries.remove(uid);
     countries[uid] = country;
-    if (countries.length > capacity) countries.remove(countries.keys.first);
+    if (countries.length > capacity) {
+      final oldest = countries.keys.first;
+      countries.remove(oldest);
+      countryVersions.remove(oldest);
+    }
   }
 }

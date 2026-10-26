@@ -1,0 +1,17 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="28dp"
+    android:height="28dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Outer shield / diamond badge -->
+    <path
+        android:fillColor="#FF2563EB"
+        android:pathData="M12,2 L21,6 L21,12 C21,17 17,21 12,23 C7,21 3,17 3,12 L3,6 Z" />
+    <path
+        android:fillColor="#FF3B82F6"
+        android:pathData="M12,3.5 L19.5,7 L19.5,12 C19.5,16 16,19.5 12,21.2 C8,19.5 4.5,16 4.5,12 L4.5,7 Z" />
+    <!-- Golden Star in Center -->
+    <path
+        android:fillColor="#FFFBBF24"
+        android:pathData="M12,6.5 L13.5,9.8 L17,10.2 L14.5,12.5 L15.2,16 L12,14.2 L8.8,16 L9.5,12.5 L7,10.2 L10.5,9.8 Z" />
+</vector>

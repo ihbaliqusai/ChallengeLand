@@ -17,6 +17,9 @@ class EconomyWallet {
       this.weekCorrect = 0,
       this.weekRewardClaimed = false,
       this.wheelClaimedToday,
+      this.wheelCharacterIndex,
+      this.hasWheelCharacterPreview = false,
+      this.wheelCatalogVersion = 1,
       this.rewardLog = const [],
       this.owned = const [],
       this.rentals = const {},
@@ -40,6 +43,9 @@ class EconomyWallet {
   final int welcomeGrantedAt, weekPlayDays, weekCorrect;
   final bool weekRewardClaimed;
   final bool? wheelClaimedToday;
+  final int? wheelCharacterIndex;
+  final bool hasWheelCharacterPreview;
+  final int wheelCatalogVersion;
   final List<Map<String, dynamic>> rewardLog;
   final List<String> owned;
   final Map<String, int> rentals, adPermits;
@@ -76,6 +82,9 @@ class EconomyWallet {
         wheelClaimedToday: map['wheelClaimedToday'] is bool
             ? map['wheelClaimedToday'] as bool
             : null,
+        wheelCharacterIndex: (map['wheelCharacterIndex'] as num?)?.toInt(),
+        hasWheelCharacterPreview: map.containsKey('wheelCharacterIndex'),
+        wheelCatalogVersion: (map['wheelCatalogVersion'] as num?)?.toInt() ?? 1,
         rewardLog: (map['rewardLog'] as List? ?? [])
             .whereType<Map>()
             .map((r) => Map<String, dynamic>.from(r))

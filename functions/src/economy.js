@@ -3,7 +3,7 @@
 const { CommerceError, sha256 } = require("./domain");
 const { randomInt: secureRandomInt } = require("node:crypto");
 const DAY = 86400000;
-// Keep these indices in sync with LuckyWheelPrize.catalog in the client.
+// Version 1 remains available for existing clients and outstanding receipts.
 const WHEEL_PRIZES = Object.freeze([
   { id: "keys", grants: { keys: 1 } },
   { id: "tickets", grants: { tickets: 1 } },
@@ -12,17 +12,44 @@ const WHEEL_PRIZES = Object.freeze([
   { id: "character", grants: {} },
   { id: "chest", grants: { coins: 1000, gems: 20, keys: 2, tickets: 2 } },
 ]);
+// Indices 0..5 and their IDs are stable so an older receipt can still be shown
+// after an app update. Keep the complete order in sync with the v2 client.
+const WHEEL_PRIZES_V2 = Object.freeze([
+  ...WHEEL_PRIZES,
+  { id: "keys_2", grants: { keys: 2 } },
+  { id: "tickets_2", grants: { tickets: 2 } },
+  { id: "coins_250", grants: { coins: 250 } },
+  { id: "coins_1000", grants: { coins: 1000 } },
+  { id: "gems_5", grants: { gems: 5 } },
+  { id: "gems_20", grants: { gems: 20 } },
+]);
+const WHEEL_PRIZE_DISCLOSURE_V2 = Object.freeze(WHEEL_PRIZES_V2.map((prize, index) => Object.freeze({
+  id: prize.id, index, grants: Object.freeze({ ...prize.grants }),
+  probabilityNumerator: 1, probabilityDenominator: WHEEL_PRIZES_V2.length,
+})));
 const WHEEL_CHARACTERS = Object.freeze([2, 4, 7, 9, 11, 12, 14, 15]);
+const purchasedWheelCharacters = user => [...new Set((Array.isArray(user.purchasedCharacters) ? user.purchasedCharacters : [])
+  .filter(index => Number.isInteger(index) || (typeof index === "string" && /^(?:[0-9]|1[0-5])$/.test(index)))
+  .map(Number).filter(index => index >= 0 && index < 16))];
+const nextWheelCharacter = user => {
+  const purchased = new Set(purchasedWheelCharacters(user));
+  return WHEEL_CHARACTERS.find(index => !purchased.has(index)) ?? null;
+};
 const timestampMillis = value => typeof value?.toMillis === "function" ? value.toMillis()
   : value instanceof Date ? value.getTime() : -Infinity;
 // Category trials share the ticket allowance: they cannot bypass the ad cap.
 const AD_REWARD_LIMITS = Object.freeze({ keys: 2, hearts: 2, tickets: 2 });
 const weekId = at => Math.floor((Math.floor(at / DAY) + 3) / 7); // Monday, UTC.
 const FREE = ["جغرافيا", "حيوانات", "دين واسلاميات", "عواصم", "دول", "اختراعات", "عملات", "لغة وادب"];
-const NO_ADS = ["أنمي", "مسلسل Friends", "مسلسلات أجنبية", "مسلسلات عربية", "أفلام أجنبية", "أفلام عربية", "سبيس تون"];
-const CATEGORIES = [...FREE, ...NO_ADS, "معلومات عامة", "تاريخ", "رياضة", "لاعبين كرة قدم", "مسيرة لاعب", "علوم وفضاء", "ألغاز", "أمثال", "تقنية", "جسم الإنسان", "نباتات", "لغات", "صحة", "طعام وشراب", "سياحة وسفر", "سيرة ذاتية", "قصص الأنبياء", "منوعات", "خمن الصورة", "خمن الأغنية", "خمن الأكلة", "خمن الاسم", "خمن المدينة او الدولة", "زووم", "ركز شوي", "وضح شوي", "سيارات", "كأس العالم", "فنون وسينما", "فيروز", "كلثوميات"];
+// Keep names and ad restrictions aligned with CategoryCatalog in the app.
+// category_catalog.test.js checks the client catalog to catch missing additions.
+const NO_ADS = ["أنمي", "مسلسل Friends", "مسلسلات أجنبية", "مسلسلات عربية", "أفلام أجنبية", "أفلام عربية", "سبيس تون",
+  "باب الحارة", "Game Of Thrones", "Breaking Bad", "Harry Potter", "Pokémon", "Demon Slayer",
+  "Hunter × Hunter", "One Piece", "Attack on Titan", "Naruto"];
+const CATEGORIES = [...FREE, ...NO_ADS, "معلومات عامة", "تاريخ", "رياضة", "لاعبين كرة قدم", "مسيرة لاعب", "علوم وفضاء", "ألغاز", "أمثال", "تقنية", "جسم الإنسان", "نباتات", "لغات", "صحة", "طعام وشراب", "سياحة وسفر", "سيرة ذاتية", "قصص الأنبياء", "منوعات", "خمن الصورة", "خمن الأغنية", "خمن الأكلة", "خمن الاسم", "خمن المدينة او الدولة", "زووم", "ركز شوي", "وضح شوي", "سيارات", "كأس العالم", "فنون وسينما", "فيروز", "كلثوميات",
+  "دوري أبطال أوروبا", "NBA", "بنات وبس", "مسلسلات تركية", "دراما خليجية", "دراما سورية", "دراما مصرية"];
 function normalize(s) {
-  const n = String(s || "").trim().replace(/[أإآ]/g, "ا").replace(/ة/g, "ه").replace(/ى/g, "ي").replace(/\s+/g, " ").toLowerCase();
+  const n = String(s || "").trim().replace(/[أإآ]/g, "ا").replace(/ة/g, "ه").replace(/ى/g, "ي").replace(/é/g, "e").replace(/×/g, "x").replace(/\s+/g, " ").toLowerCase();
   return ["الانمي", "الانيمي", "انيمي"].includes(n) ? "انمي" : n;
 }
 const canonical = s => CATEGORIES.find(c => normalize(c) === normalize(s));
@@ -144,13 +171,17 @@ function createEconomyService({ db, now = Date.now, randomInt = secureRandomInt 
       let result = {};
       const deferredWrites = [];
       // Bind replay IDs to their payload; do not let a begin receipt replay a purchase.
-      const signature = sha256(JSON.stringify(stable({ ...input, operationId: undefined })));
+      const signatureInput = { ...input, operationId: undefined };
+      // Catalog metadata may change while recovering a journal created before
+      // an app update. It cannot change an existing receipt's prize or debit.
+      if (action === "spinWheel") delete signatureInput.wheelCatalogVersion;
+      const signature = sha256(JSON.stringify(stable(signatureInput)));
       if (!readOnly && receipt.exists) {
         const old = receipt.data();
         if (old.signature !== signature) throw new CommerceError("already-exists", "استُخدم معرّف العملية لطلب مختلف.");
         if (action === "begin" && (old.result.session?.status === "cancelled" || (old.result.session?.mode === "campaign" && old.result.session?.status !== "active"))) throw new CommerceError("failed-precondition", "انتهت هذه المباراة. ابدأ مباراة جديدة.");
         return { ...old.result, referralRevision: integer(u.referralRevision),
-          ...(old.result.spin ? { spin: { ...old.result.spin, newlyGranted: false }, purchasedCharacters: [...new Set(u.purchasedCharacters || [])] } : {}),
+          ...(old.result.spin ? { spin: { ...old.result.spin, newlyGranted: false }, purchasedCharacters: purchasedWheelCharacters(u) } : {}),
           ...(old.result.currency ? { currency: { coins: integer(u.coins), gems: integer(u.gems) } } : {}), state: view(s, at, u) };
       }
       // Existing campaign progress also receives milestones, so returning players
@@ -232,7 +263,7 @@ function createEconomyService({ db, now = Date.now, randomInt = secureRandomInt 
         }
       } else if (action === "spinWheel") {
         const day = Math.floor(at / DAY);
-        const purchased = [...new Set((u.purchasedCharacters || []).filter(index => Number.isInteger(index) && index >= 0 && index < 16))];
+        const purchased = purchasedWheelCharacters(u);
         const previousClaim = timestampMillis(u.lastStreakClaimDate);
         const usedFreeSpin = Number(s.lastWheelSpinDay ?? -1) < day && Math.floor(previousClaim / DAY) < day;
         if (!usedFreeSpin && s.wheelSpins < 1) {
@@ -241,15 +272,20 @@ function createEconomyService({ db, now = Date.now, randomInt = secureRandomInt 
         // The receipt branch above is the only replay path. Each new operation
         // uses today's free opportunity first, then one banked purchased spin.
         if (!usedFreeSpin) s.wheelSpins--;
-        const prizeIndex = randomInt(WHEEL_PRIZES.length);
-        const prize = WHEEL_PRIZES[prizeIndex];
+        const catalogVersion = input.wheelCatalogVersion === 2 ? 2 : 1;
+        const catalog = catalogVersion === 2 ? WHEEL_PRIZES_V2 : WHEEL_PRIZES;
+        const prizeIndex = randomInt(catalog.length);
+        const prize = catalog[prizeIndex];
         const grants = { ...prize.grants };
         let characterIndex = null;
         let compensation = false;
         if (prize.id === "character") {
           const available = WHEEL_CHARACTERS.filter(index => !purchased.includes(index));
           if (available.length) {
-            characterIndex = available[randomInt(available.length)];
+            // V2 shows this exact character on the wheel, then replaces it with
+            // the next unowned one after delivery. V1 keeps its original draw.
+            characterIndex = catalogVersion === 2
+              ? available[0] : available[randomInt(available.length)];
             purchased.push(characterIndex);
           } else {
             // Owning the whole roster must still produce a useful reward.
@@ -269,7 +305,8 @@ function createEconomyService({ db, now = Date.now, randomInt = secureRandomInt 
         userUpdate = { ...currency, purchasedCharacters: purchased,
           lastLuckyWheelSpinDate: new Date(at),
           ...(usedFreeSpin ? { streakDay: nextStreak, lastStreakClaimDate: new Date(at) } : {}) };
-        result.spin = { prizeId: prize.id, prizeIndex, grants, characterIndex, compensation, newlyGranted: true, usedFreeSpin };
+        result.spin = { prizeId: prize.id, prizeIndex, grants, characterIndex, compensation, newlyGranted: true, usedFreeSpin, catalogVersion,
+          probabilityNumerator: 1, probabilityDenominator: catalog.length };
         if (usedFreeSpin) s.lastWheelSpinDay = day;
         s.lastWheelSpin = result.spin;
         recordReward(s, `wheel_${sha256(input.operationId)}`, "wheel", grants, at, { prizeId: prize.id, characterIndex, usedFreeSpin });
@@ -425,6 +462,6 @@ function refund(s, session) {
 function view(s, at, user = {}) {
   const day = Math.floor(at / DAY);
   const wheelClaimedToday = Number(s.lastWheelSpinDay ?? -1) >= day || Math.floor(timestampMillis(user.lastStreakClaimDate) / DAY) >= day;
-  return { ...s, wheelClaimedToday, keysTotal: s.dailyKeys + s.keys, heartsTotal: s.dailyHearts + s.hearts, serverTimeMillis: at, nextResetMillis: (s.day + 1) * DAY, offers: OFFERS, rentalPrices: RENTALS, adRewardLimits: AD_REWARD_LIMITS };
+  return { ...s, wheelClaimedToday, wheelCatalogVersion: 2, wheelCharacterIndex: nextWheelCharacter(user), wheelPrizesV2: WHEEL_PRIZE_DISCLOSURE_V2, keysTotal: s.dailyKeys + s.keys, heartsTotal: s.dailyHearts + s.hearts, serverTimeMillis: at, nextResetMillis: (s.day + 1) * DAY, offers: OFFERS, rentalPrices: RENTALS, adRewardLimits: AD_REWARD_LIMITS };
 }
-module.exports = { createEconomyService, refresh, fresh, normalize, canonical, free, allowsAd, OFFERS, RENTALS, AD_REWARD_LIMITS, WHEEL_PRIZES, WHEEL_CHARACTERS, milestone, streakReward };
+module.exports = { createEconomyService, refresh, fresh, normalize, canonical, free, allowsAd, OFFERS, RENTALS, AD_REWARD_LIMITS, WHEEL_PRIZES, WHEEL_PRIZES_V2, WHEEL_CHARACTERS, milestone, streakReward };

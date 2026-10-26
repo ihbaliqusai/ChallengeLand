@@ -1,0 +1,381 @@
+{
+  "version": 1,
+  "updatedAt": "2026-10-26",
+  "generator": "tools/audio/build_audio.cjs",
+  "note": "The original DSP components are generated for this project, without external voice recordings or imitation of any performer. CC0 components are listed per file. Durations preserve gameplay timing; compositions are new alternatives, not replicas of television themes. Restored previous recordings are listed separately with their actual license status.",
+  "files": [
+    {
+      "file": "beep.mp3",
+      "role": "تنبيه عداد الوقت",
+      "durationSeconds": 0.36,
+      "sampleRate": 44100,
+      "channels": 2,
+      "bytes": 5181,
+      "sha256": "6b84d0c6b606239deb3937a4fd3da27409c57f5b0cdac7c6dc0ec718c36549da",
+      "sources": [],
+      "originalProceduralDesign": true,
+      "loopPrepared": false,
+      "processing": "44100 Hz stereo; duration matched to previous asset; level normalization; short edge fades; MP3 96 kbps. No samples from previous recordings."
+    },
+    {
+      "file": "beep1.mp3",
+      "role": "تنبيه الثواني الأخيرة",
+      "durationSeconds": 0.55,
+      "sampleRate": 44100,
+      "channels": 2,
+      "bytes": 7690,
+      "sha256": "19f387e3ab3adca1d3d633a05268ce80d5fe0a41e97df20b14dc6ac14f9a6f27",
+      "sources": [],
+      "originalProceduralDesign": true,
+      "loopPrepared": false,
+      "processing": "44100 Hz stereo; duration matched to previous asset; level normalization; short edge fades; MP3 96 kbps. No samples from previous recordings."
+    },
+    {
+      "file": "blabla.mp3",
+      "role": "ثرثرة آلية غير لفظية للاتصال بالصديق",
+      "durationSeconds": 3.55,
+      "sampleRate": 44100,
+      "channels": 2,
+      "bytes": 43426,
+      "sha256": "194f3d48361198650038a6bf0ed2ae9a1195d19beed4ab3b43ab5ff26d918c4d",
+      "sources": [],
+      "originalProceduralDesign": true,
+      "loopPrepared": false,
+      "processing": "44100 Hz stereo; duration matched to previous asset; level normalization; short edge fades; MP3 96 kbps. No samples from previous recordings."
+    },
+    {
+      "file": "commerical_break.mp3",
+      "role": "فاصل وانتقال",
+      "durationSeconds": 10.71,
+      "sampleRate": 44100,
+      "channels": 2,
+      "bytes": 129327,
+      "sha256": "2ddfef6ad91510f73b4a0b6b375a86a8af9c5d461404946e08be9e2773e8602b",
+      "sources": [
+        {
+          "title": "Opening Theme [Action/Suspense]",
+          "author": "nene",
+          "url": "https://opengameart.org/content/opening-theme-actionsuspense",
+          "file": "opening-theme.flac",
+          "license": "CC0-1.0",
+          "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+          "sourceSha256": "67515ac185e6bc170639a383ec37243fdef398be503b56addef5615fb3f877c0"
+        }
+      ],
+      "originalProceduralDesign": false,
+      "sourceStartSeconds": 0,
+      "loopPrepared": false,
+      "processing": "44100 Hz stereo; duration matched to previous asset; level normalization; short edge fades; MP3 96 kbps. No samples from previous recordings."
+    },
+    {
+      "file": "correct_answer.mp3",
+      "role": "إجابة صحيحة",
+      "durationSeconds": 7.73,
+      "sampleRate": 44100,
+      "channels": 2,
+      "bytes": 93589,
+      "sha256": "9783b0840ee4b5874123605003994e4aa5f9bdc31d593c7b5c9c9beb38ec0f89",
+      "sources": [
+        {
+          "title": "Interface Sounds / confirmation_002",
+          "author": "Kenney",
+          "url": "https://kenney.nl/assets/interface-sounds",
+          "file": "kenney_confirmation_002.ogg",
+          "license": "CC0-1.0",
+          "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+          "sourceSha256": "33b17a9a9a2397c62b285c52c33a907fdffb476909c99e42dde603f6a7a8b12c"
+        }
+      ],
+      "originalProceduralDesign": true,
+      "loopPrepared": false,
+      "processing": "44100 Hz stereo; duration matched to previous asset; level normalization; short edge fades; MP3 96 kbps. No samples from previous recordings."
+    },
+    {
+      "file": "lets_play.mp3",
+      "role": "بدء اللعب",
+      "durationSeconds": 10.32,
+      "sampleRate": 44100,
+      "channels": 2,
+      "bytes": 124931,
+      "sha256": "c97a1d1e861eae711fcf3c9c0a77530e5510c8abe80fc91a1b1626c5e9d27bd5",
+      "sources": [
+        {
+          "title": "Opening Theme [Action/Suspense]",
+          "author": "nene",
+          "url": "https://opengameart.org/content/opening-theme-actionsuspense",
+          "file": "opening-theme.flac",
+          "license": "CC0-1.0",
+          "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+          "sourceSha256": "67515ac185e6bc170639a383ec37243fdef398be503b56addef5615fb3f877c0"
+        }
+      ],
+      "originalProceduralDesign": false,
+      "sourceStartSeconds": 14,
+      "loopPrepared": false,
+      "processing": "44100 Hz stereo; duration matched to previous asset; level normalization; short edge fades; MP3 96 kbps. No samples from previous recordings."
+    },
+    {
+      "file": "main_theme_0.mp3",
+      "role": "خلفية ترقب هادئة",
+      "durationSeconds": 160.34,
+      "sampleRate": 44100,
+      "channels": 2,
+      "bytes": 1925189,
+      "sha256": "2c9c3461fed22b03a1ff8bc6f0e336447eee62f7fe6765d13e2d95f9263a6368",
+      "sources": [
+        {
+          "title": "Unsolved Investigation",
+          "author": "isaiah658",
+          "url": "https://opengameart.org/content/unsolved-investigation",
+          "file": "unsolved-investigation.ogg",
+          "license": "CC0-1.0",
+          "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+          "sourceSha256": "2877e423ff90cb99b3082840e66cf79d69a809708466c6f27c750c0e1ce2a912"
+        }
+      ],
+      "originalProceduralDesign": false,
+      "sourceStartSeconds": 0,
+      "loopPrepared": true,
+      "processing": "44100 Hz stereo; duration matched to previous asset; level normalization; short edge fades; MP3 96 kbps. No samples from previous recordings."
+    },
+    {
+      "file": "main_theme_1.mp3",
+      "role": "خلفية ترقب متوسطة",
+      "durationSeconds": 160.34,
+      "sampleRate": 44100,
+      "channels": 2,
+      "bytes": 1925189,
+      "sha256": "2dee34ee97aa13207202d68a99f5ee702e2b682b9e9a1ff5694fcff61147b906",
+      "sources": [
+        {
+          "title": "Suspense",
+          "author": "wipics",
+          "url": "https://opengameart.org/content/suspense-0",
+          "file": "suspense.ogg",
+          "license": "CC0-1.0",
+          "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+          "sourceSha256": "1b75b3eebb4a526cd7c337dc41aa5ca39d4dc0f44890a3a6c969e8edc205b8cf"
+        }
+      ],
+      "originalProceduralDesign": false,
+      "sourceStartSeconds": 0,
+      "loopPrepared": true,
+      "processing": "44100 Hz stereo; duration matched to previous asset; level normalization; short edge fades; MP3 96 kbps. No samples from previous recordings."
+    },
+    {
+      "file": "main_theme_2.mp3",
+      "role": "مساعدة الجمهور",
+      "durationSeconds": 167.13,
+      "sampleRate": 44100,
+      "channels": 2,
+      "bytes": 2006378,
+      "sha256": "ef3c44dd75e0d0f398f77d2c3670c677c67b52a11f60689f72a08e608d86a740",
+      "sources": [
+        {
+          "title": "Suspense",
+          "author": "wipics",
+          "url": "https://opengameart.org/content/suspense-0",
+          "file": "suspense.ogg",
+          "license": "CC0-1.0",
+          "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+          "sourceSha256": "1b75b3eebb4a526cd7c337dc41aa5ca39d4dc0f44890a3a6c969e8edc205b8cf"
+        }
+      ],
+      "originalProceduralDesign": false,
+      "sourceStartSeconds": 0,
+      "loopPrepared": true,
+      "processing": "44100 Hz stereo; duration matched to previous asset; level normalization; short edge fades; MP3 96 kbps. No samples from previous recordings."
+    },
+    {
+      "file": "main_theme_3.mp3",
+      "role": "خلفية التفكير بعد المساعدة",
+      "durationSeconds": 160.34,
+      "sampleRate": 44100,
+      "channels": 2,
+      "bytes": 1925189,
+      "sha256": "fc64370dd8ab88a9bedc45a8da12bcb29e8311797c72208619f66eceecf8e5e0",
+      "sources": [
+        {
+          "title": "Unsolved Investigation",
+          "author": "isaiah658",
+          "url": "https://opengameart.org/content/unsolved-investigation",
+          "file": "unsolved-investigation.ogg",
+          "license": "CC0-1.0",
+          "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+          "sourceSha256": "2877e423ff90cb99b3082840e66cf79d69a809708466c6f27c750c0e1ce2a912"
+        }
+      ],
+      "originalProceduralDesign": false,
+      "sourceStartSeconds": 0,
+      "loopPrepared": true,
+      "processing": "44100 Hz stereo; duration matched to previous asset; level normalization; short edge fades; MP3 96 kbps. No samples from previous recordings."
+    },
+    {
+      "file": "main_theme_4.mp3",
+      "role": "احتفال نهاية اللعبة",
+      "durationSeconds": 34.22,
+      "sampleRate": 44100,
+      "channels": 2,
+      "bytes": 411445,
+      "sha256": "d97f14157401665b458a60bfdc6feada1df8f0a3a3c19170f74e41d64a67c79e",
+      "sources": [],
+      "originalProceduralDesign": true,
+      "loopPrepared": false,
+      "processing": "44100 Hz stereo; duration matched to previous asset; level normalization; short edge fades; MP3 96 kbps. No samples from previous recordings."
+    },
+    {
+      "file": "match_opponent_found.mp3",
+      "role": "العثور على منافس",
+      "durationSeconds": 1.37,
+      "sampleRate": 44100,
+      "channels": 2,
+      "bytes": 17422,
+      "sha256": "b6423a67877ace40b751dd11257794cc578e840d9340c329a242b25c978bc8d1",
+      "sources": [
+        {
+          "title": "Interface Sounds / open_004",
+          "author": "Kenney",
+          "url": "https://kenney.nl/assets/interface-sounds",
+          "file": "kenney_open_004.ogg",
+          "license": "CC0-1.0",
+          "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+          "sourceSha256": "4e02b8287bc4d9e7bf7a889cb9e48613c8eb22a310dfb0bf29c2bfd0a1e4bea5"
+        }
+      ],
+      "originalProceduralDesign": true,
+      "loopPrepared": false,
+      "processing": "44100 Hz stereo; duration matched to previous asset; level normalization; short edge fades; MP3 96 kbps. No samples from previous recordings."
+    },
+    {
+      "file": "match_versus_slam.mp3",
+      "role": "ظهور المواجهة",
+      "durationSeconds": 2.38,
+      "sampleRate": 44100,
+      "channels": 2,
+      "bytes": 29645,
+      "sha256": "8a09e2303389bf2bf40b2b820a3363725bf363a6860c4b11ef0fa865edbd78e7",
+      "sources": [],
+      "originalProceduralDesign": true,
+      "loopPrepared": false,
+      "processing": "44100 Hz stereo; duration matched to previous asset; level normalization; short edge fades; MP3 96 kbps. No samples from previous recordings."
+    },
+    {
+      "file": "new_level.mp3",
+      "role": "فوز مرحلة أو تقدم",
+      "durationSeconds": 1.78,
+      "sampleRate": 44100,
+      "channels": 2,
+      "bytes": 22427,
+      "sha256": "fa01de6b472b3b354cf7a4381fcf4c168628e350679350a469461e71c252c2be",
+      "sources": [
+        {
+          "title": "Interface Sounds / confirmation_001",
+          "author": "Kenney",
+          "url": "https://kenney.nl/assets/interface-sounds",
+          "file": "kenney_confirmation_001.ogg",
+          "license": "CC0-1.0",
+          "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+          "sourceSha256": "063564703b6094d70718a3e787a55cc9141611e4ecd6b6637f8828f79b4a8c3a"
+        }
+      ],
+      "originalProceduralDesign": true,
+      "loopPrepared": false,
+      "processing": "44100 Hz stereo; duration matched to previous asset; level normalization; short edge fades; MP3 96 kbps. No samples from previous recordings."
+    },
+    {
+      "file": "phone_friend.mp3",
+      "role": "نغمة الاتصال بالصديق",
+      "durationSeconds": 46.63,
+      "sampleRate": 44100,
+      "channels": 2,
+      "bytes": 560657,
+      "sha256": "331c74039f11367beec8e25246df1c932168428b0c44cf7695e2073b6ce5c497",
+      "sources": [],
+      "originalProceduralDesign": true,
+      "loopPrepared": false,
+      "processing": "44100 Hz stereo; duration matched to previous asset; level normalization; short edge fades; MP3 96 kbps. No samples from previous recordings."
+    },
+    {
+      "file": "s_1000000.mp3",
+      "role": "احتفال الفوز الكبير",
+      "durationSeconds": 160.21,
+      "sampleRate": 44100,
+      "channels": 2,
+      "bytes": 1923619,
+      "sha256": "a240675edae37dcbd7a92555dfa3c088e9ec03d5a183e1c533b9da65772b0c20",
+      "sources": [],
+      "originalProceduralDesign": true,
+      "loopPrepared": true,
+      "processing": "44100 Hz stereo; duration matched to previous asset; level normalization; short edge fades; MP3 96 kbps. No samples from previous recordings."
+    },
+    {
+      "file": "s_64000.mp3",
+      "role": "خلفية ترقب عالية",
+      "durationSeconds": 160.34,
+      "sampleRate": 44100,
+      "channels": 2,
+      "bytes": 1925184,
+      "sha256": "98d93a48496c5775ad8479fb8d76aae37aa2aa0cc937e090fab5abaa3696b145",
+      "sources": [
+        {
+          "title": "Suspense",
+          "author": "wipics",
+          "url": "https://opengameart.org/content/suspense-0",
+          "file": "suspense.ogg",
+          "license": "CC0-1.0",
+          "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+          "sourceSha256": "1b75b3eebb4a526cd7c337dc41aa5ca39d4dc0f44890a3a6c969e8edc205b8cf"
+        }
+      ],
+      "originalProceduralDesign": false,
+      "sourceStartSeconds": 0,
+      "loopPrepared": true,
+      "processing": "44100 Hz stereo; duration matched to previous asset; level normalization; short edge fades; MP3 96 kbps. No samples from previous recordings."
+    },
+    {
+      "file": "wrong_answer.mp3",
+      "role": "إجابة خاطئة",
+      "durationSeconds": 5.83,
+      "sampleRate": 44100,
+      "channels": 2,
+      "bytes": 71018,
+      "sha256": "b0830cb3def561e81bd73ce6e8e39eb57137c7e58a7be353d66e2c3b30df6807",
+      "sources": [
+        {
+          "title": "Interface Sounds / error_003",
+          "author": "Kenney",
+          "url": "https://kenney.nl/assets/interface-sounds",
+          "file": "kenney_error_003.ogg",
+          "license": "CC0-1.0",
+          "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+          "sourceSha256": "885b28175c7b511118bcffab95675b48bbac9005cf6514656ebdad979276b3ab"
+        }
+      ],
+      "originalProceduralDesign": true,
+      "loopPrepared": false,
+      "processing": "44100 Hz stereo; duration matched to previous asset; level normalization; short edge fades; MP3 96 kbps. No samples from previous recordings."
+    }
+  ],
+  "retainedLicensedFiles": [
+    "main_theme_320bit_chosic.mp3",
+    "sneaky_snitch.mp3"
+  ],
+  "retainedUnverifiedFiles": [
+    {
+      "file": "drum1.mp3",
+      "role": "صوت الترقب السابق قبل كشف الإجابة",
+      "durationSeconds": 12.61,
+      "sampleRate": 44100,
+      "channels": 2,
+      "bytes": 83579,
+      "sha256": "938b05161304bbb2fc40514faa7b9822ce1191f5d5dfac9653cc0d64cc2c7fd8",
+      "sources": [],
+      "originalProceduralDesign": false,
+      "licenseStatus": "unverified",
+      "sourceStatus": "restored-previous-recording",
+      "restoredFrom": "tools/backup_audio/originals/drum1.mp3",
+      "restoredAt": "2026-10-26",
+      "reason": "Restored at the publisher's explicit request; no new license evidence supplied."
+    }
+  ]
+}

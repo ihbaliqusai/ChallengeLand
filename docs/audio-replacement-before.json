@@ -1,0 +1,107 @@
+[
+  {
+    "file": "beep.mp3",
+    "sha256": "231c3c206f6747d6784d9e46f8059b5de2c1ff6725c268a7ffdc137fa196b9e4",
+    "bytes": 4653
+  },
+  {
+    "file": "beep1.mp3",
+    "sha256": "281d049603b09a34b0978a5810bdaa42fffc7916d3251f8ca6cdc2f530e65fa4",
+    "bytes": 6957
+  },
+  {
+    "file": "blabla.mp3",
+    "sha256": "6c236b685f1931eb30ac8e8337bfc6761b82a7853dbd9b8961ee2f4027d709df",
+    "bytes": 23684
+  },
+  {
+    "file": "commerical_break.mp3",
+    "sha256": "4834f2fea4ad5793d4fdea4c327a5355c2490d4fb205d265afb2fae81f54147a",
+    "bytes": 128880
+  },
+  {
+    "file": "correct_answer.mp3",
+    "sha256": "c7c1917f8626b04b1255f764faa7ccd185868daad3d2fe807305305c2e64e059",
+    "bytes": 93145
+  },
+  {
+    "file": "drum1.mp3",
+    "sha256": "938b05161304bbb2fc40514faa7b9822ce1191f5d5dfac9653cc0d64cc2c7fd8",
+    "bytes": 83579
+  },
+  {
+    "file": "lets_play.mp3",
+    "sha256": "3e97e19c5d7577633431695ac889b21af95d1f1f84fa3208629ec36a17073acd",
+    "bytes": 124178
+  },
+  {
+    "file": "main_theme_0.mp3",
+    "sha256": "310e86b33cd65a4b07d523d9e2a107d9c3d88b1c031397dd9c3bc56057602c0f",
+    "bytes": 1924433
+  },
+  {
+    "file": "main_theme_1.mp3",
+    "sha256": "edbe9f3e123b6a290b4be6863156c952fccd1cafa2a2bee9df3256ddc28e07bc",
+    "bytes": 1924433
+  },
+  {
+    "file": "main_theme_2.mp3",
+    "sha256": "1daa6304da3deb0e46b7ebbd3dd4b3789a4933c941ea6ac7e4341ca1e7f4f35b",
+    "bytes": 2005935
+  },
+  {
+    "file": "main_theme_3.mp3",
+    "sha256": "d714f1d81e968456fad8f327092018e892176abe80290cc5331cb4b136bab9a8",
+    "bytes": 1924433
+  },
+  {
+    "file": "main_theme_4.mp3",
+    "sha256": "1658e801bb854aeeb4c506dc616edd6b6e0c3517aa904ece7ff332d78c72e526",
+    "bytes": 411003
+  },
+  {
+    "file": "match_opponent_found.mp3",
+    "sha256": "88919d082ef0cc16a807a4bd5794daf48fb06ace0f0c4c2c5d2b1eec4ecb70d6",
+    "bytes": 23468
+  },
+  {
+    "file": "match_versus_slam.mp3",
+    "sha256": "6cf8fe883803655ba564df1451f76264782ad566e67544a752f048bcb8c71c5b",
+    "bytes": 39596
+  },
+  {
+    "file": "new_level.mp3",
+    "sha256": "355d6b9e99ba573b28e6f3c71cdc63851462049c54bbdef18349b1f0fd51f316",
+    "bytes": 21645
+  },
+  {
+    "file": "phone_friend.mp3",
+    "sha256": "1a7e6390550b5b36e7da6c4a9ff433b85e0a021d206712737944cc88fd5fc4a7",
+    "bytes": 559901
+  },
+  {
+    "file": "s_1000000.mp3",
+    "sha256": "fcc0344ef417d53c416226f92e4e257c56e53f4eb7680368898d1c0c80ac6a14",
+    "bytes": 1922866
+  },
+  {
+    "file": "s_64000.mp3",
+    "sha256": "d6130a7f144a2c45209f325358c21107d304bc801b3db9f451cde825efceea46",
+    "bytes": 1924433
+  },
+  {
+    "file": "wrong_answer.mp3",
+    "sha256": "c1aaf5d71c0a364dbf588a00aca48b72acdc0e31087e0e76a97d3cc519031c16",
+    "bytes": 70262
+  },
+  {
+    "file": "main_theme_320bit_chosic.mp3",
+    "sha256": "e46132ef4f15edbe2b486689cc2e0713133c36859a37f8b0e8463887b3836de7",
+    "bytes": 877445
+  },
+  {
+    "file": "sneaky_snitch.mp3",
+    "sha256": "2cb0f7df8cc2ac1bd041d19af8de22f3be0917b65387d7669e929118c44fbc85",
+    "bytes": 1640116
+  }
+]

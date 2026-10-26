@@ -16,6 +16,7 @@ import '../services/daily_reward_service.dart';
 import '../services/lucky_wheel_service.dart';
 import '../services/campaign_currency_service.dart';
 import '../services/native_bridge_service.dart';
+import '../services/leaderboard_service.dart';
 import '../services/progression_service.dart';
 import 'player_rank.dart';
 
@@ -24,9 +25,12 @@ class AppState extends ChangeNotifier {
     required AuthService authService,
     required NativeBridgeService nativeBridgeService,
     FirebaseFirestore? firestore,
+    LeaderboardService? leaderboardService,
   })  : _authService = authService,
         _nativeBridgeService = nativeBridgeService,
         _firestore = firestore ?? FirebaseFirestore.instance,
+        _leaderboardService =
+            leaderboardService ?? LeaderboardService(firestore: firestore),
         _progressionService = ProgressionService(firestore: firestore) {
     NativeBridgeService.addPurchaseDeliveredListener(_onPurchaseDelivered);
     unawaited(loadCategoryState());
@@ -48,6 +52,7 @@ class AppState extends ChangeNotifier {
   final AuthService _authService;
   final NativeBridgeService _nativeBridgeService;
   final FirebaseFirestore _firestore;
+  final LeaderboardService _leaderboardService;
   final ProgressionService _progressionService;
 
   StreamSubscription<User?>? _authSubscription;
@@ -458,6 +463,25 @@ class AppState extends ChangeNotifier {
   bool get hasPendingLuckyWheelSpin => _pendingWheelOperationId != null;
   bool get canSpinLuckyWheel =>
       hasPendingLuckyWheelSpin || !claimedToday || purchasedWheelSpins > 0;
+
+  /// The offered contestant advances after each character unlock. A server
+  /// preview also accounts for ownership changes made on another device.
+  GameCharacter? get wheelPrizeCharacter {
+    if (economyWallet.hasWheelCharacterPreview) {
+      final index = economyWallet.wheelCharacterIndex;
+      if (index == null) return null;
+      if (LuckyWheelPrize.eligibleCharacterIndices.contains(index) &&
+          !purchasedCharacters.contains(index)) {
+        return CharacterCatalog.byIndex(index);
+      }
+    }
+    for (final index in LuckyWheelPrize.eligibleCharacterIndices) {
+      if (!purchasedCharacters.contains(index)) {
+        return CharacterCatalog.byIndex(index);
+      }
+    }
+    return null;
+  }
 
   static String _newWheelOperationId() {
     final random = math.Random.secure();
@@ -960,6 +984,7 @@ class AppState extends ChangeNotifier {
     user = nextUser;
 
     if (nextUser != null) {
+      unawaited(_syncAutomaticCountry(nextUser.uid, generation));
       if (isDifferentUser) {
         _resetSessionState();
         await _nativeBridgeService.resetLegacyUser();
@@ -974,6 +999,18 @@ class AppState extends ChangeNotifier {
       await _nativeBridgeService.resetLegacyUser();
     }
     notifyListeners();
+  }
+
+  Future<void> _syncAutomaticCountry(String uid, int generation) async {
+    try {
+      await _leaderboardService.ensureCountry(uid,
+          isActive: () =>
+              !_disposed &&
+              generation == _authGeneration &&
+              currentUser?.uid == uid);
+    } catch (error) {
+      debugPrint('[Leaderboard] Country sync deferred: ${error.runtimeType}');
+    }
   }
 
   Future<void> signIn(String email, String password) async {
@@ -1149,7 +1186,7 @@ class AppState extends ChangeNotifier {
     if (uid == null) return false;
     if (coinsReward <= 0 && gemsReward <= 0) return true;
     try {
-      late final Map<String, int> balances;
+      late final Map<String, dynamic> balances;
       if (claimId != null) {
         if (_commerceHydratedUid != uid) return false;
         final cloudBalance =
@@ -1178,8 +1215,8 @@ class AppState extends ChangeNotifier {
       if (generation != _authGeneration || currentUser?.uid != uid) {
         return false;
       }
-      coins = balances['coins'] ?? (coins + coinsReward);
-      gems = balances['gems'] ?? (gems + gemsReward);
+      coins = (balances['coins'] as num?)?.toInt() ?? (coins + coinsReward);
+      gems = (balances['gems'] as num?)?.toInt() ?? (gems + gemsReward);
       if (claimId == null) unawaited(_saveCurrencySnapshot(uid));
       notifyListeners();
       return true;
@@ -1191,13 +1228,18 @@ class AppState extends ChangeNotifier {
   Future<bool> grantRewardCurrency({
     required int coinsReward,
     required int gemsReward,
+    String? claimId,
   }) async {
     if (coinsReward <= 0 && gemsReward <= 0) return true;
     try {
       final balances = await _nativeBridgeService.grantCurrency(
         coins: coinsReward,
         gems: gemsReward,
+        claimId: claimId,
       );
+      if (claimId != null && balances['granted'] == false) {
+        return false;
+      }
       coins = balances['coins'] ?? (coins + coinsReward);
       gems = balances['gems'] ?? (gems + gemsReward);
       final uid = currentUser?.uid;
@@ -1330,6 +1372,22 @@ class AppState extends ChangeNotifier {
         }
 
         _applyProgression(ProgressionService.readStats(data));
+
+        final hasRatedRemote = data['hasRated'] == true;
+        final claimedRatingRewardRemote = data['claimedRatingReward'] == true;
+        if (hasRatedRemote || claimedRatingRewardRemote) {
+          try {
+            final prefs = await SharedPreferences.getInstance();
+            if (hasRatedRemote) {
+              await prefs.setBool('has_rated_challenge_land', true);
+              await prefs.setBool('has_rated_challenge_land_$uid', true);
+            }
+            if (claimedRatingRewardRemote) {
+              await prefs.setBool('rate_reward_claimed', true);
+              await prefs.setBool('rate_reward_claimed_$uid', true);
+            }
+          } catch (_) {}
+        }
       } else {
         // حساب جديد تماماً: قيم افتراضية نظيفة خاصة به
         coins = 500;

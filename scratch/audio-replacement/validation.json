@@ -1,0 +1,152 @@
+{
+  "verifiedFiles": 18,
+  "allDecoded": true,
+  "noClipping": true,
+  "allDurationsMatched": true,
+  "results": [
+    {
+      "file": "beep.mp3",
+      "seconds": 0.36,
+      "rmsDb": -20.44,
+      "peakDb": -7.45,
+      "onsetSeconds": 0.001,
+      "sha256": "6b84d0c6b606239deb3937a4fd3da27409c57f5b0cdac7c6dc0ec718c36549da"
+    },
+    {
+      "file": "beep1.mp3",
+      "seconds": 0.55,
+      "rmsDb": -20.45,
+      "peakDb": -7.79,
+      "onsetSeconds": 0.001,
+      "sha256": "19f387e3ab3adca1d3d633a05268ce80d5fe0a41e97df20b14dc6ac14f9a6f27"
+    },
+    {
+      "file": "blabla.mp3",
+      "seconds": 3.55,
+      "rmsDb": -20.45,
+      "peakDb": -10.53,
+      "onsetSeconds": 0.0013,
+      "sha256": "194f3d48361198650038a6bf0ed2ae9a1195d19beed4ab3b43ab5ff26d918c4d"
+    },
+    {
+      "file": "commerical_break.mp3",
+      "seconds": 10.71,
+      "rmsDb": -20.46,
+      "peakDb": -5.13,
+      "onsetSeconds": 0.0011,
+      "sha256": "2ddfef6ad91510f73b4a0b6b375a86a8af9c5d461404946e08be9e2773e8602b"
+    },
+    {
+      "file": "correct_answer.mp3",
+      "seconds": 7.73,
+      "rmsDb": -22.21,
+      "peakDb": -3.39,
+      "onsetSeconds": 0,
+      "sha256": "9783b0840ee4b5874123605003994e4aa5f9bdc31d593c7b5c9c9beb38ec0f89"
+    },
+    {
+      "file": "lets_play.mp3",
+      "seconds": 10.32,
+      "rmsDb": -20.44,
+      "peakDb": -6.72,
+      "onsetSeconds": 0.0005,
+      "sha256": "c97a1d1e861eae711fcf3c9c0a77530e5510c8abe80fc91a1b1626c5e9d27bd5"
+    },
+    {
+      "file": "main_theme_0.mp3",
+      "seconds": 160.34065759637187,
+      "rmsDb": -23.45,
+      "peakDb": -9.65,
+      "onsetSeconds": 0.0018,
+      "sha256": "2c9c3461fed22b03a1ff8bc6f0e336447eee62f7fe6765d13e2d95f9263a6368"
+    },
+    {
+      "file": "main_theme_1.mp3",
+      "seconds": 160.34065759637187,
+      "rmsDb": -23.45,
+      "peakDb": -5.69,
+      "onsetSeconds": 0.0092,
+      "sha256": "2dee34ee97aa13207202d68a99f5ee702e2b682b9e9a1ff5694fcff61147b906"
+    },
+    {
+      "file": "main_theme_2.mp3",
+      "seconds": 167.13,
+      "rmsDb": -23.44,
+      "peakDb": -5.38,
+      "onsetSeconds": 0.0092,
+      "sha256": "ef3c44dd75e0d0f398f77d2c3670c677c67b52a11f60689f72a08e608d86a740"
+    },
+    {
+      "file": "main_theme_3.mp3",
+      "seconds": 160.34065759637187,
+      "rmsDb": -23.45,
+      "peakDb": -9.63,
+      "onsetSeconds": 0.0018,
+      "sha256": "fc64370dd8ab88a9bedc45a8da12bcb29e8311797c72208619f66eceecf8e5e0"
+    },
+    {
+      "file": "main_theme_4.mp3",
+      "seconds": 34.22,
+      "rmsDb": -23.44,
+      "peakDb": -6.27,
+      "onsetSeconds": 0,
+      "sha256": "d97f14157401665b458a60bfdc6feada1df8f0a3a3c19170f74e41d64a67c79e"
+    },
+    {
+      "file": "match_opponent_found.mp3",
+      "seconds": 1.37,
+      "rmsDb": -20.48,
+      "peakDb": -6.94,
+      "onsetSeconds": 0.0014,
+      "sha256": "b6423a67877ace40b751dd11257794cc578e840d9340c329a242b25c978bc8d1"
+    },
+    {
+      "file": "match_versus_slam.mp3",
+      "seconds": 2.38,
+      "rmsDb": -21.34,
+      "peakDb": -2.57,
+      "onsetSeconds": 0.0069,
+      "sha256": "8a09e2303389bf2bf40b2b820a3363725bf363a6860c4b11ef0fa865edbd78e7"
+    },
+    {
+      "file": "new_level.mp3",
+      "seconds": 1.78,
+      "rmsDb": -20.45,
+      "peakDb": -5.71,
+      "onsetSeconds": 0.0003,
+      "sha256": "fa01de6b472b3b354cf7a4381fcf4c168628e350679350a469461e71c252c2be"
+    },
+    {
+      "file": "phone_friend.mp3",
+      "seconds": 46.63,
+      "rmsDb": -20.45,
+      "peakDb": -7.43,
+      "onsetSeconds": 0.0011,
+      "sha256": "331c74039f11367beec8e25246df1c932168428b0c44cf7695e2073b6ce5c497"
+    },
+    {
+      "file": "s_1000000.mp3",
+      "seconds": 160.21004535147392,
+      "rmsDb": -23.45,
+      "peakDb": -5.8,
+      "onsetSeconds": 0,
+      "sha256": "a240675edae37dcbd7a92555dfa3c088e9ec03d5a183e1c533b9da65772b0c20"
+    },
+    {
+      "file": "s_64000.mp3",
+      "seconds": 160.34065759637187,
+      "rmsDb": -23.45,
+      "peakDb": -5.7,
+      "onsetSeconds": 0.0092,
+      "sha256": "98d93a48496c5775ad8479fb8d76aae37aa2aa0cc937e090fab5abaa3696b145"
+    },
+    {
+      "file": "wrong_answer.mp3",
+      "seconds": 5.83,
+      "rmsDb": -21.6,
+      "peakDb": -2.78,
+      "onsetSeconds": 0.0002,
+      "sha256": "b0830cb3def561e81bd73ce6e8e39eb57137c7e58a7be353d66e2c3b30df6807"
+    }
+  ]
+}

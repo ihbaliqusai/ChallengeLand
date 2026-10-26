@@ -176,14 +176,16 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         _finishFirstResult();
       }, onError: (Object error) {
         if (!mounted || generation != _loadGeneration) return;
+        _reportLoadError(scope, error);
         setState(() {
           _loading = false;
           _error = 'تعذر تحميل لوحة الصدارة. تحقق من اتصالك وحاول مجددًا.';
         });
         _finishFirstResult();
       });
-    } catch (_) {
+    } catch (error) {
       if (!mounted || generation != _loadGeneration) return;
+      _reportLoadError(scope, error);
       _countryRequest = null;
       setState(() {
         _loading = false;
@@ -192,6 +194,15 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       _finishFirstResult();
     }
     return firstResult.future;
+  }
+
+  void _reportLoadError(LeaderboardScope scope, Object error) {
+    final code = error is FirebaseException ? error.code : error.runtimeType;
+    final country = scope == LeaderboardScope.country
+        ? _countryCode ?? 'unresolved'
+        : 'n/a';
+    debugPrint(
+        '[Leaderboard] scope=${scope.name} country=$country load failed: $code');
   }
 
   void _selectScope(LeaderboardScope scope) {
@@ -348,94 +359,118 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             backgroundColor: const Color(0xFF14072F),
             body: Stack(children: [
               const Positioned.fill(child: LeaderboardBackdrop()),
-              SafeArea(child: LayoutBuilder(builder: (context, constraints) {
-                final landscape = constraints.maxWidth > constraints.maxHeight;
-                final contentWidth = math.min(constraints.maxWidth, 880.0);
-                final rowHeight = (contentWidth * .15).clamp(48.0, 78.0);
-                return Column(children: [
-                  SizedBox(
-                      height: landscape ? 48 : 64,
-                      child: Directionality(
-                          textDirection: TextDirection.ltr,
-                          child: Row(children: [
-                            const SizedBox(width: 8),
-                            LeaderboardBackButton(
-                                onPressed: () =>
-                                    Navigator.of(context).maybePop()),
-                            const Spacer(),
-                            if (_scope == LeaderboardScope.country &&
-                                _countryCode != null)
-                              TextButton.icon(
-                                  key: const ValueKey(
-                                      'leaderboard-change-country'),
-                                  onPressed:
-                                      _savingCountry ? null : _chooseCountry,
-                                  icon: const Icon(
-                                      Icons.edit_location_alt_outlined,
-                                      color: Colors.white70,
-                                      size: 17),
-                                  label: Text('تغيير البلد',
-                                      style: _gameText(12))),
-                            const SizedBox(width: 12),
-                          ]))),
-                  _ScopeTabs(
-                      scope: _scope,
-                      countryName: leaderboardCountries[_countryCode],
-                      onSelect: _selectScope),
-                  Container(
-                      key: const ValueKey('leaderboard-title-banner'),
-                      width: double.infinity,
-                      height: landscape ? 48 : 52,
-                      alignment: Alignment.center,
-                      decoration: const BoxDecoration(
-                          gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [Color(0xFF478CE1), Color(0xFF1C49B2)]),
-                          border: Border.symmetric(
-                              horizontal: BorderSide(
-                                  color: Color(0xFF36B9F5), width: 2))),
-                      child: Semantics(
-                          namesRoute: true,
-                          label: 'لوحة الصدارة',
-                          child: Text('أفضل اللاعبين', style: _gameText(24)))),
-                  Expanded(
-                    child: Stack(children: [
-                      Positioned.fill(
-                          child: RefreshIndicator(
-                              onRefresh: _load,
-                              color: const Color(0xFFFFD341),
-                              backgroundColor: const Color(0xFF214FAB),
-                              child: _buildList(players, state, contentWidth,
-                                  rowHeight, constraints.maxWidth))),
-                      if (_loading && _hasResult)
-                        const Align(
-                          alignment: Alignment.topCenter,
-                          child: LinearProgressIndicator(
-                            minHeight: 2,
-                            color: Color(0xFF72D6FF),
-                            backgroundColor: Colors.transparent,
-                          ),
-                        ),
-                      if (_error != null && _hasResult)
-                        Align(
-                          alignment: Alignment.bottomCenter,
-                          child: Material(
-                            color: const Color(0xEE190D42),
-                            borderRadius: BorderRadius.circular(12),
-                            child: TextButton.icon(
-                              onPressed: _load,
-                              icon: const Icon(Icons.refresh_rounded,
-                                  color: Colors.white),
-                              label: Text('تعذر التحديث • إعادة المحاولة',
-                                  style: _gameText(13)),
-                            ),
-                          ),
-                        ),
-                    ]),
-                  ),
-                ]);
-              })),
+              SafeArea(
+                  left: false,
+                  right: false,
+                  child: LayoutBuilder(builder: (context, constraints) {
+                    final availableWidth = constraints.maxWidth -
+                        MediaQuery.paddingOf(context).horizontal;
+                    final landscape = availableWidth > constraints.maxHeight;
+                    final contentWidth = math.min(availableWidth, 880.0);
+                    final rowHeight = (contentWidth * .15).clamp(48.0, 78.0);
+                    return Column(children: [
+                      SafeArea(
+                          top: false,
+                          bottom: false,
+                          child: Column(children: [
+                            SizedBox(
+                                height: landscape ? 48 : 64,
+                                child: Directionality(
+                                    textDirection: TextDirection.ltr,
+                                    child: Row(children: [
+                                      const SizedBox(width: 8),
+                                      LeaderboardBackButton(
+                                          onPressed: () =>
+                                              Navigator.of(context).maybePop()),
+                                      const Spacer(),
+                                      if (_scope == LeaderboardScope.country &&
+                                          _countryCode != null)
+                                        TextButton.icon(
+                                            key: const ValueKey(
+                                                'leaderboard-change-country'),
+                                            onPressed: _savingCountry
+                                                ? null
+                                                : _chooseCountry,
+                                            icon: const Icon(
+                                                Icons
+                                                    .edit_location_alt_outlined,
+                                                color: Colors.white70,
+                                                size: 17),
+                                            label: Text('تغيير البلد',
+                                                style: _gameText(12))),
+                                      const SizedBox(width: 12),
+                                    ]))),
+                            _ScopeTabs(
+                                scope: _scope,
+                                countryName: leaderboardCountries[_countryCode],
+                                onSelect: _selectScope),
+                          ])),
+                      Container(
+                          key: const ValueKey('leaderboard-title-banner'),
+                          width: double.infinity,
+                          height: landscape ? 48 : 52,
+                          alignment: Alignment.center,
+                          decoration: const BoxDecoration(
+                              gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    Color(0xFF478CE1),
+                                    Color(0xFF1C49B2)
+                                  ]),
+                              border: Border.symmetric(
+                                  horizontal: BorderSide(
+                                      color: Color(0xFF36B9F5), width: 2))),
+                          child: Semantics(
+                              namesRoute: true,
+                              label: 'لوحة الصدارة',
+                              child:
+                                  Text('أفضل اللاعبين', style: _gameText(24)))),
+                      Expanded(
+                        child: SafeArea(
+                            top: false,
+                            bottom: false,
+                            child: Stack(children: [
+                              Positioned.fill(
+                                  child: RefreshIndicator(
+                                      onRefresh: _load,
+                                      color: const Color(0xFFFFD341),
+                                      backgroundColor: const Color(0xFF214FAB),
+                                      child: _buildList(
+                                          players,
+                                          state,
+                                          contentWidth,
+                                          rowHeight,
+                                          availableWidth))),
+                              if (_loading && _hasResult)
+                                const Align(
+                                  alignment: Alignment.topCenter,
+                                  child: LinearProgressIndicator(
+                                    minHeight: 2,
+                                    color: Color(0xFF72D6FF),
+                                    backgroundColor: Colors.transparent,
+                                  ),
+                                ),
+                              if (_error != null && _hasResult)
+                                Align(
+                                  alignment: Alignment.bottomCenter,
+                                  child: Material(
+                                    color: const Color(0xEE190D42),
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: TextButton.icon(
+                                      onPressed: _load,
+                                      icon: const Icon(Icons.refresh_rounded,
+                                          color: Colors.white),
+                                      label: Text(
+                                          'تعذر التحديث • إعادة المحاولة',
+                                          style: _gameText(13)),
+                                    ),
+                                  ),
+                                ),
+                            ])),
+                      ),
+                    ]);
+                  })),
             ])));
   }
 
@@ -450,9 +485,9 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     } else if (_scope != LeaderboardScope.world && _uid == null) {
       message = _scope == LeaderboardScope.friends
           ? 'سجّل الدخول لعرض ترتيبك بين أصدقائك'
-          : 'سجّل الدخول لاختيار بلدك وعرض ترتيبه';
+          : 'سجّل الدخول لعرض ترتيب بلدك';
     } else if (_scope == LeaderboardScope.country && _countryCode == null) {
-      message = 'اختر بلدك للمنافسة مع لاعبيه';
+      message = 'تعذر تحديد بلدك تلقائيًا. اختره للمنافسة مع لاعبيه';
       action = 'اختيار البلد';
       onAction = _chooseCountry;
     } else if (_hasResult && players.isEmpty) {

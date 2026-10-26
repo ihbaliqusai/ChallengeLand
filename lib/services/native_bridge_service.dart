@@ -730,7 +730,7 @@ class NativeBridgeService {
     return result ?? {'coins': 0, 'gems': 0};
   }
 
-  Future<Map<String, int>> grantCurrency({
+  Future<Map<String, dynamic>> grantCurrency({
     int coins = 0,
     int gems = 0,
     String? claimId,
@@ -743,12 +743,11 @@ class NativeBridgeService {
         if (claimId != null) 'claimId': claimId,
       },
     );
-    if (result == null) return {'coins': 0, 'gems': 0};
-    // Android also returns a boolean `granted` receipt. Only balances are
-    // numeric; converting the receipt throws after the reward was paid.
+    if (result == null) return {'coins': 0, 'gems': 0, 'granted': false};
     return {
-      'coins': (result['coins'] as num).toInt(),
-      'gems': (result['gems'] as num).toInt(),
+      'coins': (result['coins'] as num?)?.toInt() ?? 0,
+      'gems': (result['gems'] as num?)?.toInt() ?? 0,
+      'granted': result['granted'] as bool? ?? true,
     };
   }
 
@@ -780,7 +779,7 @@ class NativeBridgeService {
         await _channel.invokeMapMethod<String, dynamic>('getSettings');
     return {
       'sfx': result?['sfx'] as bool? ?? true,
-      'music': result?['music'] as bool? ?? true,
+      'music': result?['music'] as bool? ?? false,
       'haptic': result?['haptic'] as bool? ?? true,
       'hapticAvailable': result?['hapticAvailable'] as bool? ?? true,
       'notifications': result?['notifications'] as bool? ?? true,

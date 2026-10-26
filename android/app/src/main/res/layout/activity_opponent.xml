@@ -1,188 +1,455 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".OpponentActivity"
-    android:background="@drawable/bg_opponent"
-    >
+    android:clipChildren="false"
+    android:clipToPadding="false"
+    tools:context=".OpponentActivity">
 
-    <TextView
-        android:id="@+id/txtVs"
-        android:layout_width="100dp"
-        android:layout_height="180dp"
-        android:layout_centerInParent="true"
-        android:gravity="center"
-        android:text="@string/txtVs"
-        android:textColor="#fff"
-        android:textSize="20sp"
-        android:textStyle="bold"
-        />
+    <!-- 1. Full-Window Cosmic Search Background (Active during search phase) -->
+    <ImageView
+        android:id="@+id/imgSearchBackground"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="fitXY"
+        android:src="@drawable/bg_match_cosmic_space"
+        android:clickable="false"
+        android:focusable="false"
+        android:contentDescription="Search Background" />
 
-    <Button
+    <!-- 2. Full-Window Left Shutter: Purple Diagonal Panel (k.png) -->
+    <ImageView
+        android:id="@+id/imgSplitLeft"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="fitXY"
+        android:src="@drawable/bg_split_left_purple"
+        android:clickable="false"
+        android:focusable="false"
+        android:visibility="invisible"
+        android:contentDescription="Split Screen Left" />
+
+    <!-- 3. Full-Window Right Shutter: Orange Diagonal Panel (b.png) -->
+    <ImageView
+        android:id="@+id/imgSplitRight"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="fitXY"
+        android:src="@drawable/bg_split_right_orange"
+        android:clickable="false"
+        android:focusable="false"
+        android:visibility="invisible"
+        android:contentDescription="Split Screen Right" />
+
+    <!-- Top Left Cancel Button (High-Res 3D Glossy Arrow Banner) -->
+    <RelativeLayout
         android:id="@+id/btnCancel"
-        android:layout_width="140dp"
-        android:layout_height="42dp"
-        android:layout_centerHorizontal="true"
-        android:layout_below="@id/txtVs"
-        android:layout_marginTop="10dp"
-        android:fontFamily="@font/baloo"
-        android:text="إلغاء التحدي"
-        android:textColor="#FFFFFF"
-        android:textSize="14sp"
-        android:textStyle="bold"
-        android:backgroundTint="#D32F2F"
-        android:visibility="gone" />
+        android:layout_width="116dp"
+        android:layout_height="56dp"
+        android:layout_alignParentStart="true"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentTop="true"
+        android:layout_marginStart="20dp"
+        android:layout_marginLeft="20dp"
+        android:layout_marginTop="14dp"
+        android:clickable="true"
+        android:focusable="true"
+        android:elevation="8dp">
 
+        <ImageView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="fitXY"
+            android:src="@drawable/img_match_cancel_btn"
+            android:contentDescription="Cancel Button" />
+
+        <TextView
+            android:id="@+id/txtCancelLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerInParent="true"
+            android:layout_marginStart="14dp"
+            android:layout_marginEnd="6dp"
+            android:layout_marginBottom="2dp"
+            android:fontFamily="@font/baloo"
+            android:text="إلغاء"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:shadowColor="#80000000"
+            android:shadowDx="0"
+            android:shadowDy="2"
+            android:shadowRadius="4" />
+    </RelativeLayout>
+
+    <!-- Top Center Matchmaking Status -->
     <TextView
         android:id="@+id/txtStatus"
-        android:layout_width="320dp"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_centerHorizontal="true"
-        android:layout_below="@id/btnCancel"
-        android:layout_marginTop="8dp"
+        android:layout_alignParentTop="true"
+        android:layout_marginTop="20dp"
         android:fontFamily="@font/baloo"
         android:gravity="center"
         android:text="جاري البحث عن منافس..."
         android:textColor="#FFFFFF"
-        android:textSize="16sp" />
-
-    <TextView
-        android:id="@+id/txtOpponent1"
-        android:layout_width="120dp"
-        android:layout_height="30dp"
-        android:gravity="center"
-        android:layout_toRightOf="@id/txtVs"
-        android:layout_alignTop="@id/txtVs"
-        android:text="@string/txtOpponent1"
         android:textSize="20sp"
-        android:textColor="#fff"
         android:textStyle="bold"
-        />
+        android:shadowColor="#99000000"
+        android:shadowDx="0"
+        android:shadowDy="2"
+        android:shadowRadius="6" />
 
+    <!-- Central Arena Anchor (Centers the entire faceoff area) -->
     <RelativeLayout
-        android:layout_width="120dp"
-        android:layout_height="150dp"
-        android:layout_toRightOf="@id/txtVs"
-        android:layout_below="@id/txtOpponent1"
-        >
+        android:id="@+id/layoutArena"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_centerInParent="true"
+        android:clipChildren="false"
+        android:clipToPadding="false">
 
-        <RelativeLayout
-            android:layout_width="90dp"
+        <!-- Center Versus Badge (Dynamic Animated with High-Res Golden VS Asset) -->
+        <com.qi7bali.landchallengeonline.MatchmakingVersusBadgeView
+            android:id="@+id/vsBadgeView"
+            android:layout_width="140dp"
             android:layout_height="130dp"
-            android:layout_centerHorizontal="true"
-            android:layout_marginTop="5dp"
-            >
-            <ImageView
-                android:id="@+id/imgPhoto1"
-                android:layout_width="90dp"
-                android:layout_height="90dp"
-                android:scaleType="fitXY"
-                android:contentDescription="@string/todo40" />
-        </RelativeLayout>
+            android:layout_centerInParent="true"
+            android:elevation="10dp" />
 
-        <ImageView
-            android:layout_width="120dp"
-            android:layout_height="150dp"
-            android:src="@drawable/opponent1"
-            android:contentDescription="@string/todo44" />
-
+        <!-- Invisible legacy txtVs for backward-compatibility with any layout queries -->
         <TextView
-            android:id="@+id/txtLevel1"
+            android:id="@+id/txtVs"
+            android:layout_width="1dp"
+            android:layout_height="1dp"
+            android:layout_centerInParent="true"
+            android:visibility="invisible"
+            android:text="@string/txtVs" />
+
+        <!-- ============================================== -->
+        <!-- LEFT: PLAYER (YOU) SECTION                     -->
+        <!-- ============================================== -->
+        <RelativeLayout
+            android:id="@+id/layoutPlayerGroup"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_centerHorizontal="true"
-            android:layout_alignParentBottom="true"
-            android:layout_marginBottom="17dp"
-            android:text="@string/txtLevel1"
-            android:textSize="24sp"
-            android:textColor="#FFFFFF"
-            android:fontFamily="@font/baloo"
-            />
+            android:layout_toStartOf="@id/vsBadgeView"
+            android:layout_toLeftOf="@id/vsBadgeView"
+            android:layout_centerVertical="true"
+            android:layout_marginEnd="16dp"
+            android:layout_marginRight="16dp"
+            android:gravity="center_horizontal"
+            android:clipChildren="false"
+            android:clipToPadding="false">
 
-    </RelativeLayout>
-
-    <TextView
-        android:id="@+id/txtOpponent2"
-        android:layout_width="120dp"
-        android:layout_height="30dp"
-        android:gravity="center"
-        android:layout_toLeftOf="@id/txtVs"
-        android:layout_alignTop="@id/txtVs"
-        android:text="@string/txtOpponent2"
-        android:textSize="20sp"
-        android:textColor="#fff"
-        android:textStyle="bold"
-        />
-
-    <RelativeLayout
-        android:layout_width="120dp"
-        android:layout_height="150dp"
-        android:layout_toLeftOf="@id/txtVs"
-        android:layout_below="@id/txtOpponent2"
-        >
-
-        <RelativeLayout
-            android:layout_width="90dp"
-            android:layout_height="130dp"
-            android:layout_centerHorizontal="true"
-            android:layout_marginTop="5dp"
-            >
-            <ImageView
-                android:id="@+id/imgPhoto2"
-                android:layout_width="90dp"
-                android:layout_height="90dp"
-                android:scaleType="fitXY"
-                android:visibility="invisible"
-                android:contentDescription="@string/todo41" />
-
-            <ImageView
-                android:id="@+id/imgPhoto21"
-                android:layout_width="90dp"
+            <!-- Player Title & Name -->
+            <TextView
+                android:id="@+id/txtOpponent1"
+                android:layout_width="150dp"
                 android:layout_height="wrap_content"
-                android:scaleType="fitXY"
-                android:contentDescription="@string/todo45" />
+                android:layout_centerHorizontal="true"
+                android:gravity="center"
+                android:ellipsize="end"
+                android:singleLine="true"
+                android:fontFamily="@font/baloo"
+                android:text="@string/txtOpponent1"
+                android:textColor="#FFFFFF"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:shadowColor="#80000000"
+                android:shadowDx="0"
+                android:shadowDy="2"
+                android:shadowRadius="4" />
 
-            <ImageView
-                android:id="@+id/imgPhoto22"
-                android:layout_width="match_parent"
+            <TextView
+                android:id="@+id/txtPlayerSubtitle"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:scaleType="fitXY"
-                android:contentDescription="@string/todo46" />
-        </RelativeLayout>
+                android:layout_below="@id/txtOpponent1"
+                android:layout_centerHorizontal="true"
+                android:layout_marginTop="-2dp"
+                android:fontFamily="@font/baloo"
+                android:gravity="center"
+                android:text="أنت  •  المستوى 1"
+                android:textColor="#D4F038"
+                android:textSize="12sp"
+                android:textStyle="bold" />
 
-        <ImageView
-            android:layout_width="120dp"
-            android:layout_height="150dp"
-            android:src="@drawable/opponent2"
-            android:contentDescription="@string/todo42" />
+            <!-- Player Card Frame -->
+            <RelativeLayout
+                android:id="@+id/cardPlayer"
+                android:layout_width="136dp"
+                android:layout_height="136dp"
+                android:layout_below="@id/txtPlayerSubtitle"
+                android:layout_centerHorizontal="true"
+                android:layout_marginTop="6dp"
+                android:clipChildren="false"
+                android:clipToPadding="false">
 
-        <!--
+                <!-- Dark inner backing -->
+                <View
+                    android:layout_width="106dp"
+                    android:layout_height="106dp"
+                    android:layout_centerInParent="true"
+                    android:background="@drawable/bg_avatar_backing" />
+
+                <!-- Avatar Container -->
                 <ImageView
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
-                    android:layout_alignParentLeft="true"
-                    android:layout_alignParentBottom="true"
-                    android:layout_marginLeft="7dp"
-                    android:layout_marginBottom="23dp"
-                    android:src="@drawable/ranking"
-                    />
-        -->
+                    android:id="@+id/imgPhoto1"
+                    android:layout_width="106dp"
+                    android:layout_height="106dp"
+                    android:layout_centerInParent="true"
+                    android:scaleType="centerCrop"
+                    android:contentDescription="@string/todo40" />
 
-        <TextView
-            android:id="@+id/txtLevel2"
+                <!-- High-Res 3D Glossy Blue Squircle Frame Overlay -->
+                <ImageView
+                    android:id="@+id/imgPlayerFrameOverlay"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleType="fitXY"
+                    android:src="@drawable/img_frame_player_blue"
+                    android:elevation="4dp"
+                    android:contentDescription="Player Frame" />
+
+                <!-- Bottom-Left Edge: Country Flag Badge (matching frame_001.png) -->
+                <ImageView
+                    android:id="@+id/imgPlayerFlag"
+                    android:layout_width="26dp"
+                    android:layout_height="18dp"
+                    android:layout_alignParentBottom="true"
+                    android:layout_alignParentStart="true"
+                    android:layout_alignParentLeft="true"
+                    android:layout_marginStart="-6dp"
+                    android:layout_marginLeft="-6dp"
+                    android:layout_marginBottom="12dp"
+                    android:scaleType="fitXY"
+                    android:elevation="6dp"
+                    android:contentDescription="Player Flag" />
+
+            </RelativeLayout>
+
+            <!-- Trophies Pill (Under Player Card) -->
+            <RelativeLayout
+                android:id="@+id/layoutPlayerTrophy"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:layout_below="@id/cardPlayer"
+                android:layout_centerHorizontal="true"
+                android:layout_marginTop="6dp"
+                android:background="@drawable/bg_trophy_pill"
+                android:paddingStart="12dp"
+                android:paddingEnd="14dp"
+                android:gravity="center_vertical">
+
+                <ImageView
+                    android:id="@+id/iconPlayerTrophy"
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:layout_centerVertical="true"
+                    android:src="@drawable/ic_3d_golden_trophy"
+                    android:contentDescription="Trophy" />
+
+                <!-- Preserved txtLevel1 for trophies / score display -->
+                <TextView
+                    android:id="@+id/txtLevel1"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_toEndOf="@id/iconPlayerTrophy"
+                    android:layout_toRightOf="@id/iconPlayerTrophy"
+                    android:layout_centerVertical="true"
+                    android:layout_marginStart="6dp"
+                    android:layout_marginLeft="6dp"
+                    android:fontFamily="@font/baloo"
+                    android:text="50"
+                    android:textColor="#FFFFFF"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+            </RelativeLayout>
+
+        </RelativeLayout>
+
+
+        <!-- ============================================== -->
+        <!-- RIGHT: OPPONENT SECTION                        -->
+        <!-- ============================================== -->
+        <RelativeLayout
+            android:id="@+id/layoutOpponentGroup"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_centerHorizontal="true"
-            android:layout_alignParentBottom="true"
-            android:layout_marginBottom="17dp"
-            android:text="@string/txtLevel2"
-            android:textSize="24sp"
-            android:textColor="#FFFFFF"
-            android:fontFamily="@font/baloo"
-            />
+            android:layout_toEndOf="@id/vsBadgeView"
+            android:layout_toRightOf="@id/vsBadgeView"
+            android:layout_centerVertical="true"
+            android:layout_marginStart="16dp"
+            android:layout_marginLeft="16dp"
+            android:gravity="center_horizontal"
+            android:clipChildren="false"
+            android:clipToPadding="false">
+
+            <!-- Opponent Title & Name -->
+            <TextView
+                android:id="@+id/txtOpponent2"
+                android:layout_width="150dp"
+                android:layout_height="wrap_content"
+                android:layout_centerHorizontal="true"
+                android:gravity="center"
+                android:ellipsize="end"
+                android:singleLine="true"
+                android:fontFamily="@font/baloo"
+                android:text="جاري البحث..."
+                android:textColor="#FFFFFF"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:shadowColor="#80000000"
+                android:shadowDx="0"
+                android:shadowDy="2"
+                android:shadowRadius="4" />
+
+            <TextView
+                android:id="@+id/txtOpponentSubtitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_below="@id/txtOpponent2"
+                android:layout_centerHorizontal="true"
+                android:layout_marginTop="-2dp"
+                android:fontFamily="@font/baloo"
+                android:gravity="center"
+                android:text="منافس عشوائي"
+                android:textColor="#D4F038"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <!-- Opponent Card Frame -->
+            <RelativeLayout
+                android:id="@+id/cardOpponent"
+                android:layout_width="136dp"
+                android:layout_height="136dp"
+                android:layout_below="@id/txtOpponentSubtitle"
+                android:layout_centerHorizontal="true"
+                android:layout_marginTop="6dp"
+                android:clipChildren="false"
+                android:clipToPadding="false">
+
+                <!-- Dark inner backing -->
+                <View
+                    android:layout_width="106dp"
+                    android:layout_height="106dp"
+                    android:layout_centerInParent="true"
+                    android:background="@drawable/bg_avatar_backing" />
+
+                <!-- Final Revealed Opponent Photo -->
+                <ImageView
+                    android:id="@+id/imgPhoto2"
+                    android:layout_width="106dp"
+                    android:layout_height="106dp"
+                    android:layout_centerInParent="true"
+                    android:scaleType="centerCrop"
+                    android:visibility="invisible"
+                    android:contentDescription="@string/todo41" />
+
+                <!-- Shuffling Avatar 1 (during search) -->
+                <ImageView
+                    android:id="@+id/imgPhoto21"
+                    android:layout_width="106dp"
+                    android:layout_height="106dp"
+                    android:layout_centerInParent="true"
+                    android:scaleType="centerCrop"
+                    android:contentDescription="@string/todo45" />
+
+                <!-- Shuffling Avatar 2 (during search) -->
+                <ImageView
+                    android:id="@+id/imgPhoto22"
+                    android:layout_width="106dp"
+                    android:layout_height="106dp"
+                    android:layout_centerInParent="true"
+                    android:scaleType="centerCrop"
+                    android:contentDescription="@string/todo46" />
+
+                <!-- High-Res 3D Glossy Opponent Squircle Frame Overlay -->
+                <ImageView
+                    android:id="@+id/imgOpponentFrameOverlay"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleType="fitXY"
+                    android:src="@drawable/img_frame_opponent_search"
+                    android:elevation="4dp"
+                    android:contentDescription="Opponent Frame" />
+
+                <!-- Bottom-Right Edge: Opponent Flag Badge (matching frame_013.png & frame_014.png) -->
+                <ImageView
+                    android:id="@+id/imgOpponentFlag"
+                    android:layout_width="26dp"
+                    android:layout_height="18dp"
+                    android:layout_alignParentBottom="true"
+                    android:layout_alignParentEnd="true"
+                    android:layout_alignParentRight="true"
+                    android:layout_marginEnd="-6dp"
+                    android:layout_marginRight="-6dp"
+                    android:layout_marginBottom="12dp"
+                    android:scaleType="fitXY"
+                    android:elevation="6dp"
+                    android:visibility="invisible"
+                    android:contentDescription="Opponent Flag" />
+
+                <!-- Bottom-Right Corner: Active Search Magnifying Glass (3D Cartoon asset) -->
+                <ImageView
+                    android:id="@+id/imgSearchGlass"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:layout_alignParentBottom="true"
+                    android:layout_alignParentEnd="true"
+                    android:layout_alignParentRight="true"
+                    android:layout_marginEnd="-6dp"
+                    android:layout_marginRight="-6dp"
+                    android:layout_marginBottom="-6dp"
+                    android:src="@drawable/ic_search_magnifying_glass"
+                    android:elevation="8dp"
+                    android:contentDescription="Searching Magnifying Glass" />
+            </RelativeLayout>
+
+            <!-- Trophies Pill (Under Opponent Card - initially hidden during search) -->
+            <RelativeLayout
+                android:id="@+id/layoutOpponentTrophy"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:layout_below="@id/cardOpponent"
+                android:layout_centerHorizontal="true"
+                android:layout_marginTop="6dp"
+                android:background="@drawable/bg_trophy_pill"
+                android:paddingStart="12dp"
+                android:paddingEnd="14dp"
+                android:gravity="center_vertical"
+                android:visibility="invisible">
+
+                <ImageView
+                    android:id="@+id/iconOpponentTrophy"
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:layout_centerVertical="true"
+                    android:src="@drawable/ic_3d_golden_trophy"
+                    android:contentDescription="Trophy" />
+
+                <!-- Preserved txtLevel2 for opponent trophies / score display -->
+                <TextView
+                    android:id="@+id/txtLevel2"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_toEndOf="@id/iconOpponentTrophy"
+                    android:layout_toRightOf="@id/iconOpponentTrophy"
+                    android:layout_centerVertical="true"
+                    android:layout_marginStart="6dp"
+                    android:layout_marginLeft="6dp"
+                    android:fontFamily="@font/baloo"
+                    android:text="---"
+                    android:textColor="#FFFFFF"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+            </RelativeLayout>
+
+        </RelativeLayout>
 
     </RelativeLayout>
 

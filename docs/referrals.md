@@ -88,9 +88,24 @@ limits later.
 
 ## Activation and verification
 
-This change does not deploy. After reviewing the changes, deploy both callables
-and Firestore rules together from the repository root. `gameEconomy` now returns
-the referral revision so Android can reject stale currency responses:
+The missing backend that caused the invitation screen to display `NOT_FOUND`
+was activated on 26 October 2026. `referrals` and the referral-revision update to
+`gameEconomy` were deployed with the referral Firestore rules. Both callables
+report `ACTIVE`; verification at 04:35 UTC (07:35 Europe/Istanbul) confirmed the
+referral URL returns HTTP 401 `UNAUTHENTICATED` without a token, replacing the
+previous missing-service response.
+
+Deployment used `build/referral_activation_20261026`, based on the freshly
+downloaded live source, with only the referral export, wallet revision fields,
+and referral rules added. This preserved the newer wheel and commerce changes
+already running in production. Unrelated endpoints were not redeployed. The
+live rules match the tested stage (SHA-256
+`9186eb5b550047ddf4b5d34a141c46a6b0475281f46f1cfae6760fd9d557d73f`).
+Deployment and verification evidence is saved in that build directory.
+
+For a later release, review any other local changes before deploying the
+following targets together. `gameEconomy` returns the referral revision so
+Android can reject stale currency responses:
 
 ```powershell
 firebase deploy --only functions:commerce:referrals,functions:commerce:gameEconomy,firestore:rules
@@ -110,4 +125,9 @@ Local service tests run with `node --test test/referrals.test.js` from
 `functions`. They cover concurrent retries, both wallet credits, automatic
 milestones, self/unknown codes, server account age, device/account reuse,
 payload tampering, code collisions and integer limits. They do not contact
-production or establish deployment IAM.
+production or establish deployment IAM. Activation verification passed 12
+backend tests, 3 rules emulator tests, and 25 Flutter service, screen and actual
+GameViewport layout tests. Layout coverage includes the reported 1600×826
+screen, smaller landscape screens, safe insets, and the on-screen keyboard.
+The real two-device Google Play install-and-accept flow still needs device
+verification; the live endpoint probe does not credit any real player's wallet.

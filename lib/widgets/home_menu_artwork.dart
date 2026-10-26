@@ -203,6 +203,11 @@ class HomeMenuArtwork extends StatelessWidget {
                   action(const Rect.fromLTRB(.665, .366, .944, .546), 'الصدارة',
                       onLeaderboard,
                       enabled: isOnline),
+                  Positioned.fromRect(
+                      rect: map(const Rect.fromLTRB(.388, .388, .588, .535)),
+                      child: const IgnorePointer(
+                        child: _LuckyWheelButtonLabel(),
+                      )),
                   action(const Rect.fromLTRB(.368, .366, .647, .546),
                       'دولاب الحظ', onRewards,
                       enabled: isOnline, badge: dailyReady ? '!' : null),
@@ -231,6 +236,70 @@ class HomeMenuArtwork extends StatelessWidget {
               colors: [Color(0xFF365A8B), Color(0xFF141D39)])),
       child: const FittedBox(
           child: Icon(Icons.person_rounded, color: Colors.white70)));
+}
+
+class _LuckyWheelButtonLabel extends StatelessWidget {
+  const _LuckyWheelButtonLabel();
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(builder: (context, constraints) {
+      final fontSize = (constraints.maxHeight * 0.46).clamp(11.0, 26.0);
+      return Stack(
+        alignment: Alignment.center,
+        children: [
+          Positioned.fill(
+            child: ShaderMask(
+              blendMode: BlendMode.dstIn,
+              shaderCallback: (rect) => const LinearGradient(
+                colors: [
+                  Colors.transparent,
+                  Colors.white,
+                  Colors.white,
+                  Colors.transparent,
+                ],
+                stops: [0.0, 0.05, 0.95, 1.0],
+              ).createShader(rect),
+              child: const _MenuSlice(Rect.fromLTRB(.442, .385, .445, .535)),
+            ),
+          ),
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 2, right: 6),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  'دولاب الحظ',
+                  maxLines: 1,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontFamily: 'Baloo',
+                    fontSize: fontSize,
+                    height: 1.15,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.2,
+                    shadows: const [
+                      Shadow(
+                        color: Color(0xFF144D1E),
+                        offset: Offset(0, 2.5),
+                        blurRadius: 1.5,
+                      ),
+                      Shadow(
+                        color: Color(0x66000000),
+                        offset: Offset(0, 1.5),
+                        blurRadius: 3.0,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    });
+  }
 }
 
 class _AccountBackground extends StatelessWidget {

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -20,6 +21,9 @@ class RateGameService {
   static const String _keyVictoriesCount = 'rate_victories_count';
   static const String _keyRewardClaimed = 'rate_reward_claimed';
 
+  static String userRatedKey(String uid) => '${_keyHasRated}_$uid';
+  static String userRewardKey(String uid) => '${_keyRewardClaimed}_$uid';
+
   static const int rewardCoins = 500;
   static const int rewardGems = 10;
   static const int minVictoriesForPrompt = 2; // ظهور فقط بعد فوزين على الأقل
@@ -30,46 +34,126 @@ class RateGameService {
 
   bool _isDialogShowing = false;
 
-  /// Hide the home entry once rating or its reward has been completed. An
-  /// unavailable preference store should not redisplay a completed invitation.
-  Future<bool> shouldShowRatingEntry() async {
+  String? _resolveUid(String? uid) {
+    if (uid != null && uid.isNotEmpty) return uid;
+    try {
+      return FirebaseAuth.instance.currentUser?.uid;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Hide the home entry once rating or its reward has been completed.
+  Future<bool> shouldShowRatingEntry({String? uid}) async {
+    final effectiveUid = _resolveUid(uid);
     try {
       final prefs = await SharedPreferences.getInstance();
-      final rated = prefs.getBool(_keyHasRated) ?? false;
-      final claimed = prefs.getBool(_keyRewardClaimed) ?? false;
-      return !rated && !claimed;
+      final ratedLocally = (prefs.getBool(_keyHasRated) ?? false) ||
+          (effectiveUid != null && (prefs.getBool(userRatedKey(effectiveUid)) ?? false));
+      final claimedLocally = (prefs.getBool(_keyRewardClaimed) ?? false) ||
+          (effectiveUid != null && (prefs.getBool(userRewardKey(effectiveUid)) ?? false));
+      if (ratedLocally || claimedLocally) return false;
+
+      if (effectiveUid != null && effectiveUid.isNotEmpty) {
+        try {
+          final doc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(effectiveUid)
+              .get()
+              .timeout(const Duration(seconds: 4));
+          if (doc.exists) {
+            final data = doc.data();
+            final ratedRemote = data?['hasRated'] == true;
+            final claimedRemote = data?['claimedRatingReward'] == true;
+            if (ratedRemote || claimedRemote) {
+              if (ratedRemote) {
+                await prefs.setBool(_keyHasRated, true);
+                await prefs.setBool(userRatedKey(effectiveUid), true);
+              }
+              if (claimedRemote) {
+                await prefs.setBool(_keyRewardClaimed, true);
+                await prefs.setBool(userRewardKey(effectiveUid), true);
+              }
+              return false;
+            }
+          }
+        } catch (_) {}
+      }
+
+      return true;
     } catch (_) {
       return false;
     }
   }
 
   /// هل قام اللاعب بتقييم اللعبة سابقاً؟
-  Future<bool> hasRated() async {
+  Future<bool> hasRated({String? uid}) async {
+    final effectiveUid = _resolveUid(uid);
     try {
       final prefs = await SharedPreferences.getInstance();
-      return prefs.getBool(_keyHasRated) ?? false;
+      if (prefs.getBool(_keyHasRated) ?? false) return true;
+      if (effectiveUid != null && effectiveUid.isNotEmpty) {
+        if (prefs.getBool(userRatedKey(effectiveUid)) ?? false) return true;
+        try {
+          final doc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(effectiveUid)
+              .get()
+              .timeout(const Duration(seconds: 4));
+          if (doc.exists &&
+              (doc.data()?['hasRated'] == true ||
+                  doc.data()?['claimedRatingReward'] == true)) {
+            await prefs.setBool(_keyHasRated, true);
+            await prefs.setBool(userRatedKey(effectiveUid), true);
+            return true;
+          }
+        } catch (_) {}
+      }
+      return false;
     } catch (_) {
       return false;
     }
   }
 
   /// هل تم استلام مكافأة التقييم سابقاً؟
-  Future<bool> hasClaimedReward() async {
+  Future<bool> hasClaimedReward({String? uid}) async {
+    final effectiveUid = _resolveUid(uid);
     try {
       final prefs = await SharedPreferences.getInstance();
-      return prefs.getBool(_keyRewardClaimed) ?? false;
+      if (prefs.getBool(_keyRewardClaimed) ?? false) return true;
+      if (effectiveUid != null && effectiveUid.isNotEmpty) {
+        if (prefs.getBool(userRewardKey(effectiveUid)) ?? false) return true;
+        try {
+          final doc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(effectiveUid)
+              .get()
+              .timeout(const Duration(seconds: 4));
+          if (doc.exists && doc.data()?['claimedRatingReward'] == true) {
+            await prefs.setBool(_keyRewardClaimed, true);
+            await prefs.setBool(userRewardKey(effectiveUid), true);
+            return true;
+          }
+        } catch (_) {}
+      }
+      return false;
     } catch (_) {
       return false;
     }
   }
 
   /// التحقق من أهلية الظهور التلقائي (توقيت سعيد + عدم إزعاج)
-  Future<bool> shouldPromptAuto() async {
+  Future<bool> shouldPromptAuto({String? uid}) async {
     if (_isDialogShowing) return false;
     try {
+      final effectiveUid = _resolveUid(uid);
       final prefs = await SharedPreferences.getInstance();
-      final rated = prefs.getBool(_keyHasRated) ?? false;
-      final claimed = prefs.getBool(_keyRewardClaimed) ?? false;
+      final rated = (prefs.getBool(_keyHasRated) ?? false) ||
+          (effectiveUid != null &&
+              (prefs.getBool(userRatedKey(effectiveUid)) ?? false));
+      final claimed = (prefs.getBool(_keyRewardClaimed) ?? false) ||
+          (effectiveUid != null &&
+              (prefs.getBool(userRewardKey(effectiveUid)) ?? false));
       if (rated || claimed) return false;
 
       final count = prefs.getInt(_keyPromptCount) ?? 0;
@@ -150,29 +234,58 @@ class RateGameService {
   }
 
   /// تسجيل إتمام التقييم بنجاح
-  Future<void> markRated() async {
+  Future<void> markRated({String? uid}) async {
+    final effectiveUid = _resolveUid(uid);
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_keyHasRated, true);
+      if (effectiveUid != null && effectiveUid.isNotEmpty) {
+        await prefs.setBool(userRatedKey(effectiveUid), true);
+        try {
+          await FirebaseFirestore.instance.collection('users').doc(effectiveUid).set({
+            'hasRated': true,
+            'ratedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+        } catch (_) {}
+      }
     } catch (_) {}
   }
 
   /// منح مكافأة التقييم للاعب
   Future<bool> grantRatingReward(BuildContext context) async {
     final appState = context.read<AppState>();
+    final uid = _resolveUid(appState.currentUser?.uid);
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final alreadyClaimed = prefs.getBool(_keyRewardClaimed) ?? false;
+      final alreadyClaimed = await hasClaimedReward(uid: uid);
       if (alreadyClaimed) return false;
 
+      final claimId = uid != null && uid.isNotEmpty ? '$uid:rate_reward' : null;
       final success = await appState.grantRewardCurrency(
         coinsReward: rewardCoins,
         gemsReward: rewardGems,
+        claimId: claimId,
       );
       if (!success) return false;
 
+      final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_keyRewardClaimed, true);
       await prefs.setBool(_keyHasRated, true);
+      if (uid != null && uid.isNotEmpty) {
+        await prefs.setBool(userRewardKey(uid), true);
+        await prefs.setBool(userRatedKey(uid), true);
+        try {
+          await FirebaseFirestore.instance.collection('users').doc(uid).set({
+            'claimedRatingReward': true,
+            'hasRated': true,
+            'ratingRewardCoins': rewardCoins,
+            'ratingRewardGems': rewardGems,
+            'claimedRatingRewardAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+        } catch (e) {
+          debugPrint(
+              '[RateGameService] Failed to record rating claim in firestore: $e');
+        }
+      }
 
       if (context.mounted) {
         showCurrencyRewardOverlay(
@@ -204,13 +317,14 @@ class RateGameService {
   }) async {
     try {
       final appState = context.read<AppState>();
-      final user = appState.user;
+      final user = appState.currentUser ?? appState.user;
+      final uid = _resolveUid(user?.uid);
 
       await FirebaseFirestore.instance.collection('ratings_feedback').add({
         'rating': rating,
         'tags': tags,
         'message': message.trim(),
-        'userId': user?.uid ?? 'guest',
+        'userId': uid ?? 'guest',
         'userName': user?.displayName ?? 'لاعب',
         'userEmail': user?.email ?? '',
         'userLevel': appState.level,
@@ -219,7 +333,7 @@ class RateGameService {
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      await markRated();
+      await markRated(uid: uid);
       return true;
     } catch (_) {
       return false;
@@ -231,9 +345,12 @@ class RateGameService {
     BuildContext context, {
     bool isManual = false,
     bool isAutoPrompt = false,
+    String? uid,
   }) async {
     if (_isDialogShowing) return;
     _isDialogShowing = true;
+
+    final effectiveUid = _resolveUid(uid);
 
     if (isAutoPrompt) {
       await markPromptShown();
@@ -247,7 +364,8 @@ class RateGameService {
         barrierLabel: 'RateGameDialog',
         barrierColor: Colors.black.withValues(alpha: 0.85),
         transitionDuration: const Duration(milliseconds: 380),
-        pageBuilder: (ctx, anim1, anim2) => RateGameDialog(isManual: isManual),
+        pageBuilder: (ctx, anim1, anim2) =>
+            RateGameDialog(isManual: isManual, uid: effectiveUid),
         transitionBuilder: (ctx, anim1, anim2, child) {
           final curve =
               CurvedAnimation(parent: anim1, curve: Curves.easeOutBack);

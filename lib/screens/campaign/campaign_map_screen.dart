@@ -971,7 +971,7 @@ class _MapTopOverlay extends StatelessWidget {
     required this.totalStars,
     required this.completedStages,
     required this.totalStages,
-    required this.onGuide,
+    this.onGuide,
     this.starsGuideKey,
     this.heartsGuideKey,
     this.guidePreview = false,
@@ -980,7 +980,7 @@ class _MapTopOverlay extends StatelessWidget {
   final int totalStars;
   final int completedStages;
   final int totalStages;
-  final VoidCallback onGuide;
+  final VoidCallback? onGuide;
   final Key? starsGuideKey, heartsGuideKey;
   final bool guidePreview;
 
@@ -999,10 +999,6 @@ class _MapTopOverlay extends StatelessWidget {
               },
             ),
             const SizedBox(width: 8),
-            if (!guidePreview) ...[
-              PageGuideHelpButton(onPressed: onGuide),
-              const SizedBox(width: 6),
-            ],
             const Expanded(
                 child: Text('تحدي المراحل',
                     maxLines: 1,

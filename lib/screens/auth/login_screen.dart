@@ -122,7 +122,7 @@ class _LoginScreenState extends State<LoginScreen>
       _videoController = controller;
       await controller.initialize();
       await controller.setLooping(true);
-      await controller.setVolume(1.0);
+      await controller.setVolume(0.0);
       await controller.play();
       if (mounted) {
         setState(() {

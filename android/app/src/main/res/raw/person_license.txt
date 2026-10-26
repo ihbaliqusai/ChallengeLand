@@ -38,7 +38,8 @@ PO Box 16122, Collins Street West, VIC 8007, Australia
 
 =======================================================================================================
 
-Game soundtrack files from :
-https://www.101soundboards.com/
+Replacement game audio sources and processing:
+See audio_provenance.json and the in-app content credits.
+The separately licensed music tracks retain their own license files.
 
 =======================================================================================================

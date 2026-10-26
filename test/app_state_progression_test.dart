@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:challenge_land/core/app_state.dart';
 import 'package:challenge_land/core/player_rank.dart';
 import 'package:challenge_land/models/economy_wallet.dart';
+import 'package:challenge_land/models/lucky_wheel_prize.dart';
 import 'package:challenge_land/services/auth_service.dart';
 import 'package:challenge_land/services/native_bridge_service.dart';
 import 'package:challenge_land/services/progression_service.dart';
@@ -449,6 +450,58 @@ void main() {
         'currency': {'coins': 1500, 'gems': 30},
         'purchasedCharacters': [2],
       };
+
+  test('wheel character preview advances after the offered character is won',
+      () async {
+    final h = _Harness();
+    addTearDown(h.close);
+    await h.seed('alice');
+    await h.signIn('alice');
+    expect(h.state.wheelPrizeCharacter?.index, 2);
+    h.native.wheelHandler = (_) async => {
+          'spin': {
+            'prizeId': 'character',
+            'grants': <String, int>{},
+            'newlyGranted': true,
+            'characterIndex': 2,
+            'catalogVersion': 2,
+          },
+          'state': {
+            'revision': 2,
+            'wheelClaimedToday': true,
+            'wheelCharacterIndex': 4,
+            'wheelCatalogVersion': 2,
+          },
+          'currency': {'coins': 500, 'gems': 10},
+          'purchasedCharacters': [2],
+        };
+    final result = await h.state.spinLuckyWheel();
+    expect(result!.characterIndex, 2);
+    expect(h.state.purchasedCharacters, contains(2));
+    expect(h.state.wheelPrizeCharacter?.index, 4);
+    expect(h.native.wheelRequests.single['wheelCatalogVersion'], 2);
+  });
+
+  test(
+      'wheel preview honors cross-device completion and never offers an owned character',
+      () async {
+    final h = _Harness();
+    addTearDown(h.close);
+    h.state.purchasedCharacters.add(2);
+    h.state.economyWallet = EconomyWallet.fromMap({'wheelCharacterIndex': 2});
+    expect(h.state.wheelPrizeCharacter?.index, 4);
+    h.state.economyWallet = EconomyWallet.fromMap({'wheelCharacterIndex': 7});
+    expect(h.state.wheelPrizeCharacter?.index, 7,
+        reason: 'The server may know characters unlocked on another device');
+    h.state.economyWallet =
+        EconomyWallet.fromMap({'wheelCharacterIndex': null});
+    expect(h.state.wheelPrizeCharacter, isNull,
+        reason: 'An authoritative empty roster produces gem compensation');
+    h.state.economyWallet = const EconomyWallet();
+    h.state.purchasedCharacters
+        .addAll(LuckyWheelPrize.eligibleCharacterIndices);
+    expect(h.state.wheelPrizeCharacter, isNull);
+  });
 
   test(
       'a wheel tap recovers account hydration after a transient startup failure',

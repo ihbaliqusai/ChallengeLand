@@ -139,7 +139,6 @@ public abstract class BaseGameActivity extends GameViewportActivity implements P
         NativeProgression.save(this, state);
         super.onSaveInstanceState(state);
     }
-    private static final float MUSIC_VOLUME = 0.5f;
     private final Handler presenterHandler = new Handler();
     private final PresenterDialogue presenterDialogue = new PresenterDialogue(
             android.os.SystemClock::uptimeMillis, presenterHandler::postDelayed);
@@ -327,7 +326,9 @@ public abstract class BaseGameActivity extends GameViewportActivity implements P
     private boolean isQuestionTimerRunning = false;
     private boolean wasTimerRunningBeforePause = false;
     private long timerPauseElapsedRealtime = 0L;
-    MediaPlayer mpSound, mpEffect, mpBeep, mpBeep1;
+    MediaPlayer mpBeep, mpBeep1;
+    private GameSoundController soundController;
+    private boolean audioPaused;
     CircleImageView imgPlayer1, imgPlayer2, imgMe, imgOpponent;
     boolean FAST_LIGHTS,
             CAN_PLAY = false,
@@ -335,9 +336,7 @@ public abstract class BaseGameActivity extends GameViewportActivity implements P
             CAN_HOME = false,
             EXITING = false,
             SOUND_ON = true,
-            MUSIC_ON = true,
-            currentSoundIsMusic = false,
-            questionMusicStarted = false,
+            MUSIC_ON = false,
             modeOnline = false,
             eliminationMode = false,
             meOwner;
@@ -438,6 +437,7 @@ public abstract class BaseGameActivity extends GameViewportActivity implements P
     protected void onCreate(Bundle savedInstanceState) {
         supportRequestWindowFeature(Window.FEATURE_NO_TITLE);
         super.onCreate(savedInstanceState);
+        soundController = new GameSoundController(this);
         NativeProgression.restore(this, savedInstanceState);
         if (OnlineMatchRecovery.isFinished(this)) {
             startActivity(new Intent(this, MainActivity.class)
@@ -1010,7 +1010,6 @@ public abstract class BaseGameActivity extends GameViewportActivity implements P
             public void onClick(View view) {
                 gameHaptic(view);
                 if (SOUND_ON) {
-                    //mpSound.stop();
                     setEffectVolume(0f);
                     SOUND_ON = false;
                     AppPrefs.setSoundEnabled(BaseGameActivity.this, false);
@@ -1040,18 +1039,13 @@ public abstract class BaseGameActivity extends GameViewportActivity implements P
     }
 
     private void applyVolumeUi() {
+        setEffectVolume(SOUND_ON ? 1f : 0f);
+        if (soundController != null) soundController.stopCurrentMusicIfDisabled(MUSIC_ON);
         if (imgVolume == null) return;
         if (SOUND_ON) {
             imgVolume.setImageResource(R.drawable.volume);
-            setEffectVolume(1f);
         } else {
             imgVolume.setImageResource(R.drawable.muted);
-            setEffectVolume(0f);
-        }
-        if (mpSound != null && !MUSIC_ON) {
-            stopSound(mpSound);
-            mpSound = null;
-            currentSoundIsMusic = false;
         }
     }
 
@@ -1066,6 +1060,7 @@ public abstract class BaseGameActivity extends GameViewportActivity implements P
     protected void onResume() {
         super.onResume();
         if (backgroundGuard.onResume()) return;
+        audioPaused = false;
         presenterDialogue.resume();
         startGameBackgroundVideo();
         SOUND_ON = AppPrefs.isSoundEnabled(this);
@@ -1106,6 +1101,9 @@ public abstract class BaseGameActivity extends GameViewportActivity implements P
                     txtProgress.setText(String.valueOf(pbText));
                 }
                 startTimer(false);
+                if (CAN_PLAY && isQuestionTimerRunning && !EXITING && !backgroundDisqualified) {
+                    playQuestionMusic();
+                }
             }
         }
     }
@@ -5992,140 +5990,21 @@ public abstract class BaseGameActivity extends GameViewportActivity implements P
     }
 
     private void playQuestionMusic() {
-        if (questionMusicStarted) return;
-        questionMusicStarted = true;
-        playSound(R.raw.s_1000000, true, true);
+        playSound(GameAudioProfile.questionMusic(currentQuestion), true, true);
     }
 
     private void playSound(int resID, boolean fading, boolean looping) {
-        if(!EXITING) {
-            boolean targetIsMusic = isMusicTrack(resID, looping);
-            if (targetIsMusic) {
-                MUSIC_ON = AppPrefs.isMusicEnabled(this);
-                if (!MUSIC_ON) {
-                    stopSound(mpSound);
-                    mpSound = null;
-                    currentSoundIsMusic = false;
-                    return;
-                }
-            } else {
-                SOUND_ON = AppPrefs.isSoundEnabled(this);
-                if (!SOUND_ON) {
-                    return;
-                }
-            }
-            if (targetIsMusic) {
-                if (fading) {
-                    fadeSound(mpSound);
-                } else {
-                    stopSound(mpSound);
-                }
-                mpSound = MediaPlayer.create(BaseGameActivity.this, resID);
-                currentSoundIsMusic = mpSound != null;
-                if (mpSound == null) return;
-                mpSound.setLooping(looping);
-                mpSound.setVolume(MUSIC_VOLUME, MUSIC_VOLUME);
-                mpSound.setOnCompletionListener(player -> {
-                    if (mpSound == player) {
-                        mpSound = null;
-                        currentSoundIsMusic = false;
-                    }
-                    releasePlayer(player);
-                });
-                mpSound.start();
-            } else {
-                if (fading) {
-                    fadeSound(mpEffect);
-                } else {
-                    stopSound(mpEffect);
-                }
-                mpEffect = MediaPlayer.create(BaseGameActivity.this, resID);
-                if (mpEffect == null) return;
-                mpEffect.setLooping(looping);
-                mpEffect.setVolume(SOUND_ON ? 1f : 0f, SOUND_ON ? 1f : 0f);
-                mpEffect.setOnCompletionListener(player -> {
-                    if (mpEffect == player) {
-                        mpEffect = null;
-                    }
-                    releasePlayer(player);
-                });
-                mpEffect.start();
-            }
+        if (soundController != null) {
+            soundController.play(resID, fading, looping, EXITING || audioPaused);
         }
     }
 
     private void setEffectVolume(float volume) {
-        if (mpEffect != null) {
-            mpEffect.setVolume(volume, volume);
-        }
+        if (soundController != null) soundController.setCurrentEffectVolume(volume);
     }
 
     private void stopAllSound() {
-        stopSound(mpSound);
-        stopSound(mpEffect);
-    }
-
-    private boolean isMusicTrack(int resID, boolean looping) {
-        return resID == R.raw.main_theme_0
-                || resID == R.raw.main_theme_1
-                || resID == R.raw.main_theme_2
-                || resID == R.raw.main_theme_3
-                || resID == R.raw.main_theme_4
-                || resID == R.raw.main_theme_5
-                || resID == R.raw.main_theme_320bit_chosic
-                || resID == R.raw.commerical_break
-                || resID == R.raw.s_32000
-                || resID == R.raw.s_64000
-                || resID == R.raw.s_250000
-                || resID == R.raw.s_5000000
-                || resID == R.raw.s_1000000;
-    }
-
-    private void fadeSound(MediaPlayer mpSound) {
-        if(mpSound != null) {
-            try {
-                final MediaPlayer mps = mpSound;
-                final Handler handler = new Handler();
-                final Runnable runnable = new Runnable() {
-                    int currentVolumeStep = 10;
-                    float currentVolume;
-                    MediaPlayer mp = mps;
-
-                    @Override
-                    public void run() {
-                        currentVolumeStep--;
-                        currentVolume = (float) (1 - (Math.log(10 - currentVolumeStep) / Math.log(10)));
-                        mp.setVolume(currentVolume, currentVolume);
-                        if (currentVolumeStep > 0)
-                            handler.postDelayed(this, 100);
-                        else
-                            stopSound(mp);
-                    }
-                };
-                handler.postDelayed(runnable, 100);
-
-            } catch (Exception e) {
-
-            }
-        }
-    }
-
-    private void stopSound(MediaPlayer mp) {
-        if (mp != null) {
-            try {
-                if (mp.isPlaying()) {
-                    mp.stop();
-                }
-                mp.release();
-                if (mp == mpSound) {
-                    mpSound = null;
-                    currentSoundIsMusic = false;
-                } else if (mp == mpEffect) {
-                    mpEffect = null;
-                }
-            } catch (Exception ignored) {
-            }
-        }
+        if (soundController != null) soundController.stopCurrent();
     }
 
     private void showConfirmationDialog(final String message, final String tag, final int timeTalk, final int timeDialog, final int nextMouthId, final boolean gameStatusAfter) {
@@ -6451,7 +6330,7 @@ public abstract class BaseGameActivity extends GameViewportActivity implements P
                         phoneTalk(3000);
                         break;
                     case 40:
-                        stopSound(mpEffect);
+                        if (soundController != null) soundController.stopCurrentEffect();
                         txtCallAnswer.setVisibility(View.INVISIBLE);
                         break;
                     case 45:
@@ -6483,6 +6362,7 @@ public abstract class BaseGameActivity extends GameViewportActivity implements P
 
     @Override
     protected void onPause() {
+        audioPaused = true;
         presenterDialogue.pause();
         OnlineMatchRecovery.updateLaunch(this);
         if (isQuestionTimerRunning && cdtProgress != null) {
@@ -6496,11 +6376,7 @@ public abstract class BaseGameActivity extends GameViewportActivity implements P
         if (gameBackgroundVideo != null && gameBackgroundVideo.isPlaying()) {
             gameBackgroundVideo.pause();
         }
-        releasePlayer(mpSound);
-        mpSound = null;
-        currentSoundIsMusic = false;
-        releasePlayer(mpEffect);
-        mpEffect = null;
+        if (soundController != null) soundController.releaseCurrent();
         releasePlayer(mpBeep);
         mpBeep = null;
         releasePlayer(mpBeep1);
@@ -6510,6 +6386,7 @@ public abstract class BaseGameActivity extends GameViewportActivity implements P
 
     @Override
     protected void onDestroy() {
+        audioPaused = true;
         presenterDialogue.dispose();
         presenterHandler.removeCallbacksAndMessages(null);
         backgroundGuard.onDestroy();
@@ -6524,11 +6401,7 @@ public abstract class BaseGameActivity extends GameViewportActivity implements P
         detachQuestionSyncListener();
         detachServerTimeOffsetListener();
         if(cdtProgress != null) cdtProgress.cancel();
-        releasePlayer(mpSound);
-        mpSound = null;
-        currentSoundIsMusic = false;
-        releasePlayer(mpEffect);
-        mpEffect = null;
+        if (soundController != null) soundController.releaseCurrent();
         releasePlayer(mpBeep);
         mpBeep = null;
         releasePlayer(mpBeep1);
@@ -6568,7 +6441,6 @@ public abstract class BaseGameActivity extends GameViewportActivity implements P
                 .setNegativeButton("لا", dialogClickListener)
                 .show();
 
-        stopSound(mpSound);
         if(cdtProgress != null) cdtProgress.cancel();
         showInterstitialAd();
         */

@@ -18,6 +18,21 @@ class InviteFriendsMilestone {
   final int coins;
   final int gems;
   final bool claimed;
+
+  Map<String, dynamic> toJson() => {
+        'count': count,
+        'coins': coins,
+        'gems': gems,
+        'claimed': claimed,
+      };
+
+  factory InviteFriendsMilestone.fromJson(Map<String, dynamic> json) =>
+      InviteFriendsMilestone(
+        count: (json['count'] as num?)?.toInt() ?? 0,
+        coins: (json['coins'] as num?)?.toInt() ?? 0,
+        gems: (json['gems'] as num?)?.toInt() ?? 0,
+        claimed: json['claimed'] == true,
+      );
 }
 
 class InviteFriendsData {
@@ -38,6 +53,33 @@ class InviteFriendsData {
   final String? acceptedCode;
   final bool canAccept;
   final List<InviteFriendsMilestone> milestones;
+
+  Map<String, dynamic> toJson() => {
+        'code': code,
+        'qualifiedCount': qualifiedCount,
+        'earnedCoins': earnedCoins,
+        'earnedGems': earnedGems,
+        'canAccept': canAccept,
+        if (acceptedCode != null) 'acceptedCode': acceptedCode,
+        'milestones': milestones.map((m) => m.toJson()).toList(),
+      };
+
+  factory InviteFriendsData.fromJson(Map<String, dynamic> json) {
+    int amount(dynamic value) => (value as num?)?.toInt() ?? 0;
+    return InviteFriendsData(
+      code: json['code'] as String? ?? '',
+      qualifiedCount: amount(json['qualifiedCount']),
+      earnedCoins: amount(json['earnedCoins']),
+      earnedGems: amount(json['earnedGems']),
+      canAccept: json['canAccept'] == true,
+      acceptedCode: json['acceptedCode'] as String?,
+      milestones: [
+        for (final m in json['milestones'] as List? ?? const [])
+          if (m is Map)
+            InviteFriendsMilestone.fromJson(Map<String, dynamic>.from(m)),
+      ],
+    );
+  }
 }
 
 /// A presentation-only screen; attribution and currency grants stay in the
@@ -50,13 +92,17 @@ class InviteFriendsScreen extends StatefulWidget {
     required this.share,
     required this.onPlayWithFriends,
     this.initialCode,
+    this.initialData,
+    this.loadCached,
   });
 
   final Future<InviteFriendsData> Function() load;
+  final Future<InviteFriendsData?> Function()? loadCached;
   final Future<InviteFriendsData> Function(String code) accept;
   final Future<void> Function(String code) share;
   final VoidCallback onPlayWithFriends;
   final String? initialCode;
+  final InviteFriendsData? initialData;
 
   @override
   State<InviteFriendsScreen> createState() => _InviteFriendsScreenState();
@@ -69,6 +115,7 @@ class _InviteFriendsScreenState extends State<InviteFriendsScreen>
   late final TextEditingController _inviteCode;
   final _acceptPanelKey = GlobalKey();
   bool _initialCodeRevealed = false;
+  DateTime? _lastResumeRefresh;
   InviteFriendsData? _data;
   String? _working;
   String? _error;
@@ -80,7 +127,20 @@ class _InviteFriendsScreenState extends State<InviteFriendsScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _inviteCode = TextEditingController(text: widget.initialCode ?? '');
-    unawaited(_refresh());
+    _data = widget.initialData;
+    _initAndRefresh();
+  }
+
+  Future<void> _initAndRefresh() async {
+    if (_data == null && widget.loadCached != null) {
+      try {
+        final cached = await widget.loadCached!();
+        if (mounted && cached != null && _data == null) {
+          setState(() => _data = cached);
+        }
+      } catch (_) {}
+    }
+    await _refresh();
   }
 
   @override
@@ -92,7 +152,14 @@ class _InviteFriendsScreenState extends State<InviteFriendsScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) unawaited(_refresh());
+    if (state == AppLifecycleState.resumed) {
+      final now = DateTime.now();
+      if (_lastResumeRefresh == null ||
+          now.difference(_lastResumeRefresh!) > const Duration(seconds: 15)) {
+        _lastResumeRefresh = now;
+        unawaited(_refresh());
+      }
+    }
   }
 
   Future<void> _refresh() async {
@@ -120,7 +187,20 @@ class _InviteFriendsScreenState extends State<InviteFriendsScreen>
         }
       }
     } catch (error) {
-      if (mounted) setState(() => _error = _message(error));
+      if (mounted) {
+        if (_data == null) {
+          setState(() => _error = _message(error));
+        } else {
+          final msg = _message(error);
+          ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+            SnackBar(
+              content: Text(msg),
+              duration: const Duration(seconds: 3),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
     } finally {
       if (mounted) setState(() => _working = null);
     }
@@ -137,7 +217,11 @@ class _InviteFriendsScreenState extends State<InviteFriendsScreen>
 
   Future<void> _share() async {
     final data = _data;
-    if (_working != null || data == null || data.code.isEmpty) return;
+    if ((_working != null && _working != 'load') ||
+        data == null ||
+        data.code.isEmpty) {
+      return;
+    }
     setState(() {
       _working = 'share';
       _error = null;
@@ -287,16 +371,22 @@ class _InviteFriendsScreenState extends State<InviteFriendsScreen>
       );
 
   Widget _invitationHero({required bool compact}) => Column(children: [
-        SizedBox(
-          height: compact ? 205 : 240,
-          width: double.infinity,
-          child: adaptiveAssetImage(
-            'assets/social/invite_friends_hero.png',
-            fit: BoxFit.contain,
-            semanticLabel: 'أصدقاء يستمتعون باللعب معًا في أرض التحدي',
-            errorBuilder: (_, __, ___) => const Center(
-              child: Icon(Icons.groups_rounded,
-                  size: 150, color: Color(0xFFC7B7FF)),
+        LayoutBuilder(
+          builder: (context, area) => SizedBox(
+            height:
+                math.min(compact ? 250.0 : 280.0, area.maxWidth * 1686 / 2528),
+            width: double.infinity,
+            child: adaptiveAssetImage(
+              'assets/social/invite_friends_hero.png',
+              fit: BoxFit.contain,
+              alignment: Alignment.bottomCenter,
+              filterQuality: FilterQuality.medium,
+              semanticLabel:
+                  'ثلاثة أصدقاء يشاركون اللعب على هواتفهم في أرض التحدي',
+              errorBuilder: (_, __, ___) => const Center(
+                child: Icon(Icons.groups_rounded,
+                    size: 150, color: Color(0xFFC7B7FF)),
+              ),
             ),
           ),
         ),
@@ -312,7 +402,9 @@ class _InviteFriendsScreenState extends State<InviteFriendsScreen>
           edge: const Color(0xFFBD6800),
           foreground: const Color(0xFF502171),
           busy: _working == 'share',
-          onTap: _data != null && _working == null ? _share : null,
+          onTap: _data != null && (_working == null || _working == 'load')
+              ? _share
+              : null,
           large: true,
         ),
         const SizedBox(height: 10),

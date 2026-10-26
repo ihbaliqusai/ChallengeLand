@@ -37,6 +37,8 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
   String? _error;
   LuckyWheelSpin? _result;
   int? _winningSlot;
+  GameCharacter? _spinCharacter;
+  bool _spinCharacterCompensation = false;
   int _lastTick = -1;
 
   static DateTime _utcDay() {
@@ -191,6 +193,8 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
       _error = null;
       _result = null;
       _winningSlot = null;
+      _spinCharacter = app.wheelPrizeCharacter;
+      _spinCharacterCompensation = _spinCharacter == null;
     });
     LuckyWheelSpin? result;
     try {
@@ -205,6 +209,14 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
         _error = app.luckyWheelError ?? 'تعذّر إتمام اللفة. حاول مجددًا.';
       });
       return;
+    }
+    if (result.prize.kind == LuckyWheelPrizeKind.character) {
+      // Another device may have won the previewed character before this request.
+      // The character committed by the server is what the winning wedge shows.
+      _spinCharacter = result.characterIndex == null
+          ? null
+          : CharacterCatalog.byIndex(result.characterIndex!);
+      _spinCharacterCompensation = result.compensation;
     }
     final slot = luckyWheelSlots.indexOf(result.prize.index);
     final start = _turns.value;
@@ -318,16 +330,25 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
     );
   }
 
-  Widget _wheel(double diameter) => SizedBox.square(
-        dimension: diameter,
-        child: AnimatedBuilder(
-          animation: Listenable.merge([_rotation, _lights]),
-          builder: (_, __) => LuckyWheelArtwork(
-              turns: _turns.value,
-              pulse: _lights.value,
-              winningSlot: _winningSlot),
-        ),
-      );
+  Widget _wheel(double diameter) {
+    final character = _busy || _result != null
+        ? _spinCharacter
+        : context.read<AppState>().wheelPrizeCharacter;
+    return SizedBox.square(
+      dimension: diameter,
+      child: AnimatedBuilder(
+        animation: Listenable.merge([_rotation, _lights]),
+        builder: (_, __) => LuckyWheelArtwork(
+            turns: _turns.value,
+            pulse: _lights.value,
+            winningSlot: _winningSlot,
+            character: character,
+            characterCompensation: _busy || _result != null
+                ? _spinCharacterCompensation
+                : character == null),
+      ),
+    );
+  }
 
   Widget _landscape(BoxConstraints box, AppState app, bool busy) {
     final diameter = math.min(box.maxHeight - 12, box.maxWidth * .55);
@@ -354,7 +375,7 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
                   const SizedBox(height: 22),
                   _controls(app, busy),
                   const SizedBox(height: 16),
-                  const _PrizeLegend(),
+                  _PrizeLegend(character: app.wheelPrizeCharacter),
                 ]),
               ),
             ),
@@ -501,7 +522,7 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
               title: const Text('الجوائز وفرص الفوز'),
               scrollable: true,
               content: Column(mainAxisSize: MainAxisSize.min, children: [
-                const Text('فرصة كل نوع من الجوائز: 1 من 6 (نحو 16.67%).',
+                const Text('كل خانة لها فرصة متساوية: 1 من 12 (نحو 8.33%).',
                     textAlign: TextAlign.center),
                 const SizedBox(height: 12),
                 for (final prize in LuckyWheelPrize.catalog)
@@ -509,18 +530,25 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
                     contentPadding: EdgeInsets.zero,
                     leading: SizedBox.square(
                         dimension: 38,
-                        child: LuckyWheelPrizeIcon(prize: prize)),
-                    title: Text(switch (prize.kind) {
-                      LuckyWheelPrizeKind.character =>
-                        'شخصية غير مملوكة عشوائية',
-                      LuckyWheelPrizeKind.chest => 'صندوق الحظ',
-                      _ => '${prize.amount} ${prize.title}',
-                    }),
+                        child: LuckyWheelPrizeIcon(
+                            prize: prize,
+                            character:
+                                context.read<AppState>().wheelPrizeCharacter,
+                            characterCompensation:
+                                context.read<AppState>().wheelPrizeCharacter ==
+                                    null)),
+                    title: Text(prize.kind == LuckyWheelPrizeKind.character
+                        ? context.read<AppState>().wheelPrizeCharacter == null
+                            ? '100 جوهرة — اكتملت الشخصيات'
+                            : 'شخصية ${context.read<AppState>().wheelPrizeCharacter!.nameAr}'
+                        : prize.displayTitle),
+                    trailing:
+                        Text('${prize.probabilityPercent.toStringAsFixed(2)}%'),
                     subtitle: prize.kind == LuckyWheelPrizeKind.chest
                         ? const Text('1000 نقود + 20 جوهرة + مفتاحان + تذكرتان')
                         : prize.kind == LuckyWheelPrizeKind.character
                             ? const Text(
-                                '100 جوهرة بدلًا منها إذا امتلكت كل الشخصيات المتاحة')
+                                'تتبدّل بعد الفوز إلى شخصية أخرى غير مملوكة. إذا اكتملت الشخصيات تحصل على 100 جوهرة.')
                             : null,
                   ),
               ]),
@@ -671,17 +699,22 @@ class _SpinButton extends StatelessWidget {
 }
 
 class _PrizeLegend extends StatelessWidget {
-  const _PrizeLegend();
+  const _PrizeLegend({required this.character});
+  final GameCharacter? character;
   @override
   Widget build(BuildContext context) => Wrap(
         alignment: WrapAlignment.center,
         spacing: 10,
         runSpacing: 6,
         children: [
-          for (final prize in LuckyWheelPrize.catalog)
+          for (final prize in LuckyWheelPrize.catalog.take(6))
             Row(mainAxisSize: MainAxisSize.min, children: [
               SizedBox.square(
-                  dimension: 23, child: LuckyWheelPrizeIcon(prize: prize)),
+                  dimension: 23,
+                  child: LuckyWheelPrizeIcon(
+                      prize: prize,
+                      character: character,
+                      characterCompensation: character == null)),
               const SizedBox(width: 4),
               Text(prize.title,
                   style:
@@ -737,11 +770,15 @@ class _PrizeReveal extends StatelessWidget {
                             width: 116,
                             height: 98,
                             fit: BoxFit.contain)
-                        : LuckyWheelPrizeIcon(prize: result.prize)),
+                        : LuckyWheelPrizeIcon(
+                            prize: result.prize,
+                            characterCompensation: result.compensation)),
                 Text(
                     result.characterIndex != null
                         ? 'شخصية ${CharacterCatalog.byIndex(result.characterIndex!).nameAr}'
-                        : result.prize.title,
+                        : result.compensation
+                            ? '100 جوهرة'
+                            : result.prize.displayTitle,
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                         color: Colors.white,

@@ -703,10 +703,8 @@ class _UnifiedGuestTourOverlayState extends State<UnifiedGuestTourOverlay>
     final compact = landscape && size.height < 430;
     final sideBySide = finalStep && size.width >= 620;
 
-    final controlsWidth = compact
-        ? (finalStep
-            ? math.min(300.0, size.width * .44)
-            : math.min(112.0, size.width * .30))
+    final controlsWidth = compact && finalStep
+        ? math.min(300.0, size.width * .44)
         : 0.0;
     final sceneWidth = compact
         ? size.width - controlsWidth - 12
@@ -714,18 +712,20 @@ class _UnifiedGuestTourOverlayState extends State<UnifiedGuestTourOverlay>
             ? 340.0
             : size.width;
 
-    const navigationHeight = 86.0;
     final choicesHeight = finalStep && !sideBySide && !compact
         ? (_signInError == null ? 124.0 : 158.0)
         : 0.0;
-    final available =
-        compact ? size.height : size.height - navigationHeight - choicesHeight;
+    final available = compact ? size.height : size.height - choicesHeight;
 
     final bubbleHeight = math.max(
-      compact ? 88.0 : 126.0,
+      compact ? 124.0 : 156.0,
       GuidePresenterScene.bubbleHeightFor(
-          _currentStep.title, _currentStep.text, sceneWidth,
-          showTitle: false),
+        _currentStep.title,
+        _currentStep.text,
+        sceneWidth,
+        showTitle: true,
+        extraHeight: 74.0,
+      ),
     );
     final hostHeight = math.min(
       math.min(210.0, sceneWidth * 141 / 208),
@@ -739,8 +739,10 @@ class _UnifiedGuestTourOverlayState extends State<UnifiedGuestTourOverlay>
       presenterHeight: hostHeight,
       bubbleHeight: bubbleHeight,
       flipped: flipped,
-      showTitle: false,
+      showTitle: true,
       controller: _speech,
+      bubbleHeader: _buildBubbleHeader(),
+      bubbleFooter: _buildBubbleFooter(finalStep),
     );
 
     if (compact) {
@@ -749,20 +751,13 @@ class _UnifiedGuestTourOverlayState extends State<UnifiedGuestTourOverlay>
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           scene,
-          const SizedBox(width: 12),
-          SizedBox(
-            width: controlsWidth,
-            child: finalStep
-                ? Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildFinalChoicesCard(),
-                      const SizedBox(height: 8),
-                      _buildCompactNavigation(true),
-                    ],
-                  )
-                : _buildCompactNavigation(false),
-          ),
+          if (finalStep) ...[
+            const SizedBox(width: 12),
+            SizedBox(
+              width: controlsWidth,
+              child: _buildFinalChoicesCard(),
+            ),
+          ],
         ],
       );
     }
@@ -783,7 +778,203 @@ class _UnifiedGuestTourOverlayState extends State<UnifiedGuestTourOverlay>
         ),
         if (finalStep && !sideBySide)
           SizedBox(height: choicesHeight, child: _buildFinalChoicesCard()),
-        SizedBox(height: navigationHeight, child: _buildNavigation(finalStep)),
+      ],
+    );
+  }
+
+  Widget _buildBubbleHeader() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        // Corner button: Exit/Skip (✕)
+        Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFFF1F5F9),
+            shape: BoxShape.circle,
+            border: Border.all(color: const Color(0xFFCBD5E1), width: 1),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.08),
+                blurRadius: 3,
+                offset: const Offset(0, 1),
+              ),
+            ],
+          ),
+          child: IconButton(
+            tooltip: 'تخطي الجولة',
+            iconSize: 15,
+            padding: EdgeInsets.zero,
+            visualDensity: VisualDensity.compact,
+            constraints: const BoxConstraints.tightFor(width: 28, height: 28),
+            icon: const Icon(Icons.close_rounded, color: Color(0xFF64748B)),
+            onPressed: _busy ? null : () => _finish(skipped: true),
+          ),
+        ),
+
+        // Center: Section & Step Badge
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+          decoration: BoxDecoration(
+            color: const Color(0xFF0F172A),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0x55FFD878), width: 1),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.18),
+                blurRadius: 4,
+                offset: const Offset(0, 1),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                _currentStep.section.label,
+                style: TextStyle(
+                  fontFamily: 'NotoSansArabic',
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: _currentStep.section.accentColor,
+                  height: 1.1,
+                ),
+              ),
+              const SizedBox(width: 5),
+              const Text(
+                '•',
+                style: TextStyle(fontSize: 10, color: Colors.white38, height: 1.1),
+              ),
+              const SizedBox(width: 5),
+              Text(
+                '${_stepIndex + 1} من ${_steps.length}',
+                style: const TextStyle(
+                  fontFamily: 'NotoSansArabic',
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFFFFD878),
+                  height: 1.1,
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Corner button: Replay speech (⟲)
+        Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFFEFF6FF),
+            shape: BoxShape.circle,
+            border: Border.all(color: const Color(0xFFBFDBFE), width: 1),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.08),
+                blurRadius: 3,
+                offset: const Offset(0, 1),
+              ),
+            ],
+          ),
+          child: IconButton(
+            tooltip: 'إعادة الشرح',
+            iconSize: 15,
+            padding: EdgeInsets.zero,
+            visualDensity: VisualDensity.compact,
+            constraints: const BoxConstraints.tightFor(width: 28, height: 28),
+            icon: const Icon(Icons.replay_rounded, color: Color(0xFF2563EB)),
+            onPressed: _busy ? null : _speech.replay,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBubbleFooter(bool finalStep) {
+    final canGoBack = _stepIndex > 0 && !_busy;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        // Corner button: Previous (السابق)
+        SizedBox(
+          height: 32,
+          child: OutlinedButton(
+            onPressed: canGoBack ? () => _move(-1) : null,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFF334155),
+              disabledForegroundColor: const Color(0xFF94A3B8),
+              backgroundColor: const Color(0xFFF8FAFC),
+              disabledBackgroundColor: const Color(0xFFF1F5F9),
+              side: BorderSide(
+                color: canGoBack
+                    ? const Color(0xFFCBD5E1)
+                    : const Color(0xFFE2E8F0),
+                width: 1.2,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.arrow_forward_rounded, size: 14),
+                SizedBox(width: 4),
+                Text(
+                  'السابق',
+                  style: TextStyle(
+                    fontFamily: 'NotoSansArabic',
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        // Corner button: Next (التالي / إنهاء وبدء اللعب)
+        SizedBox(
+          height: 32,
+          child: FilledButton(
+            onPressed: _busy
+                ? null
+                : finalStep
+                    ? () => _finish()
+                    : () => _move(1),
+            style: FilledButton.styleFrom(
+              backgroundColor: finalStep
+                  ? const Color(0xFF10B981)
+                  : const Color(0xFF2563EB),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              padding: EdgeInsets.symmetric(horizontal: finalStep ? 14 : 12),
+              elevation: 2,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  finalStep ? 'إنهاء وبدء اللعب' : 'التالي',
+                  style: const TextStyle(
+                    fontFamily: 'NotoSansArabic',
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Icon(
+                  finalStep
+                      ? Icons.check_circle_rounded
+                      : Icons.arrow_back_rounded,
+                  size: 14,
+                ),
+              ],
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -887,311 +1078,6 @@ class _UnifiedGuestTourOverlayState extends State<UnifiedGuestTourOverlay>
               ),
             ),
           ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCompactNavigation(bool finalStep) => Container(
-        key: const ValueKey('unified-guide-compact-navigation'),
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-        decoration: BoxDecoration(
-          color: const Color(0xF20D1B31),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0x887FA3CB)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              '${_currentStep.section.label} • ${_currentStep.title}',
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontFamily: 'NotoSansArabic',
-                color: Colors.white,
-                fontSize: 10,
-                height: 1.4,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '${_stepIndex + 1} من ${_steps.length}',
-              style: const TextStyle(color: Color(0xFFFFD878), fontSize: 10),
-            ),
-            const SizedBox(height: 6),
-            SizedBox(
-              height: 44,
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: _busy
-                    ? null
-                    : finalStep
-                        ? () => _finish()
-                        : () => _move(1),
-                style: FilledButton.styleFrom(
-                  backgroundColor: finalStep
-                      ? const Color(0xFF10B981)
-                      : const Color(0xFFFFD878),
-                  foregroundColor: finalStep
-                      ? Colors.white
-                      : const Color(0xFF142139),
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                ),
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    finalStep ? 'إنهاء وبدء' : 'التالي',
-                    style: const TextStyle(
-                      fontFamily: 'NotoSansArabic',
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 4),
-            SizedBox(
-              height: 40,
-              width: double.infinity,
-              child: TextButton(
-                onPressed: _stepIndex == 0 || _busy ? null : () => _move(-1),
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.white70,
-                  disabledForegroundColor: Colors.white24,
-                ),
-                child: const Text(
-                  'السابق',
-                  style: TextStyle(
-                    fontFamily: 'NotoSansArabic',
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    tooltip: 'إعادة الشرح',
-                    onPressed: _busy ? null : _speech.replay,
-                    color: Colors.white,
-                    iconSize: 18,
-                    padding: EdgeInsets.zero,
-                    constraints:
-                        const BoxConstraints.tightFor(width: 32, height: 32),
-                    icon: const Icon(Icons.replay_rounded),
-                  ),
-                  const SizedBox(width: 4),
-                  IconButton(
-                    tooltip: 'تخطي الجولة',
-                    onPressed: () => _finish(skipped: true),
-                    color: Colors.white54,
-                    iconSize: 18,
-                    padding: EdgeInsets.zero,
-                    constraints:
-                        const BoxConstraints.tightFor(width: 32, height: 32),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
-
-  Widget _buildNavigation(bool finalStep) {
-    return Container(
-      key: const ValueKey('unified-guide-navigation'),
-      margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: const Color(0xF20D1B31),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0x887FA3CB)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.4),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          // Step Counter & Section info
-          SizedBox(
-            height: 16,
-            child: Row(
-              children: [
-                Text(
-                  '${_stepIndex + 1} من ${_steps.length}',
-                  style: const TextStyle(
-                    color: Color(0xFFFFD878),
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    height: 1,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    '${_currentStep.section.label} • ${_currentStep.title}',
-                    textAlign: TextAlign.end,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontFamily: 'NotoSansArabic',
-                      color: _currentStep.section.accentColor,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      height: 1,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Action Buttons: Previous, Replay, Skip, Next
-          Expanded(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.center,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Previous Button (السابق)
-                  SizedBox(
-                    width: 72,
-                    height: 38,
-                    child: OutlinedButton(
-                      onPressed:
-                          _stepIndex == 0 || _busy ? null : () => _move(-1),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.white,
-                        disabledForegroundColor: Colors.white24,
-                        side: BorderSide(
-                          color: _stepIndex == 0
-                              ? Colors.white12
-                              : const Color(0x667FA3CB),
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        padding: const EdgeInsets.symmetric(horizontal: 6),
-                      ),
-                      child: const FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Row(
-                          children: [
-                            Icon(Icons.arrow_back_rounded, size: 14),
-                            SizedBox(width: 4),
-                            Text(
-                              'السابق',
-                              style: TextStyle(
-                                fontFamily: 'NotoSansArabic',
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(width: 10),
-
-                  // Skip Button
-                  IconButton(
-                    tooltip: 'تخطي الجولة',
-                    visualDensity: VisualDensity.compact,
-                    onPressed: _busy ? null : () => _finish(skipped: true),
-                    color: Colors.white54,
-                    iconSize: 20,
-                    padding: EdgeInsets.zero,
-                    constraints:
-                        const BoxConstraints.tightFor(width: 36, height: 36),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-
-                  const SizedBox(width: 4),
-
-                  // Replay Button
-                  IconButton(
-                    tooltip: 'إعادة الشرح',
-                    visualDensity: VisualDensity.compact,
-                    onPressed: _busy ? null : _speech.replay,
-                    color: Colors.white,
-                    iconSize: 20,
-                    padding: EdgeInsets.zero,
-                    constraints:
-                        const BoxConstraints.tightFor(width: 36, height: 36),
-                    icon: const Icon(Icons.replay_rounded),
-                  ),
-
-                  const SizedBox(width: 10),
-
-                  // Next Button (التالي)
-                  SizedBox(
-                    width: finalStep ? 128 : 94,
-                    height: 38,
-                    child: FilledButton(
-                      onPressed: _busy
-                          ? null
-                          : finalStep
-                              ? () => _finish()
-                              : () => _move(1),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: finalStep
-                            ? const Color(0xFF10B981)
-                            : const Color(0xFFFFD878),
-                        foregroundColor: finalStep
-                            ? Colors.white
-                            : const Color(0xFF142139),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                      ),
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Row(
-                          children: [
-                            Text(
-                              finalStep ? 'إنهاء وبدء اللعب' : 'التالي',
-                              style: TextStyle(
-                                fontFamily: 'NotoSansArabic',
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: finalStep
-                                    ? Colors.white
-                                    : const Color(0xFF142139),
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Icon(
-                              finalStep
-                                  ? Icons.check_circle_rounded
-                                  : Icons.arrow_forward_rounded,
-                              size: 16,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
         ],
       ),
     );

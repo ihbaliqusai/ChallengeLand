@@ -1,0 +1,44 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <!-- Outer glow / shadow circle -->
+    <path
+        android:fillColor="#55000000"
+        android:pathData="M24,24m-22,0a22,22 0,1,1 44,0a22,22 0,1,1 -44,0" />
+    <path
+        android:fillColor="#FF2A1B4D"
+        android:pathData="M24,24m-20,0a20,20 0,1,1 40,0a20,20 0,1,1 -40,0" />
+    <path
+        android:strokeColor="#FF8B5CF6"
+        android:strokeWidth="2"
+        android:pathData="M24,24m-20,0a20,20 0,1,1 40,0a20,20 0,1,1 -40,0" />
+    <!-- Magnifying Glass Lens Ring -->
+    <path
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="3.2"
+        android:strokeLineCap="round"
+        android:pathData="M22,22m-9,0a9,9 0,1,1 18,0a9,9 0,1,1 -18,0" />
+    <!-- Lens glass tint -->
+    <path
+        android:fillColor="#33A78BFA"
+        android:pathData="M22,22m-7.5,0a7.5,7.5 0,1,1 15,0a7.5,7.5 0,1,1 -15,0" />
+    <!-- Specular highlight arc -->
+    <path
+        android:strokeColor="#CCFFFFFF"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:pathData="M16.5,18.5 A7,7 0 0,1 23,15" />
+    <!-- Handle -->
+    <path
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="3.6"
+        android:strokeLineCap="round"
+        android:pathData="M28.5,28.5 L36,36" />
+    <path
+        android:strokeColor="#FFC4B5FD"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:pathData="M29.5,29.5 L35,35" />
+</vector>

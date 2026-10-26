@@ -1,5 +1,24 @@
 # UI artwork
 
+## Application logo — 26 October 2026
+
+The publisher supplied `C:\Users\Qusai\Downloads\New folder (5)\1.jfif`
+and stated that this artwork was generated with Gemini. Source SHA-256:
+`287BC9FF95ABA084A67C08C4B7BC023160A3D2582158FC220C6B4A3222287828`.
+The original 2048 × 2048 file remains unchanged in that folder.
+
+The complete square image is resized to 512 × 512 without cropping for
+`assets/icon/icon.png`, `assets/ui/logo.png`, and Android's
+`res/drawable/logo.png`. The runtime `assets/ui/logo.webp` is a lossless
+encoding with identical decoded RGBA pixels. Android launcher icons in all
+five mipmap densities are generated from `assets/icon/icon.png` using
+`dart run flutter_launcher_icons`.
+
+Unused legacy launcher foreground/background layers were removed, including
+their two obsolete sources under `assets/icon/`. The text-only splash wordmark
+is a separate asset. Artwork for the other application's cross-promotion is
+also separate from this application's logo.
+
 ## Layered splash artwork
 
 The splash assets are copied unchanged from

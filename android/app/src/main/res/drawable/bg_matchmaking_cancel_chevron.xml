@@ -1,0 +1,27 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="120dp"
+    android:height="44dp"
+    android:viewportWidth="120"
+    android:viewportHeight="44">
+    <!-- Drop shadow -->
+    <path
+        android:fillColor="#88000000"
+        android:pathData="M16,4 L110,4 A8,8 0 0,1 118,12 L118,36 A8,8 0 0,1 110,44 L16,44 L2,24 Z" />
+    <!-- Dark outer border -->
+    <path
+        android:fillColor="#FF520015"
+        android:pathData="M15,1 L110,1 A8,8 0 0,1 118,9 L118,33 A8,8 0 0,1 110,41 L15,41 L1,21 Z" />
+    <!-- Main red gradient fill -->
+    <path
+        android:fillColor="#FFE6194B"
+        android:pathData="M16,3 L109,3 A6,6 0 0,1 115,9 L115,33 A6,6 0 0,1 109,39 L16,39 L3,21 Z" />
+    <!-- Top inner specular highlight -->
+    <path
+        android:fillColor="#44FFFFFF"
+        android:pathData="M16,3 L109,3 A6,6 0 0,1 115,9 L115,18 L7,18 L16,3 Z" />
+    <!-- Crisp highlight stroke -->
+    <path
+        android:strokeColor="#FFFF6B8B"
+        android:strokeWidth="1.5"
+        android:pathData="M16,3 L109,3 A6,6 0 0,1 115,9" />
+</vector>

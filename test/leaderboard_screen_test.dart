@@ -1,5 +1,7 @@
 import 'package:challenge_land/core/app_state.dart';
 import 'package:challenge_land/screens/home/leaderboard_screen.dart';
+import 'package:challenge_land/services/leaderboard_service.dart';
+import 'package:challenge_land/widgets/game_viewport.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -24,6 +26,8 @@ class _MockUser implements User {
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
+
+Future<String?> _noDeviceCountry() async => null;
 
 class _MockAppState extends ChangeNotifier implements AppState {
   _MockAppState({this.trophyBalance = 1250, String? uid = 'me'})
@@ -92,13 +96,26 @@ void main() {
 
   Future<void> pumpBoard(
       WidgetTester tester, FakeFirebaseFirestore db, _MockAppState state,
-      {Size size = const Size(400, 900)}) async {
+      {Size size = const Size(400, 900),
+      Future<String?> Function() detectCountry = _noDeviceCountry,
+      EdgeInsets? viewportSafeInsets}) async {
     await tester.binding.setSurfaceSize(size);
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(MaterialApp(
+      builder: viewportSafeInsets == null
+          ? null
+          : (context, child) => MediaQuery(
+                data: MediaQuery.of(context).copyWith(
+                    padding: viewportSafeInsets,
+                    viewPadding: viewportSafeInsets),
+                child: GameViewport(child: child!),
+              ),
       home: ChangeNotifierProvider<AppState>.value(
         value: state,
-        child: LeaderboardScreen(firestore: db),
+        child: LeaderboardScreen(
+          service:
+              LeaderboardService(firestore: db, detectCountry: detectCountry),
+        ),
       ),
     ));
     await tester.pumpAndSettle();
@@ -108,6 +125,67 @@ void main() {
     await tester.tap(find.byKey(ValueKey('leaderboard-tab-$scope')));
     await tester.pumpAndSettle();
   }
+
+  for (final safeInsets in [
+    const EdgeInsets.only(left: 64),
+    const EdgeInsets.only(right: 64),
+  ]) {
+    testWidgets('title spans the viewport while controls respect $safeInsets',
+        (tester) async {
+      const size = Size(1000, 540);
+      final db = FakeFirebaseFirestore();
+      await player(db, 'me', 15, country: 'TR');
+      await player(db, 'leader', 1000, country: 'TR');
+      await pumpBoard(tester, db, _MockAppState(trophyBalance: 15),
+          size: size, viewportSafeInsets: safeInsets);
+
+      final banner = tester
+          .getRect(find.byKey(const ValueKey('leaderboard-title-banner')));
+      expect(banner.left, closeTo(0, .01));
+      expect(banner.right, closeTo(size.width, .01));
+
+      void expectSafe(Finder finder) {
+        final rect = tester.getRect(finder);
+        expect(rect.left, greaterThanOrEqualTo(safeInsets.left - .01));
+        expect(
+            rect.right, lessThanOrEqualTo(size.width - safeInsets.right + .01));
+      }
+
+      expectSafe(find.byTooltip('رجوع'));
+      for (final scope in ['world', 'country', 'friends']) {
+        expectSafe(find.byKey(ValueKey('leaderboard-tab-$scope')));
+      }
+      expectSafe(find.byKey(const ValueKey('leaderboard-list-world')));
+      expectSafe(row('leader'));
+
+      await selectTab(tester, 'country');
+      expectSafe(find.byKey(const ValueKey('leaderboard-change-country')));
+      expectSafe(find.byKey(const ValueKey('leaderboard-list-country')));
+      expectSafe(row('leader'));
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('country is detected and ranked without opening the picker',
+      (tester) async {
+    final db = FakeFirebaseFirestore();
+    await player(db, 'me', 15);
+    await player(db, 'turkey-leader', 200, country: 'TR');
+    await player(db, 'other-country', 500, country: 'JO');
+    await pumpBoard(tester, db, _MockAppState(trophyBalance: 15),
+        detectCountry: () async => 'TR');
+
+    expect(find.text('تركيا'), findsOneWidget);
+    expect(find.byType(Dialog), findsNothing);
+    await selectTab(tester, 'country');
+    expectRank('turkey-leader', 1);
+    expectRank('me', 2);
+    expect(row('other-country'), findsNothing);
+    expect(find.text('اختيار البلد'), findsNothing);
+    expect((await db.doc('public_profiles/me').get()).data()!['countryCode'],
+        'TR');
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('three top scope tabs rank trophies without a podium or XP tabs',
       (tester) async {
@@ -220,7 +298,8 @@ void main() {
     await pumpBoard(tester, db, _MockAppState(trophyBalance: 25));
     expect(row('country-leader'), findsNothing);
     await selectTab(tester, 'country');
-    expect(find.text('اختر بلدك للمنافسة مع لاعبيه'), findsOneWidget);
+    expect(find.text('تعذر تحديد بلدك تلقائيًا. اختره للمنافسة مع لاعبيه'),
+        findsOneWidget);
     await tester.tap(find.text('اختيار البلد'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'zzzzzz');
@@ -282,7 +361,7 @@ void main() {
     await pumpBoard(tester, db, _MockAppState(uid: null));
     expectRank('world-player', 1);
     await selectTab(tester, 'country');
-    expect(find.text('سجّل الدخول لاختيار بلدك وعرض ترتيبه'), findsOneWidget);
+    expect(find.text('سجّل الدخول لعرض ترتيب بلدك'), findsOneWidget);
     await selectTab(tester, 'friends');
     expect(find.text('سجّل الدخول لعرض ترتيبك بين أصدقائك'), findsOneWidget);
     expect(tester.takeException(), isNull);
