@@ -10,10 +10,13 @@ import '../online/room_lobby_screen.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/app_state.dart';
+import '../../core/app_settings.dart';
 import '../../models/room.dart';
+import '../../models/campaign_home_progress.dart';
 import '../../core/player_rank.dart';
 import '../campaign/campaign_map_screen.dart';
 import '../character/character_select_screen.dart';
+import '../../core/campaign_navigation.dart';
 import '../../models/store_catalog.dart';
 import 'store_screen.dart';
 import 'leaderboard_screen.dart';
@@ -25,6 +28,8 @@ import '../online/achievements_screen.dart';
 import '../../services/room_service.dart';
 import '../../services/online_match_flow.dart';
 import '../../services/campaign_result_handler.dart';
+import '../../services/campaign_service.dart';
+import '../../services/leaderboard_service.dart';
 import '../../services/invite_service.dart';
 import '../../services/native_bridge_service.dart';
 import '../../widgets/friend_challenge_modal.dart';
@@ -33,15 +38,14 @@ import '../social/social_screen.dart';
 import '../social/invite_friends_page.dart';
 import '../../services/referral_service.dart';
 import '../../widgets/special_offer_dialog.dart';
-import '../../widgets/special_offer_badge.dart';
 import '../../widgets/daily_reward_dialog.dart';
 import '../../widgets/home_quick_action.dart';
 import '../../widgets/home_menu_artwork.dart';
 import '../../widgets/game_modes_artwork.dart';
 import '../../widgets/home_artwork.dart';
+import '../../widgets/home_action_sidebar.dart';
 import '../../widgets/home_character_artwork.dart';
 import '../../widgets/play_stake_dialog.dart';
-import '../../widgets/lobby_action_panel.dart';
 import '../../services/rate_game_service.dart';
 import '../../services/cross_promo_service.dart';
 import '../../widgets/adaptive_asset_image.dart';
@@ -56,14 +60,17 @@ import '../../widgets/guide/persistent_guide_button.dart';
 import '../../widgets/guide/unified_guest_tour_overlay.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({super.key, this.campaignService, this.leaderboardService});
+
+  final CampaignService? campaignService;
+  final LeaderboardService? leaderboardService;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen>
-    with TickerProviderStateMixin, WidgetsBindingObserver {
+    with TickerProviderStateMixin, WidgetsBindingObserver, RouteAware {
   late final AnimationController _idleCtrl;
   late final AnimationController _bgCtrl;
   bool _syncingPendingRoomMatchResult = false;
@@ -72,6 +79,17 @@ class _HomeScreenState extends State<HomeScreen>
   String? _shownReferral;
   bool _hasCheckedLuckyWheelThisLaunch = false;
   String? _initializedUserId;
+  CampaignService? _campaignService;
+  CampaignHomeProgress? _campaignProgress;
+  int _campaignProgressRequest = 0;
+  bool _campaignWasOnline = false;
+  StreamSubscription<String>? _campaignProgressSubscription;
+  LeaderboardService? _leaderboardService;
+  StreamSubscription<int?>? _leaderboardRankSubscription;
+  int? _leaderboardRank;
+  int? _rankTrophies;
+  int _leaderboardRankRequest = 0;
+  int _leaderboardWatchGeneration = 0;
 
   // ── Guide Tour & Navigation Keys ─────────────────────────────
   final _guideTargets = {
@@ -86,6 +104,12 @@ class _HomeScreenState extends State<HomeScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _campaignProgressSubscription =
+        CampaignService.progressUpdates.listen((uid) {
+      if (mounted && context.read<AppState>().user?.uid == uid) {
+        unawaited(_refreshCampaignProgress());
+      }
+    });
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     _idleCtrl = AnimationController(
       vsync: this,
@@ -96,12 +120,48 @@ class _HomeScreenState extends State<HomeScreen>
       vsync: this,
       duration: const Duration(seconds: 6),
     )..repeat();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        unawaited(context.read<NativeBridgeService>().playLobbyMusic());
+      }
+    });
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final uid = context.watch<AppState>().user?.uid;
+    final route = ModalRoute.of(context);
+    if (route is PageRoute<dynamic>) {
+      campaignRouteObserver.subscribe(this, route);
+    }
+    final appState = context.watch<AppState>();
+    final uid = appState.user?.uid;
+    final accountChanged = !_hasInitializedUser || _initializedUserId != uid;
+    final reconnected = !_campaignWasOnline && appState.isOnline;
+    final trophiesChanged = _rankTrophies != appState.trophies;
+    _rankTrophies = appState.trophies;
+    _campaignWasOnline = appState.isOnline;
+    if (accountChanged) {
+      _campaignProgressRequest++;
+      _campaignProgress = null;
+      _leaderboardRankRequest++;
+      _leaderboardWatchGeneration++;
+      _leaderboardRank = null;
+      unawaited(_leaderboardRankSubscription?.cancel());
+      _leaderboardRankSubscription = null;
+    }
+    if (uid != null && appState.isOnline && (accountChanged || reconnected)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || context.read<AppState>().user?.uid != uid) return;
+        unawaited(_refreshCampaignProgress());
+        _watchLeaderboardRank(uid);
+      });
+    } else if (uid != null && appState.isOnline && trophiesChanged) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || context.read<AppState>().user?.uid != uid) return;
+        unawaited(_refreshLeaderboardRank());
+      });
+    }
     if (_hasInitializedUser && _initializedUserId == uid) return;
     _hasInitializedUser = true;
     _initializedUserId = uid;
@@ -135,6 +195,71 @@ class _HomeScreenState extends State<HomeScreen>
     });
   }
 
+  Future<void> _refreshCampaignProgress() async {
+    if (!mounted) return;
+    final appState = context.read<AppState>();
+    final uid = appState.user?.uid;
+    if (uid == null || !appState.isOnline) return;
+    final request = ++_campaignProgressRequest;
+    try {
+      final service =
+          widget.campaignService ?? (_campaignService ??= CampaignService());
+      final progress = await service.loadHomeProgress(uid: uid);
+      if (!mounted ||
+          request != _campaignProgressRequest ||
+          context.read<AppState>().user?.uid != uid) {
+        return;
+      }
+      setState(() => _campaignProgress = progress);
+    } catch (_) {
+      // Keep the last known stage if a refresh is temporarily unavailable.
+    }
+  }
+
+  LeaderboardService get _rankService =>
+      widget.leaderboardService ??
+      (_leaderboardService ??= LeaderboardService());
+
+  void _watchLeaderboardRank(String uid) {
+    final generation = ++_leaderboardWatchGeneration;
+    unawaited(_leaderboardRankSubscription?.cancel());
+    try {
+      _leaderboardRankSubscription =
+          _rankService.watchWorldRank(uid: uid).listen((rank) {
+        if (!mounted ||
+            generation != _leaderboardWatchGeneration ||
+            context.read<AppState>().user?.uid != uid) {
+          return;
+        }
+        _leaderboardRankRequest++;
+        setState(() => _leaderboardRank = rank);
+      }, onError: (Object _) {
+        // A failed read cannot establish a new leaderboard position.
+      });
+    } catch (_) {
+      // The medallion stays unranked until real leaderboard data is available.
+    }
+  }
+
+  Future<void> _refreshLeaderboardRank() async {
+    if (!mounted) return;
+    final appState = context.read<AppState>();
+    final uid = appState.user?.uid;
+    if (uid == null || !appState.isOnline) return;
+    final request = ++_leaderboardRankRequest;
+    try {
+      final rank = await _rankService.loadWorldRank(uid: uid);
+      if (!mounted ||
+          request != _leaderboardRankRequest ||
+          context.read<AppState>().user?.uid != uid) {
+        return;
+      }
+      setState(() => _leaderboardRank = rank);
+    } catch (_) {
+      // Retain this account's last confirmed position during a connection error.
+    }
+  }
+
   Future<void> _checkAndTriggerGuideTour() async {
     if (!mounted || _hasCheckedTourGuide) return;
     _hasCheckedTourGuide = true;
@@ -146,8 +271,8 @@ class _HomeScreenState extends State<HomeScreen>
       final prefs = await SharedPreferences.getInstance();
       final hasCompleted =
           prefs.getBool(UnifiedGuestTourOverlay.completedPrefKey) ??
-          prefs.getBool(UnifiedGuestTourOverlay.legacyHomePrefKey) ??
-          false;
+              prefs.getBool(UnifiedGuestTourOverlay.legacyHomePrefKey) ??
+              false;
       if (!hasCompleted && mounted) {
         // Wait briefly for layout and orientation to settle
         await Future<void>.delayed(const Duration(milliseconds: 700));
@@ -178,9 +303,23 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   @override
+  void didPopNext() {
+    if (mounted) {
+      unawaited(context.read<NativeBridgeService>().playLobbyMusic());
+    }
+  }
+
+  @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      if (mounted && (ModalRoute.of(context)?.isCurrent ?? false)) {
+        unawaited(context.read<NativeBridgeService>().playLobbyMusic());
+      }
+    }
     if (context.read<AppState>().user == null) return;
     if (state == AppLifecycleState.resumed) {
+      unawaited(_refreshCampaignProgress());
+      unawaited(_refreshLeaderboardRank());
       context.read<AppState>().loadCurrency();
       context.read<AppState>().refreshCommerce();
       context.read<AppState>().loadLevelData();
@@ -415,6 +554,7 @@ class _HomeScreenState extends State<HomeScreen>
   Future<void> _openCampaignMap() async {
     final nativeBridgeService = context.read<NativeBridgeService>();
     try {
+      await nativeBridgeService.stopLobbyMusic();
       await nativeBridgeService.playCampaignMapMusic();
     } catch (_) {}
     if (!mounted) return;
@@ -424,6 +564,20 @@ class _HomeScreenState extends State<HomeScreen>
         builder: (_) => const CampaignMapScreen(),
       ),
     );
+    if (mounted) {
+      await _refreshCampaignProgress();
+      await nativeBridgeService.playLobbyMusic();
+    }
+  }
+
+  Future<void> _openLeaderboard() async {
+    if (!context.read<AppState>().isOnline) {
+      _showOnlineRequiredToast(context);
+      return;
+    }
+    await Navigator.of(context).push<void>(MaterialPageRoute<void>(
+        builder: (_) => LeaderboardScreen(service: _rankService)));
+    if (mounted) await _refreshLeaderboardRank();
   }
 
   Future<void> _consumePendingRoomMatchResult() async {
@@ -576,7 +730,10 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   void dispose() {
+    campaignRouteObserver.unsubscribe(this);
     WidgetsBinding.instance.removeObserver(this);
+    unawaited(_campaignProgressSubscription?.cancel());
+    unawaited(_leaderboardRankSubscription?.cancel());
     _idleCtrl.dispose();
     _bgCtrl.dispose();
     super.dispose();
@@ -639,6 +796,9 @@ class _HomeScreenState extends State<HomeScreen>
                     username: displayUsername,
                     user: user,
                     idleCtrl: _idleCtrl,
+                    campaignProgress: _campaignProgress,
+                    leaderboardRank: _leaderboardRank,
+                    onLeaderboardTap: () => unawaited(_openLeaderboard()),
                     onCampaignTap: () => unawaited(_openCampaignMap()),
                     guideTargets: _guideTargets,
                     showGuideTour: _showGuideTour,
@@ -826,6 +986,7 @@ class _HomeMenuButtonState extends State<_HomeMenuButton> {
   }
 
   Future<void> _openMenu() async {
+    AppSettings.playClick();
     await showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
@@ -848,7 +1009,7 @@ class _HomeMenuButtonState extends State<_HomeMenuButton> {
     final hasDailyReward = widget.appState.isOnline &&
         widget.appState.dailyStreakLoaded &&
         widget.appState.streakDay > 0 &&
-        !widget.appState.claimedToday;
+        (!widget.appState.claimedToday || widget.appState.isLuckyWheelFreeAvailable);
     final hasAttention = hasDailyReward || _pendingRewards > 0;
 
     return Padding(
@@ -911,7 +1072,7 @@ class _HomeMenuSheet extends StatelessWidget {
     final dailyReady = liveState.isOnline &&
         liveState.dailyStreakLoaded &&
         liveState.streakDay > 0 &&
-        !liveState.claimedToday;
+        (!liveState.claimedToday || liveState.isLuckyWheelFreeAvailable);
     return SafeArea(
         child: Center(
             child: Padding(
@@ -1015,6 +1176,9 @@ class _HomeLobbyLayout extends StatelessWidget {
     required this.username,
     required this.user,
     required this.idleCtrl,
+    required this.campaignProgress,
+    required this.leaderboardRank,
+    required this.onLeaderboardTap,
     required this.onCampaignTap,
     required this.guideTargets,
     required this.showGuideTour,
@@ -1025,6 +1189,9 @@ class _HomeLobbyLayout extends StatelessWidget {
   final String username;
   final dynamic user;
   final AnimationController idleCtrl;
+  final CampaignHomeProgress? campaignProgress;
+  final int? leaderboardRank;
+  final VoidCallback onLeaderboardTap;
   final VoidCallback onCampaignTap;
   final Map<HomeGuideTarget, GlobalKey> guideTargets;
   final bool showGuideTour;
@@ -1032,6 +1199,7 @@ class _HomeLobbyLayout extends StatelessWidget {
   final VoidCallback onCompleteGuideTour;
 
   void _openOnlineScreen(BuildContext context, Widget screen) {
+    context.read<AppSettings?>()?.playButtonClick();
     if (!appState.isOnline) {
       _showOnlineRequiredToast(context);
       return;
@@ -1047,10 +1215,15 @@ class _HomeLobbyLayout extends StatelessWidget {
         final height = area.maxHeight;
         final portrait = height > width;
         final headerHeight = portrait ? 108.0 : 64.0;
-        final panelWidth =
-            portrait ? width - 32 : (width * .29).clamp(190.0, 340.0);
-        final panelTop = portrait ? height * .66 : headerHeight + 16;
-        final panelHeight = height - panelTop - 16;
+        final panelHeight = portrait
+            ? (height * .47).clamp(274.0, 480.0)
+            : math.min(
+                500.0, math.min(height * .80, height - headerHeight - 16));
+        final panelWidth = math.min(
+            portrait ? width - 32 : (width * .29).clamp(180.0, 340.0),
+            panelHeight * .64);
+        final panelTop =
+            portrait ? height - panelHeight - 16 : headerHeight + 8;
         final heroLeftInset = portrait ? 64.0 : 76.0;
         final heroLeft = heroLeftInset + safeLeft;
         final heroWidth =
@@ -1061,7 +1234,6 @@ class _HomeLobbyLayout extends StatelessWidget {
             : height - 16;
         final characterTop = headerHeight + 62;
         final characterHeight = math.max(1.0, heroBottom - characterTop);
-        final compact = height < 600;
         final maxWalletWidth =
             portrait ? width - 28 : (width - 100).clamp(280.0, 520.0);
         final balanceWidth = (maxWalletWidth - 12) / 4;
@@ -1073,77 +1245,6 @@ class _HomeLobbyLayout extends StatelessWidget {
             math.min(balanceWidth, 44 * 1616 / 884) * resourceScale;
         final walletWidth =
             balanceWidth * 2 + keysWidth + ticketsWidth + walletGap * 3;
-        final badgeHeight = portrait
-            ? (compact ? 44.0 : 50.0)
-            : (panelHeight * .18).clamp(36.0, 52.0);
-        final bannerHeight = portrait
-            ? (compact ? 50.0 : 56.0)
-            : math.min(panelWidth * .28, (panelHeight - badgeHeight - 24) / 3);
-        Widget fitBadge(Widget badge) => SizedBox(
-            height: badgeHeight,
-            width: portrait ? (panelWidth - 12) / 2 : panelWidth,
-            child: SignInRequiredAction(
-                child: FittedBox(fit: BoxFit.contain, child: badge)));
-        Widget banner(String asset, String label, VoidCallback onPressed,
-                {bool enabled = true, double? width, double? height}) =>
-            SizedBox(
-                width: width ?? (portrait ? (panelWidth - 12) / 2 : panelWidth),
-                height: height ?? bannerHeight,
-                child: SignInRequiredAction(
-                    child: FittedBox(
-                        child: _BattleButton(
-                            asset: asset,
-                            label: label,
-                            compact: compact,
-                            enabled: enabled,
-                            onPressed: onPressed))));
-        final campaign = KeyedSubtree(
-            key: guideTargets[HomeGuideTarget.campaign],
-            child: banner(HomeArtwork.campaign, 'تحدي المراحل', onCampaignTap,
-                enabled: appState.isOnline));
-        final modes = KeyedSubtree(
-            key: guideTargets[HomeGuideTarget.modes],
-            child: banner(HomeArtwork.modes, 'أوضاع اللعب',
-                () => _showGameModesSheet(context)));
-        final promotions = [
-          if (!appState.isVip)
-            KeyedSubtree(
-                key: guideTargets[HomeGuideTarget.offer],
-                child: fitBadge(const SpecialOfferBadge())),
-          KeyedSubtree(
-              key: guideTargets[HomeGuideTarget.play],
-              child: fitBadge(
-                LobbyActionPanel(
-                  key: const ValueKey('home-play-button'),
-                  title: 'العب',
-                  subtitle: 'اختر مبلغ المباراة ومنافسك',
-                  icon: Icons.play_arrow_rounded,
-                  gold: true,
-                  showNotification: true,
-                  notificationColor: const Color(0xFF34D399),
-                  notificationAnimation: TweenSequence<double>([
-                    TweenSequenceItem(
-                      tween: Tween(begin: 1.0, end: 0.0)
-                          .chain(CurveTween(curve: Curves.easeInOut)),
-                      weight: 50,
-                    ),
-                    TweenSequenceItem(
-                      tween: Tween(begin: 0.0, end: 1.0)
-                          .chain(CurveTween(curve: Curves.easeInOut)),
-                      weight: 50,
-                    ),
-                  ]).animate(idleCtrl),
-                  onPressed: () {
-                    HapticFeedback.lightImpact();
-                    if (!appState.isOnline) {
-                      _showOnlineRequiredToast(context);
-                      return;
-                    }
-                    PlayStakeDialog.show(context);
-                  },
-                ),
-              )),
-        ];
         return Stack(children: [
           Positioned(
               key: guideTargets[HomeGuideTarget.menu],
@@ -1236,12 +1337,16 @@ class _HomeLobbyLayout extends StatelessWidget {
                                   key:
                                       const ValueKey('home-selected-character'),
                                   character: appState.selectedCharacter,
-                                  onTap: () => Navigator.of(context).push(
-                                        MaterialPageRoute<void>(
-                                          builder: (_) =>
-                                              const CharacterSelectScreen(),
-                                        ),
-                                      ))))))),
+                                  onTap: () {
+                                    AppSettings.playClick();
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute<void>(
+                                        builder: (_) =>
+                                            const CharacterSelectScreen(),
+                                      ),
+                                    );
+                                  }))),
+                    ))),
           Positioned(
               bottom: portrait ? height - heroBottom : 12,
               left: heroLeft,
@@ -1252,20 +1357,6 @@ class _HomeLobbyLayout extends StatelessWidget {
               left: safeLeft + 6,
               child: KeyedSubtree(
                   child: Column(mainAxisSize: MainAxisSize.min, children: [
-                SignInRequiredAction(
-                    key: guideTargets[HomeGuideTarget.friends],
-                    child: HomeQuickAction(
-                        key: const ValueKey('home-friends-shortcut'),
-                        asset: HomeArtwork.friends,
-                        label: 'الأصدقاء واللاعبون',
-                        icon: Icons.people_alt_rounded,
-                        color: const Color(0xFF7DD3FC),
-                        animation: idleCtrl,
-                        showGreenDot: true,
-                        isAvailable: appState.isOnline,
-                        onPressed: () => _openOnlineScreen(
-                            context, const InviteFriendsPage()))),
-                const SizedBox(height: 12),
                 SignInRequiredAction(
                     key: guideTargets[HomeGuideTarget.store],
                     child: HomeQuickAction(
@@ -1298,28 +1389,43 @@ class _HomeLobbyLayout extends StatelessWidget {
               right: 16,
               width: panelWidth,
               height: panelHeight,
-              child: portrait
-                  ? Column(children: [
-                      Row(
-                          textDirection: TextDirection.ltr,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            campaign,
-                            const SizedBox(width: 12),
-                            modes
-                          ]),
-                      const Spacer(),
-                      ...promotions.expand(
-                          (badge) => [badge, const SizedBox(height: 6)]),
-                    ])
-                  : Column(children: [
-                      ...promotions.expand(
-                          (badge) => [badge, const SizedBox(height: 6)]),
-                      const Spacer(),
-                      campaign,
-                      const SizedBox(height: 6),
-                      modes,
-                    ])),
+              child: HomeActionSidebar(
+                animation: idleCtrl,
+                leaderboardRank: leaderboardRank,
+                campaignProgress: campaignProgress,
+                trophies: appState.trophies,
+                isOnline: appState.isOnline,
+                isVip: appState.isVip,
+                guideTargets: guideTargets,
+                rotatePromotions: !showGuideTour,
+                onLeaderboard: onLeaderboardTap,
+                onCampaign: () {
+                  if (appState.isOnline) {
+                    onCampaignTap();
+                  } else {
+                    _showOnlineRequiredToast(context);
+                  }
+                },
+                onVip: () => appState.isVip
+                    ? _openOnlineScreen(
+                        context,
+                        const StoreScreen(
+                            initialKind: StoreProductKind.subscription))
+                    : SpecialOfferDialog.show(context),
+                onLuckyWheel: () =>
+                    _openOnlineScreen(context, const DailyStreakScreen()),
+                onModes: () => _showGameModesSheet(context),
+                onFriends: () =>
+                    _openOnlineScreen(context, const InviteFriendsPage()),
+                onPlay: () {
+                  HapticFeedback.lightImpact();
+                  if (!appState.isOnline) {
+                    _showOnlineRequiredToast(context);
+                    return;
+                  }
+                  PlayStakeDialog.show(context);
+                },
+              )),
 
           // Persistent Guide Button for unregistered players
           if (user == null)
@@ -1388,25 +1494,6 @@ class _UnclaimedDot extends StatelessWidget {
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //  WATCH AD CARD
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-class _BattleButton extends StatelessWidget {
-  const _BattleButton(
-      {required this.asset,
-      required this.label,
-      required this.onPressed,
-      this.compact = false,
-      this.enabled = true});
-  final String asset, label;
-  final VoidCallback onPressed;
-  final bool compact, enabled;
-  @override
-  Widget build(BuildContext context) => HomeBannerButton(
-      asset: asset,
-      label: label,
-      compact: compact,
-      enabled: enabled,
-      onPressed: enabled ? onPressed : () => _showOnlineRequiredToast(context));
-}
-
 class _SparklesPainter extends CustomPainter {
   _SparklesPainter(this.t);
   final double t; // 0..1 repeating

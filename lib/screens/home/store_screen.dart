@@ -1,3 +1,4 @@
+import '../../widgets/game_back_button.dart';
 import '../../widgets/game_notice.dart';
 import 'dart:async';
 
@@ -226,6 +227,7 @@ class _StoreScreenState extends State<StoreScreen> {
     if (_scrollController.hasClients) _scrollController.jumpTo(0);
     if (!_isGuidePreview) {
       unawaited(context.read<AppSettings>().playHaptic());
+      context.read<AppSettings>().playButtonClick();
     }
     if (section == _StoreSection.featured) {
       _startOfferAutoPlay();
@@ -1608,16 +1610,9 @@ class _StoreScreenState extends State<StoreScreen> {
                       SizedBox(
                           width: compact ? 58 : 66,
                           child: Center(
-                              child: IconButton(
+                              child: GameBackButton(
                             key: const ValueKey('store-back-button'),
-                            tooltip: _tr('العودة', 'Back'),
                             onPressed: () => Navigator.of(context).maybePop(),
-                            padding: const EdgeInsets.all(4),
-                            icon: SizedBox(
-                                width: height * .54,
-                                height: height * .64,
-                                child: GameStoreNavigationBack(
-                                    pointRight: _arabic)),
                           ))),
                       for (final tab in tabs)
                         Expanded(child: _navigationTab(tab, height)),
@@ -1635,7 +1630,10 @@ class _StoreScreenState extends State<StoreScreen> {
       child: Tooltip(
         message: tab.$2,
         child: InkWell(
-          onTap: () => _selectSection(tab.$1),
+          onTap: () {
+            AppSettings.playClick();
+            _selectSection(tab.$1);
+          },
           child: Stack(children: [
             if (selected)
               const Positioned.fill(
@@ -4597,7 +4595,7 @@ class _StoreButton extends StatelessWidget {
     final enabled = onPressed != null && !loading;
     if (imageButton) {
       return FilledButton(
-        onPressed: enabled ? onPressed : null,
+        onPressed: enabled ? () { AppSettings.playClick(); onPressed!(); } : null,
         style: FilledButton.styleFrom(
             backgroundColor: Colors.transparent,
             disabledBackgroundColor: Colors.transparent,

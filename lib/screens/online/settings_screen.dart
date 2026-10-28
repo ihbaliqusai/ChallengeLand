@@ -1,3 +1,4 @@
+import '../../widgets/game_back_button.dart';
 import '../../widgets/game_notice.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,6 +11,7 @@ import '../../widgets/cross_promo_millionaire_dialog.dart';
 import '../../services/cross_promo_service.dart';
 import '../../services/rate_game_service.dart';
 import '../legal/privacy_policy_screen.dart';
+import '../legal/open_source_licenses.dart';
 import '../../widgets/adaptive_asset_image.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -42,7 +44,10 @@ class _SettingsScreenState extends State<SettingsScreen>
 
   Future<void> _feedback([AppSettings? settings]) async {
     final appSettings = settings ?? context.read<AppSettings>();
-    await appSettings.playHaptic();
+    await Future.wait([
+      appSettings.playHaptic(),
+      appSettings.playButtonClick(),
+    ]);
   }
 
   String _text(AppSettings settings, String ar, String en) {
@@ -55,8 +60,7 @@ class _SettingsScreenState extends State<SettingsScreen>
     await settings.setLanguage(code);
   }
 
-  Future<void> _goBack() async {
-    await _feedback();
+  void _goBack() {
     if (!mounted) return;
     Navigator.of(context).pop();
   }
@@ -441,6 +445,8 @@ class _SettingsScreenState extends State<SettingsScreen>
                                         compact: compact,
                                         onRateGame: _openRateGame,
                                         onPrivacy: _openPrivacyPolicy,
+                                        onLicenses: () =>
+                                            showOpenSourceLicenses(context),
                                         onAdPrivacy: _openAdPrivacyOptions,
                                         onSignOut: _signOut,
                                         onDeleteAccount: _deleteAccount,
@@ -479,6 +485,8 @@ class _Header extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
       child: Row(
         children: <Widget>[
+          GameBackButton(onPressed: onBack),
+          const SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -505,18 +513,6 @@ class _Header extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
-            ),
-          ),
-          IconButton(
-            onPressed: onBack,
-            icon: const Icon(Icons.arrow_back_rounded),
-            color: Colors.white,
-            style: IconButton.styleFrom(
-              backgroundColor: Colors.white.withValues(alpha: 0.08),
-              side: BorderSide(color: Colors.white.withValues(alpha: 0.16)),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
             ),
           ),
         ],
@@ -787,6 +783,7 @@ class _ActionsPanel extends StatelessWidget {
     required this.compact,
     required this.onRateGame,
     required this.onPrivacy,
+    required this.onLicenses,
     required this.onAdPrivacy,
     required this.onSignOut,
     required this.onDeleteAccount,
@@ -798,6 +795,7 @@ class _ActionsPanel extends StatelessWidget {
   final bool compact;
   final VoidCallback onRateGame;
   final VoidCallback onPrivacy;
+  final VoidCallback onLicenses;
   final VoidCallback onAdPrivacy;
   final VoidCallback onSignOut;
   final VoidCallback onDeleteAccount;
@@ -813,8 +811,6 @@ class _ActionsPanel extends StatelessWidget {
       decoration: _panelDecoration(),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final needsScroll =
-              constraints.hasBoundedHeight && constraints.maxHeight < 220;
           final topChildren = <Widget>[
             _PanelTitle(
               icon: Icons.manage_accounts_rounded,
@@ -870,6 +866,14 @@ class _ActionsPanel extends StatelessWidget {
               onTap: onPrivacy,
               compact: compact,
             ),
+            SizedBox(height: compact ? 6 : 8),
+            _ActionLineButton(
+              icon: Icons.description_outlined,
+              label: _t('تراخيص المكتبات والخطوط', 'Open Source Licenses'),
+              color: const Color(0xFFA78BFA),
+              onTap: onLicenses,
+              compact: compact,
+            ),
             if (showAdPrivacy) ...<Widget>[
               SizedBox(height: compact ? 6 : 8),
               _ActionLineButton(
@@ -899,24 +903,21 @@ class _ActionsPanel extends StatelessWidget {
             ),
           ];
 
-          if (needsScroll) {
-            return ListView(
-              padding: EdgeInsets.zero,
-              physics: const BouncingScrollPhysics(),
-              children: <Widget>[
-                ...topChildren,
-                SizedBox(height: compact ? 8 : 10),
-                ...bottomChildren,
-              ],
-            );
-          }
-
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              ...topChildren,
-              const Spacer(),
-              ...bottomChildren,
+          return CustomScrollView(
+            physics: const BouncingScrollPhysics(),
+            slivers: [
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    ...topChildren,
+                    SizedBox(height: compact ? 8 : 10),
+                    const Spacer(),
+                    ...bottomChildren,
+                  ],
+                ),
+              ),
             ],
           );
         },

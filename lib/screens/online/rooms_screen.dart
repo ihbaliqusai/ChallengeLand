@@ -1,8 +1,10 @@
+import '../../widgets/game_back_button.dart';
 import '../../widgets/game_notice.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/app_settings.dart';
 import '../../core/app_state.dart';
 import '../../models/player_profile.dart';
 import '../../models/room.dart';
@@ -297,20 +299,7 @@ class _BattleHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
       child: Row(
         children: [
-          GestureDetector(
-            onTap: onBack,
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
-              ),
-              child: const Icon(Icons.arrow_back_rounded,
-                  color: Colors.white, size: 20),
-            ),
-          ),
+          GameBackButton(onPressed: onBack),
           const SizedBox(width: 14),
           Container(
             width: 40,
@@ -1379,7 +1368,12 @@ class _GradientButtonState extends State<_GradientButton> {
   Widget build(BuildContext context) {
     final enabled = widget.onTap != null;
     return GestureDetector(
-      onTap: enabled ? widget.onTap : null,
+      onTap: enabled
+          ? () {
+              AppSettings.playClick();
+              widget.onTap!();
+            }
+          : null,
       onTapDown: enabled ? (_) => setState(() => _pressed = true) : null,
       onTapUp: enabled ? (_) => setState(() => _pressed = false) : null,
       onTapCancel: () => setState(() => _pressed = false),
@@ -1451,7 +1445,10 @@ class _ModeChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Expanded(
       child: GestureDetector(
-        onTap: onTap,
+        onTap: () {
+          AppSettings.playClick();
+          onTap();
+        },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),

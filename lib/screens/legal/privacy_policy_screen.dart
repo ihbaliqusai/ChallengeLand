@@ -1,8 +1,10 @@
+import '../../widgets/game_back_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/privacy_policy_content.g.dart';
 import '../../services/native_bridge_service.dart';
+import 'open_source_licenses.dart';
 
 class PrivacyPolicyScreen extends StatefulWidget {
   const PrivacyPolicyScreen({super.key});
@@ -89,6 +91,9 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 14, 20, 12),
                   child: Row(children: [
+                    GameBackButton(
+                        onPressed: () => Navigator.maybePop(context)),
+                    const SizedBox(width: 8),
                     const Icon(Icons.privacy_tip_outlined,
                         color: Color(0xFFC7B5FF), size: 28),
                     const SizedBox(width: 12),
@@ -108,12 +113,6 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
                                   color: Color(0xFFB8BFD4), fontSize: 12)),
                         ],
                       ),
-                    ),
-                    IconButton(
-                      tooltip: 'العودة',
-                      onPressed: () => Navigator.maybePop(context),
-                      icon: const Icon(Icons.arrow_forward_rounded,
-                          color: Colors.white),
                     ),
                   ]),
                 ),
@@ -148,8 +147,8 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
                             style: const TextStyle(color: _ink, fontSize: 15),
                             decoration: InputDecoration(
                               hintText: 'ابحث في سياسة الخصوصية',
-                              hintStyle: const TextStyle(
-                                  color: _muted, fontSize: 15),
+                              hintStyle:
+                                  const TextStyle(color: _muted, fontSize: 15),
                               prefixIcon: const Icon(Icons.search_rounded),
                               suffixIcon: _search.text.isEmpty
                                   ? null
@@ -401,6 +400,15 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
                 color: _ink, fontSize: 16, fontWeight: FontWeight.w700)),
         subtitle: const Text('ملحق مستقل عن سياسة معالجة البيانات',
             style: TextStyle(color: _muted, fontSize: 12)),
-        children: _paragraphs(PrivacyPolicyContent.credits),
+        children: [
+          ..._paragraphs(PrivacyPolicyContent.credits),
+          TextButton.icon(
+            key: const ValueKey('open-source-licenses'),
+            onPressed: () => showOpenSourceLicenses(context),
+            icon: const Icon(Icons.description_outlined),
+            label: const Text('تراخيص المكتبات والخطوط'),
+            style: TextButton.styleFrom(foregroundColor: _purple),
+          ),
+        ],
       ));
 }

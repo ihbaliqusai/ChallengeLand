@@ -10,7 +10,6 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.webkit.WebResourceRequest;
-import android.widget.TextView;
 import android.widget.Toast;
 
 
@@ -28,10 +27,25 @@ public class PrivacyPolicyActivity extends GameViewportActivity {
         setContentView(R.layout.activity_privacy_policy);
         if (getSupportActionBar() != null) getSupportActionBar().hide();
 
-        TextView back = findViewById(R.id.btnPrivacyBack);
+        View back = findViewById(R.id.btnPrivacyBack);
         WebView webView = findViewById(R.id.webPrivacyPolicy);
+        android.widget.TextView title = findViewById(R.id.txtPrivacyTitle);
+        View licenses = findViewById(R.id.btnPrivacyLicenses);
 
-        back.setOnClickListener(v -> finish());
+        back.setOnClickListener(v -> {
+            if (webView.canGoBack()) {
+                webView.goBack();
+                title.setText("سياسة الخصوصية");
+                licenses.setVisibility(View.VISIBLE);
+            } else {
+                finish();
+            }
+        });
+        licenses.setOnClickListener(v -> {
+            title.setText("تراخيص المكتبات والخطوط");
+            licenses.setVisibility(View.GONE);
+            webView.loadUrl("file:///android_asset/licenses/index.html");
+        });
 
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(false);

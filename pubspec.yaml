@@ -105,6 +105,13 @@ flutter:
     - assets/home/menu.webp
     - assets/home/modes.webp
     - assets/home/play.png
+    - assets/home/sidebar/campaign.png
+    - assets/home/sidebar/leaderboard.png
+    - assets/home/sidebar/vip.png
+    - assets/home/sidebar/lucky_wheel.png
+    - assets/home/sidebar/modes.png
+    - assets/home/sidebar/play.png
+    - assets/home/sidebar/friends.png
     - assets/home/store.webp
     - assets/ui/splash_background.png
     - assets/ui/splash_logo.png
@@ -133,6 +140,8 @@ flutter:
 
     - assets/fonts/NotoSansArabic-OFL.txt
     - assets/fonts/BarlowCondensed-OFL.txt
+    - assets/fonts/Baloo-OFL.txt
+    - assets/licenses/third_party_notices.json
     - assets/flags/
 
   fonts:

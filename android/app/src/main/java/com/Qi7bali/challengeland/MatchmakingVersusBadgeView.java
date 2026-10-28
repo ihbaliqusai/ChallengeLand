@@ -115,17 +115,21 @@ public class MatchmakingVersusBadgeView extends View {
         breatheAnim.start();
     }
 
-    /**
-     * Triggers the comic golden explosion of the "VS" emblem when the opponent is matched.
-     */
-    public void explodeToGoldenVersus() {
-        if (isExploded) return;
-        isExploded = true;
+    /** Anchor the badge at its layout position once the opponent has been found. */
+    public void stopSearchMotion() {
         if (breatheAnim != null) {
             breatheAnim.cancel();
+            breatheAnim = null;
         }
         setTranslationY(0f);
         setRotation(0f);
+    }
+
+    /** Triggers the comic golden explosion when the versus panels meet. */
+    public void explodeToGoldenVersus() {
+        if (isExploded) return;
+        isExploded = true;
+        stopSearchMotion();
         invalidate();
 
         // Punchy spring scale on View (expands unclipped into layoutArena)

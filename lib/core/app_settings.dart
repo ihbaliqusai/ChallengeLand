@@ -3,13 +3,45 @@ import 'package:flutter/material.dart';
 import '../services/native_bridge_service.dart';
 
 class AppSettings extends ChangeNotifier {
-  AppSettings(this._nativeBridgeService);
+  static AppSettings? instance;
+
+  AppSettings(this._nativeBridgeService) {
+    instance = this;
+  }
+
+  static int _lastClickTimestampMs = 0;
+  static const int clickDebounceMs = 90;
+
+  static bool _shouldThrottleClick() {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (now - _lastClickTimestampMs < clickDebounceMs) {
+      return true;
+    }
+    _lastClickTimestampMs = now;
+    return false;
+  }
+
+  @visibleForTesting
+  static void resetClickDebounce() {
+    _lastClickTimestampMs = 0;
+  }
+
+  static Future<bool> playClick() {
+    if (_shouldThrottleClick()) {
+      return Future.value(true);
+    }
+    final inst = instance;
+    if (inst != null) {
+      return inst.playButtonClick(debounced: true);
+    }
+    return NativeBridgeService().playSoundEffect(effect: 'click');
+  }
 
   final NativeBridgeService _nativeBridgeService;
 
   bool loading = true;
   bool sfx = true;
-  bool music = false;
+  bool music = true;
   bool haptic = true;
   bool hapticAvailable = true;
   bool notifications = true;
@@ -62,6 +94,26 @@ class AppSettings extends ChangeNotifier {
     hapticAvailable = played;
     notifyListeners();
     return played;
+  }
+
+  Future<bool> playSoundEffect({String effect = 'click', bool force = false}) async {
+    if (!force && !sfx) return false;
+    return _nativeBridgeService.playSoundEffect(effect: effect);
+  }
+
+  Future<bool> playButtonClick({bool debounced = false}) {
+    if (!debounced && _shouldThrottleClick()) {
+      return Future.value(true);
+    }
+    return playSoundEffect(effect: 'click');
+  }
+
+  Future<bool> playWheelTick() {
+    return playSoundEffect(effect: 'wheel_tick');
+  }
+
+  Future<bool> playWheelWin() {
+    return playSoundEffect(effect: 'wheel_win');
   }
 
   Future<void> setNotifications(bool value) async {

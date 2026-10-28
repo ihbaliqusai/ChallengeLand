@@ -1,8 +1,10 @@
+import '../../widgets/game_back_button.dart';
 import '../../widgets/game_notice.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/app_settings.dart';
 import '../../core/app_state.dart';
 import '../../core/player_rank.dart';
 import '../../core/trophy_league.dart';
@@ -343,6 +345,8 @@ class _Header extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
       child: Row(
         children: [
+          GameBackButton(onPressed: onBack),
+          const SizedBox(width: 8),
           const Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -372,25 +376,13 @@ class _Header extends StatelessWidget {
             ),
           ),
           IconButton(
-            onPressed: () => showProgressionGuide(context),
+            onPressed: () {
+              AppSettings.playClick();
+              showProgressionGuide(context);
+            },
             tooltip: 'دليل التقدم والمكافآت',
             color: const Color(0xFFFACC15),
             icon: const Icon(Icons.info_outline_rounded),
-          ),
-          Tooltip(
-            message: 'رجوع',
-            child: IconButton(
-              onPressed: onBack,
-              icon: const Icon(Icons.arrow_back_rounded),
-              color: Colors.white,
-              style: IconButton.styleFrom(
-                backgroundColor: Colors.white.withValues(alpha: 0.08),
-                side: BorderSide(color: Colors.white.withValues(alpha: 0.16)),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-            ),
           ),
         ],
       ),
@@ -435,11 +427,14 @@ class _IdentityPanel extends StatelessWidget {
             Row(
               children: [
                 GestureDetector(
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const CharacterSelectScreen(),
-                    ),
-                  ),
+                  onTap: () {
+                    AppSettings.playClick();
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const CharacterSelectScreen(),
+                      ),
+                    );
+                  },
                   child: Stack(
                     clipBehavior: Clip.none,
                     children: [
@@ -509,7 +504,10 @@ class _IdentityPanel extends StatelessWidget {
                 Tooltip(
                   message: 'تعديل الاسم',
                   child: IconButton(
-                    onPressed: onEditName,
+                    onPressed: () {
+                      AppSettings.playClick();
+                      onEditName();
+                    },
                     icon: const Icon(Icons.edit_rounded, size: 18),
                     color: Colors.white70,
                     style: IconButton.styleFrom(
@@ -1434,7 +1432,10 @@ class _EditUsernameDialogState extends State<_EditUsernameDialog> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              AppSettings.playClick();
+              Navigator.pop(context);
+            },
             child: const Text('إلغاء', style: TextStyle(color: Colors.white54)),
           ),
           FilledButton(
@@ -1445,7 +1446,10 @@ class _EditUsernameDialogState extends State<_EditUsernameDialog> {
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
-            onPressed: _submit,
+            onPressed: () {
+              AppSettings.playClick();
+              _submit();
+            },
             child: const Text('حفظ',
                 style: TextStyle(fontWeight: FontWeight.w900)),
           ),

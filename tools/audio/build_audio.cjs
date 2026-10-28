@@ -168,7 +168,8 @@ for(const [name,duration,role,kind,stock,start=0] of configs){
   records.push({file:name+'.mp3',role,durationSeconds:duration,sampleRate:rate,channels:2,bytes:fs.statSync(output).size,sha256:hash(output),sources:sources.map(file=>({...sourceInfo[file],file,license:'CC0-1.0',licenseUrl:'https://creativecommons.org/publicdomain/zero/1.0/',sourceSha256:hash(path.join(sourceDir,file))})),originalProceduralDesign:!!kind,sourceStartSeconds:stock?start:undefined,loopPrepared:duration>100||kind==='roll',processing:'44100 Hz stereo; duration matched to previous asset; level normalization; short edge fades; MP3 96 kbps. No samples from previous recordings.'});
   console.log('Prepared '+name+'.mp3 ('+duration+'s)');
 }
-const provenance={version:1,updatedAt:'2026-10-26',generator:'tools/audio/build_audio.cjs',note:'The original DSP components are generated for this project, without external voice recordings or imitation of any performer. CC0 components are listed per file. Durations preserve gameplay timing; compositions are new alternatives, not replicas of television themes. Restored previous recordings are listed separately with their actual license status.',files:records,retainedLicensedFiles:['main_theme_320bit_chosic.mp3','sneaky_snitch.mp3'],retainedUnverifiedFiles};
+records.push(require('./generate_match_search.cjs').generate(stage));
+const provenance={version:1,updatedAt:'2026-10-28',generator:'tools/audio/build_audio.cjs',note:'The original DSP components are generated for this project, without external voice recordings or imitation of any performer. CC0 components are listed per file. Durations preserve gameplay timing; compositions are new alternatives, not replicas of television themes. Restored previous recordings are listed separately with their actual license status.',files:records,retainedLicensedFiles:['main_theme_320bit_chosic.mp3','sneaky_snitch.mp3'],retainedUnverifiedFiles};
 fs.writeFileSync(path.join(stage,'audio_provenance.json'),JSON.stringify(provenance,null,2)+'\n');
 if(process.argv.includes('--apply')){
   for(const item of retainedUnverifiedFiles)if(hash(path.join(rawDir,item.file))!==item.sha256)throw new Error('Retained recording changed: '+item.file);
@@ -176,6 +177,6 @@ if(process.argv.includes('--apply')){
   if(!fs.existsSync(baselinePath))fs.writeFileSync(baselinePath,JSON.stringify([...records.map(r=>r.file),...provenance.retainedLicensedFiles,...retainedUnverifiedFiles.map(item=>item.file)].map(file=>({file,sha256:hash(path.join(rawDir,file)),bytes:fs.statSync(path.join(rawDir,file)).size})),null,2)+'\n');
   for(const r of records)fs.copyFileSync(path.join(stage,r.file),path.join(rawDir,r.file));
   fs.copyFileSync(path.join(stage,'audio_provenance.json'),path.join(rawDir,'audio_provenance.json'));
-  console.log('Applied '+records.length+' replacement MP3s and provenance ledger.');
+  console.log('Applied '+records.length+' generated audio assets and provenance ledger.');
 }
 module.exports={configs,sourceInfo};

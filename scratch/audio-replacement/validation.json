@@ -1,5 +1,5 @@
 {
-  "verifiedFiles": 18,
+  "verifiedFiles": 19,
   "allDecoded": true,
   "noClipping": true,
   "allDurationsMatched": true,
@@ -147,6 +147,14 @@
       "peakDb": -2.78,
       "onsetSeconds": 0.0002,
       "sha256": "b0830cb3def561e81bd73ce6e8e39eb57137c7e58a7be353d66e2c3b30df6807"
+    },
+    {
+      "file": "match_search.wav",
+      "seconds": 1.6,
+      "rmsDb": -27.35,
+      "peakDb": -12.38,
+      "onsetSeconds": 0.0502,
+      "sha256": "7674c21ff8fd409a745741b278f5430e83cc6ff6470263ef7f4e19bb21f1e632"
     }
   ]
 }

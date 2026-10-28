@@ -1,0 +1,36 @@
+import groovy.json.JsonOutput
+import org.gradle.api.artifacts.component.ModuleComponentIdentifier
+
+// Read the resolved release graph without compiling or changing the application.
+gradle.projectsEvaluated {
+    def app = gradle.rootProject.findProject(':app')
+    if (app == null) return
+    app.tasks.register('exportRuntimeLicenseInventory') {
+        doLast {
+            def runtime = app.configurations.getByName('releaseRuntimeClasspath')
+            def modules = runtime.incoming.resolutionResult.allComponents.findAll {
+                it.id instanceof ModuleComponentIdentifier
+            }.collect {
+                [group: it.id.group, name: it.id.module, version: it.id.version]
+            }.sort { a, b -> "${a.group}:${a.name}" <=> "${b.group}:${b.name}" }
+            def cache = new File(gradle.gradleUserHomeDir, 'caches/modules-2/files-2.1')
+            def artifacts = modules.collectMany { module ->
+                def directory = new File(cache, "${module.group}/${module.name}/${module.version}")
+                def found = []
+                if (directory.isDirectory()) directory.eachFileRecurse { file ->
+                    if (file.isFile() && file.name ==~ /.*\.(aar|jar)/ &&
+                            !file.name.contains('-sources') && !file.name.contains('-javadoc')) {
+                        found.add(module + [type: file.name.endsWith('.aar') ? 'aar' : 'jar',
+                                            file: file.absolutePath])
+                    }
+                }
+                found
+            }.sort { a, b -> a.file <=> b.file }
+            def target = new File(app.rootProject.projectDir.parentFile,
+                    'tools/legal/runtime-license-inventory.local.json')
+            target.setText(JsonOutput.prettyPrint(JsonOutput.toJson(
+                    [configuration: 'releaseRuntimeClasspath', modules: modules, artifacts: artifacts])) + '\n', 'UTF-8')
+            println "Exported ${modules.size()} runtime components and ${artifacts.size()} artifacts."
+        }
+    }
+}

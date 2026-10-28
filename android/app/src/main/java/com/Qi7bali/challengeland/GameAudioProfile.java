@@ -5,13 +5,19 @@ public final class GameAudioProfile {
     private GameAudioProfile() {}
 
     public static int questionMusic(int questionIndex) {
-        if (questionIndex < 5) return R.raw.main_theme_0;
-        if (questionIndex < 10) return R.raw.main_theme_1;
-        return R.raw.s_64000;
+        return R.raw.echoes_of_time;
     }
 
     public static int boardQuestionMusic(int cellValue) {
-        return questionMusic(cellValue >= 600 ? 10 : cellValue >= 400 ? 5 : 0);
+        return R.raw.echoes_of_time;
+    }
+
+    public static int gameplayMusic() {
+        return R.raw.echoes_of_time;
+    }
+
+    public static int campaignMapMusic() {
+        return R.raw.labyrinth_of_lost_dreams;
     }
 
     public static int victoryMusic(String amount) {
@@ -30,6 +36,9 @@ public final class GameAudioProfile {
         // The retained overture is about 10 dB louder than the new beds.
         if (resource == R.raw.main_theme_320bit_chosic) return 0.15f;
         if (resource == R.raw.sneaky_snitch) return 0.30f;
+        if (resource == R.raw.bgm_lobby) return 0.30f;
+        if (resource == R.raw.echoes_of_time) return 0.24f;
+        if (resource == R.raw.labyrinth_of_lost_dreams) return 0.23f;
         return 0.50f;
     }
 

@@ -1,12 +1,12 @@
-import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+
+import '../core/app_settings.dart';
 import 'adaptive_asset_image.dart';
 import 'guide/page_guide_steps.dart';
 
-/// Original mode artwork with native, accessible controls and glowing
-/// ambient light around each game mode button.
+/// The original artwork, with independent moving cards and native controls.
 class GameModesArtwork extends StatefulWidget {
   const GameModesArtwork({
     super.key,
@@ -38,48 +38,47 @@ class GameModesArtwork extends StatefulWidget {
 }
 
 class _GameModesArtworkState extends State<GameModesArtwork>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _pulseController;
-  late final Animation<double> _glowAnimation;
+    with TickerProviderStateMixin {
+  late final _entrance = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 950),
+  );
+  late final _ambient = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 5200),
+  );
+  bool _animate = false;
 
   @override
-  void initState() {
-    super.initState();
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1800),
-    );
-    _glowAnimation = CurvedAnimation(
-      parent: _pulseController,
-      curve: Curves.easeInOutSine,
-    );
-
-    // In unit/widget tests, keep a steady value so tester.pumpAndSettle() settles.
-    // In live execution, breathe continuously to bring the artwork to life.
-    final isTest = Platform.environment.containsKey('FLUTTER_TEST');
-    if (isTest) {
-      _pulseController.value = 0.5;
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _animate =
+        TickerMode.of(context) && !MediaQuery.disableAnimationsOf(context);
+    if (_animate) {
+      if (!_entrance.isCompleted) _entrance.forward();
+      if (!_ambient.isAnimating) _ambient.repeat();
     } else {
-      _pulseController.repeat(reverse: true);
+      _entrance.stop();
+      _entrance.value = 1;
+      _ambient.stop();
     }
   }
 
   @override
   void dispose() {
-    _pulseController.dispose();
+    _entrance.dispose();
+    _ambient.dispose();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: RepaintBoundary(
-        key: const ValueKey('game-modes-artwork'),
-        child: AspectRatio(
-          aspectRatio: GameModesArtwork.aspectRatio,
-          child: LayoutBuilder(
-            builder: (context, area) {
+  Widget build(BuildContext context) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: RepaintBoundary(
+          key: const ValueKey('game-modes-artwork'),
+          child: AspectRatio(
+            aspectRatio: GameModesArtwork.aspectRatio,
+            child: LayoutBuilder(builder: (context, area) {
               Rect map(Rect rect) => Rect.fromLTRB(
                     (rect.left - GameModesArtwork._frame.left) /
                         GameModesArtwork._frame.width *
@@ -95,186 +94,43 @@ class _GameModesArtworkState extends State<GameModesArtwork>
                         area.maxHeight,
                   );
 
-              Widget action(
-                Rect region,
-                String title,
-                VoidCallback onTap, {
+              Widget action({
+                required String id,
+                required Rect source,
+                required String title,
+                required VoidCallback onTap,
+                required ModeGuideTarget target,
+                required Color color,
+                required int order,
                 String? hint,
                 bool enabled = true,
-                required Color glowColor,
-                required Color secondaryGlowColor,
-                bool isCircle = false,
-                Key? guideKey,
+                bool circle = false,
               }) {
-                final bounds = map(region);
-                final radius = isCircle
-                    ? bounds.shortestSide * 0.5
-                    : bounds.shortestSide * 0.13;
-
+                final bounds = map(source);
                 return Positioned.fromRect(
                   rect: Rect.fromCenter(
                     center: bounds.center,
                     width: math.max(48, bounds.width),
                     height: math.max(48, bounds.height),
                   ),
+                  // Keep hit areas and tour anchors still while the art moves.
                   child: Tooltip(
-                    key: guideKey,
+                    key: widget.guideTargets[target],
                     message: title,
-                    child: Semantics(
-                      label: title,
+                    child: _ModeButton(
+                      id: id,
+                      title: title,
                       hint: hint,
-                      button: true,
+                      source: source,
+                      artSize: bounds.size,
+                      color: color,
+                      order: order,
                       enabled: enabled,
-                      child: ExcludeSemantics(
-                        child: AnimatedBuilder(
-                          animation: _glowAnimation,
-                          builder: (context, child) {
-                            final t = _glowAnimation.value;
-                            final pulseAlpha =
-                                enabled ? (0.45 + 0.55 * t) : 0.15;
-                            final blur = enabled ? (8.0 + 10.0 * t) : 3.0;
-
-                            return Stack(
-                              clipBehavior: Clip.none,
-                              children: [
-                                // 1. Multi-layered ambient pulsing halo around the button
-                                Positioned.fill(
-                                  child: IgnorePointer(
-                                    child: CustomPaint(
-                                        painter: _ModeHaloPainter(
-                                      color: enabled ? glowColor : Colors.black,
-                                      secondaryColor: secondaryGlowColor,
-                                      opacity: pulseAlpha,
-                                      blur: blur,
-                                      radius: radius,
-                                    )),
-                                  ),
-                                ),
-
-                                // 2. Luminous pulsing neon border ring
-                                Positioned.fill(
-                                  child: IgnorePointer(
-                                    child: DecoratedBox(
-                                      decoration: BoxDecoration(
-                                        borderRadius: isCircle
-                                            ? null
-                                            : BorderRadius.circular(radius),
-                                        shape: isCircle
-                                            ? BoxShape.circle
-                                            : BoxShape.rectangle,
-                                        border: Border.all(
-                                          color: enabled
-                                              ? glowColor.withValues(
-                                                  alpha: 0.70 + 0.30 * t,
-                                                )
-                                              : Colors.white24,
-                                          width:
-                                              enabled ? (1.8 + 1.2 * t) : 1.2,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-
-                                // 3. Gentle dynamic light sweep across the surface
-                                if (enabled)
-                                  Positioned.fill(
-                                    child: IgnorePointer(
-                                      child: ClipRRect(
-                                        borderRadius: isCircle
-                                            ? BorderRadius.circular(
-                                                bounds.shortestSide * 0.5,
-                                              )
-                                            : BorderRadius.circular(radius),
-                                        child: DecoratedBox(
-                                          decoration: BoxDecoration(
-                                            gradient: LinearGradient(
-                                              begin: Alignment(
-                                                  -1.2 + 2.4 * t, -1.0),
-                                              end:
-                                                  Alignment(1.2 + 2.4 * t, 1.0),
-                                              colors: [
-                                                Colors.transparent,
-                                                glowColor.withValues(
-                                                  alpha: 0.08 * pulseAlpha,
-                                                ),
-                                                Colors.white.withValues(
-                                                  alpha: 0.035 * pulseAlpha,
-                                                ),
-                                                glowColor.withValues(
-                                                  alpha: 0.08 * pulseAlpha,
-                                                ),
-                                                Colors.transparent,
-                                              ],
-                                              stops: const [
-                                                0.0,
-                                                0.35,
-                                                0.5,
-                                                0.65,
-                                                1.0,
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-
-                                // 4. Dimming overlay for locked/unavailable mode
-                                if (!enabled)
-                                  Positioned.fill(
-                                    child: DecoratedBox(
-                                      decoration: BoxDecoration(
-                                        color: Colors.black
-                                            .withValues(alpha: 0.45),
-                                        borderRadius: isCircle
-                                            ? null
-                                            : BorderRadius.circular(radius),
-                                        shape: isCircle
-                                            ? BoxShape.circle
-                                            : BoxShape.rectangle,
-                                      ),
-                                    ),
-                                  ),
-
-                                // 5. Touch/tap action target
-                                Positioned.fill(
-                                  child: TextButton(
-                                    onPressed:
-                                        enabled ? onTap : widget.onUnavailable,
-                                    style: TextButton.styleFrom(
-                                      padding: EdgeInsets.zero,
-                                      minimumSize: Size.zero,
-                                      tapTargetSize:
-                                          MaterialTapTargetSize.shrinkWrap,
-                                      shape: isCircle
-                                          ? const CircleBorder()
-                                          : RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(radius),
-                                            ),
-                                    ),
-                                    child: const SizedBox.expand(),
-                                  ),
-                                ),
-
-                                // 6. Lock icon for disabled states
-                                if (!enabled)
-                                  Positioned(
-                                    top: 7,
-                                    left: 7,
-                                    child: Icon(
-                                      Icons.lock_rounded,
-                                      size: (area.maxHeight * 0.065)
-                                          .clamp(14.0, 24.0),
-                                      color: Colors.white70,
-                                    ),
-                                  ),
-                              ],
-                            );
-                          },
-                        ),
-                      ),
+                      circle: circle,
+                      animate: _animate,
+                      entrance: _entrance,
+                      ambient: _ambient,
+                      onTap: enabled ? onTap : widget.onUnavailable,
                     ),
                   ),
                 );
@@ -283,131 +139,451 @@ class _GameModesArtworkState extends State<GameModesArtwork>
               return Semantics(
                 namesRoute: true,
                 label: 'أوضاع اللعب',
-                child: Stack(
-                  children: [
-                    Positioned.fill(
-                      child: ClipRRect(
-                        borderRadius:
-                            BorderRadius.circular(area.maxWidth * 0.035),
-                        child: ClipRect(
-                          child: Stack(
-                            children: [
-                              Positioned(
-                                left: -GameModesArtwork._frame.left /
-                                    GameModesArtwork._frame.width *
-                                    area.maxWidth,
-                                top: -GameModesArtwork._frame.top /
-                                    GameModesArtwork._frame.height *
-                                    area.maxHeight,
-                                width: area.maxWidth /
-                                    GameModesArtwork._frame.width,
-                                height: area.maxHeight /
-                                    GameModesArtwork._frame.height,
-                                child: adaptiveAssetImage(
-                                  GameModesArtwork.asset,
-                                  fit: BoxFit.fill,
-                                  excludeFromSemantics: true,
-                                ),
-                              ),
-                            ],
+                child: Stack(children: [
+                  Positioned.fill(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(area.maxWidth * .035),
+                      child: const _ModeArtworkSlice(GameModesArtwork._frame),
+                    ),
+                  ),
+                  // Cover the baked-in cards before drawing movable slices.
+                  Positioned.fromRect(
+                    rect: map(const Rect.fromLTRB(.057, .238, .944, .927)),
+                    child: const _ModeBackdrop(),
+                  ),
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: RepaintBoundary(
+                        child: CustomPaint(
+                          painter: _ModeStarsPainter(
+                            animation: _ambient,
+                            animate: _animate,
                           ),
                         ),
                       ),
                     ),
-                    action(
-                      const Rect.fromLTRB(0.077, 0.098, 0.166, 0.218),
-                      'إغلاق',
-                      widget.onClose,
-                      guideKey: widget.guideTargets[ModeGuideTarget.close],
-                      glowColor: const Color(0xFFFF5252),
-                      secondaryGlowColor: const Color(0xFFFF7A00),
-                      isCircle: true,
-                    ),
-                    action(
-                      const Rect.fromLTRB(0.076, 0.257, 0.923, 0.552),
-                      'التحدي الرئيسي',
-                      widget.onMainChallenge,
-                      guideKey: widget.guideTargets[ModeGuideTarget.main],
-                      hint: 'فريقان على جهاز واحد',
-                      glowColor: const Color(0xFFFFD54F),
-                      secondaryGlowColor: const Color(0xFFFF8F00),
-                    ),
-                    action(
-                      const Rect.fromLTRB(0.657, 0.590, 0.924, 0.900),
-                      'تحدي جماعي',
-                      widget.onGroupChallenge,
-                      guideKey: widget.guideTargets[ModeGuideTarget.group],
-                      hint: 'غرف ومنافسة أونلاين',
-                      enabled: widget.isOnline,
-                      glowColor: const Color(0xFF00E5FF),
-                      secondaryGlowColor: const Color(0xFF2979FF),
-                    ),
-                    action(
-                      const Rect.fromLTRB(0.368, 0.590, 0.635, 0.900),
-                      'تحدي صديق',
-                      widget.onFriendChallenge,
-                      guideKey: widget.guideTargets[ModeGuideTarget.friend],
-                      hint: '1 ضد 1 أو منافس عشوائي',
-                      enabled: widget.isOnline,
-                      glowColor: const Color(0xFF00E676),
-                      secondaryGlowColor: const Color(0xFF00B0FF),
-                    ),
-                    action(
-                      const Rect.fromLTRB(0.076, 0.590, 0.345, 0.900),
-                      'أوفلاين',
-                      widget.onOffline,
-                      guideKey: widget.guideTargets[ModeGuideTarget.offline],
-                      hint: 'العب بدون اتصال',
-                      glowColor: const Color(0xFFE040FB),
-                      secondaryGlowColor: const Color(0xFF7C4DFF),
-                    ),
-                  ],
-                ),
+                  ),
+                  action(
+                    id: 'close',
+                    source: const Rect.fromLTRB(.077, .098, .166, .218),
+                    title: 'إغلاق',
+                    onTap: widget.onClose,
+                    target: ModeGuideTarget.close,
+                    color: const Color(0xFF67DFFF),
+                    order: 0,
+                    circle: true,
+                  ),
+                  action(
+                    id: 'main',
+                    source: const Rect.fromLTRB(.076, .257, .923, .552),
+                    title: 'التحدي الرئيسي',
+                    hint: 'فريقان على جهاز واحد',
+                    onTap: widget.onMainChallenge,
+                    target: ModeGuideTarget.main,
+                    color: const Color(0xFFFFD54F),
+                    order: 0,
+                  ),
+                  action(
+                    id: 'group',
+                    source: const Rect.fromLTRB(.657, .590, .924, .900),
+                    title: 'تحدي جماعي',
+                    hint: 'غرف ومنافسة أونلاين',
+                    onTap: widget.onGroupChallenge,
+                    target: ModeGuideTarget.group,
+                    enabled: widget.isOnline,
+                    color: const Color(0xFFFFD54F),
+                    order: 1,
+                  ),
+                  action(
+                    id: 'friend',
+                    source: const Rect.fromLTRB(.368, .590, .635, .900),
+                    title: 'تحدي صديق',
+                    hint: '1 ضد 1 أو منافس عشوائي',
+                    onTap: widget.onFriendChallenge,
+                    target: ModeGuideTarget.friend,
+                    enabled: widget.isOnline,
+                    color: const Color(0xFF39CFFF),
+                    order: 2,
+                  ),
+                  action(
+                    id: 'offline',
+                    source: const Rect.fromLTRB(.076, .590, .345, .900),
+                    title: 'أوفلاين',
+                    hint: 'العب بدون اتصال',
+                    onTap: widget.onOffline,
+                    target: ModeGuideTarget.offline,
+                    color: const Color(0xFF59FF9C),
+                    order: 3,
+                  ),
+                ]),
               );
-            },
+            }),
           ),
         ),
+      );
+}
+
+class _ModeButton extends StatefulWidget {
+  const _ModeButton({
+    required this.id,
+    required this.title,
+    required this.hint,
+    required this.source,
+    required this.artSize,
+    required this.color,
+    required this.order,
+    required this.enabled,
+    required this.circle,
+    required this.animate,
+    required this.entrance,
+    required this.ambient,
+    required this.onTap,
+  });
+
+  final String id, title;
+  final String? hint;
+  final Rect source;
+  final Size artSize;
+  final Color color;
+  final int order;
+  final bool enabled, circle, animate;
+  final Animation<double> entrance, ambient;
+  final VoidCallback onTap;
+
+  @override
+  State<_ModeButton> createState() => _ModeButtonState();
+}
+
+class _ModeButtonState extends State<_ModeButton> {
+  final _states = WidgetStatesController();
+
+  @override
+  void initState() {
+    super.initState();
+    _states.addListener(_interactionChanged);
+  }
+
+  void _interactionChanged() => setState(() {});
+
+  void _activate() {
+    AppSettings.playClick();
+    widget.onTap();
+  }
+
+  @override
+  void dispose() {
+    _states.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pressed = _states.value.contains(WidgetState.pressed);
+    final highlighted = _states.value.contains(WidgetState.hovered) ||
+        _states.value.contains(WidgetState.focused);
+    final radius = widget.artSize.shortestSide * (widget.circle ? .5 : .13);
+    final shape = widget.circle
+        ? const CircleBorder()
+        : RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius));
+
+    return Semantics(
+      label: widget.title,
+      hint: widget.hint,
+      button: true,
+      enabled: widget.enabled,
+      onTap: _activate,
+      child: ExcludeSemantics(
+        child: Stack(clipBehavior: Clip.none, children: [
+          Center(
+            child: IgnorePointer(
+              child: SizedBox.fromSize(
+                size: widget.artSize,
+                child: AnimatedBuilder(
+                  animation:
+                      Listenable.merge([widget.entrance, widget.ambient]),
+                  child: widget.circle
+                      ? const SizedBox.expand()
+                      : RepaintBoundary(
+                          child: ClipRRect(
+                          borderRadius: BorderRadius.circular(radius),
+                          child: _ModeArtworkSlice(widget.source),
+                        )),
+                  builder: (context, art) {
+                    final progress =
+                        ((widget.entrance.value - widget.order * .13) /
+                                (1 - widget.order * .13))
+                            .clamp(0.0, 1.0);
+                    final enter = Curves.easeOutBack.transform(progress);
+                    final phase =
+                        (widget.ambient.value + widget.order * .21) % 1;
+                    final wave = math.sin(phase * math.pi * 2);
+                    final moving =
+                        widget.animate && widget.enabled && !widget.circle;
+                    final scale = widget.circle
+                        ? 1.0
+                        : .86 + .14 * enter + (moving ? wave * .012 : 0);
+                    final lift = widget.circle
+                        ? 0.0
+                        : (1 - enter) * widget.artSize.height * .24 +
+                            (moving ? wave * widget.artSize.height * .026 : 0);
+
+                    return Transform(
+                      key: ValueKey('mode-${widget.id}-motion'),
+                      alignment: Alignment.center,
+                      transform: Matrix4.diagonal3Values(scale, scale, 1)
+                        ..setTranslationRaw(0, lift, 0),
+                      child: AnimatedScale(
+                        key: ValueKey('mode-${widget.id}-press'),
+                        scale: !widget.animate || widget.circle
+                            ? 1
+                            : pressed
+                                ? .95
+                                : highlighted
+                                    ? 1.025
+                                    : 1,
+                        duration: const Duration(milliseconds: 110),
+                        curve: Curves.easeOutCubic,
+                        child: Opacity(
+                          opacity: widget.circle
+                              ? 1
+                              : Curves.easeOut.transform(progress),
+                          child: CustomPaint(
+                            foregroundPainter: _ModeEffectsPainter(
+                              color: widget.color,
+                              radius: radius,
+                              phase: phase,
+                              energy: widget.enabled ? (wave + 1) / 2 : 0,
+                              moving: widget.animate && widget.enabled,
+                              highlighted: pressed || highlighted,
+                              enabled: widget.enabled,
+                            ),
+                            child: Stack(fit: StackFit.expand, children: [
+                              art!,
+                              if (!widget.enabled)
+                                DecoratedBox(
+                                    decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: .48),
+                                  borderRadius: BorderRadius.circular(radius),
+                                )),
+                              if (!widget.enabled)
+                                Positioned(
+                                  top: 7,
+                                  left: 7,
+                                  child: Icon(
+                                    Icons.lock_rounded,
+                                    size: (widget.artSize.height * .18)
+                                        .clamp(14.0, 24.0),
+                                    color: Colors.white70,
+                                  ),
+                                ),
+                            ]),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: TextButton(
+              statesController: _states,
+              onPressed: _activate,
+              style: TextButton.styleFrom(
+                padding: EdgeInsets.zero,
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                shape: shape,
+                foregroundColor: widget.color,
+                overlayColor: widget.color.withValues(alpha: .16),
+              ),
+              child: const SizedBox.expand(),
+            ),
+          ),
+        ]),
       ),
     );
   }
 }
 
-class _ModeHaloPainter extends CustomPainter {
-  const _ModeHaloPainter(
-      {required this.color,
-      required this.secondaryColor,
-      required this.opacity,
-      required this.blur,
-      required this.radius});
-  final Color color, secondaryColor;
-  final double opacity, blur, radius;
+/// All slices share the same decoded texture through adaptiveAssetImage.
+class _ModeArtworkSlice extends StatelessWidget {
+  const _ModeArtworkSlice(this.source);
+  final Rect source;
+
+  @override
+  Widget build(BuildContext context) => ClipRect(
+        child: LayoutBuilder(
+            builder: (context, area) => Stack(children: [
+                  Positioned(
+                    left: -source.left / source.width * area.maxWidth,
+                    top: -source.top / source.height * area.maxHeight,
+                    width: area.maxWidth / source.width,
+                    height: area.maxHeight / source.height,
+                    child: adaptiveAssetImage(GameModesArtwork.asset,
+                        fit: BoxFit.fill, excludeFromSemantics: true),
+                  ),
+                ])),
+      );
+}
+
+class _ModeBackdrop extends StatelessWidget {
+  const _ModeBackdrop();
+
+  @override
+  Widget build(BuildContext context) => ShaderMask(
+        blendMode: BlendMode.dstIn,
+        shaderCallback: (rect) => const LinearGradient(
+          colors: [
+            Colors.transparent,
+            Colors.white,
+            Colors.white,
+            Colors.transparent
+          ],
+          stops: [0, .018, .982, 1],
+        ).createShader(rect),
+        child: ShaderMask(
+          blendMode: BlendMode.dstIn,
+          shaderCallback: (rect) => const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.transparent,
+              Colors.white,
+              Colors.white,
+              Colors.transparent
+            ],
+            stops: [0, .025, .975, 1],
+          ).createShader(rect),
+          child: const DecoratedBox(
+              decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF293F80), Color(0xFF292260), Color(0xFF3B1454)],
+            ),
+          )),
+        ),
+      );
+}
+
+class _ModeEffectsPainter extends CustomPainter {
+  const _ModeEffectsPainter({
+    required this.color,
+    required this.radius,
+    required this.phase,
+    required this.energy,
+    required this.moving,
+    required this.highlighted,
+    required this.enabled,
+  });
+
+  final Color color;
+  final double radius, phase, energy;
+  final bool moving, highlighted, enabled;
 
   @override
   void paint(Canvas canvas, Size size) {
     final ring = RRect.fromRectAndRadius(
-        (Offset.zero & size).deflate(2), Radius.circular(radius));
-    // Stroke only: the glow surrounds the artwork without painting over its text.
+        (Offset.zero & size).deflate(1), Radius.circular(radius));
+    final strength = enabled ? .4 + energy * .4 : .12;
+    final glow = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = highlighted ? 5 : 3
+      ..color = color.withValues(alpha: strength)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7);
+    canvas.drawRRect(ring, glow);
     canvas.drawRRect(
         ring,
         Paint()
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 6
-          ..color = secondaryColor.withValues(alpha: .32 * opacity)
-          ..maskFilter = MaskFilter.blur(BlurStyle.normal, blur));
-    canvas.drawRRect(
-        ring,
+          ..strokeWidth = highlighted ? 2 : 1
+          ..color =
+              color.withValues(alpha: highlighted ? .95 : strength * .65));
+    if (!moving) return;
+
+    // A short travelling highlight makes each card feel independently alive.
+    final path = Path()..addRRect(ring);
+    final metric = path.computeMetrics().first;
+    final start = phase * metric.length;
+    final length = metric.length * .12;
+    final streak =
+        metric.extractPath(start, math.min(start + length, metric.length));
+    if (start + length > metric.length) {
+      streak.addPath(
+          metric.extractPath(0, start + length - metric.length), Offset.zero);
+    }
+    canvas.drawPath(
+        streak,
         Paint()
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 3
-          ..color = color.withValues(alpha: .65 * opacity)
-          ..maskFilter = MaskFilter.blur(BlurStyle.normal, blur * .45));
+          ..strokeWidth = 2
+          ..strokeCap = StrokeCap.round
+          ..color = Color.lerp(color, Colors.white, .7)!);
+
+    // Leave a pause between sweeps so the artwork and Arabic text stay clear.
+    if (phase < .42) {
+      canvas.save();
+      canvas.clipRRect(ring);
+      final x = (-.55 + phase / .42 * 2.1) * size.width;
+      final shine = Rect.fromLTWH(x, 0, size.width * .42, size.height);
+      canvas.drawRect(
+          shine,
+          Paint()
+            ..shader = LinearGradient(
+              colors: [
+                Colors.transparent,
+                Colors.white.withValues(alpha: .17),
+                Colors.transparent
+              ],
+            ).createShader(shine));
+      canvas.restore();
+    }
   }
 
   @override
-  bool shouldRepaint(_ModeHaloPainter oldDelegate) =>
-      color != oldDelegate.color ||
-      secondaryColor != oldDelegate.secondaryColor ||
-      opacity != oldDelegate.opacity ||
-      blur != oldDelegate.blur ||
-      radius != oldDelegate.radius;
+  bool shouldRepaint(_ModeEffectsPainter old) =>
+      color != old.color ||
+      radius != old.radius ||
+      phase != old.phase ||
+      energy != old.energy ||
+      moving != old.moving ||
+      highlighted != old.highlighted ||
+      enabled != old.enabled;
+}
+
+class _ModeStarsPainter extends CustomPainter {
+  _ModeStarsPainter({required this.animation, required this.animate})
+      : super(repaint: animation);
+  final Animation<double> animation;
+  final bool animate;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final time = animate ? animation.value * math.pi * 2 : 0.0;
+    for (var i = 0; i < 16; i++) {
+      final phase = time + i * 2.399;
+      final point = Offset(
+        size.width * (.07 + ((i * .618) % 1) * .86),
+        size.height * (.22 + ((i * .381) % 1) * .72) + math.sin(phase) * 3,
+      );
+      final alpha = .16 + (math.sin(phase * 2) + 1) * .18;
+      final color =
+          i.isEven ? const Color(0xFF77DAFF) : const Color(0xFFECA0FF);
+      final radius = size.shortestSide * (i % 3 == 0 ? .0038 : .0022);
+      canvas.drawCircle(
+          point,
+          radius * 3,
+          Paint()
+            ..color = color.withValues(alpha: alpha * .45)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3));
+      canvas.drawCircle(
+          point, radius, Paint()..color = color.withValues(alpha: alpha));
+    }
+  }
+
+  @override
+  bool shouldRepaint(_ModeStarsPainter old) =>
+      animation != old.animation || animate != old.animate;
 }

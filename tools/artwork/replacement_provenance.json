@@ -1,0 +1,40 @@
+{
+  "date": "2026-10-28",
+  "method": "built-in image_gen.imagegen",
+  "intent": "generate",
+  "referenceImages": [],
+  "promptFile": "tools/artwork/replacement_prompts.json",
+  "assets": [
+    {
+      "role": "Independent quiz-game cross-promotion icon",
+      "file": "assets/ui/million_challenge_logo.png",
+      "width": 512,
+      "height": 512,
+      "bytes": 509244,
+      "sha256": "d1ff7aae040549b05a5b3e967930b3818b3eecba0c0fd5915bf8144095ecbf66",
+      "source": "tools/artwork/source/quiz_gem_generated.png",
+      "sourceWidth": 1254,
+      "sourceHeight": 1254,
+      "sourceSha256": "30b198713653d43fd8ea3c01c035512359fb7c4fac46ac68dbbd884d16995481",
+      "generatorSavedPath": "C:/Users/Qusai/.codex/generated_images/01a17f8c-27a4-7da1-8dba-536aaa64305d/exec-06d90970-1434-4fe6-af81-8ed7f005d5e7.png",
+      "previousSha256": "cff7bc85502081d18410fa466fece580405d7fd0277e10bec188914ba9be3915"
+    },
+    {
+      "role": "Original owl bot avatar replacing modified Android robot",
+      "file": "android/app/src/main/res/drawable/avatar13.png",
+      "width": 256,
+      "height": 256,
+      "bytes": 140506,
+      "sha256": "2edb0ac1dc4f38929107e5b4196835c201374de5247bd4f69c74b15a0fde7e04",
+      "source": "tools/artwork/source/noura_owl_generated.png",
+      "sourceWidth": 1254,
+      "sourceHeight": 1254,
+      "sourceSha256": "b24a6bd7b343eeb1fda4079b51bc4c0326cee662476a35d512711fcd201e94ff",
+      "generatorSavedPath": "C:/Users/Qusai/.codex/generated_images/01a17f8c-27a4-7da1-8dba-536aaa64305d/exec-87dde8fa-52cb-48cc-980b-ac512eccc91e.png",
+      "previousSha256": "bbb8a67c30e3ba44eb89a5c6cfccf7824dd6e32f229a89f4e39c5c008b603fb7"
+    }
+  ],
+  "processing": "FFmpeg Lanczos resize only; RGB PNG; no crop or reference-image edits. Original generated source files retained outside application assets.",
+  "visualReview": "Inspected generated and final PNGs. No known brand marks, TV quiz ring-and-spokes crest, Envato presenter, Android robot, text or watermarks are visible. Logo readable at small size; owl face fits circular crop.",
+  "rightsNote": "Original AI-generated replacements, without downloaded stock or third-party reference images. No claim of exclusive copyright, trademark clearance or universal legal immunity is made."
+}

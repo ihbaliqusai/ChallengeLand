@@ -93,9 +93,8 @@ class AppState extends ChangeNotifier {
           Map<String, dynamic>.from(result['state'] as Map? ?? {}));
       if (next.revision >= economyWallet.revision) {
         economyWallet = next;
-        if (next.wheelClaimedToday != null && !_dailyRewardWalletPending) {
-          claimedToday = next.wheelClaimedToday! ||
-              _localDailyClaimDate == _todayCalendarDateString();
+        if (_localDailyClaimDate == _todayCalendarDateString()) {
+          claimedToday = true;
         }
       }
       economyLoaded = true;
@@ -461,8 +460,20 @@ class AppState extends ChangeNotifier {
   String? get luckyWheelError => dailyRewardError;
   int get purchasedWheelSpins => economyWallet.wheelSpins;
   bool get hasPendingLuckyWheelSpin => _pendingWheelOperationId != null;
+
+  bool get isLuckyWheelFreeAvailable {
+    if (economyWallet.nextFreeWheelSpinMillis > 0) {
+      return DateTime.now().millisecondsSinceEpoch >=
+          economyWallet.nextFreeWheelSpinMillis;
+    }
+    if (economyWallet.wheelClaimedToday != null) {
+      return !economyWallet.wheelClaimedToday!;
+    }
+    return !claimedToday;
+  }
+
   bool get canSpinLuckyWheel =>
-      hasPendingLuckyWheelSpin || !claimedToday || purchasedWheelSpins > 0;
+      hasPendingLuckyWheelSpin || isLuckyWheelFreeAvailable || purchasedWheelSpins > 0;
 
   /// The offered contestant advances after each character unlock. A server
   /// preview also accounts for ownership changes made on another device.

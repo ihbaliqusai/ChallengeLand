@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+
+import '../core/app_settings.dart';
 import 'adaptive_asset_image.dart';
 
 /// A compact home shortcut with a quiet animation and a full touch target.
@@ -74,7 +76,10 @@ class HomeQuickAction extends StatelessWidget {
                         )
                       : const BoxDecoration(),
                   child: IconButton(
-                    onPressed: onPressed,
+                    onPressed: () {
+                      AppSettings.playClick();
+                      onPressed();
+                    },
                     padding: EdgeInsets.zero,
                     style: IconButton.styleFrom(
                       fixedSize: const Size.square(52),

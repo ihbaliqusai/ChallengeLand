@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import '../core/app_settings.dart';
 
 import 'package:flutter/material.dart';
 import 'adaptive_asset_image.dart';
@@ -89,8 +90,7 @@ class HomeMenuArtwork extends StatelessWidget {
                                                       bounds.height * .23)))),
                                 Positioned.fill(
                                     child: TextButton(
-                                        onPressed:
-                                            enabled ? onTap : onUnavailable,
+                                        onPressed: () { AppSettings.playClick(); if (enabled) { onTap(); } else { onUnavailable(); } },
                                         style: TextButton.styleFrom(
                                             padding: EdgeInsets.zero,
                                             minimumSize: Size.zero,

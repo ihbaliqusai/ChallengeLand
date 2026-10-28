@@ -19,8 +19,65 @@ void main() {
     stage = CampaignDefaults.stages().first;
   });
 
+  group('Committed campaign progress updates', () {
+    test('notifies the normalized player after progress is readable', () async {
+      final observed = CampaignService.progressUpdates.first.then((uid) async {
+        expect(uid, 'player');
+        final progress = await service.loadHomeProgress(uid: uid);
+        expect(progress.label, '2/100');
+      });
+      await service.submitStageResult(
+        uid: ' player ',
+        stage: stage,
+        nativeResult: _boardResult(stage,
+            completed: true, score: stage.starRules.threeStarsMinScore),
+      );
+      await observed;
+    });
+
+    test('a rejected account result does not emit a progress update', () async {
+      final updates = <String>[];
+      final subscription = CampaignService.progressUpdates.listen(updates.add);
+      addTearDown(subscription.cancel);
+      await expectLater(
+        service.submitStageResult(
+          uid: 'player',
+          stage: stage,
+          nativeResult: {
+            ..._boardResult(stage,
+                completed: true, score: stage.starRules.threeStarsMinScore),
+            'accountUid': 'previous-player',
+          },
+        ),
+        throwsArgumentError,
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(updates, isEmpty);
+    });
+
+    test('a failed transaction does not emit a progress update', () async {
+      final updates = <String>[];
+      final subscription = CampaignService.progressUpdates.listen(updates.add);
+      addTearDown(subscription.cancel);
+      final failing = CampaignService(firestore: _FailedTransactionFirestore());
+      await expectLater(
+        failing.submitStageResult(
+          uid: 'player',
+          stage: stage,
+          nativeResult: _boardResult(stage,
+              completed: true, score: stage.starRules.threeStarsMinScore),
+        ),
+        throwsA(isA<FirebaseException>()
+            .having((error) => error.code, 'code', 'unavailable')),
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(updates, isEmpty);
+    });
+  });
+
   group('Campaign result compatibility', () {
-    test('background disqualification prevents completion rewards even with a winning score',
+    test(
+        'background disqualification prevents completion rewards even with a winning score',
         () async {
       final boss = stage.copyWith(
         campaignMode: CampaignMode.bossBattle,
@@ -655,6 +712,17 @@ class _RecordingFirestore extends FakeFirebaseFirestore {
 class _UnavailableFirestore extends FakeFirebaseFirestore {
   @override
   CollectionReference<Map<String, dynamic>> collection(String path) {
+    throw FirebaseException(plugin: 'cloud_firestore', code: 'unavailable');
+  }
+}
+
+class _FailedTransactionFirestore extends FakeFirebaseFirestore {
+  @override
+  Future<T> runTransaction<T>(
+    TransactionHandler<T> transactionHandler, {
+    Duration timeout = const Duration(seconds: 30),
+    int maxAttempts = 5,
+  }) async {
     throw FirebaseException(plugin: 'cloud_firestore', code: 'unavailable');
   }
 }

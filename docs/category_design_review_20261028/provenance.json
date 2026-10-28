@@ -1,0 +1,799 @@
+{
+  "reviewDate": "2026-10-28",
+  "scope": "Local category artwork; not a legal clearance of names or whole application",
+  "reviewedPngFiles": 65,
+  "newCategoriesReviewed": 19,
+  "newDesignsReplaced": 17,
+  "newDesignsRetained": 2,
+  "legacyDesignsReplaced": 10,
+  "generatedDesigns": 27,
+  "replacedPngFilenames": 29,
+  "replacedCanonicalAndroidPngs": 27,
+  "untouchedPngFilenames": 36,
+  "generator": "built-in image_gen",
+  "referenceImage": "assets/categories/رياضة.png",
+  "referenceSha256": "ed6348f5e0e8b83713873c4f2f8d93324a5256681c8551af3edb16ea025aba72",
+  "designs": [
+    {
+      "title": "NBA",
+      "group": "root",
+      "generator": "built-in image_gen",
+      "referenceImage": "assets/categories/رياضة.png",
+      "prompt": "Use case: style-transfer. Create ONE replacement square quiz category card for this existing mobile game. Input image 1 is a STYLE AND FRAME reference only. Match its simple flat hand-drawn vector-like 2D illustration, clean near-black outlines, muted warm colors, mint green background, small dark teal circular information i in the top left, rounded card corners, dark teal full-width bottom title strip, white bold centered title. Keep the same square composition and very narrow transparent outer margin. Do not show a scene outside the card. Replace the sports illustration with an ORIGINAL generic basketball and plain hoop/net, simple geometry and subtle flat shading. No player silhouette, league/team logos, official trophies, branded shoes or merchandise. Exact bottom title: \"NBA\", rendered in plain bold sans-serif text, never the NBA logo. No other text except the small white i. The goal is to match the older flat category cards, not shiny 3D art. 1024x1024.",
+      "promptReconstructed": false,
+      "cleanupPrompt": "Edit target: this NBA quiz card. Keep the basketball/hoop/net, exact NBA title, small white i, mint background, dark teal title band and all internal artwork unchanged. Clean ONLY the outer margin: remove every stray white pixel, speckle, detached mark and ragged opaque patch outside the rounded card. Make four clean smooth crisp rounded card corners and a narrow completely transparent EMPTY exterior margin on all sides. No border, halo, white strokes, shadows or added texture outside the card. Preserve the simple flat illustration and square proportions. True alpha transparency outside the card.",
+      "sourceGenerationFile": "exec-bf3b2aa7-e7f0-4a94-8c8a-76ea9e0a5902.png",
+      "processing": "High quality downsampling to 352x352 PNG; alpha preserved.",
+      "files": [
+        {
+          "path": "assets/categories/NBA.png",
+          "nativePath": "android/app/src/main/assets/categories/NBA.png",
+          "reviewInitialSha256": "682f4f5112096c51353f4e82507d2589e5933b27ea8e540ab35befb76bbf5df3",
+          "preInstallSha256": "9a0915fb18af1ed2bc93f119358c9a3899ba493bc4636a2adc8dda1bc9d82f42",
+          "sha256": "9917defd52afc878b0e45da2254d0c9f342310e1e315c6858785fd198392dd26",
+          "reviewInitialBytes": 232651,
+          "bytes": 142780,
+          "dimensions": [
+            352,
+            352
+          ],
+          "mirrorMatches": true
+        }
+      ]
+    },
+    {
+      "title": "Breaking Bad",
+      "group": "franchises",
+      "generator": "built-in image_gen",
+      "referenceImage": "assets/categories/رياضة.png",
+      "prompt": "Reconstructed specification from task and recovered output (not exact historical tool prompt): Full square quiz category card, flat 2D outlined illustration of ordinary laboratory flask with orange liquid and a generic molecule diagram; no actors, blue crystals, masks or logo lettering. Mint rounded card, dark teal full-width bottom strip, white exact plain title \"Breaking Bad\", small i badge top-left, narrow transparent outer margin. Style reference assets/categories/رياضة.png.",
+      "promptReconstructed": true,
+      "cleanupPrompt": null,
+      "sourceGenerationFile": "exec-63f0d6d3-1dda-4dcb-b29f-a4f79458be0e.png",
+      "processing": "High quality downsampling to 352x352 PNG; alpha preserved.",
+      "files": [
+        {
+          "path": "assets/categories/Breaking Bad.png",
+          "nativePath": "android/app/src/main/assets/categories/Breaking Bad.png",
+          "reviewInitialSha256": "53fd495dd8779f5688c70dd252cf9d3c332aa87928d890ba90485f5c88793ce1",
+          "preInstallSha256": "fc720674eb2122fa4a06d116d10be6e8c0199bd1bb7bf3015dc44b419a92fa0f",
+          "sha256": "078568ff87e41ffd0c82b808a68d7c01678c98252d7cec8a5dc4b83fdec673c5",
+          "reviewInitialBytes": 264565,
+          "bytes": 219762,
+          "dimensions": [
+            352,
+            352
+          ],
+          "mirrorMatches": true
+        }
+      ]
+    },
+    {
+      "title": "Game Of Thrones",
+      "group": "franchises",
+      "generator": "built-in image_gen",
+      "referenceImage": "assets/categories/رياضة.png",
+      "prompt": "Reconstructed specification from task and recovered output (not exact historical tool prompt): Full square quiz category card, flat 2D outlined illustration of generic medieval castle and plain flags; no throne, dragon or house crest. Mint rounded card, dark teal full-width bottom strip, white exact plain title \"Game Of Thrones\", small i badge top-left, narrow transparent outer margin. Style reference assets/categories/رياضة.png.",
+      "promptReconstructed": true,
+      "cleanupPrompt": null,
+      "sourceGenerationFile": "exec-7d9a77c3-e8b6-448f-bc24-10d0f05eced6.png",
+      "processing": "High quality downsampling to 352x352 PNG; alpha preserved.",
+      "files": [
+        {
+          "path": "assets/categories/Game Of Thrones.png",
+          "nativePath": "android/app/src/main/assets/categories/Game Of Thrones.png",
+          "reviewInitialSha256": "09f33080d7a52e83c24dd082bf4ad19015e3236e23ba8dcf7f9e33814a649fd1",
+          "preInstallSha256": "12b3fdedfd7d20b00515adcb541399a17c376629dc982e38b5d8ad446841df78",
+          "sha256": "1e0d98d4dc73d61a6286e552c15f22d8540a2f57c682a0410cda41ec14c0ba66",
+          "reviewInitialBytes": 278145,
+          "bytes": 216350,
+          "dimensions": [
+            352,
+            352
+          ],
+          "mirrorMatches": true
+        }
+      ]
+    },
+    {
+      "title": "Demon Slayer",
+      "group": "franchises",
+      "generator": "built-in image_gen",
+      "referenceImage": "assets/categories/رياضة.png",
+      "prompt": "Reconstructed specification from task and recovered output (not exact historical tool prompt): Full square quiz category card, flat 2D outlined illustration of crossed wooden practice swords and bamboo leaves; no franchise masks, checkered fabric or distinctive blades. Mint rounded card, dark teal full-width bottom strip, white exact plain title \"Demon Slayer\", small i badge top-left, narrow transparent outer margin. Style reference assets/categories/رياضة.png.",
+      "promptReconstructed": true,
+      "cleanupPrompt": null,
+      "sourceGenerationFile": "exec-91470120-ad12-4b14-a9f3-426f2fbd2ef6.png",
+      "processing": "High quality downsampling to 352x352 PNG; alpha preserved.",
+      "files": [
+        {
+          "path": "assets/categories/Demon Slayer.png",
+          "nativePath": "android/app/src/main/assets/categories/Demon Slayer.png",
+          "reviewInitialSha256": "a4afddd5e55741536722c9c271ffea735527d08403874d42c78b3e715873d42e",
+          "preInstallSha256": "eea23d155dc4d8b2b607443ddf7d447cc1def45b83f89272722e2340c058d90c",
+          "sha256": "9d929baa971f4045c75e3a532283e4b04d3d229a5974e72e410a107e8ca92e7e",
+          "reviewInitialBytes": 236021,
+          "bytes": 200210,
+          "dimensions": [
+            352,
+            352
+          ],
+          "mirrorMatches": true
+        }
+      ]
+    },
+    {
+      "title": "Hunter × Hunter",
+      "group": "franchises",
+      "generator": "built-in image_gen",
+      "referenceImage": "assets/categories/رياضة.png",
+      "prompt": "Reconstructed specification from task and recovered output (not exact historical tool prompt): Full square quiz category card, flat 2D outlined illustration of ordinary compass, folded map and hiking boot; no hunter license or franchise symbols. Mint rounded card, dark teal full-width bottom strip, white exact plain title \"Hunter × Hunter\", small i badge top-left, narrow transparent outer margin. Style reference assets/categories/رياضة.png.",
+      "promptReconstructed": true,
+      "cleanupPrompt": null,
+      "sourceGenerationFile": "exec-c215982a-c045-4e51-a14e-3893a0ffdee7.png",
+      "processing": "High quality downsampling to 352x352 PNG; alpha preserved.",
+      "files": [
+        {
+          "path": "assets/categories/Hunter × Hunter.png",
+          "nativePath": "android/app/src/main/assets/categories/Hunter × Hunter.png",
+          "reviewInitialSha256": "916f99107fe469056cc20aca08a8fbce3f149c416e5d3fdd67f6b5540907e7cf",
+          "preInstallSha256": "0d5ec0ba720bf7607359bd33e8e85a54c69c968742f85f7ffb0e915e79cf734f",
+          "sha256": "d022226d9f87efa7cb5d44a85c9eb6111ffa2073126aa713161196c479517394",
+          "reviewInitialBytes": 228424,
+          "bytes": 251311,
+          "dimensions": [
+            352,
+            352
+          ],
+          "mirrorMatches": true
+        }
+      ]
+    },
+    {
+      "title": "Attack on Titan",
+      "group": "franchises",
+      "generator": "built-in image_gen",
+      "referenceImage": "assets/categories/رياضة.png",
+      "prompt": "Reconstructed specification from task and recovered output (not exact historical tool prompt): Full square quiz category card, flat 2D outlined illustration of generic stone watchtower and defensive wall; no winged crest, swords or characters. Mint rounded card, dark teal full-width bottom strip, white exact plain title \"Attack on Titan\", small i badge top-left, narrow transparent outer margin. Style reference assets/categories/رياضة.png.",
+      "promptReconstructed": true,
+      "cleanupPrompt": null,
+      "sourceGenerationFile": "exec-f8f5bc29-d2ef-481d-ba97-16e786554f41.png",
+      "processing": "High quality downsampling to 352x352 PNG; alpha preserved.",
+      "files": [
+        {
+          "path": "assets/categories/Attack on Titan.png",
+          "nativePath": "android/app/src/main/assets/categories/Attack on Titan.png",
+          "reviewInitialSha256": "817eeb85eb45644f0ff2cd6f01897f80068e5a817945385561e1a89fe317167e",
+          "preInstallSha256": "fa805a469037bc17c4488e7febee9fad21dd9ae48bdead3fe45fbea3887e770a",
+          "sha256": "b932277264a9d1273380944b42742a6262350eb270c249497243592338f78b63",
+          "reviewInitialBytes": 272822,
+          "bytes": 232419,
+          "dimensions": [
+            352,
+            352
+          ],
+          "mirrorMatches": true
+        }
+      ]
+    },
+    {
+      "title": "Harry Potter",
+      "group": "franchises",
+      "generator": "built-in image_gen",
+      "referenceImage": "assets/categories/رياضة.png",
+      "prompt": "Use case: style-transfer. Asset type: one full square mobile quiz category card. Input image is STYLE AND FRAME reference only. Match the older simple FLAT 2D outlined hand-drawn vector-like illustration: near-black outlines, muted warm colors, subtle flat shading, mint-green background, rounded square card, small dark teal circular white italic i badge top-left, full-width dark teal bottom strip occupying about the bottom fifth, bold centered white exact plain title. Very narrow COMPLETELY EMPTY transparent outside margin, smooth clean crisp rounded boundary, NO stray pixels, white speckles, halo, border or texture outside card. No shiny 3D, photorealistic materials, heavy texture, logos or watermarks. Main illustration: an original generic fantasy spellbook lying open with a quill and a few small stars. NO spectacles, lightning scar, character, wand, pointed hat, castle or franchise symbols. Exact bottom title: \"Harry Potter\" in plain bold sans-serif, never a franchise wordmark. No other text except small i. Keep large simple legible props and same mint/teal frame. 1024x1024.",
+      "promptReconstructed": false,
+      "cleanupPrompt": "Edit target: this Harry Potter quiz category card. Preserve the exact subject illustration, title text \"Harry Potter\", small white i, rounded card bounds, mint background and dark teal bottom strip. Fix alpha/edge cleanup only: remove EVERY detached white speckle, mark, ragged opaque patch and halo outside the rounded card. Make the outside narrow margin COMPLETELY EMPTY transparent, with four smooth clean crisp rounded corners. NO white border or glow. Make the mint background and ALL pixels INSIDE the card fully opaque, including any accidental transparent or translucent holes; transparency ONLY outside card boundary. Preserve simple flat 2D appearance and original colors. No other changes.",
+      "sourceGenerationFile": "exec-32671869-a07d-445a-b53b-af29b993d2b6.png",
+      "processing": "High quality downsampling to 352x352 PNG; alpha preserved.",
+      "files": [
+        {
+          "path": "assets/categories/Harry Potter.png",
+          "nativePath": "android/app/src/main/assets/categories/Harry Potter.png",
+          "reviewInitialSha256": "524a603ecf70c982f6c3d6c57a152c8f9659aeabd61bacca5bf8579450c016d5",
+          "preInstallSha256": "1d5b2daede49a1455b18c6122c771529224f7d2f00ee61b764f19d2323c3748b",
+          "sha256": "fedb175218b7f9b1f840c34f674adbbca143100b8737a680597505e1269b99cd",
+          "reviewInitialBytes": 233893,
+          "bytes": 173032,
+          "dimensions": [
+            352,
+            352
+          ],
+          "mirrorMatches": true
+        }
+      ]
+    },
+    {
+      "title": "Naruto",
+      "group": "franchises",
+      "generator": "built-in image_gen",
+      "referenceImage": "assets/categories/رياضة.png",
+      "prompt": "Use case: style-transfer. Asset type: one full square mobile quiz category card. Input image is STYLE AND FRAME reference only. Match the older simple FLAT 2D outlined hand-drawn vector-like illustration: near-black outlines, muted warm colors, subtle flat shading, mint-green background, rounded square card, small dark teal circular white italic i badge top-left, full-width dark teal bottom strip occupying about the bottom fifth, bold centered white exact plain title. Very narrow COMPLETELY EMPTY transparent outside margin, smooth clean crisp rounded boundary, NO stray pixels, white speckles, halo, border or texture outside card. No shiny 3D, photorealistic materials, heavy texture, logos or watermarks. Main illustration: an original ordinary rolled training scroll beside bamboo leaves and a plain cloth training sash. Blank scroll with NO writing. NO headband, spiral, village symbol, recognizable costume, character or franchise symbols. Exact bottom title: \"Naruto\" in plain bold sans-serif, never a franchise wordmark. No other text except small i. Keep large simple legible props and same mint/teal frame. 1024x1024.",
+      "promptReconstructed": false,
+      "cleanupPrompt": "Edit target: this Naruto quiz category card. Preserve the exact subject illustration, title text \"Naruto\", small white i, rounded card bounds, mint background and dark teal bottom strip. Fix alpha/edge cleanup only: remove EVERY detached white speckle, mark, ragged opaque patch and halo outside the rounded card. Make the outside narrow margin COMPLETELY EMPTY transparent, with four smooth clean crisp rounded corners. NO white border or glow. Make the mint background and ALL pixels INSIDE the card fully opaque, including any accidental transparent or translucent holes; transparency ONLY outside card boundary. Preserve simple flat 2D appearance and original colors. No other changes.",
+      "sourceGenerationFile": "exec-73cd2097-2f83-4bb6-9655-6044967719ee.png",
+      "processing": "High quality downsampling to 352x352 PNG; alpha preserved.",
+      "files": [
+        {
+          "path": "assets/categories/Naruto.png",
+          "nativePath": "android/app/src/main/assets/categories/Naruto.png",
+          "reviewInitialSha256": "d6756fa4460e231d80519edd2291e6c2c41b564e923703445025f35e5d2f5e52",
+          "preInstallSha256": "da63726ea9c89d2d5465815fa5cad9cbad6a24ec0f5ca2a188ea0b40745b1b24",
+          "sha256": "814d63a2aef4608b5c1050e170a99149800fe69ff9dd6ba8677979b9a977029b",
+          "reviewInitialBytes": 218862,
+          "bytes": 148504,
+          "dimensions": [
+            352,
+            352
+          ],
+          "mirrorMatches": true
+        }
+      ]
+    },
+    {
+      "title": "One Piece",
+      "group": "franchises",
+      "generator": "built-in image_gen",
+      "referenceImage": "assets/categories/رياضة.png",
+      "prompt": "Use case: style-transfer. Asset type: one full square mobile quiz category card. Input image is STYLE AND FRAME reference only. Match the older simple FLAT 2D outlined hand-drawn vector-like illustration: near-black outlines, muted warm colors, subtle flat shading, mint-green background, rounded square card, small dark teal circular white italic i badge top-left, full-width dark teal bottom strip occupying about the bottom fifth, bold centered white exact plain title. Very narrow COMPLETELY EMPTY transparent outside margin, smooth clean crisp rounded boundary, NO stray pixels, white speckles, halo, border or texture outside card. No shiny 3D, photorealistic materials, heavy texture, logos or watermarks. Main illustration: an original ordinary miniature sailing ship inside a glass bottle with a simple compass. NO straw hat, skull, crossbones, pirate flag, character or franchise symbols. Exact bottom title: \"One Piece\" in plain bold sans-serif, never a franchise wordmark. No other text except small i. Keep large simple legible props and same mint/teal frame. 1024x1024.",
+      "promptReconstructed": false,
+      "cleanupPrompt": "Edit target: this One Piece quiz category card. Preserve the exact subject illustration, title text \"One Piece\", small white i, rounded card bounds, mint background and dark teal bottom strip. Fix alpha/edge cleanup only: remove EVERY detached white speckle, mark, ragged opaque patch and halo outside the rounded card. Make the outside narrow margin COMPLETELY EMPTY transparent, with four smooth clean crisp rounded corners. NO white border or glow. Make the mint background and ALL pixels INSIDE the card fully opaque, including any accidental transparent or translucent holes; transparency ONLY outside card boundary. Preserve simple flat 2D appearance and original colors. No other changes.",
+      "sourceGenerationFile": "exec-5d888cb9-8cb3-4a36-aa0b-6dac318d50f7.png",
+      "processing": "High quality downsampling to 352x352 PNG; alpha preserved.",
+      "files": [
+        {
+          "path": "assets/categories/One Piece.png",
+          "nativePath": "android/app/src/main/assets/categories/One Piece.png",
+          "reviewInitialSha256": "d172ea65c4703271dff5e680ec6068218ac64cc3f8ee03769368144aef97d166",
+          "preInstallSha256": "5851cb467b38e313cd4c25e6fdb046315002482e6aa91d1d4123ec137944d0c3",
+          "sha256": "e009757b90c46117c64502b612ba66ac9e1fc138d3b9a3b6a0cd1a0787b98bc6",
+          "reviewInitialBytes": 220449,
+          "bytes": 174502,
+          "dimensions": [
+            352,
+            352
+          ],
+          "mirrorMatches": true
+        }
+      ]
+    },
+    {
+      "title": "دوري أبطال أوروبا",
+      "group": "regional",
+      "generator": "built-in image_gen",
+      "referenceImage": "assets/categories/رياضة.png",
+      "prompt": "Use case: style-transfer. Asset type: mobile quiz category card. Input image 1 is STYLE AND FRAME reference only. Create ONE FULL square rounded card matching this older card style: mint green background, small dark teal circle containing white italic i at top-left, dark teal full-width bottom title strip, bold exact white centered title in plain clean sans-serif type, very narrow transparent outer margin. Simple FLAT 2D hand-drawn vector-like illustration with clean near-black outlines, muted warm colors and modest flat shading. No shiny 3D art, no photorealism, no textures, no decorative inset frame, no second card, no scene outside the card. Subject: an ordinary black-and-white football in front of a simple generic stadium and one plain round gold medal. NO official cup/trophy, no star patterned ball, no ring of stars, no UEFA logo, no team crest. Bottom strip exact text (verbatim): \"دوري أبطال أوروبا\". Only title and small i as text. Title must be legible and correctly spelled. Use an original composition, no protected characters, official logos, signatures or watermarks. 1024x1024.",
+      "promptReconstructed": false,
+      "cleanupPrompt": "Use case: precise-object-edit. Edit target: supplied mobile quiz category card. Preserve the exact title, information i, illustration subjects, colors, mint background, dark teal title band, composition and all internal artwork. Repair ONLY defects: make all mint background inside the rounded card FULLY OPAQUE and smooth mint, remove dark or transparent holes/blotches/smudges while retaining the illustration. Clean ONLY exterior margin by removing every stray opaque or white pixel, detached mark, speckle, ragged patch and halo outside rounded card boundary. Four smooth crisp rounded corners and narrow completely EMPTY true-alpha transparent exterior. Do not put black/white patches, texture, shadows or decorative borders around card. Transparency ONLY outside rounded card boundary. Keep square proportions.",
+      "sourceGenerationFile": "exec-85429a38-e451-4eb4-926a-d6ab77676fab.png",
+      "processing": "High quality downsampling to 352x352 PNG; alpha preserved.",
+      "files": [
+        {
+          "path": "assets/categories/دوري أبطال أوروبا.png",
+          "nativePath": "android/app/src/main/assets/categories/دوري أبطال أوروبا.png",
+          "reviewInitialSha256": "7f950bf85edc23a30c83d09e633d06e491e57710a86cadd8751d9e1b3ab88104",
+          "preInstallSha256": "eb95339b542143bd21c8f4e211508b9abf3c8861cd4b4ba02f795a185636aec6",
+          "sha256": "c0fc5d8cd1309b2ffaa18a2dc5c30d6f2aa57af3dff0934170a02ad51a97f236",
+          "reviewInitialBytes": 295091,
+          "bytes": 168134,
+          "dimensions": [
+            352,
+            352
+          ],
+          "mirrorMatches": true
+        }
+      ]
+    },
+    {
+      "title": "بنات وبس",
+      "group": "regional",
+      "generator": "built-in image_gen",
+      "referenceImage": "assets/categories/رياضة.png",
+      "prompt": "Create a fresh square mobile quiz category card, using supplied sports card ONLY as frame/style reference. Flat 2D outlined illustration of an ordinary handheld mirror, plain comb and small flower. Solid opaque mint-green card background, rounded corners, small dark teal circle containing white i at top-left, full-width dark teal strip at bottom with exact bold white Arabic title \"بنات وبس\". Near-black clean outlines, muted warm colors, minimal simple flat shading only on objects. Entire rounded card including background must be fully opaque. No gradients or mottled textures on background. Transparency only OUTSIDE the rounded rectangle in a narrow empty margin. No stray speckles, marks, halos or white shapes in exterior. No people, no brands, no logos, no other text, no shiny 3D. Match the older simple flat category card style.",
+      "promptReconstructed": false,
+      "cleanupPrompt": null,
+      "sourceGenerationFile": "exec-9c0dc83c-0766-45a9-b865-3f303819967f.png",
+      "processing": "High quality downsampling to 352x352 PNG; alpha preserved.",
+      "files": [
+        {
+          "path": "assets/categories/بنات وبس.png",
+          "nativePath": "android/app/src/main/assets/categories/بنات وبس.png",
+          "reviewInitialSha256": "26732a5d5897ecad35a4d2121c834a3cc4f5339b870eb682b6e208767eaf3649",
+          "preInstallSha256": "8003e163eeaa675759d417cf0243741c990ecfdb653717531d0e7e202d7ed687",
+          "sha256": "b2ac6551d1fd500cf970e2c6acdede6a105e57930a6ba2fe5f3f4dd01e99d7c9",
+          "reviewInitialBytes": 172656,
+          "bytes": 147708,
+          "dimensions": [
+            352,
+            352
+          ],
+          "mirrorMatches": true
+        }
+      ]
+    },
+    {
+      "title": "باب الحارة",
+      "group": "regional",
+      "generator": "built-in image_gen",
+      "referenceImage": "assets/categories/رياضة.png",
+      "prompt": "Use case: style-transfer. Asset type: mobile quiz category card. Input image 1 is STYLE AND FRAME reference only. Create ONE FULL square rounded card matching this older card style: mint green background, small dark teal circle containing white italic i at top-left, dark teal full-width bottom title strip, bold exact white centered title in plain clean sans-serif type, very narrow transparent outer margin. Simple FLAT 2D hand-drawn vector-like illustration with clean near-black outlines, muted warm colors and modest flat shading. No shiny 3D art, no photorealism, no textures, no decorative inset frame, no second card, no scene outside the card. Subject: one original generic traditional courtyard arch doorway and a small lantern. No people, no television-series set reproduction or recognizable fictional location. Bottom strip exact text (verbatim): \"باب الحارة\". Only title and small i as text. Title must be legible and correctly spelled. Use an original composition, no protected characters, official logos, signatures or watermarks. 1024x1024.",
+      "promptReconstructed": false,
+      "cleanupPrompt": "Use case: precise-object-edit. Edit target: supplied mobile quiz category card. Preserve the exact title, information i, illustration subjects, colors, mint background, dark teal title band, composition and all internal artwork. Repair ONLY defects: make all mint background inside the rounded card FULLY OPAQUE and smooth mint, remove dark or transparent holes/blotches/smudges while retaining the illustration. Clean ONLY exterior margin by removing every stray opaque or white pixel, detached mark, speckle, ragged patch and halo outside rounded card boundary. Four smooth crisp rounded corners and narrow completely EMPTY true-alpha transparent exterior. Do not put black/white patches, texture, shadows or decorative borders around card. Transparency ONLY outside rounded card boundary. Keep square proportions.",
+      "sourceGenerationFile": "exec-4066b42b-04b0-42cf-9537-1b2abf4d6791.png",
+      "processing": "High quality downsampling to 352x352 PNG; alpha preserved.",
+      "files": [
+        {
+          "path": "assets/categories/باب الحارة.png",
+          "nativePath": "android/app/src/main/assets/categories/باب الحارة.png",
+          "reviewInitialSha256": "08e2b17fccd94cbfc3c67c4242784ac751b54ef5fbab43c5b6b61f49a4f37309",
+          "preInstallSha256": "e440c286ead1ef454b03e3b31ccab7b614c3507b9c6bc1fe17090b01600a1cd9",
+          "sha256": "400851df11e0d5d22862fc81a0a6cb2d6ed5a1e6f838eed6224dfc3f0a588d91",
+          "reviewInitialBytes": 198466,
+          "bytes": 170789,
+          "dimensions": [
+            352,
+            352
+          ],
+          "mirrorMatches": true
+        }
+      ]
+    },
+    {
+      "title": "مسلسلات تركية",
+      "group": "regional",
+      "generator": "built-in image_gen",
+      "referenceImage": "assets/categories/رياضة.png",
+      "prompt": "Use case: style-transfer. Asset type: mobile quiz category card. Input image 1 is STYLE AND FRAME reference only. Create ONE FULL square rounded card matching this older card style: mint green background, small dark teal circle containing white italic i at top-left, dark teal full-width bottom title strip, bold exact white centered title in plain clean sans-serif type, very narrow transparent outer margin. Simple FLAT 2D hand-drawn vector-like illustration with clean near-black outlines, muted warm colors and modest flat shading. No shiny 3D art, no photorealism, no textures, no decorative inset frame, no second card, no scene outside the card. Subject: a plain old television showing only generic simplified rooftops, next to a small ordinary tea glass. No specific skyline reproduction, no actors or television logo. Bottom strip exact text (verbatim): \"مسلسلات تركية\". Only title and small i as text. Title must be legible and correctly spelled. Use an original composition, no protected characters, official logos, signatures or watermarks. 1024x1024.",
+      "promptReconstructed": false,
+      "cleanupPrompt": "Precise object edit of supplied rounded quiz card: replace ONLY the mint BACKGROUND inside the card with a smooth UNIFORM SOLID FLAT OPAQUE mint-green fill #A7DDCB. Remove ALL background blotches, smudges, holes, grain, texture, gradients, glowing/shading patches or ghost shapes. Every area INSIDE the rounded rectangle must have alpha 255. Keep the actual illustration objects, the title lettering, small white i badge and darkteal band identical, preserving their black lines and colors. Keep true transparency ONLY in the narrow exterior beyond the clean rounded card silhouette. No stray white pixels, borders, halos, speckles or marks outside card. In particular completely repair the discolored dark mint background patches. Result must be a clean simple flat 2D card.",
+      "sourceGenerationFile": "exec-3d08ccc9-e97f-4c15-a948-fc7ea506cd65.png",
+      "processing": "High quality downsampling to 352x352 PNG; alpha preserved.",
+      "files": [
+        {
+          "path": "assets/categories/مسلسلات تركية.png",
+          "nativePath": "android/app/src/main/assets/categories/مسلسلات تركية.png",
+          "reviewInitialSha256": "9f3b28124d934d9082c3be87f471308e1e22d4a3f2c2dd7b7b7659b7a1e933e9",
+          "preInstallSha256": "265fec10b37e59c62c5ddb54f38bf23069b09b95313b5dfa48e8e56461223899",
+          "sha256": "e808d02115108006bc4419792cafd0bb59bfd33982c10e53ea9cfe4618147421",
+          "reviewInitialBytes": 254458,
+          "bytes": 166932,
+          "dimensions": [
+            352,
+            352
+          ],
+          "mirrorMatches": true
+        }
+      ]
+    },
+    {
+      "title": "دراما سورية",
+      "group": "regional",
+      "generator": "built-in image_gen",
+      "referenceImage": "assets/categories/رياضة.png",
+      "prompt": "Use case: style-transfer. Asset type: mobile quiz category card. Input image 1 is STYLE AND FRAME reference only. Create ONE FULL square rounded card matching this older card style: mint green background, small dark teal circle containing white italic i at top-left, dark teal full-width bottom title strip, bold exact white centered title in plain clean sans-serif type, very narrow transparent outer margin. Simple FLAT 2D hand-drawn vector-like illustration with clean near-black outlines, muted warm colors and modest flat shading. No shiny 3D art, no photorealism, no textures, no decorative inset frame, no second card, no scene outside the card. Subject: original generic comedy and tragedy theater masks beside a plain arched window. No brands, real actors or television set copying. Exact title \"دراما سورية\". No other text except i. Clean crisp rounded boundary and completely empty transparent exterior margin, no stray white pixels/marks/halo.",
+      "promptReconstructed": false,
+      "cleanupPrompt": "Use case: precise-object-edit. Edit target: supplied mobile quiz category card. Preserve the exact title, information i, illustration subjects, colors, mint background, dark teal title band, composition and all internal artwork. Repair ONLY defects: make all mint background inside the rounded card FULLY OPAQUE and smooth mint, remove dark or transparent holes/blotches/smudges while retaining the illustration. Clean ONLY exterior margin by removing every stray opaque or white pixel, detached mark, speckle, ragged patch and halo outside rounded card boundary. Four smooth crisp rounded corners and narrow completely EMPTY true-alpha transparent exterior. Do not put black/white patches, texture, shadows or decorative borders around card. Transparency ONLY outside rounded card boundary. Keep square proportions.",
+      "sourceGenerationFile": "exec-190fab8f-9ac3-4f05-8646-4b2aa7c80591.png",
+      "processing": "High quality downsampling to 352x352 PNG; alpha preserved.",
+      "files": [
+        {
+          "path": "assets/categories/دراما سورية.png",
+          "nativePath": "android/app/src/main/assets/categories/دراما سورية.png",
+          "reviewInitialSha256": "d97030bb3587313bfa8d86785d7a81f1fe522f6a04d8e18d780d2fef8ec8e08f",
+          "preInstallSha256": "832ea4681b2429d97a7807bd7f9ab0fc238600189981b99f750785a58635650a",
+          "sha256": "9bac95ec374a98c6c054875e1a3bc31f3985a911baf8236c62d61b6443a0cd13",
+          "reviewInitialBytes": 236630,
+          "bytes": 145353,
+          "dimensions": [
+            352,
+            352
+          ],
+          "mirrorMatches": true
+        }
+      ]
+    },
+    {
+      "title": "دراما خليجية",
+      "group": "regional",
+      "generator": "built-in image_gen",
+      "referenceImage": "assets/categories/رياضة.png",
+      "prompt": "Use case: style-transfer. Asset type: mobile quiz category card. Input image 1 is STYLE AND FRAME reference only. Create ONE FULL square rounded card matching this older card style: mint green background, small dark teal circle containing white italic i at top-left, dark teal full-width bottom title strip, bold exact white centered title in plain clean sans-serif type, very narrow transparent outer margin. Simple FLAT 2D hand-drawn vector-like illustration with clean near-black outlines, muted warm colors and modest flat shading. No shiny 3D art, no photorealism, no textures, no decorative inset frame, no second card, no scene outside the card. Subject: an ordinary generic coffee pot and plain clapperboard. No brands, actors or television set copying. Exact title \"دراما خليجية\". No other text except i. Clean crisp rounded boundary, entirely empty transparent exterior, no stray white marks.",
+      "promptReconstructed": true,
+      "cleanupPrompt": " Edit target is the supplied card. Preserve the title, information i, all subjects, mint background and dark teal band. Repair any ugly dark or transparent blotches in the mint background to smooth mint. Remove EVERY stray opaque or white pixel, detached mark and speckle outside the card, leaving only a smooth crisp rounded rectangle and a completely EMPTY transparent outer margin. No white border, halo, shadows or texture outside. No other alterations.",
+      "sourceGenerationFile": "exec-d15a3309-9838-45e1-8eb5-75f3bd7ae25f.png",
+      "processing": "High quality downsampling to 352x352 PNG; alpha preserved.",
+      "files": [
+        {
+          "path": "assets/categories/دراما خليجية.png",
+          "nativePath": "android/app/src/main/assets/categories/دراما خليجية.png",
+          "reviewInitialSha256": "8d25030d1b33601725fca0a389d8ae9fd04eb878975e95cd7d0592e14e4c6ee0",
+          "preInstallSha256": "dbc212f17cc8fd9ed1fa52623ba0d6eb5ecaef4149c5c8096f3c1e3c37505622",
+          "sha256": "1e435b89513e487d57c3bfb549fbcc2696c79e22277600b35c88da512ae75b5f",
+          "reviewInitialBytes": 189553,
+          "bytes": 143877,
+          "dimensions": [
+            352,
+            352
+          ],
+          "mirrorMatches": true
+        }
+      ]
+    },
+    {
+      "title": "Pokémon",
+      "group": "regional",
+      "generator": "built-in image_gen",
+      "referenceImage": "assets/categories/رياضة.png",
+      "prompt": "Use case: style-transfer. Asset type: mobile quiz category card. Input image 1 is STYLE AND FRAME reference only. Create ONE FULL square rounded card matching this older card style: mint green background, small dark teal circle containing white italic i at top-left, dark teal full-width bottom title strip, bold exact white centered title in plain clean sans-serif type, very narrow transparent outer margin. Simple FLAT 2D hand-drawn vector-like illustration with clean near-black outlines, muted warm colors and modest flat shading. No shiny 3D art, no photorealism, no textures, no decorative inset frame, no second card, no scene outside the card. Subject: a generic animal pawprint beside a leaf and magnifying glass. No creature, monster, red-white ball, lightning bolt, yellow character or recognizable fictional prop, no logos. Exact title \"Pokémon\" in ordinary sans serif white type. No other text except i. Clean crisp rounded boundary and completely empty transparent exterior margin, no stray white pixels/marks/halo.",
+      "promptReconstructed": false,
+      "cleanupPrompt": "Use case: precise-object-edit. Edit target: supplied Pokémon quiz card. Preserve the exact Pokémon title, information i, pawprint/leaf/magnifying glass, colors, mint background, dark teal title band, composition and all internal artwork. Repair ONLY alpha defects: ALL pixels of the card INSIDE its rounded boundary must be FULLY OPAQUE, including mint areas and the LEAF. Remove transparent holes by filling their intended flat colors. Keep smooth mint background. Clean exterior margin by removing every stray opaque/white pixel, mark, speckle, ragged patch and halo. Four smooth crisp rounded corners and narrow completely EMPTY true-alpha transparent exterior. Transparency ONLY outside rounded card boundary. No other alterations.",
+      "sourceGenerationFile": "exec-94c0c784-661e-41a7-a6aa-58137f29dcfc.png",
+      "processing": "High quality downsampling to 352x352 PNG; alpha preserved.",
+      "files": [
+        {
+          "path": "assets/categories/Pokémon.png",
+          "nativePath": "android/app/src/main/assets/categories/Pokémon.png",
+          "reviewInitialSha256": "36227515b8a7b2290bb11e6b0f5074461c4cd5b5081ac5a5006685f8776e4335",
+          "preInstallSha256": "9a5b1f00957645ba518f0ae4e18ae9daacdd1f3662e7f321affb72d4cf350379",
+          "sha256": "3a810941b761783bc7ed366f57f5fce7f6272a8c301527adc0223f358bfb19e8",
+          "reviewInitialBytes": 209438,
+          "bytes": 151741,
+          "dimensions": [
+            352,
+            352
+          ],
+          "mirrorMatches": true
+        }
+      ]
+    },
+    {
+      "title": "دراما مصرية",
+      "group": "regional",
+      "generator": "built-in image_gen",
+      "referenceImage": "assets/categories/رياضة.png",
+      "prompt": "Use case: style-transfer. Asset type: mobile quiz category card. Input image 1 is STYLE AND FRAME reference only. Create ONE FULL square rounded card matching this older card style: mint green background, small dark teal circle containing white italic i at top-left, dark teal full-width bottom title strip, bold exact white centered title in plain clean sans-serif type, very narrow transparent outer margin. Simple FLAT 2D hand-drawn vector-like illustration with clean near-black outlines, muted warm colors and modest flat shading. No shiny 3D art, no photorealism, no textures, no decorative inset frame, no second card, no scene outside the card. Subject: an ordinary film reel and plain clapperboard with simple curtains, muted warm colors. No brands, actors or specific movie props. Exact title \"دراما مصرية\". No other text except i. Clean crisp rounded boundary and completely empty transparent exterior margin, no stray white pixels/marks/halo.",
+      "promptReconstructed": false,
+      "cleanupPrompt": "Use case: precise-object-edit. Edit target: supplied mobile quiz category card. Preserve the exact title, information i, illustration subjects, colors, mint background, dark teal title band, composition and all internal artwork. Repair ONLY defects: make all mint background inside the rounded card FULLY OPAQUE and smooth mint, remove dark or transparent holes/blotches/smudges while retaining the illustration. Clean ONLY exterior margin by removing every stray opaque or white pixel, detached mark, speckle, ragged patch and halo outside rounded card boundary. Four smooth crisp rounded corners and narrow completely EMPTY true-alpha transparent exterior. Do not put black/white patches, texture, shadows or decorative borders around card. Transparency ONLY outside rounded card boundary. Keep square proportions.",
+      "sourceGenerationFile": "exec-2feab3bd-2d0c-4136-b477-a20188a94f1d.png",
+      "processing": "High quality downsampling to 352x352 PNG; alpha preserved.",
+      "files": [
+        {
+          "path": "assets/categories/دراما مصرية.png",
+          "nativePath": "android/app/src/main/assets/categories/دراما مصرية.png",
+          "reviewInitialSha256": "73a196ddb754ffcfc1ef5cd9484893a3828732c1da02e27f5eb19a60b0cf97f3",
+          "preInstallSha256": "04cd9a32815dc89dda0c3692494a1410303c255e718dbd97c8e8d58d2787d984",
+          "sha256": "50762908ddade6d60380a98f881ada2dc08b230af34fd76e47282cd50edeeb2f",
+          "reviewInitialBytes": 224039,
+          "bytes": 153956,
+          "dimensions": [
+            352,
+            352
+          ],
+          "mirrorMatches": true
+        }
+      ]
+    },
+    {
+      "title": "أفلام أجنبية",
+      "group": "legacy",
+      "generator": "built-in image_gen",
+      "referenceImage": "assets/categories/رياضة.png",
+      "prompt": "Use case: style-transfer. Asset type: full square mobile quiz category card. Input image is a STYLE AND FRAME reference only. Match its older simple FLAT 2D vector-like hand-drawn illustration with clean near-black outlines, muted warm colors and only subtle flat shading. Preserve full square rounded mint-green card with a very narrow transparent outer margin, dark teal full-width lower title strip at about the bottom fifth, white bold centered title, and small dark teal circle containing a white italic i in top left. No image or scene outside the card. No shiny 3D, glow, realistic materials, thick decorative frame or watermark. Use exact plain lettering, never an existing logo or stylized brand wordmark. Main illustration: An original ordinary clapperboard, curled filmstrip and three small decorative stars. No characters, actors, branded props or movie logos. Exact bottom title (verbatim): \"أفلام أجنبية\". No other text except the information i.",
+      "promptReconstructed": false,
+      "cleanupPrompt": "Edit target: this existing quiz category card. Keep ALL interior artwork, subject, exact title lettering, white i badge, mint background, teal bottom band, colors and square composition unchanged. Clean ONLY the outer transparent margin: remove EVERY stray white pixel, opaque speckle, detached mark and ragged patch outside the rounded card. Make a perfectly smooth clean rounded rectangular outer boundary, four smooth rounded corners and a narrow completely transparent EMPTY exterior on all sides. NO white border, halo, strokes, marks, shadows or texture outside the card. True alpha transparency outside; do not alter the inside of the card.",
+      "sourceGenerationFile": "exec-4dab2c3b-8163-44a3-9ee2-8fbcab353fbc.png",
+      "processing": "High quality downsampling to 352x352 PNG; alpha preserved.",
+      "files": [
+        {
+          "path": "assets/categories/أفلام أجنبية.png",
+          "nativePath": "android/app/src/main/assets/categories/أفلام أجنبية.png",
+          "reviewInitialSha256": "5574960399a0fddf9e5ad314b7827aa05d9fa78393ae36d70aaf520885e6046d",
+          "preInstallSha256": "5574960399a0fddf9e5ad314b7827aa05d9fa78393ae36d70aaf520885e6046d",
+          "sha256": "8c416fa6e2186e0ce13c294617f206dd3e7c057351ddc4d65e0f688eee4b17b4",
+          "reviewInitialBytes": 59870,
+          "bytes": 149534,
+          "dimensions": [
+            352,
+            352
+          ],
+          "mirrorMatches": true
+        }
+      ]
+    },
+    {
+      "title": "أفلام عربية",
+      "group": "legacy",
+      "generator": "built-in image_gen",
+      "referenceImage": "assets/categories/رياضة.png",
+      "prompt": "Use case: style-transfer. Asset type: full square mobile quiz category card. Input image is a STYLE AND FRAME reference only. Match its older simple FLAT 2D vector-like hand-drawn illustration with clean near-black outlines, muted warm colors and only subtle flat shading. Preserve full square rounded mint-green card with a very narrow transparent outer margin, dark teal full-width lower title strip at about the bottom fifth, white bold centered title, and small dark teal circle containing a white italic i in top left. No image or scene outside the card. No shiny 3D, glow, realistic materials, thick decorative frame or watermark. Use exact plain lettering, never an existing logo or stylized brand wordmark. Main illustration: An original pair of generic comedy and tragedy theater masks with a curled filmstrip. No actors, recognizable faces, movie costumes or brands. Exact bottom title (verbatim): \"أفلام عربية\". No other text except the information i.",
+      "promptReconstructed": false,
+      "cleanupPrompt": "Edit target: this existing quiz category card. Keep ALL interior artwork, subject, exact title lettering, white i badge, mint background, teal bottom band, colors and square composition unchanged. Clean ONLY the outer transparent margin: remove EVERY stray white pixel, opaque speckle, detached mark and ragged patch outside the rounded card. Make a perfectly smooth clean rounded rectangular outer boundary, four smooth rounded corners and a narrow completely transparent EMPTY exterior on all sides. NO white border, halo, strokes, marks, shadows or texture outside the card. True alpha transparency outside; do not alter the inside of the card.\n\nSecond repair: Repair this quiz card while keeping the exact title, white i, subject illustration and dark teal lower title band unchanged. Repaint ALL of the mint background area with smooth clean fully OPAQUE pastel mint green. Remove dark smudges, bluegray blotches, grain, scratches and EVERY transparent or partially transparent hole INSIDE the rounded card; the entire card interior must have alpha 255. Transparency is allowed ONLY OUTSIDE the card. Also remove ALL stray white or colored speckles and marks OUTSIDE the rounded rectangle. Four clean smooth rounded corners, crisp continuous outer edge and narrow completely EMPTY transparent exterior margin. NO white stroke, halo, border, shadow or texture outside. Keep the simple flat black-outline illustration. The background must look clean against BOTH black and white backdrops. This is an opacity and edge repair, not a redesign.",
+      "sourceGenerationFile": "exec-466fec47-e3d6-4714-91e9-7dd3c9bdabb6.png",
+      "processing": "High quality downsampling to 352x352 PNG; alpha preserved.",
+      "files": [
+        {
+          "path": "assets/categories/أفلام عربية.png",
+          "nativePath": "android/app/src/main/assets/categories/أفلام عربية.png",
+          "reviewInitialSha256": "ad5e6b68b241ef1348bab7cbbeb00fd126453da279856677728ac28e32b081f9",
+          "preInstallSha256": "ad5e6b68b241ef1348bab7cbbeb00fd126453da279856677728ac28e32b081f9",
+          "sha256": "422ade04cd45e120a411381a914e23bcc0a09329e6081583df60ba9d998a61cb",
+          "reviewInitialBytes": 88174,
+          "bytes": 141906,
+          "dimensions": [
+            352,
+            352
+          ],
+          "mirrorMatches": true
+        }
+      ]
+    },
+    {
+      "title": "أنمي",
+      "group": "legacy",
+      "generator": "built-in image_gen",
+      "referenceImage": "assets/categories/رياضة.png",
+      "prompt": "Use case: style-transfer. Asset type: full square mobile quiz category card. Input image is a STYLE AND FRAME reference only. Match its older simple FLAT 2D vector-like hand-drawn illustration with clean near-black outlines, muted warm colors and only subtle flat shading. Preserve full square rounded mint-green card with a very narrow transparent outer margin, dark teal full-width lower title strip at about the bottom fifth, white bold centered title, and small dark teal circle containing a white italic i in top left. No image or scene outside the card. No shiny 3D, glow, realistic materials, thick decorative frame or watermark. Use exact plain lettering, never an existing logo or stylized brand wordmark. Main illustration: An original open sketchbook, two drawing pencils and one very simple generic large-eye drawing study on the page. No identifiable anime character, hairstyle, straw hat, insignia, or franchise props. Exact bottom title (verbatim): \"أنمي\". No other text except the information i.",
+      "promptReconstructed": false,
+      "cleanupPrompt": "Edit target: this existing quiz category card. Keep ALL interior artwork, subject, exact title lettering, white i badge, mint background, teal bottom band, colors and square composition unchanged. Clean ONLY the outer transparent margin: remove EVERY stray white pixel, opaque speckle, detached mark and ragged patch outside the rounded card. Make a perfectly smooth clean rounded rectangular outer boundary, four smooth rounded corners and a narrow completely transparent EMPTY exterior on all sides. NO white border, halo, strokes, marks, shadows or texture outside the card. True alpha transparency outside; do not alter the inside of the card.",
+      "sourceGenerationFile": "exec-39442298-d8bd-4efc-828f-45e504a5246f.png",
+      "processing": "High quality downsampling to 352x352 PNG; alpha preserved.",
+      "files": [
+        {
+          "path": "assets/categories/أنمي.png",
+          "nativePath": "android/app/src/main/assets/categories/الأنمي.png",
+          "reviewInitialSha256": "b1123d88327cb8cb6f00a599c02514a070726406f021e9cb2e5220435b4199f7",
+          "preInstallSha256": "b1123d88327cb8cb6f00a599c02514a070726406f021e9cb2e5220435b4199f7",
+          "sha256": "b7e5facf862cee35172be80094df89ba52391615a248aaaf9d96646b86c0dab8",
+          "reviewInitialBytes": 96411,
+          "bytes": 158522,
+          "dimensions": [
+            352,
+            352
+          ],
+          "mirrorMatches": true
+        },
+        {
+          "path": "assets/categories/الأنمي.png",
+          "nativePath": "android/app/src/main/assets/categories/الأنمي.png",
+          "reviewInitialSha256": "b1123d88327cb8cb6f00a599c02514a070726406f021e9cb2e5220435b4199f7",
+          "preInstallSha256": "b1123d88327cb8cb6f00a599c02514a070726406f021e9cb2e5220435b4199f7",
+          "sha256": "b7e5facf862cee35172be80094df89ba52391615a248aaaf9d96646b86c0dab8",
+          "reviewInitialBytes": 96411,
+          "bytes": 158522,
+          "dimensions": [
+            352,
+            352
+          ],
+          "mirrorMatches": true
+        }
+      ]
+    },
+    {
+      "title": "سبيس تون",
+      "group": "legacy",
+      "generator": "built-in image_gen",
+      "referenceImage": "assets/categories/رياضة.png",
+      "prompt": "Use case: style-transfer. Asset type: full square mobile quiz category card. Input image is a STYLE AND FRAME reference only. Match its older simple FLAT 2D vector-like hand-drawn illustration with clean near-black outlines, muted warm colors and only subtle flat shading. Preserve full square rounded mint-green card with a very narrow transparent outer margin, dark teal full-width lower title strip at about the bottom fifth, white bold centered title, and small dark teal circle containing a white italic i in top left. No image or scene outside the card. No shiny 3D, glow, realistic materials, thick decorative frame or watermark. Use exact plain lettering, never an existing logo or stylized brand wordmark. Main illustration: original generic rocket, ringed planet and stars. No Spacetoon logo, wordmark, characters or recognizable franchise props. Exact bottom title (verbatim): \"سبيس تون\". No other text except the information i.",
+      "promptReconstructed": true,
+      "cleanupPrompt": "Edit target: this existing quiz category card. Keep ALL interior artwork, subject, exact title lettering, white i badge, mint background, teal bottom band, colors and square composition unchanged. Clean ONLY the outer transparent margin: remove EVERY stray white pixel, opaque speckle, detached mark and ragged patch outside the rounded card. Make a perfectly smooth clean rounded rectangular outer boundary, four smooth rounded corners and a narrow completely transparent EMPTY exterior on all sides. NO white border, halo, strokes, marks, shadows or texture outside the card. True alpha transparency outside; do not alter the inside of the card.\n\nSecond repair: Repair this quiz card while keeping the exact title, white i, subject illustration and dark teal lower title band unchanged. Repaint ALL of the mint background area with smooth clean fully OPAQUE pastel mint green. Remove dark smudges, bluegray blotches, grain, scratches and EVERY transparent or partially transparent hole INSIDE the rounded card; the entire card interior must have alpha 255. Transparency is allowed ONLY OUTSIDE the card. Also remove ALL stray white or colored speckles and marks OUTSIDE the rounded rectangle. Four clean smooth rounded corners, crisp continuous outer edge and narrow completely EMPTY transparent exterior margin. NO white stroke, halo, border, shadow or texture outside. Keep the simple flat black-outline illustration. The background must look clean against BOTH black and white backdrops. This is an opacity and edge repair, not a redesign.\n\nFinal background extraction: Use case: background-extraction. Input is a completed rectangular quiz card on a flat MAGENTA backdrop. Remove ONLY the solid bright MAGENTA exterior outside the rounded rectangular card. Keep the ENTIRE rounded rectangular mint-and-teal card as ONE solid opaque object. All pixels INSIDE its smooth rounded outline, including the whole pale mint panel, MUST stay opaque and unchanged. The mint panel is part of the card, NOT a background to remove. Preserve the exact Arabic title سبيس تون, rocket, planet, stars, info i, colors, shading, size and positions. Do not remove any mint pixels or make holes inside the card. Only the MAGENTA outer area becomes fully transparent alpha. Clean smooth rounded boundary, no stray magenta or white pixels. This is a precise cutout of the whole card, not a cutout of the rocket/planet.",
+      "sourceGenerationFile": "exec-79529cff-1af9-4b47-8c23-e43454bd9cfc.png",
+      "processing": "High quality downsampling to 352x352 PNG; alpha preserved.",
+      "files": [
+        {
+          "path": "assets/categories/سبيس تون.png",
+          "nativePath": "android/app/src/main/assets/categories/سبيس تون.png",
+          "reviewInitialSha256": "db38258fc803b66c0515dbf195d4a452aac75da880b265d2c7d1d8adcc10c7a7",
+          "preInstallSha256": "db38258fc803b66c0515dbf195d4a452aac75da880b265d2c7d1d8adcc10c7a7",
+          "sha256": "f6d8c66e3846605c2f3f0b725f813620974e5dea5a45fe903deba2f63c447691",
+          "reviewInitialBytes": 96253,
+          "bytes": 152383,
+          "dimensions": [
+            352,
+            352
+          ],
+          "mirrorMatches": true
+        }
+      ]
+    },
+    {
+      "title": "مسلسل Friends",
+      "group": "legacy",
+      "generator": "built-in image_gen",
+      "referenceImage": "assets/categories/رياضة.png",
+      "prompt": "Use case: style-transfer. Asset type: full square mobile quiz category card. Input image 1 is STYLE AND FRAME reference only. Create exactly one card matching its older simple FLAT 2D vector-like illustration: near-black outlines, muted warm colors, subtle flat shading, mint green background, dark teal full-width bottom title strip occupying about the lower fifth, exact white bold centered plain title, and small white italic i inside a dark teal circle at top-left. Rounded card shape with very narrow empty transparent exterior. Entire interior must be fully OPAQUE, including all mint background and title strip: NO transparency holes or blotches inside the card. Four clean smooth corners and crisp edges. Exterior must be completely empty alpha: NO stray white pixels, speckles, detached marks, white border, halo, shadow or texture outside the card. No shiny 3D, photorealism, inset frame or watermark. Main illustration: A completely ordinary plain teal-blue sofa, two ordinary mugs, and a simple rectangular apartment window. NO orange couch, NO purple door, NO yellow peephole frame, no cast, no character likenesses, no dotted Friends wordmark, no recognizable television set. Title in ordinary plain text only. Exact bottom title (verbatim): \"مسلسل Friends\". No other text except small i. Plain white typography, never a protected wordmark.",
+      "promptReconstructed": false,
+      "cleanupPrompt": null,
+      "sourceGenerationFile": "exec-aff3ea0b-678b-43a2-8c81-664423c40f7c.png",
+      "processing": "High quality downsampling to 352x352 PNG; alpha preserved.",
+      "files": [
+        {
+          "path": "assets/categories/مسلسل Friends.png",
+          "nativePath": "android/app/src/main/assets/categories/مسلسل Friends.png",
+          "reviewInitialSha256": "90bc080883e8577bcd1c9c12aea60ddf12c12ce54ddf4fdf4b546eb129e2b5e5",
+          "preInstallSha256": "90bc080883e8577bcd1c9c12aea60ddf12c12ce54ddf4fdf4b546eb129e2b5e5",
+          "sha256": "8282a1b29357de7a0951f5bf226ed13692b0a842df66f7f13e8dcf5d5ae19320",
+          "reviewInitialBytes": 102649,
+          "bytes": 149524,
+          "dimensions": [
+            352,
+            352
+          ],
+          "mirrorMatches": true
+        }
+      ]
+    },
+    {
+      "title": "مسلسلات أجنبية",
+      "group": "legacy",
+      "generator": "built-in image_gen",
+      "referenceImage": "assets/categories/رياضة.png",
+      "prompt": "Use case: style-transfer. Asset type: full square mobile quiz category card. Input image 1 is STYLE AND FRAME reference only. Create exactly one card matching its older simple FLAT 2D vector-like illustration: near-black outlines, muted warm colors, subtle flat shading, mint green background, dark teal full-width bottom title strip occupying about the lower fifth, exact white bold centered plain title, and small white italic i inside a dark teal circle at top-left. Rounded card shape with very narrow empty transparent exterior. Entire interior must be fully OPAQUE, including all mint background and title strip: NO transparency holes or blotches inside the card. Four clean smooth corners and crisp edges. Exterior must be completely empty alpha: NO stray white pixels, speckles, detached marks, white border, halo, shadow or texture outside the card. No shiny 3D, photorealism, inset frame or watermark. Main illustration: An original generic old television and plain remote control. Screen contains a simple geometric zigzag, not any scene or person. No actors, characters, brands, series logos or recognizable scenes. Exact bottom title (verbatim): \"مسلسلات أجنبية\". No other text except small i. Plain white typography, never a protected wordmark.",
+      "promptReconstructed": false,
+      "cleanupPrompt": null,
+      "sourceGenerationFile": "exec-79152512-9c05-408f-b3b0-7e0a3c8b4229.png",
+      "processing": "High quality downsampling to 352x352 PNG; alpha preserved.",
+      "files": [
+        {
+          "path": "assets/categories/مسلسلات أجنبية.png",
+          "nativePath": "android/app/src/main/assets/categories/مسلسلات أجنبية.png",
+          "reviewInitialSha256": "512b91baa3df7b79bb2558f53a0752f65bf60d6b10d5cd5eb1b6486721126e5c",
+          "preInstallSha256": "512b91baa3df7b79bb2558f53a0752f65bf60d6b10d5cd5eb1b6486721126e5c",
+          "sha256": "2e7be768a126d57a64c17b1d4d49d84dab13bd340bbccb7bc20a3e0634def617",
+          "reviewInitialBytes": 60268,
+          "bytes": 152950,
+          "dimensions": [
+            352,
+            352
+          ],
+          "mirrorMatches": true
+        }
+      ]
+    },
+    {
+      "title": "مسلسلات عربية",
+      "group": "legacy",
+      "generator": "built-in image_gen",
+      "referenceImage": "assets/categories/رياضة.png",
+      "prompt": "Use case: style-transfer. Asset type: full square mobile quiz category card. Input image 1 is STYLE AND FRAME reference only. Create exactly one card matching its older simple FLAT 2D vector-like illustration: near-black outlines, muted warm colors, subtle flat shading, mint green background, dark teal full-width bottom title strip occupying about the lower fifth, exact white bold centered plain title, and small white italic i inside a dark teal circle at top-left. Rounded card shape with very narrow empty transparent exterior. Entire interior must be fully OPAQUE, including all mint background and title strip: NO transparency holes or blotches inside the card. Four clean smooth corners and crisp edges. Exterior must be completely empty alpha: NO stray white pixels, speckles, detached marks, white border, halo, shadow or texture outside the card. No shiny 3D, photorealism, inset frame or watermark. Main illustration: An original ordinary television beside a simple arched window with a small plant. No actors, characters, logos or recognizable television sets. Exact bottom title (verbatim): \"مسلسلات عربية\". No other text except small i. Plain white typography, never a protected wordmark.",
+      "promptReconstructed": false,
+      "cleanupPrompt": null,
+      "sourceGenerationFile": "exec-e1e26c82-5d5e-4d0e-8f81-caf6f752dd34.png",
+      "processing": "High quality downsampling to 352x352 PNG; alpha preserved.",
+      "files": [
+        {
+          "path": "assets/categories/مسلسلات عربية.png",
+          "nativePath": "android/app/src/main/assets/categories/مسلسلات عربية.png",
+          "reviewInitialSha256": "d3b3f773ca597cfb916c32dba76256a97511ac3fa885cc64bcf823f87ea89aaf",
+          "preInstallSha256": "d3b3f773ca597cfb916c32dba76256a97511ac3fa885cc64bcf823f87ea89aaf",
+          "sha256": "cbd9cc63e878ae1f9882791963a3cdd0d0f57952b4970f32ebfb8adbc739cd79",
+          "reviewInitialBytes": 84159,
+          "bytes": 154683,
+          "dimensions": [
+            352,
+            352
+          ],
+          "mirrorMatches": true
+        }
+      ]
+    },
+    {
+      "title": "فيروز",
+      "group": "legacy",
+      "generator": "built-in image_gen",
+      "referenceImage": "assets/categories/رياضة.png",
+      "prompt": "Use case: style-transfer. Asset type: full square mobile quiz category card. Input image 1 is STYLE AND FRAME reference only. Create exactly one card matching its older simple FLAT 2D vector-like illustration: near-black outlines, muted warm colors, subtle flat shading, mint green background, dark teal full-width bottom title strip occupying about the lower fifth, exact white bold centered plain title, and small white italic i inside a dark teal circle at top-left. Rounded card shape with very narrow empty transparent exterior. Entire interior must be fully OPAQUE, including all mint background and title strip: NO transparency holes or blotches inside the card. Four clean smooth corners and crisp edges. Exterior must be completely empty alpha: NO stray white pixels, speckles, detached marks, white border, halo, shadow or texture outside the card. No shiny 3D, photorealism, inset frame or watermark. Main illustration: An original generic vintage microphone beside a jasmine branch and three small musical notes. NO human portrait, face, person, singer likeness, photographs, logos or calligraphy emblems. Exact bottom title (verbatim): \"فيروز\". No other text except small i. Plain white typography, never a protected wordmark.",
+      "promptReconstructed": false,
+      "cleanupPrompt": null,
+      "sourceGenerationFile": "exec-aec84872-f592-4bfc-b557-79085b7e9778.png",
+      "processing": "High quality downsampling to 352x352 PNG; alpha preserved.",
+      "files": [
+        {
+          "path": "assets/categories/فيروز.png",
+          "nativePath": "android/app/src/main/assets/categories/فيروز.png",
+          "reviewInitialSha256": "c825549387262ff41137ce0311609eb22ea8ca1d1c031d29dd5a8c46c1c90f5a",
+          "preInstallSha256": "c825549387262ff41137ce0311609eb22ea8ca1d1c031d29dd5a8c46c1c90f5a",
+          "sha256": "fbc3193416bc7369cc55a6e5122e4ed0204f847b34cec19dabd2250cb18ee542",
+          "reviewInitialBytes": 171055,
+          "bytes": 162844,
+          "dimensions": [
+            352,
+            352
+          ],
+          "mirrorMatches": true
+        }
+      ]
+    },
+    {
+      "title": "كلثوميات",
+      "group": "legacy",
+      "generator": "built-in image_gen",
+      "referenceImage": "assets/categories/رياضة.png",
+      "prompt": "Use case: style-transfer. Asset type: full square mobile quiz category card. Input image 1 is STYLE AND FRAME reference only. Create exactly one card matching its older simple FLAT 2D vector-like illustration: near-black outlines, muted warm colors, subtle flat shading, mint green background, dark teal full-width bottom title strip occupying about the lower fifth, exact white bold centered plain title, and small white italic i inside a dark teal circle at top-left. Rounded card shape with very narrow empty transparent exterior. Entire interior must be fully OPAQUE, including all mint background and title strip: NO transparency holes or blotches inside the card. Four clean smooth corners and crisp edges. Exterior must be completely empty alpha: NO stray white pixels, speckles, detached marks, white border, halo, shadow or texture outside the card. No shiny 3D, photorealism, inset frame or watermark. Main illustration: An original generic oud and a vintage microphone with a few small musical notes. NO human portrait, face, person, singer likeness, glasses, photographs, logos or calligraphy emblems. Exact bottom title (verbatim): \"كلثوميات\". No other text except small i. Plain white typography, never a protected wordmark.",
+      "promptReconstructed": false,
+      "cleanupPrompt": null,
+      "sourceGenerationFile": "exec-2c639118-224f-418b-96b4-f773d345d53d.png",
+      "processing": "High quality downsampling to 352x352 PNG; alpha preserved.",
+      "files": [
+        {
+          "path": "assets/categories/كلثوميات.png",
+          "nativePath": "android/app/src/main/assets/categories/كلثوميات.png",
+          "reviewInitialSha256": "98437c4cf23b824501414cd9ed10bdc3b8f7ba190e79ac4691c4a9aed12534c5",
+          "preInstallSha256": "98437c4cf23b824501414cd9ed10bdc3b8f7ba190e79ac4691c4a9aed12534c5",
+          "sha256": "245d8889b7fa2e5b1da715b4a49f04900f1ae5900afa36f8ed1ed27b25c3a1e1",
+          "reviewInitialBytes": 89538,
+          "bytes": 166012,
+          "dimensions": [
+            352,
+            352
+          ],
+          "mirrorMatches": true
+        }
+      ]
+    },
+    {
+      "title": "كأس العالم",
+      "group": "legacy",
+      "generator": "built-in image_gen",
+      "referenceImage": "assets/categories/رياضة.png",
+      "prompt": "Use case: style-transfer. Asset type: full square mobile quiz category card. Input image 1 is STYLE AND FRAME reference only. Create exactly one card matching its older simple FLAT 2D vector-like illustration: near-black outlines, muted warm colors, subtle flat shading, mint green background, dark teal full-width bottom title strip occupying about the lower fifth, exact white bold centered plain title, and small white italic i inside a dark teal circle at top-left. Rounded card shape with very narrow empty transparent exterior. Entire interior must be fully OPAQUE, including all mint background and title strip: NO transparency holes or blotches inside the card. Four clean smooth corners and crisp edges. Exterior must be completely empty alpha: NO stray white pixels, speckles, detached marks, white border, halo, shadow or texture outside the card. No shiny 3D, photorealism, inset frame or watermark. Main illustration: An ordinary black-and-white football beside a simple geographic globe and one plain round gold medal. NO trophy/cup, no official ball pattern, no brand, team, FIFA or World Cup logo. Exact bottom title (verbatim): \"كأس العالم\". No other text except small i. Plain white typography, never a protected wordmark.",
+      "promptReconstructed": false,
+      "cleanupPrompt": "Repair this quiz card while keeping the exact title, white i, subject illustration and dark teal lower title band unchanged. Repaint ALL of the mint background area with smooth clean fully OPAQUE pastel mint green. Remove dark smudges, bluegray blotches, grain, scratches and EVERY transparent or partially transparent hole INSIDE the rounded card; the entire card interior must have alpha 255. Transparency is allowed ONLY OUTSIDE the card. Also remove ALL stray white or colored speckles and marks OUTSIDE the rounded rectangle. Four clean smooth rounded corners, crisp continuous outer edge and narrow completely EMPTY transparent exterior margin. NO white stroke, halo, border, shadow or texture outside. Keep the simple flat black-outline illustration. The background must look clean against BOTH black and white backdrops. This is an opacity and edge repair, not a redesign.",
+      "sourceGenerationFile": "exec-c1945449-5a99-4fd8-a6f0-51e23d767d79.png",
+      "processing": "High quality downsampling to 352x352 PNG; alpha preserved.",
+      "files": [
+        {
+          "path": "assets/categories/كأس العالم.png",
+          "nativePath": "android/app/src/main/assets/categories/كأس العالم .png",
+          "reviewInitialSha256": "6f57bc93ada050c372dd64f6d0cc52a88dae7cae2f19e73e8d23f8b9fa86dfd8",
+          "preInstallSha256": "6f57bc93ada050c372dd64f6d0cc52a88dae7cae2f19e73e8d23f8b9fa86dfd8",
+          "sha256": "4cf0cc648881ed2a4119508cc326dfc2130b516a6a5acc9a01f9f58511aa2d90",
+          "reviewInitialBytes": 79368,
+          "bytes": 147954,
+          "dimensions": [
+            352,
+            352
+          ],
+          "mirrorMatches": true
+        },
+        {
+          "path": "assets/categories/كأس العالم .png",
+          "nativePath": "android/app/src/main/assets/categories/كأس العالم .png",
+          "reviewInitialSha256": "6f57bc93ada050c372dd64f6d0cc52a88dae7cae2f19e73e8d23f8b9fa86dfd8",
+          "preInstallSha256": "6f57bc93ada050c372dd64f6d0cc52a88dae7cae2f19e73e8d23f8b9fa86dfd8",
+          "sha256": "4cf0cc648881ed2a4119508cc326dfc2130b516a6a5acc9a01f9f58511aa2d90",
+          "reviewInitialBytes": 79368,
+          "bytes": 147954,
+          "dimensions": [
+            352,
+            352
+          ],
+          "mirrorMatches": true
+        }
+      ]
+    }
+  ],
+  "retained": [
+    {
+      "title": "لاعبين كرة قدم",
+      "path": "assets/categories/لاعبين كرة قدم.png",
+      "dimensions": [
+        352,
+        352
+      ],
+      "sha256": "e460d6f98f5a08d293b609e2273c41125f547d1062ad4cdef799faa09de67820",
+      "unchanged": true,
+      "mirrorMatches": true
+    },
+    {
+      "title": "مسيرة لاعب",
+      "path": "assets/categories/مسيرة لاعب.png",
+      "dimensions": [
+        200,
+        200
+      ],
+      "sha256": "1b4b34f082d27dbd4f4e01699ff769d9ef777206612f0458899e5e43c1a00a30",
+      "unchanged": true,
+      "mirrorMatches": true
+    }
+  ]
+}

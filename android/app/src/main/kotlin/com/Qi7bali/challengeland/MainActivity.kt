@@ -16,10 +16,13 @@ import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.StandardMethodCodec
 
 class MainActivity : FlutterActivity() {
-    private val campaignMapMusicVolume = GameAudioProfile.musicVolume(R.raw.sneaky_snitch)
+    private val campaignMapMusicVolume = GameAudioProfile.musicVolume(R.raw.labyrinth_of_lost_dreams)
+    private val lobbyMusicVolume = GameAudioProfile.musicVolume(R.raw.bgm_lobby)
 
     private var pendingLaunchAction: String? = null
     private var campaignMapMusicPlayer: MediaPlayer? = null
+    private var lobbyMusicPlayer: MediaPlayer? = null
+    private var activeMusicScene: String = "NONE"
     private var playBillingManager: PlayBillingManager? = null
     private val referralAttribution by lazy { ReferralAttribution(applicationContext) }
 
@@ -30,6 +33,7 @@ class MainActivity : FlutterActivity() {
         GameViewportActivity.configureWindow(window)
         DuelNotifications.initialize(this)
         PlayerPresence.initialize(application)
+        AppSoundEffects.init(this)
         handleIntentData(intent)
         try { referralAttribution.start() } catch (_: Exception) { /* Manual referral entry remains available. */ }
         syncDailyReminderSchedule()
@@ -40,17 +44,27 @@ class MainActivity : FlutterActivity() {
         DuelNotifications.resume(this)
         syncDailyReminderSchedule()
         GameEconomy.flush(this)
+        if (AppPrefs.isMusicEnabled(this)) {
+            if (activeMusicScene == "LOBBY") {
+                playLobbyMusic()
+            } else if (activeMusicScene == "CAMPAIGN_MAP") {
+                playCampaignMapMusic()
+            }
+        }
     }
 
     override fun onDestroy() {
         referralAttribution.close()
         playBillingManager?.close()
         stopCampaignMapMusic()
+        stopLobbyMusic()
+        AppSoundEffects.release()
         super.onDestroy()
     }
 
     override fun onPause() {
-        stopCampaignMapMusic()
+        stopCampaignMapMusicPlayerOnly()
+        stopLobbyMusicPlayerOnly()
         super.onPause()
     }
 
@@ -372,6 +386,14 @@ class MainActivity : FlutterActivity() {
                     }
                     "stopCampaignMapMusic" -> {
                         stopCampaignMapMusic()
+                        result.success(true)
+                    }
+                    "playLobbyMusic" -> {
+                        playLobbyMusic()
+                        result.success(true)
+                    }
+                    "stopLobbyMusic" -> {
+                        stopLobbyMusic()
                         result.success(true)
                     }
                     "getUserCurrency" -> {
@@ -819,6 +841,16 @@ class MainActivity : FlutterActivity() {
                     "setMusicEnabled" -> {
                         val enabled = call.argument<Boolean>("enabled") ?: false
                         AppPrefs.setMusicEnabled(this, enabled)
+                        if (!enabled) {
+                            stopCampaignMapMusicPlayerOnly()
+                            stopLobbyMusicPlayerOnly()
+                        } else {
+                            if (activeMusicScene == "LOBBY") {
+                                playLobbyMusic()
+                            } else if (activeMusicScene == "CAMPAIGN_MAP") {
+                                playCampaignMapMusic()
+                            }
+                        }
                         result.success(true)
                     }
                     "setHapticEnabled" -> {
@@ -837,6 +869,11 @@ class MainActivity : FlutterActivity() {
                         } else {
                             false
                         }
+                        result.success(played)
+                    }
+                    "playSoundEffect" -> {
+                        val effect = call.argument<String>("effect") ?: "click"
+                        val played = AppSoundEffects.play(this, effect)
                         result.success(played)
                     }
                     "setNotificationsEnabled" -> {
@@ -1183,21 +1220,83 @@ class MainActivity : FlutterActivity() {
     }
     }
 
-    private fun playCampaignMapMusic() {
+    private fun playLobbyMusic() {
+        activeMusicScene = "LOBBY"
+        stopCampaignMapMusicPlayerOnly()
         if (!AppPrefs.isMusicEnabled(this)) {
-            stopCampaignMapMusic()
+            stopLobbyMusicPlayerOnly()
+            return
+        }
+        val current = lobbyMusicPlayer
+        if (current != null) {
+            try {
+                if (current.isPlaying) return
+                current.start()
+                return
+            } catch (ignored: Exception) {
+                stopLobbyMusicPlayerOnly()
+            }
+        }
+        stopLobbyMusicPlayerOnly()
+        lobbyMusicPlayer = MediaPlayer.create(this, R.raw.bgm_lobby)?.apply {
+            isLooping = true
+            setVolume(lobbyMusicVolume, lobbyMusicVolume)
+            setOnErrorListener { player, _, _ ->
+                try {
+                    player.release()
+                } catch (ignored: Exception) {
+                }
+                if (lobbyMusicPlayer === player) {
+                    lobbyMusicPlayer = null
+                }
+                true
+            }
+            start()
+        }
+    }
+
+    private fun stopLobbyMusic() {
+        if (activeMusicScene == "LOBBY") {
+            activeMusicScene = "NONE"
+        }
+        stopLobbyMusicPlayerOnly()
+    }
+
+    private fun stopLobbyMusicPlayerOnly() {
+        val player = lobbyMusicPlayer
+        lobbyMusicPlayer = null
+        if (player == null) return
+        try {
+            if (player.isPlaying) {
+                player.stop()
+            }
+        } catch (ignored: Exception) {
+        }
+        try {
+            player.release()
+        } catch (ignored: Exception) {
+        }
+    }
+
+    private fun playCampaignMapMusic() {
+        activeMusicScene = "CAMPAIGN_MAP"
+        stopLobbyMusicPlayerOnly()
+        if (!AppPrefs.isMusicEnabled(this)) {
+            stopCampaignMapMusicPlayerOnly()
             return
         }
         val current = campaignMapMusicPlayer
         if (current != null) {
             try {
                 if (current.isPlaying) return
+                current.start()
+                return
             } catch (ignored: Exception) {
-                stopCampaignMapMusic()
+                stopCampaignMapMusicPlayerOnly()
             }
         }
-        stopCampaignMapMusic()
-        campaignMapMusicPlayer = MediaPlayer.create(this, R.raw.sneaky_snitch)?.apply {
+        stopCampaignMapMusicPlayerOnly()
+        campaignMapMusicPlayer = MediaPlayer.create(this, R.raw.labyrinth_of_lost_dreams)?.apply {
             isLooping = true
             setVolume(campaignMapMusicVolume, campaignMapMusicVolume)
             setOnErrorListener { player, _, _ ->
@@ -1215,6 +1314,13 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun stopCampaignMapMusic() {
+        if (activeMusicScene == "CAMPAIGN_MAP") {
+            activeMusicScene = "NONE"
+        }
+        stopCampaignMapMusicPlayerOnly()
+    }
+
+    private fun stopCampaignMapMusicPlayerOnly() {
         val player = campaignMapMusicPlayer
         campaignMapMusicPlayer = null
         if (player == null) return

@@ -11,6 +11,7 @@ import 'package:provider/provider.dart';
 
 import 'core/app_state.dart';
 import 'core/app_settings.dart';
+import 'core/third_party_licenses.dart';
 import 'core/shared_assets.dart';
 import 'core/campaign_navigation.dart';
 import 'screens/auth/auth_gate.dart';
@@ -32,6 +33,7 @@ import 'widgets/game_notice.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  ThirdPartyLicenses.register();
   final adService = AdService();
   runApp(DefaultAssetBundle(
       bundle: SharedAssets.bundle,
@@ -212,6 +214,7 @@ class _ChallengeLandAppState extends State<ChallengeLandApp> {
             ),
             filledButtonTheme: FilledButtonThemeData(
               style: FilledButton.styleFrom(
+                enableFeedback: false,
                 backgroundColor: const Color(0xFF6D28D9),
                 foregroundColor: Colors.white,
                 textStyle: const TextStyle(fontWeight: FontWeight.w800),
@@ -221,10 +224,26 @@ class _ChallengeLandAppState extends State<ChallengeLandApp> {
             ),
             outlinedButtonTheme: OutlinedButtonThemeData(
               style: OutlinedButton.styleFrom(
+                enableFeedback: false,
                 foregroundColor: Colors.white,
                 side: BorderSide(color: Colors.white.withValues(alpha: 0.22)),
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(18)),
+              ),
+            ),
+            elevatedButtonTheme: ElevatedButtonThemeData(
+              style: ElevatedButton.styleFrom(
+                enableFeedback: false,
+              ),
+            ),
+            textButtonTheme: TextButtonThemeData(
+              style: TextButton.styleFrom(
+                enableFeedback: false,
+              ),
+            ),
+            iconButtonTheme: IconButtonThemeData(
+              style: IconButton.styleFrom(
+                enableFeedback: false,
               ),
             ),
           ),

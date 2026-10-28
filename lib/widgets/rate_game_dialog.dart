@@ -66,6 +66,7 @@ class _RateGameDialogState extends State<RateGameDialog>
   bool get _isPositiveRating => _selectedStars >= 4;
 
   void _onStarTap(int stars) {
+    AppSettings.playClick();
     HapticFeedback.selectionClick();
     try {
       context.read<AppSettings>().playHaptic(style: 'light');
@@ -77,6 +78,7 @@ class _RateGameDialogState extends State<RateGameDialog>
   }
 
   Future<void> _handlePositiveSubmit() async {
+    AppSettings.playClick();
     HapticFeedback.heavyImpact();
     try {
       context.read<AppSettings>().playHaptic(style: 'heavy');
@@ -126,6 +128,7 @@ class _RateGameDialogState extends State<RateGameDialog>
   }
 
   Future<void> _handleFeedbackSubmit() async {
+    AppSettings.playClick();
     if (_feedbackSubmitted) return;
     HapticFeedback.mediumImpact();
     setState(() => _submitting = true);
@@ -253,6 +256,7 @@ class _RateGameDialogState extends State<RateGameDialog>
                   top: 10,
                   child: GestureDetector(
                     onTap: () {
+                      AppSettings.playClick();
                       HapticFeedback.lightImpact();
                       Navigator.of(context).pop();
                     },
@@ -764,6 +768,7 @@ class _RateGameDialogState extends State<RateGameDialog>
         // زر التخطي / لاحقاً
         GestureDetector(
           onTap: () {
+            AppSettings.playClick();
             HapticFeedback.lightImpact();
             Navigator.of(context).pop();
           },
@@ -810,6 +815,7 @@ class _RateGameDialogState extends State<RateGameDialog>
             final isSelected = _selectedTags.contains(tag);
             return GestureDetector(
               onTap: () {
+                AppSettings.playClick();
                 HapticFeedback.selectionClick();
                 setState(() {
                   if (isSelected) {
@@ -938,7 +944,10 @@ class _RateGameDialogState extends State<RateGameDialog>
             ),
             const SizedBox(width: 8),
             TextButton(
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () {
+                AppSettings.playClick();
+                Navigator.of(context).pop();
+              },
               style: TextButton.styleFrom(
                 foregroundColor: Colors.white60,
                 padding:

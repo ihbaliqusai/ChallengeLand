@@ -180,17 +180,14 @@ public class LocalTeamsGamesActivity extends GameViewportActivity {
         header.setGravity(Gravity.CENTER_VERTICAL);
         header.setPadding(0, dpx(2), 0, dpx(2));
 
-        // 1. زر العودة الدائري الفاخر
-        ImageView backBtn = new ImageView(this);
-        backBtn.setImageResource(R.drawable.ic_main_challenge_back);
-        backBtn.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        GameBackButton backBtn = new GameBackButton(this);
         applyPressEffect(backBtn, new Runnable() {
             @Override
             public void run() {
                 finish();
             }
         });
-        header.addView(backBtn, new LinearLayout.LayoutParams(dpx(44), dpx(44)));
+        header.addView(backBtn, new LinearLayout.LayoutParams(dpx(48), dpx(48)));
 
         // 2. ميدالية التاج الذهبية الفخمة
         ImageView crownEmblem = new ImageView(this);
@@ -594,6 +591,7 @@ public class LocalTeamsGamesActivity extends GameViewportActivity {
             tvCodeChip.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
+                    AppSoundEffects.click(v.getContext());
                     showTvCodeDialog(tvCode, teamA + " ضد " + teamB);
                 }
             });
@@ -1071,6 +1069,7 @@ public class LocalTeamsGamesActivity extends GameViewportActivity {
             copyBtn.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
+                    AppSoundEffects.click(v.getContext());
                     ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
                     if (clipboard != null) {
                         ClipData clip = ClipData.newPlainText(
@@ -1094,6 +1093,7 @@ public class LocalTeamsGamesActivity extends GameViewportActivity {
         closeBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                AppSoundEffects.click(v.getContext());
                 dialog.dismiss();
             }
         });
@@ -1198,6 +1198,7 @@ public class LocalTeamsGamesActivity extends GameViewportActivity {
         confirmBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                AppSoundEffects.click(v.getContext());
                 dialog.dismiss();
                 if (onConfirm != null) onConfirm.run();
             }
@@ -1215,6 +1216,7 @@ public class LocalTeamsGamesActivity extends GameViewportActivity {
         cancelBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                AppSoundEffects.click(v.getContext());
                 dialog.dismiss();
             }
         });

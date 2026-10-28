@@ -1,3 +1,4 @@
+import '../../widgets/game_back_button.dart';
 import '../../widgets/game_notice.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -5,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/campaign_stage.dart';
 import '../../models/stage_progress.dart';
+import '../../core/app_settings.dart';
 import '../../core/app_state.dart';
 import '../../models/store_catalog.dart';
 import '../home/store_screen.dart';
@@ -385,10 +387,7 @@ class _TopBar extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
       child: Row(
         children: [
-          _GlassCircleButton(
-            icon: Icons.arrow_forward_rounded,
-            onPressed: onBack,
-          ),
+          GameBackButton(onPressed: onBack),
           const SizedBox(width: 12),
           const Expanded(
             child: Text(
@@ -1335,7 +1334,12 @@ class _BottomBar extends StatelessWidget {
             final compact = constraints.maxWidth < 360 ||
                 MediaQuery.textScalerOf(context).scale(16) > 22;
             final start = FilledButton.icon(
-              onPressed: launching ? null : onStart,
+              onPressed: launching
+                  ? null
+                  : () {
+                      AppSettings.playClick();
+                      onStart();
+                    },
               icon: launching
                   ? const SizedBox(
                       width: 20,
@@ -1357,7 +1361,12 @@ class _BottomBar extends StatelessWidget {
               ),
             );
             final map = TextButton.icon(
-              onPressed: launching ? null : onMap,
+              onPressed: launching
+                  ? null
+                  : () {
+                      AppSettings.playClick();
+                      onMap();
+                    },
               icon: const Icon(Icons.map_rounded, size: 20),
               label: const Text('الخريطة'),
               style: TextButton.styleFrom(
@@ -1382,45 +1391,6 @@ class _BottomBar extends StatelessWidget {
         ),
       );
 }
-// ── Shared Glass Circle Button ────────────────────────────────────────────────
-
-class _GlassCircleButton extends StatelessWidget {
-  const _GlassCircleButton({required this.icon, required this.onPressed});
-
-  final IconData icon;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: onPressed,
-        child: Container(
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: const Color(0xFF06143D).withValues(alpha: 0.65),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.22),
-              width: 1.2,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.2),
-                blurRadius: 8,
-              ),
-            ],
-          ),
-          child: Icon(icon, color: Colors.white, size: 22),
-        ),
-      ),
-    );
-  }
-}
-
 // ── Loading Overlay ───────────────────────────────────────────────────────────
 
 class _BlockingLoadingOverlay extends StatelessWidget {

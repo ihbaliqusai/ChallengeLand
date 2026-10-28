@@ -498,7 +498,7 @@ public abstract class BaseGameActivity extends GameViewportActivity implements P
         });
 
         person = new Person((RelativeLayout) (findViewById(R.id.rlyPerson)));
-        playSound(R.raw.main_theme_320bit_chosic, false, true);
+        playSound(GameAudioProfile.gameplayMusic(), false, true);
 
         if (modeOnline) {
             if (Data.isNetworkAvailable(BaseGameActivity.this)) {
@@ -1050,8 +1050,12 @@ public abstract class BaseGameActivity extends GameViewportActivity implements P
     }
 
     private void gameHaptic(View view) {
-        if (view != null && AppPrefs.isHapticEnabled(this)) {
-            AppHaptics.light(this);
+        if (view != null) {
+            view.setSoundEffectsEnabled(false);
+            if (AppPrefs.isHapticEnabled(this)) {
+                AppHaptics.light(this);
+            }
+            AppSoundEffects.click(this);
         }
     }
 

@@ -76,6 +76,7 @@ public class WinnerActivity extends GameViewportActivity {
         (findViewById(R.id.imgHome)).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                AppSoundEffects.click(view.getContext());
                 showInterstitialAd();
             }
         });

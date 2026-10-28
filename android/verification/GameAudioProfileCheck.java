@@ -14,13 +14,13 @@ public final class GameAudioProfileCheck {
             check(music != R.raw.s_1000000 && music != R.raw.main_theme_4,
                     "Question background must never be a victory cue");
         }
-        check(GameAudioProfile.questionMusic(4) == R.raw.main_theme_0, "Opening questions stay calm");
-        check(GameAudioProfile.questionMusic(5) == R.raw.main_theme_1, "Second band begins at question 6");
-        check(GameAudioProfile.questionMusic(9) == R.raw.main_theme_1, "Second band ends at question 10");
-        check(GameAudioProfile.questionMusic(10) == R.raw.s_64000, "Final band begins at question 11");
-        check(GameAudioProfile.boardQuestionMusic(200) == R.raw.main_theme_0, "200-point board music");
-        check(GameAudioProfile.boardQuestionMusic(400) == R.raw.main_theme_1, "400-point board music");
-        check(GameAudioProfile.boardQuestionMusic(600) == R.raw.s_64000, "600-point board music");
+        check(GameAudioProfile.questionMusic(4) == R.raw.echoes_of_time, "Opening questions use gameplay bed");
+        check(GameAudioProfile.questionMusic(5) == R.raw.echoes_of_time, "Second band uses gameplay bed");
+        check(GameAudioProfile.questionMusic(9) == R.raw.echoes_of_time, "Second band uses gameplay bed");
+        check(GameAudioProfile.questionMusic(10) == R.raw.echoes_of_time, "Final band uses gameplay bed");
+        check(GameAudioProfile.boardQuestionMusic(200) == R.raw.echoes_of_time, "200-point board music uses gameplay bed");
+        check(GameAudioProfile.boardQuestionMusic(400) == R.raw.echoes_of_time, "400-point board music uses gameplay bed");
+        check(GameAudioProfile.boardQuestionMusic(600) == R.raw.echoes_of_time, "600-point board music uses gameplay bed");
         check(GameAudioProfile.victoryMusic("1000000$") == R.raw.s_1000000, "Jackpot celebration");
         check(GameAudioProfile.victoryMusic("١٬٠٠٠٬٠٠٠$") == R.raw.s_1000000, "Localized jackpot amount");
         check(GameAudioProfile.victoryMusic("999999$") == R.raw.main_theme_4, "Ordinary victory cue");
@@ -33,6 +33,15 @@ public final class GameAudioProfileCheck {
         check(Math.abs(level(-19.1, GameAudioProfile.musicVolume(R.raw.sneaky_snitch))
                 - level(-23.4, GameAudioProfile.musicVolume(R.raw.main_theme_0))) < 1.0,
                 "Campaign music must have a comparable playback level");
+        check(Math.abs(level(-16.94, GameAudioProfile.musicVolume(R.raw.echoes_of_time))
+                - level(-23.4, GameAudioProfile.musicVolume(R.raw.main_theme_0))) < 1.0,
+                "Echoes of time gameplay bed must have a comparable playback level");
+        check(Math.abs(level(-16.73, GameAudioProfile.musicVolume(R.raw.labyrinth_of_lost_dreams))
+                - level(-23.4, GameAudioProfile.musicVolume(R.raw.main_theme_0))) < 1.0,
+                "Labyrinth of lost dreams campaign bed must have a comparable playback level");
+        check(Math.abs(level(-19.1, GameAudioProfile.musicVolume(R.raw.bgm_lobby))
+                - level(-23.4, GameAudioProfile.musicVolume(R.raw.main_theme_0))) < 1.0,
+                "Halloween Horror lobby bed must have a comparable playback level");
         check(Math.abs(level(-16.4, GameAudioProfile.effectVolume(R.raw.drum1)) - (-22.2)) < 3.0,
                 "Restored anticipation recording must not dominate answer feedback");
         System.out.println("Game audio profile: " + checks + " checks passed.");

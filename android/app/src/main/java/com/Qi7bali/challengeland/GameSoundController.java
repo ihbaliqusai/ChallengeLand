@@ -182,6 +182,9 @@ final class GameSoundController {
                 || resId == R.raw.main_theme_5
                 || resId == R.raw.main_theme_320bit_chosic
                 || resId == R.raw.sneaky_snitch
+                || resId == R.raw.bgm_lobby
+                || resId == R.raw.echoes_of_time
+                || resId == R.raw.labyrinth_of_lost_dreams
                 || resId == R.raw.lets_play
                 || resId == R.raw.commerical_break
                 || resId == R.raw.s_32000

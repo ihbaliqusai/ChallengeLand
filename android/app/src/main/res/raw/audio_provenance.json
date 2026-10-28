@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-26",
+  "updatedAt": "2026-10-28",
   "generator": "tools/audio/build_audio.cjs",
   "note": "The original DSP components are generated for this project, without external voice recordings or imitation of any performer. CC0 components are listed per file. Durations preserve gameplay timing; compositions are new alternatives, not replicas of television themes. Restored previous recordings are listed separately with their actual license status.",
   "files": [
@@ -354,6 +354,22 @@
       "originalProceduralDesign": true,
       "loopPrepared": false,
       "processing": "44100 Hz stereo; duration matched to previous asset; level normalization; short edge fades; MP3 96 kbps. No samples from previous recordings."
+    },
+    {
+      "file": "match_search.wav",
+      "role": "حلقة مسح هادئة أثناء البحث عن منافس",
+      "durationSeconds": 1.6,
+      "sampleRate": 44100,
+      "channels": 1,
+      "bytes": 141164,
+      "sha256": "7674c21ff8fd409a745741b278f5430e83cc6ff6470263ef7f4e19bb21f1e632",
+      "sources": [],
+      "originalProceduralDesign": true,
+      "loopPrepared": true,
+      "generator": "tools/audio/generate_match_search.cjs",
+      "peakDb": -9.37,
+      "rmsDb": -24.34,
+      "processing": "Original sine-based scanning pings and quiet echoes; 44100 Hz mono PCM16 WAV; exact 1.6-second loop; zero-valued edge samples and short edge fades; peak 0.34. No external samples."
     }
   ],
   "retainedLicensedFiles": [

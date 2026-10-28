@@ -272,7 +272,7 @@ public final class AppPrefs {
     }
 
     public static boolean isMusicEnabled(Context c) {
-        return settingsPrefs(c).getBoolean("musicEnabled", false);
+        return settingsPrefs(c).getBoolean("musicEnabled", true);
     }
 
     public static void setHapticEnabled(Context c, boolean enabled) {

@@ -16,6 +16,8 @@ class EconomyWallet {
       this.weekPlayDays = 0,
       this.weekCorrect = 0,
       this.weekRewardClaimed = false,
+      this.nextFreeWheelSpinMillis = 0,
+      this.lastFreeWheelSpinMillis = 0,
       this.wheelClaimedToday,
       this.wheelCharacterIndex,
       this.hasWheelCharacterPreview = false,
@@ -38,6 +40,8 @@ class EconomyWallet {
       rentalVouchers,
       claimedVipExpiry,
       nextResetMillis,
+      nextFreeWheelSpinMillis,
+      lastFreeWheelSpinMillis,
       streak,
       revision;
   final int welcomeGrantedAt, weekPlayDays, weekCorrect;
@@ -53,6 +57,15 @@ class EconomyWallet {
   final Map<String, dynamic> offers, rentalPrices;
   int get totalKeys => dailyKeys + keys;
   int get totalHearts => dailyHearts + hearts;
+  bool get isWheelFreeAvailable {
+    if (nextFreeWheelSpinMillis > 0) {
+      return DateTime.now().millisecondsSinceEpoch >= nextFreeWheelSpinMillis;
+    }
+    if (wheelClaimedToday != null) {
+      return !wheelClaimedToday!;
+    }
+    return true;
+  }
   int remainingAdRewards(String resource) =>
       ((adRewardLimits[resource] ?? 0) - (adRewardCounts[resource] ?? 0))
           .clamp(0, 2147483647);
@@ -73,6 +86,8 @@ class EconomyWallet {
         rentalVouchers: count('rentalVouchers'),
         claimedVipExpiry: count('claimedVipExpiry'),
         nextResetMillis: count('nextResetMillis'),
+        nextFreeWheelSpinMillis: count('nextFreeWheelSpinMillis'),
+        lastFreeWheelSpinMillis: count('lastFreeWheelSpinMillis'),
         streak: count('streak'),
         revision: count('revision'),
         welcomeGrantedAt: count('welcomeGrantedAt'),

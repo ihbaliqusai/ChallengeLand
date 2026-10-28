@@ -168,6 +168,8 @@ class GuestTourPreviewState extends ChangeNotifier
   @override
   bool get hasPendingLuckyWheelSpin => false;
   @override
+  bool get isLuckyWheelFreeAvailable => false;
+  @override
   bool get canSpinLuckyWheel => false;
   @override
   int get purchasedWheelSpins => 0;

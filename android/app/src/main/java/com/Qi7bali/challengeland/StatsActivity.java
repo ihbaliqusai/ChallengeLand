@@ -21,7 +21,9 @@ public class StatsActivity extends GameViewportActivity {
 
         bind();
 
-        findViewById(R.id.btnStatsBack).setOnClickListener(v -> finish());
+        findViewById(R.id.btnStatsBack).setOnClickListener(v -> {
+            finish();
+        });
         // Account progression is persistent. Resetting local totals would break
         // cloud reconciliation and restart beginner protection.
         findViewById(R.id.btnResetStats).setVisibility(View.GONE);

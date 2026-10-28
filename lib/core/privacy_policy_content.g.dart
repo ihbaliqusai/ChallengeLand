@@ -21,8 +21,8 @@ class PrivacyPolicySection {
 }
 
 abstract final class PrivacyPolicyContent {
-  static const version = "2026-10-26";
-  static const updatedAt = "26 أكتوبر 2026";
+  static const version = "2026-10-28";
+  static const updatedAt = "28 أكتوبر 2026";
   static const appName = "أرض التحدي";
   static const publisher = "Qi7bali — فريق تطوير أرض التحدي";
   static const contactEmail = "IhbaliQusai@gmail.com";
@@ -225,13 +225,17 @@ abstract final class PrivacyPolicyContent {
         "هذا الملحق خاص باعتمادات المحتوى، ولا يغير ممارسات معالجة البيانات الواردة في السياسة.",
         "الشخصيات الكرتونية: Set of Businessmen Saudi Arab Man Cartoon Character Design للمؤلف ridjam، العنصر 21822749، وفق شهادة Envato Market Regular License باسم kaka ankidu بتاريخ 22 سبتمبر 2020.",
         "الموسيقى: Main Theme (Overture) | The Grand Score للمؤلف Alexander Nakarada، عبر Chosic، برخصة CC BY 4.0. والمقطوعة Sneaky Snitch للمؤلف Kevin MacLeod، عبر Chosic، برخصة CC BY 3.0.",
+        "موسيقى إضافية: Halloween Horror Creepy Piano | Horror للمؤلف Alex-Productions، وEchoes of Time v2 للمؤلف Kevin MacLeod، وLabyrinth of Lost Dreams للمؤلف Darren Curtis، عبر Chosic، وفق ملفات ترخيص CC BY 3.0 المحفوظة مع التسجيلات في التطبيق. تُستخدم المقاطع كخلفيات للعب مع ضبط مستويات التشغيل والتكرار.",
         "الصوتيات البديلة: Interface Sounds للمؤلف Kenney، وUnsolved Investigation للمؤلف isaiah658، وSuspense للمؤلف wipics، وOpening Theme [Action/Suspense] للمؤلف nene، برخصة CC0 1.0. عُدلت المقاطع بالقص والتكرار والمزج وضبط المستوى. صُممت مؤثرات إضافية بتوليد رقمي برمجي خصيصًا لأرض التحدي دون تسجيلات لأشخاص أو استنساخ أصواتهم.",
+        "الخطوط: Baloo من Ek Type، وNoto Sans Arabic من Noto Project Authors، وBarlow Condensed من Barlow Project Authors، مرخصة وفق SIL Open Font License 1.1. تتوفر نصوص الرخص وإشعارات مكتبات Flutter وAndroid من الإعدادات عبر «تراخيص المكتبات والخطوط»، أو من هذا الملحق داخل التطبيق، دون الحاجة إلى الإنترنت.",
         "تعود العلامات التجارية والمواد المملوكة للغير إلى أصحابها، ويخضع استخدامها لشروط التراخيص ذات الصلة. للاستفسارات المتعلقة بالحقوق، تواصل مع بريد الفريق.",
       ],
       links: [
         PrivacyPolicyLink("عنصر الشخصيات — GraphicRiver", "https://graphicriver.net/item/set-of-businessmen-saudi-arab-man-cartoon-character-design/21822749"),
         PrivacyPolicyLink("Alexander Nakarada", "https://creatorchords.com/"),
         PrivacyPolicyLink("Kevin MacLeod", "https://incompetech.com/"),
+        PrivacyPolicyLink("Alex-Productions", "https://onsound.eu/"),
+        PrivacyPolicyLink("Darren Curtis", "https://www.darrencurtismusic.com/"),
         PrivacyPolicyLink("Chosic", "https://www.chosic.com/free-music/all/"),
         PrivacyPolicyLink("Creative Commons BY 4.0", "https://creativecommons.org/licenses/by/4.0/"),
         PrivacyPolicyLink("Creative Commons BY 3.0", "https://creativecommons.org/licenses/by/3.0/"),

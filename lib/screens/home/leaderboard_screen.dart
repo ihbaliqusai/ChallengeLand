@@ -1,3 +1,4 @@
+import '../../widgets/game_back_button.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -6,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/app_settings.dart';
 import '../../core/app_state.dart';
 import '../../core/leaderboard_countries.dart';
 import '../../core/trophy_league.dart';
@@ -376,10 +378,10 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                             SizedBox(
                                 height: landscape ? 48 : 64,
                                 child: Directionality(
-                                    textDirection: TextDirection.ltr,
+                                    textDirection: Directionality.of(context),
                                     child: Row(children: [
                                       const SizedBox(width: 8),
-                                      LeaderboardBackButton(
+                                      GameBackButton(
                                           onPressed: () =>
                                               Navigator.of(context).maybePop()),
                                       const Spacer(),
@@ -591,7 +593,10 @@ class _ScopeTabs extends StatelessWidget {
                                             borderRadius:
                                                 const BorderRadius.vertical(
                                                     top: Radius.circular(11)),
-                                            onTap: () => onSelect(tab),
+                                            onTap: () {
+                                              AppSettings.playClick();
+                                              onSelect(tab);
+                                            },
                                             child: Ink(
                                                 height: 36,
                                                 decoration: BoxDecoration(

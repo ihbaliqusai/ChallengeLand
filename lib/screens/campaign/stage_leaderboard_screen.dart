@@ -1,3 +1,4 @@
+import '../../widgets/game_back_button.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/campaign_stage.dart';
@@ -63,6 +64,8 @@ class _StageLeaderboardScreenState extends State<StageLeaderboardScreen> {
       child: Scaffold(
         extendBodyBehindAppBar: true,
         appBar: AppBar(
+          leading:
+              GameBackButton(onPressed: () => Navigator.of(context).maybePop()),
           backgroundColor: Colors.transparent,
           elevation: 0,
           title: const Text(

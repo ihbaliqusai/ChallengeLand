@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:challenge_land/widgets/game_modes_artwork.dart';
+import 'package:challenge_land/widgets/guide/page_guide_steps.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -13,7 +14,8 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() async {
     await (FontLoader('MaterialIcons')
-          ..addFont(SharedAssets.bundle.load('fonts/MaterialIcons-Regular.otf')))
+          ..addFont(
+              SharedAssets.bundle.load('fonts/MaterialIcons-Regular.otf')))
         .load();
   });
   final calls = <String>[];
@@ -22,7 +24,10 @@ void main() {
   Future<void> mount(WidgetTester tester,
       {Size size = const Size(800, 360),
       bool online = true,
-      double textScale = 1}) async {
+      double textScale = 1,
+      bool reduceMotion = false,
+      bool tickerEnabled = true,
+      Map<ModeGuideTarget, GlobalKey> guideTargets = const {}}) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -31,27 +36,127 @@ void main() {
         theme: ThemeData.dark(),
         home: MediaQuery(
             data: MediaQueryData(
-                size: size, textScaler: TextScaler.linear(textScale)),
-            child: Scaffold(
-                backgroundColor: const Color(0xFF100B36),
-                body: Center(
-                    child: SizedBox(
-                        width: math.min(size.width - 24,
-                            (size.height - 24) * GameModesArtwork.aspectRatio),
-                        child: GameModesArtwork(
-                            isOnline: online,
-                            onClose: () => calls.add('close'),
-                            onMainChallenge: () => calls.add('main'),
-                            onGroupChallenge: () => calls.add('group'),
-                            onFriendChallenge: () => calls.add('friend'),
-                            onOffline: () => calls.add('offline'),
-                            onUnavailable: () =>
-                                calls.add('unavailable'))))))));
-    await tester.runAsync(() => precacheImage(
-        const AssetImage(GameModesArtwork.asset),
-        tester.element(find.byType(GameModesArtwork))));
-    await tester.pumpAndSettle();
+                size: size,
+                textScaler: TextScaler.linear(textScale),
+                disableAnimations: reduceMotion),
+            child: TickerMode(
+                enabled: tickerEnabled,
+                child: Scaffold(
+                    backgroundColor: const Color(0xFF100B36),
+                    body: Center(
+                        child: SizedBox(
+                            width: math.min(
+                                size.width - 24,
+                                (size.height - 24) *
+                                    GameModesArtwork.aspectRatio),
+                            child: GameModesArtwork(
+                                guideTargets: guideTargets,
+                                isOnline: online,
+                                onClose: () => calls.add('close'),
+                                onMainChallenge: () => calls.add('main'),
+                                onGroupChallenge: () => calls.add('group'),
+                                onFriendChallenge: () => calls.add('friend'),
+                                onOffline: () => calls.add('offline'),
+                                onUnavailable: () =>
+                                    calls.add('unavailable')))))))));
+    final imageProviders = tester
+        .widgetList<Image>(find.byType(Image))
+        .map((image) => image.image)
+        .toSet();
+    await tester.runAsync(() async {
+      final context = tester.element(find.byType(GameModesArtwork));
+      await precacheImage(const AssetImage(GameModesArtwork.asset), context);
+      for (final provider in imageProviders) {
+        await precacheImage(provider, context);
+      }
+    });
+    // Ambient motion repeats, so allow the entrance to finish without waiting
+    // for the scene to stop scheduling frames.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1400));
     expect(tester.takeException(), isNull);
+  }
+
+  List<double> motion(WidgetTester tester, String mode) => tester
+      .widget<Transform>(find.byKey(ValueKey('mode-$mode-motion')))
+      .transform
+      .storage
+      .toList();
+
+  testWidgets('mode artwork moves while guide targets remain in place',
+      (tester) async {
+    final guideTargets = {
+      for (final target in ModeGuideTarget.values) target: GlobalKey(),
+    };
+    await mount(tester, guideTargets: guideTargets);
+    final initialMotion = {
+      for (final mode in ['main', 'group', 'friend', 'offline'])
+        mode: motion(tester, mode),
+    };
+    final targetBounds = {
+      for (final entry in guideTargets.entries)
+        entry.key: tester.getRect(find.byKey(entry.value)),
+    };
+
+    await tester.pump(const Duration(milliseconds: 470));
+
+    for (final mode in initialMotion.keys) {
+      expect(motion(tester, mode), isNot(equals(initialMotion[mode])),
+          reason: '$mode artwork should visibly animate');
+    }
+    for (final entry in guideTargets.entries) {
+      expect(tester.getRect(find.byKey(entry.value)), targetBounds[entry.key],
+          reason: '${entry.key} guide target must remain steady');
+    }
+    expect(calls, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('press feedback can be cancelled without starting a mode',
+      (tester) async {
+    await mount(tester);
+    final target = find.byTooltip('التحدي الرئيسي');
+    final press = find.byKey(const ValueKey('mode-main-press'));
+    final originalBounds = tester.getRect(target);
+    final gesture = await tester.startGesture(tester.getCenter(target));
+    // Material buttons recognise a held press after their tap timeout.
+    await tester.pump(const Duration(milliseconds: 150));
+
+    expect(tester.widget<AnimatedScale>(press).scale, lessThan(1));
+    expect(tester.getRect(target), originalBounds);
+    expect(calls, isEmpty);
+
+    await gesture.cancel();
+    await tester.pump(const Duration(milliseconds: 250));
+    expect(tester.widget<AnimatedScale>(press).scale, 1);
+    expect(calls, isEmpty);
+
+    await tester.tap(target);
+    expect(calls, ['main']);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final stopMotion in ['reduced motion', 'disabled ticker']) {
+    testWidgets('$stopMotion keeps artwork still and controls usable',
+        (tester) async {
+      await mount(tester,
+          reduceMotion: stopMotion == 'reduced motion',
+          tickerEnabled: stopMotion != 'disabled ticker');
+      final initialMotion = {
+        for (final mode in ['main', 'group', 'friend', 'offline'])
+          mode: motion(tester, mode),
+      };
+
+      await tester.pump(const Duration(milliseconds: 800));
+
+      for (final mode in initialMotion.keys) {
+        expect(motion(tester, mode), equals(initialMotion[mode]),
+            reason: '$mode artwork must respect $stopMotion');
+      }
+      await tester.tap(find.byTooltip('التحدي الرئيسي'));
+      expect(calls, ['main']);
+      expect(tester.takeException(), isNull);
+    });
   }
 
   testWidgets('all mode artwork controls invoke their matching actions',

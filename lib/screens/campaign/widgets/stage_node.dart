@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/app_settings.dart';
 
 import '../../../models/campaign_stage.dart';
 import '../../../models/stage_progress.dart';
@@ -82,7 +83,10 @@ class StageNode extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(34),
-          onTap: onTap,
+          onTap: () {
+            AppSettings.playClick();
+            onTap();
+          },
           child: Stack(
             clipBehavior: Clip.none,
             alignment: Alignment.topCenter,

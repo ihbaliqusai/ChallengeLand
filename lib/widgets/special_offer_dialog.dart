@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/app_settings.dart';
 import '../core/app_state.dart';
 import '../models/store_catalog.dart';
 import '../screens/home/store_screen.dart';
@@ -222,7 +223,10 @@ class _PreviewArtwork extends StatelessWidget {
               label: label,
               button: true,
               child: TextButton(
-                  onPressed: onPressed,
+                  onPressed: () {
+                    AppSettings.playClick();
+                    onPressed();
+                  },
                   style: TextButton.styleFrom(
                       padding: EdgeInsets.zero,
                       minimumSize: const Size(48, 48),

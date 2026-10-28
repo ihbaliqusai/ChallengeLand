@@ -1,3 +1,4 @@
+import '../../widgets/game_back_button.dart';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -340,30 +341,10 @@ class _FirstRunChallengeScreenState extends State<FirstRunChallengeScreen>
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
       child: Row(
         children: [
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(20),
-              onTap: () {
-                _countdownTimer?.cancel();
-                Navigator.of(context).maybePop();
-              },
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0A1E4A).withValues(alpha: 0.65),
-                  shape: BoxShape.circle,
-                  border:
-                      Border.all(color: Colors.white.withValues(alpha: 0.22)),
-                ),
-                child: const Icon(
-                  Icons.arrow_forward_rounded,
-                  color: Colors.white,
-                  size: 20,
-                ),
-              ),
-            ),
-          ),
+          GameBackButton(onPressed: () {
+            _countdownTimer?.cancel();
+            Navigator.of(context).maybePop();
+          }),
           const SizedBox(width: 12),
           const Expanded(
             child: Row(

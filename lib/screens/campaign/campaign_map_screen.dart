@@ -1,3 +1,4 @@
+import '../../widgets/game_back_button.dart';
 import '../../widgets/game_notice.dart';
 import 'dart:async';
 import 'dart:math' as math;
@@ -5,6 +6,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/app_settings.dart';
 import '../../core/app_state.dart';
 import '../../core/campaign_navigation.dart';
 import '../../models/campaign_stage.dart';
@@ -106,6 +108,9 @@ class _CampaignMapScreenState extends State<CampaignMapScreen>
     campaignRouteObserver.unsubscribe(this);
     WidgetsBinding.instance.removeObserver(this);
     unawaited(_stopCampaignMapMusic());
+    if (!_guidePreview) {
+      unawaited(_nativeBridgeService.playLobbyMusic());
+    }
     _pulseController.dispose();
     super.dispose();
   }
@@ -143,6 +148,7 @@ class _CampaignMapScreenState extends State<CampaignMapScreen>
     final route = ModalRoute.of(context);
     if (route != null && !route.isCurrent) return;
     try {
+      await _nativeBridgeService.stopLobbyMusic();
       await _nativeBridgeService.playCampaignMapMusic();
     } catch (_) {}
   }
@@ -582,6 +588,7 @@ class _CampaignMapContentState extends State<_CampaignMapContent> {
   }
 
   void _goToWorld(int index) {
+    AppSettings.playClick();
     _pageController.animateToPage(
       index,
       duration: const Duration(milliseconds: 320),
@@ -992,12 +999,9 @@ class _MapTopOverlay extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(10, 6, 10, 0),
         child: Row(
           children: [
-            _OverlayIconButton(
-              icon: Icons.arrow_forward_rounded,
-              onTap: () {
-                if (!guidePreview) Navigator.of(context).maybePop();
-              },
-            ),
+            GameBackButton(onPressed: () {
+              if (!guidePreview) Navigator.of(context).maybePop();
+            }),
             const SizedBox(width: 8),
             const Expanded(
                 child: Text('تحدي المراحل',
@@ -1082,44 +1086,6 @@ class _MapTopOverlay extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _OverlayIconButton extends StatelessWidget {
-  const _OverlayIconButton({
-    required this.icon,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: onTap,
-        child: Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            color: const Color(0xFF0C3B25).withValues(alpha: 0.50),
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.white.withValues(alpha: 0.26)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.20),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Icon(icon, color: Colors.white, size: 22),
         ),
       ),
     );

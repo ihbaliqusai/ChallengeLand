@@ -11,16 +11,28 @@
         android:orientation="vertical"
         android:padding="20dp">
 
-        <TextView
+        <RelativeLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:fontFamily="@font/baloo"
-            android:gravity="center"
-            android:paddingBottom="12dp"
-            android:text="الإعدادات"
-            android:textColor="#FFFFFF"
-            android:textSize="28sp"
-            android:textStyle="bold" />
+            android:layout_height="56dp">
+
+            <com.qi7bali.landchallengeonline.GameBackButton
+                android:id="@+id/btnCloseSettings"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_alignParentStart="true"
+                android:layout_centerVertical="true" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_centerInParent="true"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/baloo"
+                android:gravity="center"
+                android:text="الإعدادات"
+                android:textColor="#FFFFFF"
+                android:textSize="28sp"
+                android:textStyle="bold" />
+        </RelativeLayout>
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -77,13 +89,6 @@
             android:drawableStart="@android:drawable/ic_lock_power_off"
             android:drawablePadding="10dp"
             android:text="@string/txtLogout" />
-
-        <Button
-            android:id="@+id/btnCloseSettings"
-            style="@style/button_main_menu"
-            android:drawableStart="@android:drawable/ic_media_previous"
-            android:drawablePadding="10dp"
-            android:text="رجوع" />
 
     </LinearLayout>
 </ScrollView>

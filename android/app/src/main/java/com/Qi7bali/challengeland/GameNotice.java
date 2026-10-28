@@ -103,7 +103,10 @@ public final class GameNotice {
                 ViewGroup.LayoutParams.MATCH_PARENT, dp(36), Gravity.CENTER));
         TextView close = label("×", 24, Color.parseColor("#94A3B8"), false);
         close.setContentDescription(arabic ? "إغلاق" : "Close");
-        close.setOnClickListener(view -> cancel());
+        close.setOnClickListener(view -> {
+            AppSoundEffects.click(context);
+            cancel();
+        });
         heading.addView(close, new FrameLayout.LayoutParams(dp(44), dp(44), Gravity.END));
         body.addView(heading, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(44)));
 

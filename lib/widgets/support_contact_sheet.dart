@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../core/app_settings.dart';
 import '../core/app_state.dart';
 import '../services/native_bridge_service.dart';
 
@@ -54,6 +55,7 @@ class _SupportContactSheetState extends State<SupportContactSheet> {
 
   Future<void> _openEmail() async {
     if (_opening) return;
+    AppSettings.playClick();
     if (_message.text.trim().isEmpty) {
       setState(() => _error = 'اكتب رسالتك أولاً');
       return;
@@ -84,6 +86,7 @@ class _SupportContactSheetState extends State<SupportContactSheet> {
   }
 
   Future<void> _copy(String text, String feedback) async {
+    AppSettings.playClick();
     await Clipboard.setData(ClipboardData(text: text));
     if (mounted) setState(() => _copied = feedback);
   }
@@ -120,7 +123,10 @@ class _SupportContactSheetState extends State<SupportContactSheet> {
                     ),
                     IconButton(
                       tooltip: 'إغلاق التواصل',
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: () {
+                        AppSettings.playClick();
+                        Navigator.pop(context);
+                      },
                       icon: const Icon(Icons.close_rounded,
                           color: Colors.white70),
                     ),

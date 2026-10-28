@@ -69,6 +69,7 @@ public class SettingsActivity extends GameViewportActivity {
         findViewById(R.id.btnLogout).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                AppSoundEffects.click(v.getContext());
                 signOutAndReturnToLogin();
             }
         });

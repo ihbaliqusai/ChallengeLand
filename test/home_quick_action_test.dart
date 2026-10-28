@@ -7,6 +7,9 @@ import 'dart:ui' as ui;
 import 'package:challenge_land/core/app_state.dart';
 import 'package:challenge_land/models/game_character.dart';
 import 'package:challenge_land/models/economy_wallet.dart';
+import 'package:challenge_land/models/campaign_home_progress.dart';
+import 'package:challenge_land/services/campaign_service.dart';
+import 'package:challenge_land/services/leaderboard_service.dart';
 import 'package:challenge_land/widgets/home_character_artwork.dart';
 import 'package:challenge_land/screens/home/home_screen.dart';
 import 'package:challenge_land/screens/character/character_select_screen.dart';
@@ -18,9 +21,10 @@ import 'package:challenge_land/widgets/home_menu_artwork.dart';
 import 'package:challenge_land/widgets/game_modes_artwork.dart';
 import 'package:challenge_land/widgets/home_artwork.dart';
 import 'package:challenge_land/widgets/game_viewport.dart';
-import 'package:challenge_land/widgets/special_offer_badge.dart';
+import 'package:challenge_land/widgets/home_action_sidebar.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:challenge_land/screens/auth/login_bottom_sheet.dart';
 import 'package:challenge_land/widgets/guide/guide_assistant_dialog.dart';
 import 'package:challenge_land/widgets/guide/home_guide_tour_overlay.dart';
@@ -35,8 +39,10 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _HomeUser implements User {
+  _HomeUser({this.uid = 'home-player'});
+
   @override
-  String get uid => 'home-player';
+  final String uid;
   @override
   String get displayName => 'لاعب';
   @override
@@ -51,9 +57,23 @@ class _HomeState extends ChangeNotifier implements AppState {
       const EconomyWallet(dailyKeys: 3, tickets: 2);
   @override
   bool get economyLoaded => true;
-  _HomeState({this.online = false, this.signedIn = true});
+  _HomeState(
+      {this.online = false, this.signedIn = true, this.displayedLevel = 2});
   final bool online;
   final bool signedIn;
+  final int displayedLevel;
+  String playerId = 'home-player';
+  int publishedTrophies = 238;
+
+  void switchUser(String uid) {
+    playerId = uid;
+    notifyListeners();
+  }
+
+  void changeTrophies(int value) {
+    publishedTrophies = value;
+    notifyListeners();
+  }
 
   int characterIndex = 1;
   @override
@@ -84,7 +104,7 @@ class _HomeState extends ChangeNotifier implements AppState {
   @override
   bool get isVip => false;
   @override
-  User? get user => signedIn ? _HomeUser() : null;
+  User? get user => signedIn ? _HomeUser(uid: playerId) : null;
   @override
   User? get currentUser => user;
   @override
@@ -94,7 +114,9 @@ class _HomeState extends ChangeNotifier implements AppState {
   @override
   int get gems => 80;
   @override
-  int get level => 2;
+  int get trophies => publishedTrophies;
+  @override
+  int get level => displayedLevel;
   @override
   int get xpInCurrentLevel => 20;
   @override
@@ -120,7 +142,89 @@ class _HomeState extends ChangeNotifier implements AppState {
   @override
   Future<void> loadLevelData() async {}
   @override
+  Future<void> refreshCommerce() async {}
+  @override
+  Future<void> checkAndAwardXpForGames() async {}
+  @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _HomeCampaignService extends CampaignService {
+  _HomeCampaignService() : super(firestore: FakeFirebaseFirestore());
+
+  CampaignHomeProgress progress =
+      const CampaignHomeProgress(reachedStage: 5, totalStages: 100);
+  final requestedUids = <String>[];
+
+  @override
+  Future<CampaignHomeProgress> loadHomeProgress(
+      {required String uid, String campaignId = 'main_campaign'}) async {
+    requestedUids.add(uid);
+    return progress;
+  }
+}
+
+class _HomeLeaderboardService extends LeaderboardService {
+  _HomeLeaderboardService() : super(firestore: FakeFirebaseFirestore());
+
+  int? rank = 23;
+  bool fail = false;
+  final requestedUids = <String>[];
+  final watchedUids = <String>[];
+  final pending = <String, Completer<int?>>{};
+
+  @override
+  Stream<int?> watchWorldRank({required String uid}) {
+    watchedUids.add(uid);
+    if (pending.containsKey(uid)) {
+      return Stream.fromFuture(pending[uid]!.future);
+    }
+    if (fail) return Stream.error(StateError('Rank unavailable'));
+    return Stream.value(rank);
+  }
+
+  @override
+  Future<int?> loadWorldRank({required String uid}) async {
+    requestedUids.add(uid);
+    if (pending.containsKey(uid)) return pending[uid]!.future;
+    if (fail) throw StateError('Rank unavailable');
+    return rank;
+  }
+}
+
+String? _homeRank(WidgetTester tester) => tester
+    .widget<Text>(find.byKey(const ValueKey('home-leaderboard-rank')))
+    .data;
+
+Future<void> _mountRankHome(WidgetTester tester, _HomeState state,
+    _HomeLeaderboardService service) async {
+  setupFirebaseCoreMocks();
+  await Firebase.initializeApp();
+  SharedPreferences.setMockInitialValues({
+    'has_rated_challenge_land': true,
+    'rate_reward_claimed': true,
+  });
+  final promo = _Promo();
+  addTearDown(state.dispose);
+  addTearDown(promo.dispose);
+  await tester.binding.setSurfaceSize(const Size(800, 400));
+  addTearDown(() => tester.binding.setSurfaceSize(null));
+  addTearDown(() async {
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(seconds: 1));
+  });
+  await tester.pumpWidget(MultiProvider(
+    providers: [
+      ChangeNotifierProvider<AppState>.value(value: state),
+      ChangeNotifierProvider<CrossPromoService>.value(value: promo),
+      Provider<NativeBridgeService>.value(value: _NativeBridge()),
+    ],
+    child: MaterialApp(
+        home: HomeScreen(
+            campaignService: _HomeCampaignService(),
+            leaderboardService: service)),
+  ));
+  await tester.pump();
 }
 
 class _NativeBridge extends NativeBridgeService {
@@ -194,6 +298,43 @@ Widget _shortcut({
       ),
     ),
   );
+}
+
+void _expectSidebarLayout(WidgetTester tester, Size screen) {
+  Rect bounds(String name) =>
+      tester.getRect(find.byKey(ValueKey('home-$name-button')));
+  final panel = tester.getRect(find.byType(HomeActionSidebar));
+  final leaderboard = bounds('leaderboard');
+  final campaign = bounds('campaign');
+  final vip = bounds('vip');
+  final modes = bounds('modes');
+  final friends =
+      tester.getRect(find.byKey(const ValueKey('home-friends-shortcut')));
+  final play = bounds('play');
+  final character =
+      tester.getRect(find.byKey(const ValueKey('home-selected-character')));
+  expect(leaderboard.bottom, lessThanOrEqualTo(campaign.top));
+  expect(campaign.right, lessThanOrEqualTo(vip.left));
+  expect(campaign.center.dy, closeTo(vip.center.dy, .1));
+  expect(campaign.bottom, lessThanOrEqualTo(modes.top));
+  expect(vip.bottom, lessThanOrEqualTo(modes.top));
+  expect(modes.bottom, lessThanOrEqualTo(friends.top));
+  expect(friends.bottom, lessThanOrEqualTo(play.top));
+  for (final control in [leaderboard, campaign, vip, modes, friends, play]) {
+    expect(panel.inflate(.1).contains(control.topLeft), isTrue);
+    expect(panel.inflate(.1).contains(control.bottomRight), isTrue);
+    expect(control.left, greaterThanOrEqualTo(0));
+    expect(control.top, greaterThanOrEqualTo(0));
+    expect(control.right, lessThanOrEqualTo(screen.width));
+    expect(control.bottom, lessThanOrEqualTo(screen.height));
+    expect(control.overlaps(character), isFalse);
+  }
+  expect(panel.center.dx, greaterThanOrEqualTo(screen.width / 2));
+  if (screen.width > screen.height) {
+    expect(character.right, lessThanOrEqualTo(panel.left));
+  } else {
+    expect(character.bottom, lessThanOrEqualTo(panel.top));
+  }
 }
 
 void main() {
@@ -400,7 +541,8 @@ void main() {
         find.byKey(const ValueKey('home-keys-balance')),
         find.byKey(const ValueKey('home-tickets-balance')),
         find.byKey(const ValueKey('home-play-button')),
-        find.byType(SpecialOfferBadge),
+        find.byKey(const ValueKey('home-vip-button')),
+        find.byKey(const ValueKey('home-leaderboard-button')),
         find.byTooltip('تحدي المراحل'),
         find.byTooltip('أوضاع اللعب'),
         find.byKey(const ValueKey('home-selected-character')),
@@ -789,12 +931,9 @@ void main() {
         final obstacles = [
           find.byTooltip('القائمة'),
           find.byType(HomeLevelBadge),
-          find.byType(SpecialOfferBadge),
-          find.byTooltip('تحدي المراحل'),
-          find.byTooltip('أوضاع اللعب'),
+          find.byType(HomeActionSidebar),
         ];
         for (final shortcut in [
-          find.byKey(const ValueKey('home-friends-shortcut')),
           find.byKey(const ValueKey('home-store-shortcut')),
           find.byKey(const ValueKey('home-help-shortcut')),
         ]) {
@@ -809,37 +948,17 @@ void main() {
                 reason: 'Shortcut overlaps a home control at $size');
           }
         }
-        expect(find.byKey(const ValueKey('home-friends-green-dot')),
+        expect(find.byKey(const ValueKey('home-friends-notification-dot')),
             findsOneWidget);
         expect(tester.getRect(find.byTooltip('القائمة')).left,
             closeTo(size.width > size.height ? 38 : 6, .01));
         expect(find.byType(CrossPromoMillionaireBadge), findsNothing);
-        final campaignBounds = tester.getRect(find.byTooltip('تحدي المراحل'));
-        final modesBounds = tester.getRect(find.byTooltip('أوضاع اللعب'));
-        expect(campaignBounds.overlaps(modesBounds), isFalse);
+        _expectSidebarLayout(tester, size);
         final characterBounds = tester
             .getRect(find.byKey(const ValueKey('home-selected-character')));
         final levelBounds = tester.getRect(find.byType(HomeLevelBadge));
         expect(levelBounds.center.dx, closeTo(characterBounds.center.dx, .01));
         expect(levelBounds.bottom, lessThanOrEqualTo(characterBounds.top));
-        if (size.width > size.height) {
-          expect(campaignBounds.bottom, lessThan(modesBounds.top));
-          expect(characterBounds.right, lessThan(campaignBounds.left));
-          expect(campaignBounds.center.dx, closeTo(modesBounds.center.dx, .01));
-        } else {
-          expect(characterBounds.bottom, lessThan(campaignBounds.top));
-          expect(campaignBounds.center.dy, closeTo(modesBounds.center.dy, .01));
-        }
-        for (final banner in [
-          find.byTooltip('تحدي المراحل'),
-          find.byTooltip('أوضاع اللعب')
-        ]) {
-          for (final badge in [find.byType(SpecialOfferBadge)]) {
-            expect(
-                tester.getRect(banner).overlaps(tester.getRect(badge)), isFalse,
-                reason: 'Home banners must remain clear of the bottom badges');
-          }
-        }
         await tester.tap(find.byKey(const ValueKey('home-help-shortcut')));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 400));
@@ -1171,6 +1290,130 @@ void main() {
     semantics.dispose();
   });
 
+  testWidgets('home campaign progress refreshes on resume and account change',
+      (tester) async {
+    setupFirebaseCoreMocks();
+    await Firebase.initializeApp();
+    SharedPreferences.setMockInitialValues({
+      'has_rated_challenge_land': true,
+      'rate_reward_claimed': true,
+    });
+    final state = _HomeState(online: true);
+    final service = _HomeCampaignService();
+    final promo = _Promo();
+    addTearDown(state.dispose);
+    addTearDown(promo.dispose);
+    await tester.binding.setSurfaceSize(const Size(800, 400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(MultiProvider(
+      providers: [
+        ChangeNotifierProvider<AppState>.value(value: state),
+        ChangeNotifierProvider<CrossPromoService>.value(value: promo),
+        Provider<NativeBridgeService>.value(value: _NativeBridge()),
+      ],
+      child: MaterialApp(home: HomeScreen(campaignService: service)),
+    ));
+    await tester.pump();
+    expect(find.text('5/100'), findsOneWidget);
+    expect(service.requestedUids, ['home-player']);
+
+    service.progress =
+        const CampaignHomeProgress(reachedStage: 6, totalStages: 100);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    expect(find.text('6/100'), findsOneWidget);
+    expect(service.requestedUids, ['home-player', 'home-player']);
+
+    service.progress =
+        const CampaignHomeProgress(reachedStage: 1, totalStages: 100);
+    state.switchUser('another-player');
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('1/100'), findsOneWidget);
+    expect(find.text('6/100'), findsNothing);
+    expect(service.requestedUids.last, 'another-player');
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('home rank refreshes independently from player level',
+      (tester) async {
+    final state = _HomeState(online: true, displayedLevel: 6);
+    final service = _HomeLeaderboardService();
+    await _mountRankHome(tester, state, service);
+    expect(_homeRank(tester), '23');
+    expect(service.watchedUids, ['home-player']);
+    expect(
+        find.descendant(
+            of: find.byType(HomeLevelBadge), matching: find.text('6')),
+        findsOneWidget);
+
+    service.rank = 24;
+    state.changeTrophies(239);
+    await tester.pump();
+    await tester.pump();
+    expect(_homeRank(tester), '24');
+
+    service.rank = 42;
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    expect(_homeRank(tester), '42');
+
+    service.fail = true;
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    expect(_homeRank(tester), '42',
+        reason: 'A failed refresh should keep this account’s last known rank');
+
+    state.switchUser('another-player');
+    await tester.pump();
+    await tester.pump();
+    expect(_homeRank(tester), '—',
+        reason: 'Another account must never inherit the previous rank');
+    expect(service.watchedUids.last, 'another-player');
+
+    service.fail = false;
+    service.rank = 7;
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    expect(_homeRank(tester), '7');
+    expect(service.requestedUids.last, 'another-player');
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets(
+      'late rank from a previous account cannot replace the current rank',
+      (tester) async {
+    final state = _HomeState(online: true, displayedLevel: 6);
+    final service = _HomeLeaderboardService();
+    final oldAccount = Completer<int?>();
+    await _mountRankHome(tester, state, service);
+    expect(_homeRank(tester), '23');
+    service.pending['home-player'] = oldAccount;
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+
+    service.rank = 8;
+    state.switchUser('another-player');
+    await tester.pump();
+    await tester.pump();
+    expect(_homeRank(tester), '8');
+    oldAccount.complete(1);
+    await tester.pump();
+    expect(_homeRank(tester), '8');
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(seconds: 1));
+  });
+
   testWidgets('export updated home icons and banners with real balances',
       (tester) async {
     setupFirebaseCoreMocks();
@@ -1179,6 +1422,10 @@ void main() {
       'has_rated_challenge_land': true,
       'rate_reward_claimed': true,
     });
+    await (FontLoader('Leaderboard')
+          ..addFont(
+              rootBundle.load('assets/fonts/BarlowCondensed-SemiBold.ttf')))
+        .load();
     await (FontLoader('Baloo')
           ..addFont(SharedAssets.bundle.load('assets/fonts/baloo.ttf')))
         .load();
@@ -1190,7 +1437,9 @@ void main() {
           ..addFont(
               SharedAssets.bundle.load('fonts/MaterialIcons-Regular.otf')))
         .load();
-    final state = _HomeState(online: true);
+    final state = _HomeState(online: true, displayedLevel: 6);
+    final campaignService = _HomeCampaignService();
+    final leaderboardService = _HomeLeaderboardService();
     final promo = _Promo();
     addTearDown(state.dispose);
     addTearDown(promo.dispose);
@@ -1198,7 +1447,8 @@ void main() {
     for (final size in [
       const Size(800, 400),
       const Size(640, 360),
-      const Size(390, 780)
+      const Size(390, 780),
+      const Size(1024, 572),
     ]) {
       await tester.binding.setSurfaceSize(size);
       final key = GlobalKey();
@@ -1213,14 +1463,17 @@ void main() {
                   textTheme: ThemeData.dark().textTheme.apply(
                       fontFamily: 'Baloo',
                       fontFamilyFallback: const ['NotoSansArabic'])),
-              home: RepaintBoundary(key: key, child: const HomeScreen()))));
+              home: RepaintBoundary(
+                  key: key,
+                  child: HomeScreen(
+                      campaignService: campaignService,
+                      leaderboardService: leaderboardService)))));
       await tester.runAsync(() => Future.wait([
             for (final asset in [
               HomeArtwork.menu,
-              HomeArtwork.friends,
               HomeArtwork.store,
-              HomeArtwork.campaign,
-              HomeArtwork.modes,
+              HomeArtwork.help,
+              ...HomeActionSidebar.assets,
               HomeArtwork.coins,
               HomeArtwork.gems,
               HomeArtwork.keys,
@@ -1246,13 +1499,22 @@ void main() {
       expect(find.text('80'), findsOneWidget);
       expect(
           find.descendant(
-              of: find.byType(HomeLevelBadge), matching: find.text('2')),
+              of: find.byType(HomeLevelBadge), matching: find.text('6')),
           findsOneWidget);
+      expect(
+          tester
+              .widget<Text>(find.byKey(const ValueKey('home-leaderboard-rank')))
+              .data,
+          '23');
+      expect(find.text('5/100'), findsOneWidget);
+      expect(find.textContaining('اجمع النجوم'), findsNothing);
       expect(find.text('20/100'), findsOneWidget);
       expect(find.byTooltip('تحدي المراحل'), findsOneWidget);
       expect(find.byTooltip('أوضاع اللعب'), findsOneWidget);
-      expect(
-          find.byKey(const ValueKey('home-friends-green-dot')), findsOneWidget);
+      _expectSidebarLayout(tester, size);
+      expect(find.text('238 / 500'), findsOneWidget);
+      expect(find.byKey(const ValueKey('home-friends-notification-dot')),
+          findsOneWidget);
       final coinBounds =
           tester.getRect(find.byKey(const ValueKey('home-coins-balance')));
       final gemBounds =
@@ -1303,15 +1565,41 @@ void main() {
       await tester.runAsync(() async {
         final rendered = await boundary.toImage(pixelRatio: 2);
         final bytes = await rendered.toByteData(format: ui.ImageByteFormat.png);
-        final name = size.width == 800
-            ? 'landscape'
-            : size.width == 640
-                ? 'compact'
-                : 'mobile';
+        final name = size.width == 1024
+            ? 'reference'
+            : size.width == 800
+                ? 'landscape'
+                : size.width == 640
+                    ? 'compact'
+                    : 'mobile';
         await File('build/home-artwork-$name-ar.png')
             .writeAsBytes(bytes!.buffer.asUint8List());
         rendered.dispose();
       });
+      if (size.width == 1024) {
+        final slotBounds =
+            tester.getRect(find.byKey(const ValueKey('home-vip-button')));
+        await tester.pump(const Duration(seconds: 5));
+        await tester.pump(const Duration(milliseconds: 350));
+        final wheel = find.byKey(const ValueKey('home-wheel-button'));
+        expect(wheel, findsOneWidget);
+        expect(tester.getRect(wheel), slotBounds);
+        expect(find.byKey(const ValueKey('home-vip-button')), findsNothing);
+        await tester.runAsync(() => Future.wait([
+              for (final image in tester.widgetList<Image>(
+                  find.descendant(of: wheel, matching: find.byType(Image))))
+                precacheImage(image.image, tester.element(wheel)),
+            ]));
+        await tester.pump();
+        await tester.runAsync(() async {
+          final rendered = await boundary.toImage(pixelRatio: 2);
+          final bytes =
+              await rendered.toByteData(format: ui.ImageByteFormat.png);
+          await File('build/home-artwork-wheel-ar.png')
+              .writeAsBytes(bytes!.buffer.asUint8List());
+          rendered.dispose();
+        });
+      }
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(seconds: 1));
     }

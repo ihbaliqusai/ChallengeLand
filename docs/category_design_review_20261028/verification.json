@@ -1,0 +1,219 @@
+{
+  "date": "2026-10-28",
+  "generatedDesigns": 27,
+  "replacedPngFilenames": 29,
+  "sourceAndNativeMirrorsMatch": true,
+  "allGeneratedImages352Square": true,
+  "preservedUnrelatedImages": 36,
+  "retainedNewCategories": [
+    {
+      "title": "لاعبين كرة قدم",
+      "path": "assets/categories/لاعبين كرة قدم.png",
+      "dimensions": [
+        352,
+        352
+      ],
+      "sha256": "e460d6f98f5a08d293b609e2273c41125f547d1062ad4cdef799faa09de67820",
+      "unchanged": true,
+      "mirrorMatches": true
+    },
+    {
+      "title": "مسيرة لاعب",
+      "path": "assets/categories/مسيرة لاعب.png",
+      "dimensions": [
+        200,
+        200
+      ],
+      "sha256": "1b4b34f082d27dbd4f4e01699ff769d9ef777206612f0458899e5e43c1a00a30",
+      "unchanged": true,
+      "mirrorMatches": true
+    }
+  ],
+  "reviewInitialBytes": 5069687,
+  "sourceBytesAfter": 4850148,
+  "interiorAlphaAudit": [
+    {
+      "title": "Attack on Titan",
+      "interiorPixelsBelowAlpha240": 0,
+      "minimumInteriorAlpha": 250
+    },
+    {
+      "title": "Breaking Bad",
+      "interiorPixelsBelowAlpha240": 0,
+      "minimumInteriorAlpha": 245
+    },
+    {
+      "title": "Demon Slayer",
+      "interiorPixelsBelowAlpha240": 0,
+      "minimumInteriorAlpha": 251
+    },
+    {
+      "title": "Game Of Thrones",
+      "interiorPixelsBelowAlpha240": 0,
+      "minimumInteriorAlpha": 249
+    },
+    {
+      "title": "Harry Potter",
+      "interiorPixelsBelowAlpha240": 0,
+      "minimumInteriorAlpha": 252
+    },
+    {
+      "title": "Hunter × Hunter",
+      "interiorPixelsBelowAlpha240": 0,
+      "minimumInteriorAlpha": 251
+    },
+    {
+      "title": "Naruto",
+      "interiorPixelsBelowAlpha240": 0,
+      "minimumInteriorAlpha": 252
+    },
+    {
+      "title": "NBA",
+      "interiorPixelsBelowAlpha240": 0,
+      "minimumInteriorAlpha": 252
+    },
+    {
+      "title": "One Piece",
+      "interiorPixelsBelowAlpha240": 0,
+      "minimumInteriorAlpha": 252
+    },
+    {
+      "title": "Pokémon",
+      "interiorPixelsBelowAlpha240": 0,
+      "minimumInteriorAlpha": 252
+    },
+    {
+      "title": "أفلام أجنبية",
+      "interiorPixelsBelowAlpha240": 0,
+      "minimumInteriorAlpha": 252
+    },
+    {
+      "title": "أفلام عربية",
+      "interiorPixelsBelowAlpha240": 0,
+      "minimumInteriorAlpha": 252
+    },
+    {
+      "title": "أنمي",
+      "interiorPixelsBelowAlpha240": 0,
+      "minimumInteriorAlpha": 252
+    },
+    {
+      "title": "باب الحارة",
+      "interiorPixelsBelowAlpha240": 0,
+      "minimumInteriorAlpha": 250
+    },
+    {
+      "title": "بنات وبس",
+      "interiorPixelsBelowAlpha240": 0,
+      "minimumInteriorAlpha": 252
+    },
+    {
+      "title": "دراما خليجية",
+      "interiorPixelsBelowAlpha240": 0,
+      "minimumInteriorAlpha": 252
+    },
+    {
+      "title": "دراما سورية",
+      "interiorPixelsBelowAlpha240": 0,
+      "minimumInteriorAlpha": 252
+    },
+    {
+      "title": "دراما مصرية",
+      "interiorPixelsBelowAlpha240": 0,
+      "minimumInteriorAlpha": 251
+    },
+    {
+      "title": "دوري أبطال أوروبا",
+      "interiorPixelsBelowAlpha240": 0,
+      "minimumInteriorAlpha": 252
+    },
+    {
+      "title": "سبيس تون",
+      "interiorPixelsBelowAlpha240": 0,
+      "minimumInteriorAlpha": 247
+    },
+    {
+      "title": "فيروز",
+      "interiorPixelsBelowAlpha240": 0,
+      "minimumInteriorAlpha": 251
+    },
+    {
+      "title": "كأس العالم",
+      "interiorPixelsBelowAlpha240": 78,
+      "minimumInteriorAlpha": 231
+    },
+    {
+      "title": "كلثوميات",
+      "interiorPixelsBelowAlpha240": 0,
+      "minimumInteriorAlpha": 252
+    },
+    {
+      "title": "مسلسل Friends",
+      "interiorPixelsBelowAlpha240": 0,
+      "minimumInteriorAlpha": 252
+    },
+    {
+      "title": "مسلسلات أجنبية",
+      "interiorPixelsBelowAlpha240": 0,
+      "minimumInteriorAlpha": 252
+    },
+    {
+      "title": "مسلسلات تركية",
+      "interiorPixelsBelowAlpha240": 0,
+      "minimumInteriorAlpha": 252
+    },
+    {
+      "title": "مسلسلات عربية",
+      "interiorPixelsBelowAlpha240": 0,
+      "minimumInteriorAlpha": 252
+    }
+  ],
+  "visualReview": {
+    "passed": true,
+    "scope": "All final27generated designs and retained2new categories; titles, generic subjects, flatstyle, roundedframe, edges and darkbackground alpha appearance.",
+    "previews": [
+      "new-19.png",
+      "legacy-replacements.png"
+    ]
+  },
+  "checks": [
+    {
+      "command": "node tools/prepare_shared_assets.cjs --check",
+      "passed": true,
+      "routes": 107
+    },
+    {
+      "command": "flutter test test/game_category_test.dart --reporter expanded",
+      "passed": true,
+      "tests": 12,
+      "testAssetsBuilt": true
+    },
+    {
+      "check": "Final SHA256 of29sourcePNG files and27canonicalAndroidPNG files matches provenance",
+      "passed": true
+    },
+    {
+      "check": "Unrelated36categoryPNG files unchanged from reviewinitial snapshot",
+      "passed": true
+    },
+    {
+      "check": "All27replacement images decode and measure352x352; severe interioralpha defects absent in x32..319,y32..319",
+      "passed": true,
+      "minimumAcceptedInteriorAlpha": 200
+    }
+  ],
+  "replacedCanonicalAndroidPngs": 27,
+  "releaseBundleBuilt": false,
+  "manualPhoneTest": false,
+  "published": false,
+  "previews": [
+    {
+      "path": "docs/category_design_review_20261028/new-19.png",
+      "sha256": "0bd04c94d37b021c470144fa5d7659dbc8ca706ec24e9207cab7a2e03ba6f99d"
+    },
+    {
+      "path": "docs/category_design_review_20261028/legacy-replacements.png",
+      "sha256": "e4473fb3d74074fa33386cd3b8dfc04adea42bfe1399918255756dbacba2524a"
+    }
+  ]
+}

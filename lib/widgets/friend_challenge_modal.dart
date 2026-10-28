@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../core/app_settings.dart';
 import '../core/app_state.dart';
 import '../services/online_match_flow.dart';
 import '../models/player_profile.dart';
@@ -241,6 +242,7 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
 
   Future<void> _copyMyCode(String code) async {
     if (code.isEmpty) return;
+    AppSettings.playClick();
     try {
       await Clipboard.setData(ClipboardData(text: code));
       HapticFeedback.mediumImpact();
@@ -265,6 +267,7 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
 
   Future<void> _shareToWhatsApp(String code, String playerName) async {
     if (code.isEmpty) return;
+    AppSettings.playClick();
     final message = InviteService.buildFriendInviteShareMessage(
       code: code,
       playerName: playerName,
@@ -276,6 +279,7 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
 
   Future<void> _shareGeneral(String code, String playerName) async {
     if (code.isEmpty) return;
+    AppSettings.playClick();
     final message = InviteService.buildFriendInviteShareMessage(
       code: code,
       playerName: playerName,
@@ -287,6 +291,7 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
 
   Future<void> _launchChallenge(String targetCode) async {
     if (_isLaunching) return;
+    AppSettings.playClick();
     final cleanCode =
         targetCode.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').toUpperCase();
     if (cleanCode.isEmpty) {
@@ -342,6 +347,7 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
 
   Future<void> _startRandomMatch() async {
     if (_isLaunching) return;
+    AppSettings.playClick();
     final appState = context.read<AppState>();
     if (!appState.isOnline) {
       setState(() {
@@ -519,7 +525,10 @@ class _FriendChallengeModalState extends State<FriendChallengeModal>
             ),
           ),
           IconButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () {
+              AppSettings.playClick();
+              Navigator.of(context).pop();
+            },
             icon: const Icon(Icons.close_rounded,
                 color: Colors.white70, size: 22),
             padding: EdgeInsets.zero,

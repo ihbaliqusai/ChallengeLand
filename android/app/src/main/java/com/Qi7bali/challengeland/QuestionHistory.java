@@ -187,11 +187,28 @@ public final class QuestionHistory {
                 ready.run();
             } catch (Exception error) { failure.run(error); }
         };
+        boolean multiplayer = (gameId != null && !gameId.isEmpty()) || (roomId != null && !roomId.isEmpty());
         if (!connectedAccount(app) || !Data.isNetworkAvailable(app)) {
-            if ((gameId != null && !gameId.isEmpty()) || (roomId != null && !roomId.isEmpty())) {
+            if (multiplayer) {
                 failure.run(new IllegalStateException("تعذر حجز أسئلة المباراة. تحقق من الاتصال.")); return;
             }
             complete.run();
+            return;
+        }
+        if (!multiplayer) {
+            complete.run();
+            Map<String, Object> data = request("reserve", gameId, roomId);
+            data.put("keys", keys);
+            data.put("operationId", UUID.randomUUID().toString());
+            FirebaseFunctions.getInstance().getHttpsCallable("questionHistory").call(data)
+                    .addOnSuccessListener(result -> {
+                        synchronized (QuestionHistory.class) {
+                            SharedPreferences p = preferences(app);
+                            Set<String> pending = new HashSet<>(p.getStringSet("pending", new HashSet<>()));
+                            pending.removeAll(keys);
+                            ProgressionAccount.commitOrRollback(p, p.edit().putStringSet("pending", pending));
+                        }
+                    });
             return;
         }
         Map<String, Object> data = request("reserve", gameId, roomId);

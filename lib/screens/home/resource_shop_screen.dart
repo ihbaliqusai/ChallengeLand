@@ -1,3 +1,4 @@
+import '../../widgets/game_back_button.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/app_state.dart';
@@ -119,6 +120,8 @@ class _ResourceShopScreenState extends State<ResourceShopScreen> {
         child: Scaffold(
           backgroundColor: const Color(0xFF170B37),
           appBar: AppBar(
+              leading: GameBackButton(
+                  onPressed: () => Navigator.of(context).maybePop()),
               title: const Text('أرصدة اللعب'),
               centerTitle: true,
               backgroundColor: const Color(0xFF26105C),

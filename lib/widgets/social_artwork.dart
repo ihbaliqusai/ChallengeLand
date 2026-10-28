@@ -1,3 +1,5 @@
+import 'game_back_button.dart';
+import '../core/app_settings.dart';
 import 'package:flutter/material.dart';
 import 'adaptive_asset_image.dart';
 
@@ -161,22 +163,16 @@ class SocialArtworkHeader extends StatelessWidget {
         ),
         PositionedDirectional(
           start: 0,
-          child: IconButton(
-              tooltip: 'رجوع',
-              onPressed: onBack,
-              padding: const EdgeInsets.all(2),
-              icon: const SizedBox(
-                  width: 44,
-                  height: 44,
-                  child: ClipOval(
-                      child: SocialArtworkSlice(
-                          Rect.fromLTRB(.090, .046, .147, .148))))),
+          child: GameBackButton(onPressed: onBack),
         ),
         PositionedDirectional(
           end: 0,
           child: IconButton(
               tooltip: 'تحديث اللاعبين',
-              onPressed: onRefresh,
+              onPressed: onRefresh != null ? () {
+                AppSettings.playClick();
+                onRefresh!();
+              } : null,
               padding: const EdgeInsets.all(2),
               icon: Opacity(
                   opacity: onRefresh == null ? .45 : 1,
@@ -416,7 +412,10 @@ class SocialActionButton extends StatelessWidget {
                         end: Alignment.bottomCenter,
                         colors: colors)),
                 child: FilledButton(
-                    onPressed: onPressed,
+                    onPressed: onPressed != null ? () {
+                      AppSettings.playClick();
+                      onPressed!();
+                    } : null,
                     style: FilledButton.styleFrom(
                         backgroundColor: Colors.transparent,
                         disabledBackgroundColor: Colors.transparent,

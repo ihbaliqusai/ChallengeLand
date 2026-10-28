@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../core/app_settings.dart';
 import 'adaptive_asset_image.dart';
 
 abstract final class HomeArtwork {
@@ -237,7 +238,10 @@ class HomeResourceArtwork extends StatelessWidget {
       child: Tooltip(
         message: label,
         child: TextButton(
-          onPressed: onPressed,
+          onPressed: () {
+            AppSettings.playClick();
+            onPressed();
+          },
           style: TextButton.styleFrom(
             padding: EdgeInsets.zero,
             minimumSize: const Size(48, 48),
@@ -415,6 +419,7 @@ class _HomeBannerButtonState extends State<HomeBannerButton>
                   onTapCancel: () => setState(() => pressed = false),
                   onTapUp: (_) {
                     setState(() => pressed = false);
+                    AppSettings.playClick();
                     widget.onPressed();
                   },
                   child: SizedBox(

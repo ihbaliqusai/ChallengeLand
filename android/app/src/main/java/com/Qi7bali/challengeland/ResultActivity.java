@@ -223,6 +223,7 @@ public class ResultActivity extends GameViewportActivity {
                 btnDoubleReward.setOnClickListener(new View.OnClickListener() {
                     @Override
                     public void onClick(View view) {
+                        AppSoundEffects.click(view.getContext());
                         if (rewardDoubled) return;
                         if (!Data.isNetworkAvailable(ResultActivity.this)) {
                             GameNotice.makeText(ResultActivity.this, "لا يوجد اتصال بالإنترنت", Toast.LENGTH_SHORT).show();
@@ -280,6 +281,7 @@ public class ResultActivity extends GameViewportActivity {
         findViewById(R.id.btnNewGame).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                AppSoundEffects.click(view.getContext());
                 if (Data.isNetworkAvailable(ResultActivity.this)) {
                     if (isOnlineRoomResult()) {
                         navigateToOnlineRooms();
@@ -296,6 +298,7 @@ public class ResultActivity extends GameViewportActivity {
         findViewById(R.id.btnHome).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                AppSoundEffects.click(view.getContext());
                 showInterstitialThenHome();
             }
         });

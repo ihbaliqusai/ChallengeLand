@@ -77,17 +77,6 @@ class GameStoreNavigationSelection extends StatelessWidget {
       });
 }
 
-class GameStoreNavigationBack extends StatelessWidget {
-  const GameStoreNavigationBack({super.key, required this.pointRight});
-  final bool pointRight;
-
-  @override
-  Widget build(BuildContext context) => Transform.flip(
-      flipX: !pointRight,
-      child: const _NavigationSlice(
-          Rect.fromLTRB(2924 / 3168, 115 / 474, 3110 / 3168, 365 / 474)));
-}
-
 // Bounds and contours use the same pixel coordinates in the 3168 x 474 atlas.
 // Keep each crop and its outline together when replacing the source artwork.
 class _NavigationIconArtwork {

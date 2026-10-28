@@ -1,3 +1,4 @@
+import '../../widgets/game_back_button.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -372,6 +373,8 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
                 child: Scaffold(
                     backgroundColor: Colors.transparent,
                     appBar: AppBar(
+                        leading: GameBackButton(
+                            onPressed: () => Navigator.of(context).maybePop()),
                         title: const Text('ملف اللاعب',
                             style: TextStyle(fontWeight: FontWeight.w800)),
                         backgroundColor: Colors.transparent,

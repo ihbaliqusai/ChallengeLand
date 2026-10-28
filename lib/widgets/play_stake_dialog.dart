@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../core/app_settings.dart';
 import '../core/app_state.dart';
 import '../services/online_match_flow.dart';
 import '../screens/social/social_screen.dart';
@@ -150,12 +151,22 @@ class _PlayStakeDialogState extends State<PlayStakeDialog> {
       level: 'مستوى ${difficulty.level}',
       launching: _isLaunching,
       onStakeChanged: (stake) {
+        AppSettings.playClick();
         HapticFeedback.selectionClick();
         setState(() => _selectedStake = stake);
       },
-      onRandom: () => _startRandomMatch(appState),
-      onFriend: () => _chooseArenaOpponent(appState),
-      onClose: () => Navigator.of(context).pop(),
+      onRandom: () {
+        AppSettings.playClick();
+        _startRandomMatch(appState);
+      },
+      onFriend: () {
+        AppSettings.playClick();
+        _chooseArenaOpponent(appState);
+      },
+      onClose: () {
+        AppSettings.playClick();
+        Navigator.of(context).pop();
+      },
     );
   }
 }

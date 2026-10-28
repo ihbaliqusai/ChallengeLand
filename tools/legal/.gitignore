@@ -1,0 +1,2 @@
+# Machine-specific Gradle paths and verbatim working archive extraction.
+*.local.json

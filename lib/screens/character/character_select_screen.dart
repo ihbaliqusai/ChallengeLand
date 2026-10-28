@@ -1,3 +1,4 @@
+import '../../widgets/game_back_button.dart';
 import '../../widgets/game_notice.dart';
 import 'dart:io';
 
@@ -5,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/app_settings.dart';
 import '../../core/app_state.dart';
 import '../../models/game_character.dart';
 import '../../models/store_catalog.dart';
@@ -414,6 +416,7 @@ class _CharacterSelectScreenState extends State<CharacterSelectScreen>
             focused: _focused,
             compact: compact,
             onTap: (index) {
+              AppSettings.playClick();
               HapticFeedback.selectionClick();
               setState(() => _focused = index);
             },
@@ -544,14 +547,9 @@ class _TopBar extends StatelessWidget {
       child: Row(
         children: [
           if (!forced)
-            _CircleIconButton(
-              icon: Icons.arrow_back_rounded,
-              tooltip: 'رجوع',
-              size: compact ? 34 : 40,
-              onTap: () => Navigator.of(context).maybePop(),
-            )
+            GameBackButton(onPressed: () => Navigator.of(context).maybePop())
           else
-            SizedBox(width: compact ? 34 : 42),
+            const SizedBox(width: 48),
           const Spacer(),
           Row(key: balancesGuideKey, mainAxisSize: MainAxisSize.min, children: [
             _CurrencyPill(
@@ -581,13 +579,12 @@ class _CircleIconButton extends StatelessWidget {
     required this.icon,
     required this.onTap,
     this.tooltip,
-    this.size = 40,
   });
 
   final IconData icon;
   final VoidCallback onTap;
   final String? tooltip;
-  final double size;
+  static const double size = 40;
 
   @override
   Widget build(BuildContext context) {
@@ -1582,7 +1579,12 @@ class _ActionBar extends StatelessWidget {
               opacity: enabled ? 1.0 : 0.55,
               child: GestureDetector(
                 key: confirmGuideKey,
-                onTap: enabled ? onPressed : null,
+                onTap: enabled
+                    ? () {
+                        AppSettings.playClick();
+                        onPressed();
+                      }
+                    : null,
                 child: Container(
                   height: btnHeight,
                   decoration: BoxDecoration(

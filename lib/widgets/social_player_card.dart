@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../core/app_settings.dart';
 import 'social_artwork.dart';
 
 /// Compact player identity; tapping opens the screen's player options.
@@ -96,7 +97,10 @@ class SocialPlayerCard extends StatelessWidget {
                 child: Stack(children: [
                   const Positioned.fill(child: SocialPlayerArtwork()),
                   InkWell(
-                    onTap: onTap,
+                    onTap: () {
+                      AppSettings.playClick();
+                      onTap();
+                    },
                     borderRadius: BorderRadius.circular(13),
                     splashColor: purple.withValues(alpha: .12),
                     focusColor: gold.withValues(alpha: .22),

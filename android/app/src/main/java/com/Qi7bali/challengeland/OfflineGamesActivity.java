@@ -182,21 +182,14 @@ public class OfflineGamesActivity extends GameViewportActivity {
         topRow.setOrientation(LinearLayout.HORIZONTAL);
         topRow.setGravity(Gravity.CENTER_VERTICAL);
 
-        // زر العودة بتصميم زجاجي ملكي
-        Button backBtn = new Button(this);
-        backBtn.setText("‹");
-        backBtn.setTextColor(TEXT_WHITE);
-        backBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f);
-        backBtn.setTypeface(Typeface.DEFAULT_BOLD);
-        backBtn.setPadding(0, 0, 0, dpx(2));
-        backBtn.setBackground(withRipple(cardBg(0x33FFFFFF, 0x66FFD700, 999, 1), 0x44FFFFFF));
+        GameBackButton backBtn = new GameBackButton(this);
         backBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 finish();
             }
         });
-        topRow.addView(backBtn, new LinearLayout.LayoutParams(dpx(40), dpx(40)));
+        topRow.addView(backBtn, new LinearLayout.LayoutParams(dpx(48), dpx(48)));
 
         // أيقونة التحدي الفردي النردية
         TextView diceEmblem = new TextView(this);
@@ -249,6 +242,7 @@ public class OfflineGamesActivity extends GameViewportActivity {
         newGameBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                AppSoundEffects.click(v.getContext());
                 startActivity(new Intent(OfflineGamesActivity.this, OfflineSetupActivity.class));
             }
         });
@@ -356,6 +350,7 @@ public class OfflineGamesActivity extends GameViewportActivity {
             clearBtn.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
+                    AppSoundEffects.click(v.getContext());
                     confirmClearHistory();
                 }
             });
@@ -516,6 +511,7 @@ public class OfflineGamesActivity extends GameViewportActivity {
             quickBtn.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
+                    AppSoundEffects.click(v.getContext());
                     startActivity(new Intent(OfflineGamesActivity.this, OfflineSetupActivity.class));
                 }
             });
@@ -847,6 +843,7 @@ public class OfflineGamesActivity extends GameViewportActivity {
             resumeBtn.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
+                    AppSoundEffects.click(v.getContext());
                     launchGame(record);
                 }
             });
@@ -871,6 +868,7 @@ public class OfflineGamesActivity extends GameViewportActivity {
         deleteBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                AppSoundEffects.click(v.getContext());
                 confirmDelete(id, "المواجهة ضد " + leader);
             }
         });
@@ -1057,6 +1055,7 @@ public class OfflineGamesActivity extends GameViewportActivity {
             @Override
             public void onClick(View v) {
                 dialog.dismiss();
+                AppSoundEffects.click(v.getContext());
                 if (onConfirm != null) onConfirm.run();
             }
         });
@@ -1073,6 +1072,7 @@ public class OfflineGamesActivity extends GameViewportActivity {
         cancelBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                AppSoundEffects.click(v.getContext());
                 dialog.dismiss();
             }
         });

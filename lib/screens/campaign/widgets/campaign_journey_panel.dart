@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/app_settings.dart';
 
 import '../../../models/campaign_daily_progress.dart';
 import '../../../models/campaign_stage.dart';
@@ -33,7 +34,10 @@ class CampaignJourneyBar extends StatelessWidget {
         Expanded(
           child: FilledButton.icon(
             key: continueGuideKey,
-            onPressed: onContinue,
+            onPressed: onContinue != null ? () {
+              AppSettings.playClick();
+              onContinue!();
+            } : null,
             style: FilledButton.styleFrom(
               backgroundColor: _gold,
               foregroundColor: _ink,
@@ -57,7 +61,10 @@ class CampaignJourneyBar extends StatelessWidget {
         Expanded(
           child: FilledButton.icon(
             key: dailyGuideKey,
-            onPressed: onDailyTap,
+            onPressed: () {
+              AppSettings.playClick();
+              onDailyTap();
+            },
             style: FilledButton.styleFrom(
               backgroundColor: compact
                   ? const Color(0xFFF4F9E8).withValues(alpha: 0.92)

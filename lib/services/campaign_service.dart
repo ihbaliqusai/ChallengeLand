@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
+import '../models/campaign_home_progress.dart';
 import '../models/campaign_stage.dart';
 import '../models/stage_attempt.dart';
 import '../models/stage_leaderboard_entry.dart';
@@ -179,6 +181,11 @@ class CampaignService {
 
   static const bool debugUnlockAllCampaignStages = false;
 
+  static final _progressUpdates = StreamController<String>.broadcast();
+
+  /// Notifies open home screens after a player's progress has committed.
+  static Stream<String> get progressUpdates => _progressUpdates.stream;
+
   final FirebaseFirestore _firestore;
 
   Future<List<CampaignStage>> loadStages({
@@ -270,6 +277,7 @@ class CampaignService {
   Future<Map<String, StageProgress>> loadUserProgress({
     required String uid,
     String campaignId = CampaignDefaults.mainCampaignId,
+    bool throwOnError = false,
   }) async {
     if (uid.trim().isEmpty) return const <String, StageProgress>{};
     try {
@@ -293,8 +301,38 @@ class CampaignService {
       }
       return progress;
     } catch (_) {
+      if (throwOnError) rethrow;
       return const <String, StageProgress>{};
     }
+  }
+
+  /// Uses the map's unlock rules, without developer-only stage unlocks.
+  Future<CampaignHomeProgress> loadHomeProgress({
+    required String uid,
+    String campaignId = CampaignDefaults.mainCampaignId,
+  }) async {
+    final stagesFuture = loadStages(campaignId: campaignId);
+    final savedProgress = await loadUserProgress(
+      uid: uid,
+      campaignId: campaignId,
+      throwOnError: true,
+    );
+    final stages = await stagesFuture;
+    final progress = resolveProgressForStages(
+      stages: stages,
+      savedProgress: savedProgress,
+      debugUnlockAllCampaignStagesOverride: false,
+    );
+    var reachedStage = 0;
+    for (var index = 0; index < progress.length; index++) {
+      if (progress[index].status != StageProgressStatus.locked) {
+        reachedStage = index + 1;
+      }
+    }
+    return CampaignHomeProgress(
+      reachedStage: reachedStage,
+      totalStages: stages.length,
+    );
   }
 
   List<StageProgress> resolveProgressForStages({
@@ -1007,6 +1045,7 @@ class CampaignService {
         ),
       );
     });
+    _progressUpdates.add(normalizedUid);
     // A replay may recover a leaderboard write lost after the progress commit.
     // Always use the stored attempt so a changed replay payload cannot improve it.
     final submittedAttempt = result.attempt;

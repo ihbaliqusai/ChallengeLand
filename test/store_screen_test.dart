@@ -16,6 +16,7 @@ import 'package:challenge_land/services/cross_promo_service.dart';
 import 'package:challenge_land/services/in_app_purchase_service.dart';
 import 'package:challenge_land/services/native_bridge_service.dart';
 import 'package:challenge_land/widgets/game_store_widgets.dart';
+import 'package:challenge_land/widgets/game_back_button.dart';
 import 'package:challenge_land/widgets/game_viewport.dart';
 import 'package:challenge_land/widgets/special_offer_dialog.dart';
 import 'package:flutter/material.dart';
@@ -950,7 +951,7 @@ void main() {
     expect(navigationBounds.right, 390);
     expect(navigationBounds.top, 0);
     expect(find.byType(GameStoreTopBarArtwork), findsOneWidget);
-    expect(find.byType(GameStoreNavigationBack), findsOneWidget);
+    expect(find.byType(GameBackButton), findsOneWidget);
     final navigationTabs = [
       'Featured',
       'Resources',

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/app_settings.dart';
+
 class ResultBottomActions extends StatelessWidget {
   const ResultBottomActions({
     super.key,
@@ -25,7 +27,12 @@ class ResultBottomActions extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
-                onPressed: launching ? null : onNext ?? onRetry,
+                onPressed: launching
+                    ? null
+                    : () {
+                        AppSettings.playClick();
+                        (onNext ?? onRetry)();
+                      },
                 icon: launching
                     ? const SizedBox(
                         width: 20,
@@ -62,13 +69,23 @@ class ResultBottomActions extends StatelessWidget {
               children: [
                 if (onNext != null)
                   TextButton.icon(
-                    onPressed: launching ? null : onRetry,
+                    onPressed: launching
+                        ? null
+                        : () {
+                            AppSettings.playClick();
+                            onRetry();
+                          },
                     icon: const Icon(Icons.refresh_rounded, size: 20),
                     label: const Text('تحسين النجوم'),
                     style: _secondaryStyle,
                   ),
                 TextButton.icon(
-                  onPressed: launching ? null : onMap,
+                  onPressed: launching
+                      ? null
+                      : () {
+                          AppSettings.playClick();
+                          onMap();
+                        },
                   icon: const Icon(Icons.map_rounded, size: 20),
                   label: const Text('خريطة المراحل'),
                   style: _secondaryStyle,

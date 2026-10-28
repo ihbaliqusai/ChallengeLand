@@ -267,7 +267,7 @@ void main() {
     await tester.tap(find.text('Players'));
     await tester.pumpAndSettle();
     expect(find.text('ملف اللاعب'), findsOneWidget);
-    await tester.tap(find.byType(BackButton));
+    await tester.tap(find.byTooltip('رجوع'));
     await tester.pumpAndSettle();
     expect(find.text('Players'), findsOneWidget);
     expect(find.byType(PlayerProfileScreen), findsNothing);

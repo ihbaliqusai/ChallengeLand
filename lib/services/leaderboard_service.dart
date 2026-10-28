@@ -312,6 +312,93 @@ class LeaderboardService {
     return _cache.remember(key, _rankedSnapshot(await query.get()));
   }
 
+  /// Counts the published players ahead of this account, beyond the top window.
+  Future<int?> loadWorldRank({required String uid}) async {
+    final id = uid.trim();
+    if (id.isEmpty || id.contains('/')) return null;
+    final profile = await _firestore
+        .collection('public_profiles')
+        .doc(id)
+        .get(const GetOptions(source: Source.server));
+    if (profile.metadata.hasPendingWrites || profile.metadata.isFromCache) {
+      throw StateError('The published player score is not confirmed');
+    }
+    return _worldRank(profile);
+  }
+
+  Future<int?> _worldRank(
+      DocumentSnapshot<Map<String, dynamic>> profile) async {
+    final trophies = profile.data()?['trophies'];
+    if (!profile.exists ||
+        trophies is! num ||
+        !trophies.isFinite ||
+        trophies <= 0) {
+      return null;
+    }
+    final ahead = await _firestore
+        .collection('public_profiles')
+        .where('trophies', isGreaterThan: 0)
+        .orderBy('trophies', descending: true)
+        .orderBy(FieldPath.documentId, descending: true)
+        .endBeforeDocument(profile)
+        .count()
+        .get();
+    final count = ahead.count;
+    if (count == null) throw StateError('The global rank count is unavailable');
+    return count + 1;
+  }
+
+  /// Score publications refresh this account's rank without downloading boards.
+  Stream<int?> watchWorldRank({required String uid}) {
+    final id = uid.trim();
+    if (id.isEmpty || id.contains('/')) return Stream.value(null);
+    late final StreamController<int?> controller;
+    StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? subscription;
+    var disposed = false;
+    var revision = 0;
+    var hasScore = false;
+    num? score;
+    controller = StreamController<int?>(
+      onListen: () {
+        subscription = _firestore
+            .collection('public_profiles')
+            .doc(id)
+            .snapshots(includeMetadataChanges: true)
+            .listen((profile) {
+          if (profile.metadata.isFromCache ||
+              profile.metadata.hasPendingWrites) {
+            return;
+          }
+          final value = profile.data()?['trophies'];
+          final published =
+              value is num && value.isFinite && value > 0 ? value : null;
+          if (hasScore && score == published) return;
+          hasScore = true;
+          score = published;
+          final current = ++revision;
+          unawaited(() async {
+            try {
+              final rank = await _worldRank(profile);
+              if (!disposed && current == revision) controller.add(rank);
+            } catch (error, stack) {
+              if (!disposed && current == revision) {
+                controller.addError(error, stack);
+              }
+            }
+          }());
+        }, onError: (Object error, StackTrace stack) {
+          if (!disposed) controller.addError(error, stack);
+        });
+      },
+      onCancel: () {
+        disposed = true;
+        revision++;
+        return subscription?.cancel();
+      },
+    );
+    return controller.stream;
+  }
+
   List<String> _friendIds(
     String uid,
     QuerySnapshot<Map<String, dynamic>> links,

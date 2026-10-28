@@ -84,6 +84,13 @@ public final class GameNoticeDialogs {
         for (int id : new int[]{android.R.id.button1, android.R.id.button2, android.R.id.button3}) {
             TextView button = dialog.findViewById(id);
             if (button == null || button.getVisibility() != View.VISIBLE) continue;
+            button.setSoundEffectsEnabled(false);
+            button.setOnTouchListener((v, event) -> {
+                if (event.getAction() == android.view.MotionEvent.ACTION_DOWN) {
+                    AppSoundEffects.click(v.getContext());
+                }
+                return false;
+            });
             boolean primary = id == android.R.id.button1;
             GradientDrawable buttonBackground = new GradientDrawable();
             buttonBackground.setCornerRadius(12 * density);

@@ -1,3 +1,4 @@
+import '../../widgets/game_back_button.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -27,7 +28,6 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
   late final AnimationController _reveal;
   Animation<double> _turns = const AlwaysStoppedAnimation(0);
   Timer? _timer;
-  DateTime _day = _utcDay();
   Duration _remaining = Duration.zero;
   bool _loading = true;
   bool _busy = false;
@@ -40,11 +40,6 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
   GameCharacter? _spinCharacter;
   bool _spinCharacterCompensation = false;
   int _lastTick = -1;
-
-  static DateTime _utcDay() {
-    final now = DateTime.now().toUtc();
-    return DateTime.utc(now.year, now.month, now.day);
-  }
 
   @override
   void initState() {
@@ -145,18 +140,22 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
 
   void _tick() {
     if (!mounted) return;
-    final now = DateTime.now().toUtc();
-    final today = _utcDay();
-    setState(() => _remaining =
-        DateTime.utc(now.year, now.month, now.day + 1).difference(now));
-    if (_day != today && !_busy) {
-      _day = today;
-      setState(() {
-        _result = null;
-        _winningSlot = null;
-        _error = null;
-        _loading = true;
-      });
+    final now = DateTime.now();
+    final app = context.read<AppState>();
+    final nextFreeMillis = app.economyWallet.nextFreeWheelSpinMillis;
+    Duration remaining = Duration.zero;
+    if (nextFreeMillis > 0) {
+      final nextFree = DateTime.fromMillisecondsSinceEpoch(nextFreeMillis);
+      if (nextFree.isAfter(now)) {
+        remaining = nextFree.difference(now);
+      }
+    } else if (!app.isLuckyWheelFreeAvailable) {
+      final nowUtc = now.toUtc();
+      remaining = DateTime.utc(nowUtc.year, nowUtc.month, nowUtc.day + 1).difference(nowUtc);
+    }
+    final hadCooldown = _remaining > Duration.zero;
+    setState(() => _remaining = remaining);
+    if (hadCooldown && remaining == Duration.zero && !_busy) {
       unawaited(_refresh());
     }
   }
@@ -167,6 +166,7 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
     _lastTick = tick;
     if (mounted && !MediaQuery.of(context).disableAnimations) {
       _haptic('light');
+      _sfx('wheel_tick');
     }
   }
 
@@ -241,6 +241,7 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
       _busy = false;
     });
     _haptic('medium');
+    _sfx('wheel_win');
     if (MediaQuery.of(context).disableAnimations) {
       _reveal.value = 1;
     } else {
@@ -252,6 +253,13 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
     final settings = context.read<AppSettings?>();
     if (settings != null) {
       unawaited(settings.playHaptic(style: style).catchError((_) => false));
+    }
+  }
+
+  void _sfx(String effect) {
+    final settings = context.read<AppSettings?>();
+    if (settings != null) {
+      unawaited(settings.playSoundEffect(effect: effect).catchError((_) => false));
     }
   }
 
@@ -305,19 +313,11 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
                     Positioned(
                       left: 8,
                       top: 8,
-                      child: IconButton(
+                      child: GameBackButton(
                         key: const ValueKey('lucky-wheel-back'),
-                        tooltip: 'رجوع',
                         onPressed: busy || _buying
                             ? null
                             : () => Navigator.maybePop(context),
-                        style: IconButton.styleFrom(
-                          backgroundColor: const Color(0x55200B45),
-                        ),
-                        icon: const Icon(Icons.arrow_back_rounded,
-                            textDirection: TextDirection.ltr,
-                            size: 30,
-                            color: Colors.white),
                       ),
                     ),
                   ]);
@@ -452,7 +452,7 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
                 ? _buySpins
                 : null,
         badge: canSpin && spinReady && !app.hasPendingLuckyWheelSpin
-            ? (app.claimedToday ? app.purchasedWheelSpins : 1)
+            ? (app.isLuckyWheelFreeAvailable ? 1 + app.purchasedWheelSpins : app.purchasedWheelSpins)
             : 0,
       ),
       const SizedBox(height: 10),
@@ -478,15 +478,15 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
                     const TextStyle(color: Color(0xFFE8D4FF), fontSize: 12))),
       const SizedBox(height: 4),
       Text(
-          app.claimedToday
+          !app.isLuckyWheelFreeAvailable
               ? 'اللفة المجانية التالية خلال'
-              : 'لفة مجانية كل يوم',
+              : 'لفة مجانية كل 24 ساعة',
           textAlign: TextAlign.center,
           style: const TextStyle(
               color: Color(0xFFF8E8FF),
               fontSize: 13,
               fontWeight: FontWeight.w700)),
-      if (app.claimedToday)
+      if (!app.isLuckyWheelFreeAvailable)
         Directionality(
             textDirection: TextDirection.ltr,
             child: Text(_countdown,
@@ -498,17 +498,17 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
                     fontWeight: FontWeight.w900))),
       if (!canSpin && iap != null && !checkoutBusy && details == null)
         TextButton(
-            onPressed: () => iap.loadProducts(),
+            onPressed: () { AppSettings.playClick(); iap.loadProducts(); },
             child: const Text('تحديث السعر',
                 style: TextStyle(color: Color(0xFFFFE693)))),
-      if (iap != null && app.claimedToday)
+      if (iap != null && !app.isLuckyWheelFreeAvailable)
         TextButton(
             onPressed:
-                busy || _buying || _syncingPurchase ? null : _retryPurchases,
+                busy || _buying || _syncingPurchase ? null : () { AppSettings.playClick(); _retryPurchases(); },
             child: const Text('التحقق من المشتريات',
                 style: TextStyle(color: Color(0xFFE5C8F6), fontSize: 12))),
       TextButton(
-          onPressed: busy || _buying ? null : _showPrizeDetails,
+          onPressed: busy || _buying ? null : () { AppSettings.playClick(); _showPrizeDetails(); },
           child: const Text('الجوائز وفرص الفوز',
               style: TextStyle(color: Color(0xFFE5C8F6), fontSize: 12))),
     ]);
@@ -554,7 +554,7 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
               ]),
               actions: [
                 TextButton(
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: () { AppSettings.playClick(); Navigator.pop(context); },
                     child: const Text('حسنًا'))
               ],
             )),
@@ -640,7 +640,12 @@ class _SpinButton extends StatelessWidget {
                   color: Colors.transparent,
                   child: InkWell(
                     key: const ValueKey('lucky-wheel-spin'),
-                    onTap: onPressed,
+                    onTap: onPressed == null
+                        ? null
+                        : () {
+                            AppSettings.playClick();
+                            onPressed!();
+                          },
                     borderRadius: BorderRadius.circular(12),
                     child: Center(
                       child: Padding(

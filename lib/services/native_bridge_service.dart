@@ -629,6 +629,14 @@ class NativeBridgeService {
     await _channel.invokeMethod<void>('stopCampaignMapMusic');
   }
 
+  Future<void> playLobbyMusic() async {
+    await _channel.invokeMethod<void>('playLobbyMusic');
+  }
+
+  Future<void> stopLobbyMusic() async {
+    await _channel.invokeMethod<void>('stopLobbyMusic');
+  }
+
   /// يُعيد إحصائيات اللاعب الحقيقية من PlayerStats
   Future<Map<String, int>> getPlayerStats() async {
     final result =
@@ -811,6 +819,18 @@ class NativeBridgeService {
       {'style': style},
     );
     return result ?? false;
+  }
+
+  Future<bool> playSoundEffect({String effect = 'click'}) async {
+    try {
+      final result = await _channel.invokeMethod<bool>(
+        'playSoundEffect',
+        {'effect': effect},
+      );
+      return result ?? false;
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<void> setNotificationsEnabled(bool enabled) async {

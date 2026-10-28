@@ -1,3 +1,4 @@
+import '../../widgets/game_back_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -455,6 +456,8 @@ class _Header extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
       child: Row(
         children: [
+          GameBackButton(onPressed: onBack),
+          const SizedBox(width: 8),
           const Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -494,21 +497,6 @@ class _Header extends StatelessWidget {
             tooltip: 'دليل التقدم والمكافآت',
             color: const Color(0xFFFACC15),
             icon: const Icon(Icons.info_outline_rounded),
-          ),
-          Tooltip(
-            message: 'رجوع',
-            child: IconButton(
-              onPressed: onBack,
-              icon: const Icon(Icons.arrow_back_rounded),
-              color: Colors.white,
-              style: IconButton.styleFrom(
-                backgroundColor: Colors.white.withValues(alpha: 0.08),
-                side: BorderSide(color: Colors.white.withValues(alpha: 0.16)),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-            ),
           ),
         ],
       ),

@@ -63,6 +63,38 @@
       "license": "CC0-1.0",
       "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
       "sourceSha256": "885b28175c7b511118bcffab95675b48bbac9005cf6514656ebdad979276b3ab"
+    },
+    {
+      "title": "Interface Sounds / drop_004",
+      "author": "Kenney",
+      "url": "https://kenney.nl/assets/interface-sounds",
+      "file": "Audio/drop_004.ogg",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/"
+    },
+    {
+      "title": "Halloween Horror Creepy Piano | Horror",
+      "author": "Alex-Productions",
+      "url": "https://www.chosic.com/download-audio/46417/",
+      "file": "bgm_lobby.mp3",
+      "license": "CC-BY-3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/3.0/"
+    },
+    {
+      "title": "Echoes of Time v2",
+      "author": "Kevin MacLeod",
+      "url": "https://www.chosic.com/download-audio/42097/",
+      "file": "echoes_of_time.mp3",
+      "license": "CC-BY-3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/3.0/"
+    },
+    {
+      "title": "Labyrinth of Lost Dreams",
+      "author": "Darren Curtis",
+      "url": "https://www.chosic.com/download-audio/28510/",
+      "file": "labyrinth_of_lost_dreams.mp3",
+      "license": "CC-BY-3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/3.0/"
     }
   ]
 }

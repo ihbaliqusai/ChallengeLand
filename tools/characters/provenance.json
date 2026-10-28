@@ -1,0 +1,36 @@
+{
+  "recordedAt": "2026-10-28",
+  "recordType": "publisher-declaration",
+  "declaredBy": "application publisher in this conversation",
+  "scope": "Contestant character artwork and animation/video groups discussed separately from the purchased Envato presenter, including Layan, Jana and Renad.",
+  "imageCreation": {
+    "method": "AI generation",
+    "service": "Google Gemini"
+  },
+  "animationCreation": {
+    "method": "AI animation/video generation",
+    "service": "Google Gemini"
+  },
+  "declarations": [
+    "The publisher confirmed that these character groups and their animations were all generated with artificial intelligence.",
+    "When asked which tool was used for generation and animation, the publisher answered Gemini."
+  ],
+  "creationDates": null,
+  "modelVersions": null,
+  "promptsOrGenerationReceiptsProvided": false,
+  "referenceInputs": "not specified",
+  "envatoCertificate": {
+    "file": "android/app/src/main/res/raw/person_license.txt",
+    "itemId": "21822749",
+    "scopeNote": "The existing certificate concerns the separately purchased item. This Gemini source declaration is recorded independently and is not an extension of the Envato certificate."
+  },
+  "termsReview": {
+    "reviewedAt": "2026-10-28",
+    "sources": [
+      "https://policies.google.com/terms",
+      "https://support.google.com/gemini/answer/16126339?hl=en"
+    ],
+    "finding": "Google's current general terms state that Google does not claim ownership over original generated content. Gemini's video guidance requires rights to uploaded images and respect for others' copyright and privacy rights.",
+    "scopeNote": "This records the publisher's source statement and a review of current published terms, not independent verification of the original generation sessions, reference inputs, exclusive copyright or universal legal clearance."
+  }
+}

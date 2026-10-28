@@ -1,3 +1,4 @@
+import '../../widgets/game_back_button.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -337,12 +338,7 @@ class _InviteFriendsScreenState extends State<InviteFriendsScreen>
   Widget _header() => Padding(
         padding: const EdgeInsets.fromLTRB(18, 5, 18, 5),
         child: Row(children: [
-          IconButton(
-            tooltip: 'رجوع',
-            onPressed: () => Navigator.of(context).maybePop(),
-            icon: const Icon(Icons.arrow_back_rounded,
-                color: Colors.white, size: 32),
-          ),
+          GameBackButton(onPressed: () => Navigator.of(context).maybePop()),
           const Expanded(
             child: Text('دعوة الأصدقاء',
                 textAlign: TextAlign.center,

@@ -4,6 +4,14 @@
     android:layout_height="match_parent"
     android:background="@drawable/bg_main">
 
+    <com.qi7bali.landchallengeonline.GameBackButton
+        android:id="@+id/btnStoreBack"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_alignParentStart="true"
+        android:layout_alignParentTop="true"
+        android:layout_margin="16dp" />
+
     <TextView
         android:id="@+id/txtStoreTitle"
         android:layout_width="wrap_content"
@@ -37,7 +45,6 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_below="@id/llyStoreWallet"
-        android:layout_above="@id/btnStoreBack"
         android:layout_margin="16dp">
 
         <LinearLayout
@@ -51,17 +58,5 @@
             <Button android:id="@+id/btnExchangeGems" style="@style/button_main_menu" android:text="تحويل 3 جواهر إلى 900 قطعة" />
         </LinearLayout>
     </ScrollView>
-
-    <Button
-        android:id="@+id/btnStoreBack"
-        android:layout_width="220dp"
-        android:layout_height="42dp"
-        android:layout_alignParentBottom="true"
-        android:layout_centerHorizontal="true"
-        android:layout_marginBottom="12dp"
-        android:background="@drawable/menu_button_frame"
-        android:text="رجوع"
-        android:textColor="#FFFFFF"
-        android:textSize="18sp" />
 
 </RelativeLayout>

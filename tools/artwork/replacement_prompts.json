@@ -1,0 +1,10 @@
+{
+  "date": "2026-10-28",
+  "mode": "built-in image_gen.imagegen",
+  "intent": "generate",
+  "referencedImages": false,
+  "prompts": {
+    "logo": "Use case: logo-brand. Asset type: square quiz-game cross-promotion icon for an independent Arabic general-knowledge mobile game. Create a completely original premium polished stylized 3D icon: one luminous faceted golden puzzle-gem with a bold simple question-mark-shaped recessed cutout at its center, on a deep navy to purple background. Crisp readable silhouette and restrained warm rim light, a few tiny tasteful glints, high contrast even at 80-pixel display size. The original game title appears separately in the interface, so absolutely no text, letters, numerals, border lettering, people, or watermarks. Center the single object with comfortable square margins. No circular quiz-show medallion, no ring-and-spokes pattern, no television program crest, no recognizable brand or existing character. Standalone new design, no reference image.",
+    "owl": "Use case: stylized-concept. Asset type: square mobile quiz game bot avatar, original mascot for the bot Noura. Create a completely original friendly cute owl portrait with plum-purple and soft coral feathers, large warm amber eyes, a tiny simple beak, and small rounded feather tufts, rendered as polished stylized 3D game illustration. Head and upper chest, facing camera with a gently confident welcoming expression. Centered symmetrical clear silhouette, ample padding around the head for a circular crop. Smooth dark muted lilac background, soft studio lighting, clean high quality finish. Absolutely no text, letters, logos, badges, watermarks, green robot features or antennae, no likeness of any established mascot, franchise character, real person or brand. Standalone new illustration with no reference image."
+  }
+}

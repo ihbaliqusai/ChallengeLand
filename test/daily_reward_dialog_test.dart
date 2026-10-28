@@ -52,6 +52,8 @@ class _Rewards extends ChangeNotifier implements AppState {
   @override
   int get purchasedWheelSpins => paidSpins;
   @override
+  bool get isLuckyWheelFreeAvailable => !claimedToday;
+  @override
   bool get canSpinLuckyWheel => !claimedToday || paidSpins > 0;
   @override
   bool get hasPendingLuckyWheelSpin => false;
@@ -191,6 +193,14 @@ void main() {
       await (FontLoader(font.$1)..addFont(SharedAssets.bundle.load(font.$2)))
           .load();
     }
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(const MethodChannel('millionaire/native'),
+            (call) async {
+      if (call.method == 'playSoundEffect' || call.method == 'playHaptic') {
+        return true;
+      }
+      return null;
+    });
   });
 
   test('the visible wedges give each quantity variant one equal slot', () {

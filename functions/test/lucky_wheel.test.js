@@ -86,17 +86,17 @@ test("legacy daily claims consume the same UTC opportunity", async () => {
   assert.equal(next.spin.newlyGranted, true);
 });
 
-test("the next spin unlocks at UTC midnight and old receipts remain idempotent", async () => {
+test("the next spin unlocks after 24 hours and old receipts remain idempotent", async () => {
   const x = setup(3);
-  const first = await x.spin("before_midnight");
-  x.advance(12 * 3600000 - 1);
-  await assert.rejects(x.spin("still_today"), { code: "failed-precondition" });
+  const first = await x.spin("before_cooldown");
+  x.advance(24 * 3600000 - 1);
+  await assert.rejects(x.spin("still_in_cooldown"), { code: "failed-precondition" });
   x.advance(1);
   assert.equal((await x.call({ action: "state" })).state.wheelClaimedToday, false);
-  const old = await x.spin("before_midnight");
+  const old = await x.spin("before_cooldown");
   assert.equal(old.spin.newlyGranted, false);
   assert.deepEqual(old.spin.grants, first.spin.grants);
-  const next = await x.spin("after_midnight");
+  const next = await x.spin("after_cooldown");
   assert.equal(next.spin.newlyGranted, true);
   assert.equal(next.state.wheelClaimedToday, true);
   assert.equal(x.db.read("users/player").streakDay, 2);

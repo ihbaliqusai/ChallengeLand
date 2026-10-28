@@ -265,12 +265,13 @@ function createEconomyService({ db, now = Date.now, randomInt = secureRandomInt 
         const day = Math.floor(at / DAY);
         const purchased = purchasedWheelCharacters(u);
         const previousClaim = timestampMillis(u.lastStreakClaimDate);
-        const usedFreeSpin = Number(s.lastWheelSpinDay ?? -1) < day && Math.floor(previousClaim / DAY) < day;
+        const lastFreeAt = lastWheelFreeSpinMillis(s, u);
+        const usedFreeSpin = lastFreeAt <= 0 || (at - lastFreeAt) >= DAY;
         if (!usedFreeSpin && s.wheelSpins < 1) {
-          throw new CommerceError("failed-precondition", "استخدمت اللفة المجانية اليوم. اشترِ لفات إضافية أو عد غدًا.");
+          throw new CommerceError("failed-precondition", "استخدمت اللفة المجانية. تتوفر اللفة المجانية القادمة بعد 24 ساعة، أو يمكنك استخدام لفات إضافية.");
         }
         // The receipt branch above is the only replay path. Each new operation
-        // uses today's free opportunity first, then one banked purchased spin.
+        // uses the 24-hour free opportunity first, then one banked purchased spin.
         if (!usedFreeSpin) s.wheelSpins--;
         const catalogVersion = input.wheelCatalogVersion === 2 ? 2 : 1;
         const catalog = catalogVersion === 2 ? WHEEL_PRIZES_V2 : WHEEL_PRIZES;
@@ -307,7 +308,10 @@ function createEconomyService({ db, now = Date.now, randomInt = secureRandomInt 
           ...(usedFreeSpin ? { streakDay: nextStreak, lastStreakClaimDate: new Date(at) } : {}) };
         result.spin = { prizeId: prize.id, prizeIndex, grants, characterIndex, compensation, newlyGranted: true, usedFreeSpin, catalogVersion,
           probabilityNumerator: 1, probabilityDenominator: catalog.length };
-        if (usedFreeSpin) s.lastWheelSpinDay = day;
+        if (usedFreeSpin) {
+          s.lastFreeWheelSpinMillis = at;
+          s.lastWheelSpinDay = day;
+        }
         s.lastWheelSpin = result.spin;
         recordReward(s, `wheel_${sha256(input.operationId)}`, "wheel", grants, at, { prizeId: prize.id, characterIndex, usedFreeSpin });
         result.purchasedCharacters = purchased;
@@ -459,9 +463,22 @@ function refund(s, session) {
     if (s.day === session.day) s[session.source] = Math.min(3, s[session.source] + 1);
   } else s[session.source]++;
 }
+function lastWheelFreeSpinMillis(s, user = {}) {
+  const explicit = Number(s?.lastFreeWheelSpinMillis || 0);
+  if (explicit > 0) return explicit;
+  const userSpinDate = timestampMillis(user?.lastLuckyWheelSpinDate);
+  if (userSpinDate > 0) return userSpinDate;
+  const legacyClaim = timestampMillis(user?.lastStreakClaimDate);
+  if (legacyClaim > 0) return legacyClaim;
+  if (s?.lastWheelSpinDay != null && s.lastWheelSpinDay >= 0) return s.lastWheelSpinDay * DAY;
+  return 0;
+}
 function view(s, at, user = {}) {
   const day = Math.floor(at / DAY);
-  const wheelClaimedToday = Number(s.lastWheelSpinDay ?? -1) >= day || Math.floor(timestampMillis(user.lastStreakClaimDate) / DAY) >= day;
-  return { ...s, wheelClaimedToday, wheelCatalogVersion: 2, wheelCharacterIndex: nextWheelCharacter(user), wheelPrizesV2: WHEEL_PRIZE_DISCLOSURE_V2, keysTotal: s.dailyKeys + s.keys, heartsTotal: s.dailyHearts + s.hearts, serverTimeMillis: at, nextResetMillis: (s.day + 1) * DAY, offers: OFFERS, rentalPrices: RENTALS, adRewardLimits: AD_REWARD_LIMITS };
+  const lastFree = lastWheelFreeSpinMillis(s, user);
+  const wheelFreeAvailable = lastFree <= 0 || (at - lastFree) >= DAY;
+  const wheelClaimedToday = !wheelFreeAvailable;
+  const nextFreeWheelSpinMillis = wheelFreeAvailable ? at : lastFree + DAY;
+  return { ...s, wheelClaimedToday, nextFreeWheelSpinMillis, lastFreeWheelSpinMillis: lastFree, wheelCatalogVersion: 2, wheelCharacterIndex: nextWheelCharacter(user), wheelPrizesV2: WHEEL_PRIZE_DISCLOSURE_V2, keysTotal: s.dailyKeys + s.keys, heartsTotal: s.dailyHearts + s.hearts, serverTimeMillis: at, nextResetMillis: (s.day + 1) * DAY, offers: OFFERS, rentalPrices: RENTALS, adRewardLimits: AD_REWARD_LIMITS };
 }
 module.exports = { createEconomyService, refresh, fresh, normalize, canonical, free, allowsAd, OFFERS, RENTALS, AD_REWARD_LIMITS, WHEEL_PRIZES, WHEEL_PRIZES_V2, WHEEL_CHARACTERS, milestone, streakReward };

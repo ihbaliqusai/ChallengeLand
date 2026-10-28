@@ -49,12 +49,14 @@ public class OfflineSetupActivity extends GameViewportActivity {
         findViewById(R.id.btnMinus).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                AppSoundEffects.click(v.getContext());
                 setPlayerCount(playerCount - 1);
             }
         });
         findViewById(R.id.btnPlus).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                AppSoundEffects.click(v.getContext());
                 setPlayerCount(playerCount + 1);
             }
         });
@@ -65,6 +67,7 @@ public class OfflineSetupActivity extends GameViewportActivity {
             chips[i].setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
+                    AppSoundEffects.click(v.getContext());
                     setPlayerCount(value);
                 }
             });
@@ -73,6 +76,7 @@ public class OfflineSetupActivity extends GameViewportActivity {
         findViewById(R.id.btnStartOffline).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                AppSoundEffects.click(v.getContext());
                 Intent intent = new Intent(OfflineSetupActivity.this, GameActivity.class);
                 intent.putExtra("mode", "mono");
                 intent.putExtra("playerCount", playerCount);

@@ -255,12 +255,16 @@ public class GameActivity extends GameViewportActivity implements ProgressionMat
     }
     private Set<String> questionExclusions = new HashSet<>();
     private boolean questionSelectionPending;
+    private boolean questionExclusionsLoaded = false;
+    private final ArrayList<Runnable> pendingQuestionSelectionCallbacks = new ArrayList<>();
     private Runnable retryQuestionSelection;
     private boolean roomQuestionHistoryAdmitted;
     private boolean roomQuestionHistoryAdmissionPending;
 
     private void questionSelectionFailed(Exception error) {
         questionSelectionPending = false;
+        questionExclusionsLoaded = false;
+        pendingQuestionSelectionCallbacks.clear();
         if (EXITING || isFinishing()) return;
         String message = error.getMessage() == null ? "تعذر اختيار أسئلة جديدة. حاول مجددًا." : error.getMessage();
         GameNotice.makeText(this, message, Toast.LENGTH_LONG).show();
@@ -269,16 +273,37 @@ public class GameActivity extends GameViewportActivity implements ProgressionMat
                 .setNegativeButton("رجوع", (dialog, which) -> finish()).show();
     }
 
+    private void preloadQuestionSelection() {
+        if (questionExclusionsLoaded || questionSelectionPending || EXITING || isFinishing()) return;
+        prepareQuestionSelection(null);
+    }
+
     private void prepareQuestionSelection(Runnable ready) {
-        if (questionSelectionPending || EXITING || isFinishing()) return;
+        if (EXITING || isFinishing()) return;
+        if (questionExclusionsLoaded && !questionSelectionPending) {
+            if (ready != null) ready.run();
+            return;
+        }
+        if (ready != null) {
+            pendingQuestionSelectionCallbacks.add(ready);
+        }
+        if (questionSelectionPending) return;
         questionSelectionPending = true;
         QuestionHistory.prepare(this, boardOnline && !boardRoomMatch ? gameID : "",
                 boardRoomMatch ? roomId : "", excluded -> {
                     questionSelectionPending = false;
+                    questionExclusionsLoaded = true;
                     if (EXITING || isFinishing()) return;
                     questionExclusions = excluded;
-                    ready.run();
-                }, this::questionSelectionFailed);
+                    ArrayList<Runnable> callbacks = new ArrayList<>(pendingQuestionSelectionCallbacks);
+                    pendingQuestionSelectionCallbacks.clear();
+                    for (Runnable cb : callbacks) {
+                        if (cb != null) cb.run();
+                    }
+                }, error -> {
+                    pendingQuestionSelectionCallbacks.clear();
+                    questionSelectionFailed(error);
+                });
     }
 
     private void reserveBoardQuestions(Runnable ready) {
@@ -290,6 +315,7 @@ public class GameActivity extends GameViewportActivity implements ProgressionMat
             }
         }
         questionSelectionPending = true;
+        questionExclusionsLoaded = false;
         QuestionHistory.reserve(this, boardOnline && !boardRoomMatch ? gameID : "", boardRoomMatch ? roomId : "",
                 selected, () -> {
                     questionSelectionPending = false;
@@ -730,71 +756,15 @@ public class GameActivity extends GameViewportActivity implements ProgressionMat
     float scoreboardNameTextSp = 8f;
     float scoreboardValueTextSp = 14f;
 
+    private MatchmakingGameTransition.Entrance matchmakingEntrance;
+
     private void setupMatchSplitDoorsEntranceTransition() {
         if (!getIntent().getBooleanExtra("openSplitDoorsTransition", false)) {
             return;
         }
 
-        try {
-            final ViewGroup decor = (ViewGroup) getWindow().getDecorView();
-            final FrameLayout wipeOverlay = new FrameLayout(this);
-            wipeOverlay.setLayoutParams(new ViewGroup.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-            wipeOverlay.setClickable(true);
-            wipeOverlay.setFocusable(false);
-
-            final ImageView splitLeft = new ImageView(this);
-            splitLeft.setLayoutParams(new FrameLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-            splitLeft.setScaleType(ImageView.ScaleType.FIT_XY);
-            splitLeft.setImageResource(R.drawable.bg_split_left_purple);
-
-            final ImageView splitRight = new ImageView(this);
-            splitRight.setLayoutParams(new FrameLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-            splitRight.setScaleType(ImageView.ScaleType.FIT_XY);
-            splitRight.setImageResource(R.drawable.bg_split_right_orange);
-
-            wipeOverlay.addView(splitLeft);
-            wipeOverlay.addView(splitRight);
-            decor.addView(wipeOverlay);
-
-            final Runnable safetyCleanup = () -> {
-                try {
-                    decor.removeView(wipeOverlay);
-                } catch (Exception ignored) {}
-            };
-            decor.postDelayed(safetyCleanup, 2500);
-
-            decor.post(() -> {
-                if (isFinishing() || isDestroyed()) {
-                    decor.removeView(wipeOverlay);
-                    return;
-                }
-                decor.postDelayed(() -> {
-                    if (isFinishing() || isDestroyed()) {
-                        decor.removeView(wipeOverlay);
-                        return;
-                    }
-                    final int screenW = Math.max(1200, getResources().getDisplayMetrics().widthPixels) + 160;
-                    splitLeft.animate()
-                            .translationX(-screenW)
-                            .setDuration(400)
-                            .setInterpolator(new AccelerateInterpolator(2.0f))
-                            .start();
-
-                    splitRight.animate()
-                            .translationX(screenW)
-                            .setDuration(400)
-                            .setInterpolator(new AccelerateInterpolator(2.0f))
-                            .withEndAction(() -> {
-                                decor.removeCallbacks(safetyCleanup);
-                                decor.removeView(wipeOverlay);
-                            })
-                            .start();
-                }, 80);
-            });
-        } catch (Exception ignored) {}
+        matchmakingEntrance = MatchmakingGameTransition.attach(this,
+                (ViewGroup) getWindow().getDecorView(), findViewById(R.id.gameBackgroundVideo));
     }
 
     @Override
@@ -873,7 +843,7 @@ public class GameActivity extends GameViewportActivity implements ProgressionMat
 
         person = new Person((RelativeLayout) (findViewById(R.id.rlyPerson)));
         categorySelectMusicPlaying = true;
-        playSound(R.raw.main_theme_320bit_chosic, false, true);
+        playSound(GameAudioProfile.gameplayMusic(), false, true);
 
         if ((modeOnline && !onlineBoardMatch && !roomBoardMatch) || campaignBossBattle) {
             opponentHudController.initCompetitiveHudViews();
@@ -1513,8 +1483,12 @@ public class GameActivity extends GameViewportActivity implements ProgressionMat
     }
 
     private void gameHaptic(View view) {
-        if (view != null && AppPrefs.isHapticEnabled(this)) {
-            AppHaptics.light(this);
+        if (view != null) {
+            view.setSoundEffectsEnabled(false);
+            if (AppPrefs.isHapticEnabled(this)) {
+                AppHaptics.light(this);
+            }
+            AppSoundEffects.click(this);
         }
     }
 
@@ -1553,7 +1527,7 @@ public class GameActivity extends GameViewportActivity implements ProgressionMat
         applyVolumeUi();
 
         if (categorySelectMusicPlaying && MUSIC_ON && !EXITING && !backgroundParticipationEnded) {
-            playSound(R.raw.main_theme_320bit_chosic, false, true);
+            playSound(GameAudioProfile.gameplayMusic(), false, true);
         }
 
         if (mpBeep == null) {
@@ -2608,6 +2582,7 @@ public class GameActivity extends GameViewportActivity implements ProgressionMat
         back.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                gameHaptic(v);
                 proceedAfterBoardResult();
             }
         });
@@ -4137,7 +4112,7 @@ public class GameActivity extends GameViewportActivity implements ProgressionMat
     private void playCategorySelectMusic() {
         if (categorySelectMusicPlaying) return;
         categorySelectMusicPlaying = true;
-        playSound(R.raw.main_theme_320bit_chosic, true, true);
+        playSound(GameAudioProfile.gameplayMusic(), true, true);
     }
 
     private void stopCategorySelectMusicIfPlaying() {
@@ -4155,6 +4130,7 @@ public class GameActivity extends GameViewportActivity implements ProgressionMat
 
     private void showCategorySelect() {
         GameEconomy.clearSelection(this);
+        preloadQuestionSelection();
         final FrameLayout overlay = (FrameLayout) findViewById(R.id.boardOverlay);
         if (overlay == null) return;
         playCategorySelectMusic();
@@ -4205,6 +4181,10 @@ public class GameActivity extends GameViewportActivity implements ProgressionMat
                     tile.setOnClickListener(new View.OnClickListener() {
                         @Override
                         public void onClick(View v) {
+                            AppSoundEffects.click(GameActivity.this);
+                            tile.animate().scaleX(0.93f).scaleY(0.93f).setDuration(60)
+                                    .withEndAction(() -> tile.animate().scaleX(1.0f).scaleY(1.0f).setDuration(80).start())
+                                    .start();
                             if (!AppPrefs.isCategoryUnlocked(GameActivity.this, category)) {
                                 showCategoryUnlockDialog(category, tile, selected, counter, confirm);
                                 return;
@@ -4228,6 +4208,11 @@ public class GameActivity extends GameViewportActivity implements ProgressionMat
                             boolean ready = selected.size() == boardCols;
                             confirm.setEnabled(ready);
                             confirm.setAlpha(ready ? 1f : 0.5f);
+                            if (ready) {
+                                confirm.animate().scaleX(1.06f).scaleY(1.06f).setDuration(120)
+                                        .withEndAction(() -> confirm.animate().scaleX(1f).scaleY(1f).setDuration(100).start())
+                                        .start();
+                            }
                             scrollToConfirmIfReady(confirm, ready);
                         }
                     });
@@ -4252,10 +4237,32 @@ public class GameActivity extends GameViewportActivity implements ProgressionMat
         LinearLayout.LayoutParams cflp = new LinearLayout.LayoutParams(dpx(200), dpx(50));
         cflp.topMargin = dpx(14);
         confirm.setLayoutParams(cflp);
+
+        confirm.setOnTouchListener((v, event) -> {
+            if (!confirm.isEnabled()) return false;
+            switch (event.getAction()) {
+                case MotionEvent.ACTION_DOWN:
+                    v.animate().scaleX(0.93f).scaleY(0.93f).setDuration(70).start();
+                    break;
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_CANCEL:
+                    v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(90).start();
+                    break;
+            }
+            return false;
+        });
+
         confirm.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 if (selected.size() == boardCols) {
+                    AppSoundEffects.click(GameActivity.this);
+                    confirm.setEnabled(false);
+                    confirm.setClickable(false);
+                    confirm.setText(boardCampaignMatch ? "جاري البدء…" : "جاري بدء اللعب…");
+                    confirm.animate().scaleX(0.90f).scaleY(0.90f).setDuration(70)
+                            .withEndAction(() -> confirm.animate().scaleX(1.0f).scaleY(1.0f).setDuration(90).start())
+                            .start();
                     onCategoriesChosen(new ArrayList<>(selected));
                 }
             }
@@ -4403,7 +4410,10 @@ public class GameActivity extends GameViewportActivity implements ProgressionMat
             // Close button
             final TextView btnClose = view.findViewById(R.id.btnCloseRentalDialog);
             if (btnClose != null) {
-                btnClose.setOnClickListener(v -> dialog.dismiss());
+                btnClose.setOnClickListener(v -> {
+                    gameHaptic(v);
+                    dialog.dismiss();
+                });
             }
 
             // Category Name Chip
@@ -4665,9 +4675,10 @@ public class GameActivity extends GameViewportActivity implements ProgressionMat
         if (txtTitle != null) txtTitle.setText(category);
         if (txtMsg != null) txtMsg.setText(message);
 
-        if (btnCancel != null) btnCancel.setOnClickListener(v -> confirmDialog.dismiss());
+        if (btnCancel != null) btnCancel.setOnClickListener(v -> { gameHaptic(v); confirmDialog.dismiss(); });
         if (btnOk != null) {
             btnOk.setOnClickListener(v -> {
+                gameHaptic(v);
                 confirmDialog.dismiss();
                 if (onConfirm != null) onConfirm.run();
             });
@@ -5075,6 +5086,7 @@ public class GameActivity extends GameViewportActivity implements ProgressionMat
     }
 
     private void finishBoardMatch() {
+        questionExclusionsLoaded = false;
         if (boardLocalTeams && offlineContestants != null) {
             offlineContestants.setLocalTeamsActiveQuestionSlot(-1);
         }
@@ -6250,6 +6262,7 @@ public class GameActivity extends GameViewportActivity implements ProgressionMat
 
     private void showOnlineBoardCategorySelect() {
         GameEconomy.clearSelection(this);
+        preloadQuestionSelection();
         final FrameLayout overlay = (FrameLayout) findViewById(R.id.boardOverlay);
         if (overlay == null) return;
         playCategorySelectMusic();
@@ -6294,6 +6307,10 @@ public class GameActivity extends GameViewportActivity implements ProgressionMat
                     tile.setOnClickListener(new View.OnClickListener() {
                         @Override
                         public void onClick(View v) {
+                            AppSoundEffects.click(GameActivity.this);
+                            tile.animate().scaleX(0.93f).scaleY(0.93f).setDuration(60)
+                                    .withEndAction(() -> tile.animate().scaleX(1.0f).scaleY(1.0f).setDuration(80).start())
+                                    .start();
                             if (!AppPrefs.isCategoryUnlocked(GameActivity.this, category)) {
                                 showCategoryUnlockDialog(category, tile, selected, null, confirm);
                                 return;
@@ -6308,6 +6325,9 @@ public class GameActivity extends GameViewportActivity implements ProgressionMat
                             tile.setBackground(categoryTileBg(true, false));
                             confirm.setEnabled(true);
                             confirm.setAlpha(1f);
+                            confirm.animate().scaleX(1.06f).scaleY(1.06f).setDuration(120)
+                                    .withEndAction(() -> confirm.animate().scaleX(1f).scaleY(1f).setDuration(100).start())
+                                    .start();
                         }
                     });
                     rowLayout.addView(tile);
@@ -6331,10 +6351,32 @@ public class GameActivity extends GameViewportActivity implements ProgressionMat
         LinearLayout.LayoutParams cflp = new LinearLayout.LayoutParams(dpx(200), dpx(50));
         cflp.topMargin = dpx(14);
         confirm.setLayoutParams(cflp);
+
+        confirm.setOnTouchListener((v, event) -> {
+            if (!confirm.isEnabled()) return false;
+            switch (event.getAction()) {
+                case MotionEvent.ACTION_DOWN:
+                    v.animate().scaleX(0.93f).scaleY(0.93f).setDuration(70).start();
+                    break;
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_CANCEL:
+                    v.animate().scaleX(1.0f).scaleY(1.0f).setDuration(90).start();
+                    break;
+            }
+            return false;
+        });
+
         confirm.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 if (!selected.isEmpty()) {
+                    AppSoundEffects.click(GameActivity.this);
+                    confirm.setEnabled(false);
+                    confirm.setClickable(false);
+                    confirm.setText("جاري التأكيد…");
+                    confirm.animate().scaleX(0.90f).scaleY(0.90f).setDuration(70)
+                            .withEndAction(() -> confirm.animate().scaleX(1.0f).scaleY(1.0f).setDuration(90).start())
+                            .start();
                     onOnlineCategoryChosen(selected.get(0));
                 }
             }
@@ -6344,12 +6386,8 @@ public class GameActivity extends GameViewportActivity implements ProgressionMat
     }
 
     private void onOnlineCategoryChosen(String category) {
-        if (questionSelectionPending || boardDuelFinished) return;
-        questionSelectionPending = true;
-        QuestionHistory.prepare(this, "", "", excluded -> {
-            questionSelectionPending = false;
-            if (!EXITING && !isFinishing()) submitOnlineCategory(category);
-        }, this::questionSelectionFailed);
+        if (boardDuelFinished) return;
+        prepareQuestionSelection(() -> submitOnlineCategory(category));
     }
 
     private void submitOnlineCategory(String category) {
@@ -12595,6 +12633,8 @@ public class GameActivity extends GameViewportActivity implements ProgressionMat
 
     @Override
     protected void onDestroy() {
+        if (matchmakingEntrance != null) matchmakingEntrance.dispose();
+        matchmakingEntrance = null;
         presenterDialogue.dispose();
         presenterHandler.removeCallbacksAndMessages(null);
         backgroundGuard.onDestroy();

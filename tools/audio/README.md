@@ -19,7 +19,7 @@ powershell -NoProfile -File tools/audio/verify_bundle.ps1
 Set `CHALLENGELAND_FFMPEG` to use a different FFmpeg executable. The script
 defaults to the existing local FFmpeg installation used by the project's other
 media tools. Output is staged under `build/audio-replacement/`; `--apply`
-replaces only the 18 selected MP3s and writes `raw/audio_provenance.json`.
+replaces only the 18 selected MP3s and the search WAV, and writes `raw/audio_provenance.json`.
 `main_theme_320bit_chosic.mp3` and `sneaky_snitch.mp3` remain unchanged.
 `retained_assets.json` protects the restored `drum1.mp3` from future generation
 or `--apply` runs, and records its exact prior SHA-256.
@@ -48,6 +48,12 @@ and a new major-key victory score. They use mathematical oscillators, envelopes
 and seeded noise, without sampled performers or external voice recordings.
 These are procedurally synthesized recordings, not output from an external
 generative-audio model.
+
+`match_search.wav` is an original, quiet radar loop for opponent searching:
+1.6 seconds of 44100 Hz mono PCM16 audio with evenly spaced pings, quiet echoes,
+and silent boundary samples. Regenerate only this effect and update its ledger
+record with `node tools/audio/generate_match_search.cjs --apply`; this command
+does not replace other recordings. The full build script also includes the loop.
 
 The welcome video's audio track was removed at the publisher's request. Both
 canonical and editable video copies match, and the login player is muted.

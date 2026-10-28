@@ -1,3 +1,4 @@
+import '../../widgets/game_back_button.dart';
 import '../../widgets/game_notice.dart';
 import 'dart:async';
 
@@ -1151,7 +1152,7 @@ class _TopHud extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        _HudButton(icon: Icons.arrow_forward_rounded, onPressed: onBack),
+        GameBackButton(onPressed: onBack),
         const Spacer(),
         if (coins != null)
           _CurrencyChip(
@@ -1159,37 +1160,6 @@ class _TopHud extends StatelessWidget {
             value: '$coins',
           ),
       ],
-    );
-  }
-}
-
-class _HudButton extends StatelessWidget {
-  const _HudButton({
-    required this.icon,
-    required this.onPressed,
-  });
-
-  final IconData icon;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: onPressed,
-        child: Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: const Color(0xFF06143D).withValues(alpha: 0.56),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
-          ),
-          child: Icon(icon, color: Colors.white, size: 22),
-        ),
-      ),
     );
   }
 }
