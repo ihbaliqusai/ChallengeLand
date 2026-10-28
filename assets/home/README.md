@@ -40,7 +40,7 @@ The supplied PNG files are copied unchanged and keep their transparency.
 | `New folder (13)` | `3.png` | `gems.png` | Live gem balance / store |
 | `New folder (13)` | `4.png` | `coins.png` | Live coin balance / store |
 | `New folder (14)` | `t.png` | `level.png` | Superseded design source (unbundled) |
-| `New folder (17)` | `b.jfif` | `lobby_background.jfif` | Home lobby background |
+| `New folder (5)` | `1.png` | `lobby_background.png` | Home lobby background |
 | `New folder (18)` | `1.png` | `level_badge.png` | Current live level and XP frame |
 
 The original 7746 and 299201 sample balances are covered with clean strips

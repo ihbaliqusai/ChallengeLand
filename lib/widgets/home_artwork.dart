@@ -15,7 +15,7 @@ abstract final class HomeArtwork {
   static const keys = 'assets/home/keys.png';
   static const tickets = 'assets/home/tickets.png';
   static const level = 'assets/home/level_badge.png';
-  static const background = 'assets/home/lobby_background.jfif';
+  static const background = 'assets/home/lobby_background.png';
 
   static double bannerWidth(bool compact) => compact ? 190 : 209;
   static double bannerHeight(bool compact) => compact ? 60 : 68.5;
