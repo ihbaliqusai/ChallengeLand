@@ -1,7 +1,7 @@
 name: challenge_land
 description: ChallengeLand quiz game with online multiplayer, matchmaking, invitations, friends, leaderboards, and Firebase-backed profiles.
 publish_to: "none"
-version: 3.8.6+46
+version: 3.8.7+47
 
 environment:
   sdk: ">=3.5.0 <4.0.0"
@@ -52,7 +52,15 @@ flutter:
     - assets/ui/home_menu.webp
     - assets/ui/game_modes.webp
     - assets/ui/play_stake_dialog.png
-    - assets/ui/weekly_reward.webp
+    - assets/lucky_wheel/stage.webp
+    - assets/lucky_wheel/emblem.webp
+    - assets/lucky_wheel/wheel.webp
+    - assets/lucky_wheel/icons/chest.webp
+    - assets/lucky_wheel/icons/coins.webp
+    - assets/lucky_wheel/icons/key.webp
+    - assets/lucky_wheel/icons/gems.webp
+    - assets/lucky_wheel/icons/ticket.webp
+    - assets/lucky_wheel/icons/character_frame.webp
 
     - assets/ui/box1.png
     - assets/store/champions_club_preview.webp

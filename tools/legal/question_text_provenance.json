@@ -1,0 +1,22 @@
+{
+  "recordedAt": "2026-10-29",
+  "recordType": "publisher-declaration",
+  "declaredBy": "application publisher in this conversation",
+  "scope": "Publisher-supplied question and answer text in the game's existing question bank",
+  "creationService": "Google Gemini",
+  "declaration": "Asked specifically about question and answer texts, separately from artwork, the publisher confirmed they were generated using Gemini.",
+  "modelVersions": null,
+  "generationDates": null,
+  "promptsOrGenerationReceiptsProvided": false,
+  "referenceInputs": "not specified",
+  "acceptedStateUpdatedAt": "2026-10-30",
+  "acceptedState": "The publisher rejected the text-review replacements and requested restoring all question text. The original 21,127-record bank was restored byte-for-byte; no rewritten clues or neutral title substitutions remain active.",
+  "restoredBankSha256": "c0337962b3d36a4aeb1f36ff6faf2153f7cf9b8bd7be55e7bc4f8faac52c5127",
+  "limits": [
+    "This records the publisher's statement, not authentication of each generation session or a commercial license issued by Google.",
+    "AI generation does not itself authorize reproduction or adaptation of protected third-party lyrics, dialogue or other expression.",
+    "Factual verification references are not permission to copy source wording."
+  ],
+  "termsReviewedAt": "2026-10-30",
+  "termsSource": "https://policies.google.com/terms"
+}

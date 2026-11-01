@@ -662,6 +662,13 @@ class _SidebarArtButtonState extends State<_SidebarArtButton> {
     if (widget.green) {
       artwork = ColorFiltered(colorFilter: _greenFilter, child: artwork);
     }
+    if (widget.asset == HomeActionSidebar.campaignAsset) {
+      artwork = _CampaignArtworkLight(
+        animation: widget.animation,
+        enabled: animated && widget.available,
+        child: artwork,
+      );
+    }
     final content = RepaintBoundary(
       child: Stack(clipBehavior: Clip.none, children: [
         Positioned.fill(child: artwork),
@@ -752,6 +759,108 @@ class _SidebarArtButtonState extends State<_SidebarArtButton> {
       ),
     );
   }
+}
+
+/// The parchment itself masks the sheen, including its torn, transparent edges.
+/// Only the artwork repaints; the title, progress and touch target stay steady.
+class _CampaignArtworkLight extends StatelessWidget {
+  const _CampaignArtworkLight({
+    required this.animation,
+    required this.enabled,
+    required this.child,
+  });
+
+  final Animation<double> animation;
+  final bool enabled;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!enabled) return child;
+
+    return RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: animation,
+        child: child,
+        builder: (context, artwork) {
+          // The lobby clock reverses, giving the light a slow return pass.
+          final phase = Curves.easeInOutSine.transform(animation.value);
+          return CustomPaint(
+            foregroundPainter: _CampaignMetalGlintsPainter(phase),
+            child: ShaderMask(
+              blendMode: BlendMode.srcATop,
+              shaderCallback: (bounds) => const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.transparent,
+                  Color(0x08EAB858),
+                  Color(0x48FFF1C4),
+                  Color(0x08EAB858),
+                  Colors.transparent,
+                ],
+                stops: [0, .35, .5, .65, 1],
+              ).createShader(Rect.fromLTWH(
+                bounds.left + bounds.width * (-1.1 + phase * 2.5),
+                bounds.top - bounds.height * .5,
+                bounds.width * .7,
+                bounds.height * 2,
+              )),
+              child: artwork,
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Small warm glints sit on the sword hilt and shoulder plate in the source.
+class _CampaignMetalGlintsPainter extends CustomPainter {
+  const _CampaignMetalGlintsPainter(this.phase);
+
+  final double phase;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    void glint(Offset position, double start, double end, double scale) {
+      if (phase <= start || phase >= end) return;
+      final strength = math.sin((phase - start) / (end - start) * math.pi);
+      final center =
+          Offset(size.width * position.dx, size.height * position.dy);
+      final radius = math.min(size.width, size.height) * .045 * scale;
+      canvas.drawCircle(
+        center,
+        radius * 1.4,
+        Paint()
+          ..color = const Color(0xFFFFD47E).withValues(alpha: strength * .38)
+          ..maskFilter = MaskFilter.blur(BlurStyle.normal, radius),
+      );
+      final reach = radius * (.5 + strength * .5);
+      final star = Path()
+        ..moveTo(center.dx, center.dy - reach)
+        ..lineTo(center.dx + reach * .18, center.dy - reach * .18)
+        ..lineTo(center.dx + reach * .7, center.dy)
+        ..lineTo(center.dx + reach * .18, center.dy + reach * .18)
+        ..lineTo(center.dx, center.dy + reach)
+        ..lineTo(center.dx - reach * .18, center.dy + reach * .18)
+        ..lineTo(center.dx - reach * .7, center.dy)
+        ..lineTo(center.dx - reach * .18, center.dy - reach * .18)
+        ..close();
+      canvas.drawPath(
+        star,
+        Paint()
+          ..color = const Color(0xFFFFF5DA).withValues(alpha: strength * .85),
+      );
+    }
+
+    glint(const Offset(.635, .43), .18, .64, 1);
+    glint(const Offset(.785, .29), .48, .92, .75);
+  }
+
+  @override
+  bool shouldRepaint(_CampaignMetalGlintsPainter oldDelegate) =>
+      phase != oldDelegate.phase;
 }
 
 /// Retains the supplied red notification without tinting it with the banner.

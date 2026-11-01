@@ -1,5 +1,20 @@
 # Lucky wheel
 
+The 2026-10-30 visual update uses the supplied purple stage and gold wheel
+artwork with a responsive 16:9 foreground. All twelve live wedges use the six
+supplied reward icons. The rotating disc is separate from the fixed rim and
+emblem; twelve boundary pegs drive a damped spring pointer around its fixed
+hinge. A 4.8-second acceleration/coast/friction curve still lands exactly on
+the server award. See the [design preview and verification](lucky_wheel_design_20261030/README_AR.md)
+and [asset sources](../assets/lucky_wheel/source.json).
+
+Only the nine used images are explicitly bundled, as lossless WebP (959,870
+bytes total, 29.1% smaller than the supplied PNGs). Original PNGs, source metadata,
+documentation and preview PNG/GIF files are excluded from the application bundle.
+The unused former weekly-reward widget and its 1,161,636-byte runtime image were
+removed; daily reward routes already open this wheel. Its original design PNG
+remains outside the runtime manifest.
+
 Each signed-in player receives one free spin per server UTC day, renewed at
 00:00 UTC. `gameEconomy` always uses that free opportunity before deducting one
 purchased spin from `economy_accounts/{uid}.wheelSpins`. Purchased spins do not

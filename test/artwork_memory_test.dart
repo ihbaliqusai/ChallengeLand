@@ -38,7 +38,7 @@ void main() {
   test(
       'atlas slices share one bounded texture even for enormous stretched strips',
       () {
-    const asset = 'assets/ui/weekly_reward.webp';
+    const asset = 'assets/ui/home_menu.webp';
     final full = artworkDecodeWidth(
         asset,
         const BoxConstraints.tightFor(width: 780, height: 400),

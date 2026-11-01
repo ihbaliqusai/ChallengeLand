@@ -12,8 +12,10 @@ const rawDir = path.join(root, 'android/app/src/main/res/raw');
 const ffmpeg = process.env.CHALLENGELAND_FFMPEG || 'C:/Program Files (x86)/CoolerMaster/MasterPlus/ffmpeg.exe';
 const rate = 44100;
 const hash = file => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
-const retainedUnverifiedFiles=JSON.parse(fs.readFileSync(path.join(__dirname,'retained_assets.json'),'utf8'));
-const retainedNames=new Set(retainedUnverifiedFiles.map(item=>item.file));
+const retainedAssets=JSON.parse(fs.readFileSync(path.join(__dirname,'retained_assets.json'),'utf8'));
+const retainedLicensedRecordings=retainedAssets.filter(item=>item.licenseStatus==='source-identified');
+const retainedUnverifiedFiles=retainedAssets.filter(item=>item.licenseStatus!=='source-identified');
+const retainedNames=new Set(retainedAssets.map(item=>item.file));
 fs.mkdirSync(stage, {recursive:true});
 function ff(args, binary=false) {
   const result=spawnSync(ffmpeg,['-hide_banner','-loglevel','error',...args],{encoding:binary?null:'utf8',maxBuffer:150*1024*1024});
@@ -169,12 +171,12 @@ for(const [name,duration,role,kind,stock,start=0] of configs){
   console.log('Prepared '+name+'.mp3 ('+duration+'s)');
 }
 records.push(require('./generate_match_search.cjs').generate(stage));
-const provenance={version:1,updatedAt:'2026-10-28',generator:'tools/audio/build_audio.cjs',note:'The original DSP components are generated for this project, without external voice recordings or imitation of any performer. CC0 components are listed per file. Durations preserve gameplay timing; compositions are new alternatives, not replicas of television themes. Restored previous recordings are listed separately with their actual license status.',files:records,retainedLicensedFiles:['main_theme_320bit_chosic.mp3','sneaky_snitch.mp3'],retainedUnverifiedFiles};
+const provenance={version:2,updatedAt:'2026-10-30',generator:'tools/audio/build_audio.cjs',note:'The original DSP components are generated for this project, without external voice recordings or imitation of any performer. CC0 components are listed per file. Durations preserve gameplay timing; compositions are new alternatives, not replicas of television themes. Restored previous recordings are listed separately with their actual license status.',files:records,retainedLicensedFiles:['main_theme_320bit_chosic.mp3','sneaky_snitch.mp3'],retainedLicensedRecordings,retainedUnverifiedFiles};
 fs.writeFileSync(path.join(stage,'audio_provenance.json'),JSON.stringify(provenance,null,2)+'\n');
 if(process.argv.includes('--apply')){
-  for(const item of retainedUnverifiedFiles)if(hash(path.join(rawDir,item.file))!==item.sha256)throw new Error('Retained recording changed: '+item.file);
+  for(const item of retainedAssets)if(hash(path.join(rawDir,item.file))!==item.sha256)throw new Error('Retained recording changed: '+item.file);
   const baselinePath=path.join(root,'docs/audio-replacement-before.json');
-  if(!fs.existsSync(baselinePath))fs.writeFileSync(baselinePath,JSON.stringify([...records.map(r=>r.file),...provenance.retainedLicensedFiles,...retainedUnverifiedFiles.map(item=>item.file)].map(file=>({file,sha256:hash(path.join(rawDir,file)),bytes:fs.statSync(path.join(rawDir,file)).size})),null,2)+'\n');
+  if(!fs.existsSync(baselinePath))fs.writeFileSync(baselinePath,JSON.stringify([...records.map(r=>r.file),...provenance.retainedLicensedFiles,...retainedAssets.map(item=>item.file)].map(file=>({file,sha256:hash(path.join(rawDir,file)),bytes:fs.statSync(path.join(rawDir,file)).size})),null,2)+'\n');
   for(const r of records)fs.copyFileSync(path.join(stage,r.file),path.join(rawDir,r.file));
   fs.copyFileSync(path.join(stage,'audio_provenance.json'),path.join(rawDir,'audio_provenance.json'));
   console.log('Applied '+records.length+' generated audio assets and provenance ledger.');

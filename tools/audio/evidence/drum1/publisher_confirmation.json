@@ -1,0 +1,17 @@
+{
+  "recordedAt": "2026-10-30",
+  "recordType": "publisher-listening-confirmation",
+  "declaredBy": "application publisher in this conversation",
+  "recording": "drum1.mp3",
+  "recordingSha256": "938b05161304bbb2fc40514faa7b9822ce1191f5d5dfac9653cc0d64cc2c7fd8",
+  "comparedSource": {
+    "title": "drumroll.aif",
+    "author": "Heigh-hoo",
+    "url": "https://freesound.org/people/Heigh-hoo/sounds/19433/",
+    "license": "CC0-1.0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  "statementArabic": "لانسبة لصوت الترقب بالفعل هو نفسه بامكانك توثيق هذا",
+  "finding": "After receiving listening links for the retained game clip and the identified source preview, the publisher explicitly confirmed that it is the same sound and requested documentation.",
+  "scopeNote": "This corroborates the recorded waveform identification. It does not assert that the differently edited MP3 and source preview are byte-identical, or create a new license certificate. The license basis remains the original source's published CC0 dedication."
+}

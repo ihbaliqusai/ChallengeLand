@@ -4,8 +4,13 @@ The build script combines CC0 source recordings with original procedural sound
 design. It never reads, samples or imitates the previous soundtrack to create
 the new recordings. The legacy Android resource names and aliases stay stable.
 The publisher later requested restoration of the previous anticipation roll,
-`drum1.mp3`; it is retained separately and is not represented as CC0 or original
-DSP. Its current license status is unverified.
+`drum1.mp3`; its bytes are retained separately and are not original project DSP.
+On 29 October 2026, repeated-excerpt waveform comparisons identified the
+underlying recording as **drumroll.aif by Heigh-hoo**, published as CC0 on
+Freesound: https://freesound.org/people/Heigh-hoo/sounds/19433/ .
+`evidence/drum1/identification.json` records the evidence and its limits; the
+MP3 is an edited/repeated derivative, not byte-identical to the source preview.
+The ledger separates source-identified retained recordings from unverified ones.
 
 ```powershell
 node tools/audio/build_audio.cjs
@@ -23,6 +28,13 @@ replaces only the 18 selected MP3s and the search WAV, and writes `raw/audio_pro
 `main_theme_320bit_chosic.mp3` and `sneaky_snitch.mp3` remain unchanged.
 `retained_assets.json` protects the restored `drum1.mp3` from future generation
 or `--apply` runs, and records its exact prior SHA-256.
+
+The publisher explicitly confirmed the same source sound after listening on
+30 October 2026. This corroboration is retained in
+`evidence/drum1/publisher_confirmation.json` and included in the recording's
+provenance and app/web notice; it does not claim binary equality with the preview.
+Exploratory scripts and full comparison downloads remain in local scratch
+archives; only the source summary and publisher confirmation are kept here.
 
 The per-file ledger records sources, authors, license links, source hashes,
 processing, durations, and output hashes. `docs/audio-replacement-before.json`

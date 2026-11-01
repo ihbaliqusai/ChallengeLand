@@ -14,7 +14,6 @@ bool isArtworkAtlas(String asset) =>
     const {
       'assets/ui/home_menu.webp',
       'assets/ui/game_modes.webp',
-      'assets/ui/weekly_reward.webp',
       'assets/ui/play_stake_dialog.png',
     }.contains(asset);
 

@@ -468,5 +468,4 @@ const artworkSizes = <String, Size>{
   "assets/ui/splash_logo.png": Size(1200, 700),
   "assets/ui/splash_presenter.png": Size(1000, 1400),
   "assets/ui/user.png": Size(512, 512),
-  "assets/ui/weekly_reward.webp": Size(1600, 893),
 };

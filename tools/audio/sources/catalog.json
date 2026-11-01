@@ -95,6 +95,19 @@
       "file": "labyrinth_of_lost_dreams.mp3",
       "license": "CC-BY-3.0",
       "licenseUrl": "https://creativecommons.org/licenses/by/3.0/"
+    },
+    {
+      "title": "drumroll.aif",
+      "author": "Heigh-hoo",
+      "url": "https://freesound.org/people/Heigh-hoo/sounds/19433/",
+      "file": "heigh-hoo-drumroll-hq-preview.mp3",
+      "sourceSha256": "405e78b1027b18b19116d61bbde083110cef03032069b0b3fd07ca0772b38946",
+      "downloadUrl": "https://cdn.freesound.org/previews/19/19433_21830-hq.mp3",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "sourcePublishedAt": "2006-06-02",
+      "sourceDurationSeconds": 6.24175
     }
-  ]
+  ],
+  "catalogUpdatedAt": "2026-10-30"
 }

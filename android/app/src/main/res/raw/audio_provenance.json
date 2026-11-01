@@ -1,6 +1,6 @@
 {
-  "version": 1,
-  "updatedAt": "2026-10-28",
+  "version": 2,
+  "updatedAt": "2026-10-30",
   "generator": "tools/audio/build_audio.cjs",
   "note": "The original DSP components are generated for this project, without external voice recordings or imitation of any performer. CC0 components are listed per file. Durations preserve gameplay timing; compositions are new alternatives, not replicas of television themes. Restored previous recordings are listed separately with their actual license status.",
   "files": [
@@ -376,7 +376,8 @@
     "main_theme_320bit_chosic.mp3",
     "sneaky_snitch.mp3"
   ],
-  "retainedUnverifiedFiles": [
+  "retainedUnverifiedFiles": [],
+  "retainedLicensedRecordings": [
     {
       "file": "drum1.mp3",
       "role": "صوت الترقب السابق قبل كشف الإجابة",
@@ -385,13 +386,40 @@
       "channels": 2,
       "bytes": 83579,
       "sha256": "938b05161304bbb2fc40514faa7b9822ce1191f5d5dfac9653cc0d64cc2c7fd8",
-      "sources": [],
+      "sources": [
+        {
+          "title": "drumroll.aif",
+          "author": "Heigh-hoo",
+          "url": "https://freesound.org/people/Heigh-hoo/sounds/19433/",
+          "file": "heigh-hoo-drumroll-hq-preview.mp3",
+          "sourceSha256": "405e78b1027b18b19116d61bbde083110cef03032069b0b3fd07ca0772b38946",
+          "downloadUrl": "https://cdn.freesound.org/previews/19/19433_21830-hq.mp3",
+          "license": "CC0-1.0",
+          "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+          "sourcePublishedAt": "2006-06-02",
+          "sourceDurationSeconds": 6.24175
+        }
+      ],
       "originalProceduralDesign": false,
-      "licenseStatus": "unverified",
+      "licenseStatus": "source-identified",
       "sourceStatus": "restored-previous-recording",
       "restoredFrom": "tools/backup_audio/originals/drum1.mp3",
       "restoredAt": "2026-10-26",
-      "reason": "Restored at the publisher's explicit request; no new license evidence supplied."
+      "reason": "The publisher requested retaining this exact recording. Its repeated underlying source was identified as Heigh-hoo drumroll.aif through waveform matching; the public source page declares CC0.",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "sourceIdentifiedAt": "2026-10-29",
+      "processing": "Previously edited/repeated excerpts; exact original editing history unavailable. Existing MP3 preserved byte-for-byte without re-encoding.",
+      "sourceVerification": {
+        "method": "waveform comparison with repeated-excerpt alignment, corroborated by publisher listening confirmation",
+        "evidence": "tools/audio/evidence/drum1/identification.json",
+        "finding": "The publisher confirmed the source sound after listening on 2026-10-30, corroborating the waveform identification. The edited game MP3 and six-second source preview are not asserted to be byte-identical; no new certificate is issued.",
+        "publisherConfirmation": {
+          "recordedAt": "2026-10-30",
+          "evidence": "tools/audio/evidence/drum1/publisher_confirmation.json",
+          "result": "publisher-confirmed-same-source-sound"
+        }
+      }
     }
   ]
 }

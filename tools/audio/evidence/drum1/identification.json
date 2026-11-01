@@ -1,0 +1,62 @@
+{
+  "reviewedAt": "2026-10-29",
+  "recordingSha256": "938b05161304bbb2fc40514faa7b9822ce1191f5d5dfac9653cc0d64cc2c7fd8",
+  "originalCopies": [
+    "android/app/src/main/res/raw/drum1.mp3",
+    "public/sounds/drum1.mp3",
+    "tools/backup_audio/originals/drum1.mp3"
+  ],
+  "source": {
+    "title": "drumroll.aif",
+    "author": "Heigh-hoo",
+    "url": "https://freesound.org/people/Heigh-hoo/sounds/19433/",
+    "file": "heigh-hoo-drumroll-hq-preview.mp3",
+    "sourceSha256": "405e78b1027b18b19116d61bbde083110cef03032069b0b3fd07ca0772b38946",
+    "downloadUrl": "https://cdn.freesound.org/previews/19/19433_21830-hq.mp3",
+    "license": "CC0-1.0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "sourcePublishedAt": "2006-06-02",
+    "sourceDurationSeconds": 6.24175
+  },
+  "capturedSourcePageSha256": "c687ff9ca103e06d34c45984ce0046685a827fe45896ad2ec1cc340e34f521d6",
+  "sourcePageDeclaresLicense": "Creative Commons 0",
+  "publisherConfirmation": {
+    "recordedAt": "2026-10-30",
+    "evidence": "tools/audio/evidence/drum1/publisher_confirmation.json",
+    "result": "publisher-confirmed-same-source-sound"
+  },
+  "comparison": {
+    "candidateCount": 34,
+    "fullRecordingSeconds": 12.61725,
+    "windows100ms": 127,
+    "windowsAtLeast080Correlation": 124,
+    "weakerWindowsStartSeconds": [
+      5.1,
+      8.8,
+      12.6
+    ],
+    "repeatedSourceShiftsSeconds": [
+      0.702358276643991,
+      -2.9769160997732427,
+      -6.724399092970522
+    ],
+    "highResolutionRate": 44100,
+    "representativeCorrelations": [
+      {
+        "originalStartSeconds": 1,
+        "correlation": 0.9481335973698312
+      },
+      {
+        "originalStartSeconds": 6,
+        "correlation": 0.9512042071004397
+      },
+      {
+        "originalStartSeconds": 10,
+        "correlation": 0.9490321113821311
+      }
+    ],
+    "stereoDifferenceEnergyRatio": 1.3577889959782385e-8
+  },
+  "assessment": "Strong source identification: the same source waveform recurs throughout the retained recording. Lower matching windows occur at two edit joins and the final encoder tail. This is documented technical attribution, not an assertion of identical files or universal legal clearance.",
+  "originalBytesChanged": false
+}

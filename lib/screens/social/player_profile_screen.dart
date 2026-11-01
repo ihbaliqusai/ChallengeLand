@@ -1,10 +1,10 @@
-import '../../widgets/game_back_button.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/player_rank.dart';
 import '../../core/trophy_league.dart';
 import '../../services/social_service.dart';
+import '../../widgets/player_profile_theme.dart';
 
 /// A player's published identity and achievements, viewed from the social page.
 class PlayerProfileScreen extends StatefulWidget {
@@ -19,8 +19,6 @@ class PlayerProfileScreen extends StatefulWidget {
 }
 
 class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
-  static const _gold = Color(0xFFFFD46B);
-  static const _ink = Color(0xFF352348);
   Map<String, dynamic>? _profile;
   bool _loading = true;
   bool _failed = false;
@@ -99,87 +97,79 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
     return name is String && name.trim().isNotEmpty ? name.trim() : 'لاعب';
   }
 
-  Widget _avatar(Map<String, dynamic> profile) {
+  Widget _avatar(Map<String, dynamic> profile, {bool compact = false}) {
     final photo = profile['photoUrl'];
     final uri = photo is String ? Uri.tryParse(photo) : null;
     Widget fallback() => Container(
-        color: const Color(0xFF72538E),
+        decoration: const BoxDecoration(
+            gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFF7351B1), Color(0xFF35215F)])),
         alignment: Alignment.center,
-        child: const Icon(Icons.person_rounded,
-            size: 58, color: Color(0xFFECE4F5)));
+        child: Icon(Icons.person_rounded,
+            size: compact ? 44 : 66, color: const Color(0xFFF5EBFF)));
     return Container(
-        width: 106,
-        height: 106,
-        padding: const EdgeInsets.all(4),
+        width: compact ? 80 : 120,
+        height: compact ? 80 : 120,
+        padding: EdgeInsets.all(compact ? 4 : 5),
         decoration: BoxDecoration(
-            color: const Color(0xFF311E43),
-            borderRadius: BorderRadius.circular(30),
-            border: Border.all(color: _gold, width: 2),
+            gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFFFFF4C3),
+                  Color(0xFFE3AE47),
+                  Color(0xFFFFDE7A),
+                  Color(0xFF9C671E)
+                ]),
+            borderRadius: BorderRadius.circular(compact ? 24 : 32),
+            border: Border.all(color: const Color(0xFF9C702C), width: 1.5),
             boxShadow: const [
+              BoxShadow(color: Color(0xFF7D5424), offset: Offset(0, 4)),
               BoxShadow(
                   color: Color(0x44321C45),
-                  blurRadius: 18,
-                  offset: Offset(0, 8))
+                  blurRadius: 20,
+                  offset: Offset(0, 10))
             ]),
-        child: ClipRRect(
-            borderRadius: BorderRadius.circular(24),
-            child: uri?.scheme == 'https' && uri!.host.isNotEmpty
-                ? Image.network(uri.toString(),
-                    fit: BoxFit.cover, errorBuilder: (_, __, ___) => fallback())
-                : fallback()));
+        child: Container(
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+                color: const Color(0xFF2B164A),
+                borderRadius: BorderRadius.circular(compact ? 19 : 26),
+                border: Border.all(color: const Color(0xFFFFE7A1))),
+            child: ClipRRect(
+                borderRadius: BorderRadius.circular(compact ? 15 : 22),
+                child: uri?.scheme == 'https' && uri!.host.isNotEmpty
+                    ? Image.network(uri.toString(),
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => fallback())
+                    : fallback())));
   }
 
-  Widget _badge(String label, IconData icon, Color color) => Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-      decoration: BoxDecoration(
-          color: const Color(0xFF2B183C).withValues(alpha: .45),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withValues(alpha: .35))),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(icon, color: color, size: 17),
-        const SizedBox(width: 6),
-        Flexible(
-            child: Text(label,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                    color: color, fontSize: 13, fontWeight: FontWeight.w700)))
-      ]));
-
-  Widget _identity(Map<String, dynamic> profile) {
+  Widget _identity(Map<String, dynamic> profile, {bool compact = false}) {
     final level = _level(profile);
     final rank = level == null ? null : PlayerRank.tierForLevel(level);
     final trophies = _number(profile, 'trophies');
     final league =
         trophies == null ? null : TrophyProgression.leagueFor(trophies);
     final code = profile['friendCode'];
-    return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-            gradient: const LinearGradient(
-                begin: Alignment.topRight,
-                end: Alignment.bottomLeft,
-                colors: [Color(0xFF735192), Color(0xFF4A2B66)]),
-            borderRadius: BorderRadius.circular(26),
-            border: Border.all(color: const Color(0xFF9A79B7)),
-            boxShadow: const [
-              BoxShadow(
-                  color: Color(0x33301A42),
-                  blurRadius: 20,
-                  offset: Offset(0, 8))
-            ]),
+    return PlayerProfilePanel(
+        accent: PlayerProfileTheme.gold,
+        padding: EdgeInsets.symmetric(
+            horizontal: compact ? 16 : 20, vertical: compact ? 16 : 24),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          _avatar(profile),
-          const SizedBox(height: 16),
+          _avatar(profile, compact: compact),
+          SizedBox(height: compact ? 12 : 20),
           Text(_name(profile),
               key: const ValueKey('public-player-name'),
               textAlign: TextAlign.center,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                   color: Colors.white,
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
+                  fontSize: compact ? 20 : 25,
+                  fontWeight: FontWeight.w900,
                   height: 1.4)),
           if (level != null) ...[
             const SizedBox(height: 12),
@@ -188,29 +178,44 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  _badge('المستوى $level', Icons.star_rounded,
-                      const Color(0xFFE4D0FF)),
-                  _badge(rank!.nameAr, rank.icon, const Color(0xFFE4D0FF)),
+                  PlayerProfileBadge(
+                      label: 'المستوى $level',
+                      icon: Icons.star_rounded,
+                      color: PlayerProfileTheme.cyan),
+                  PlayerProfileBadge(
+                      label: rank!.nameAr,
+                      icon: rank.icon,
+                      color: const Color(0xFFE4D0FF)),
                 ]),
           ],
           if (league != null) ...[
             const SizedBox(height: 10),
-            _badge('الدوري ${league.nameAr}', league.icon, _gold),
+            PlayerProfileBadge(
+                label: 'الدوري ${league.nameAr}', icon: league.icon),
           ],
           if (code is String && code.trim().isNotEmpty) ...[
-            const SizedBox(height: 20),
-            const Text('رمز اللاعب',
-                style: TextStyle(color: Color(0xFFD9C8E8), fontSize: 12)),
-            const SizedBox(height: 4),
-            SelectableText(code.trim(),
-                key: const ValueKey('public-player-code'),
-                textDirection: TextDirection.ltr,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.8)),
+            SizedBox(height: compact ? 12 : 20),
+            Container(
+                width: double.infinity,
+                padding: EdgeInsets.symmetric(
+                    horizontal: 12, vertical: compact ? 8 : 12),
+                decoration: PlayerProfileTheme.panelDecoration(
+                    accent: PlayerProfileTheme.gold, radius: 16),
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  const Text('رمز اللاعب',
+                      style: TextStyle(
+                          color: PlayerProfileTheme.muted, fontSize: 12)),
+                  const SizedBox(height: 4),
+                  SelectableText(code.trim(),
+                      key: const ValueKey('public-player-code'),
+                      textDirection: TextDirection.ltr,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                          color: PlayerProfileTheme.gold,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1.8)),
+                ])),
           ],
         ]));
   }
@@ -246,101 +251,120 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
     return stats;
   }
 
-  Widget _statTile(({String label, String value, IconData icon}) stat) =>
-      Container(
+  Widget _statTile(({String label, String value, IconData icon}) stat,
+          {bool compact = false}) =>
+      PlayerProfileMetric(
           key: ValueKey('public-stat:${stat.label}'),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
-          decoration: BoxDecoration(
-              color: const Color(0xFFEDF3FF),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: const Color(0xFFC7D5F4)),
-              boxShadow: const [
-                BoxShadow(
-                    color: Color(0x143A234D),
-                    blurRadius: 8,
-                    offset: Offset(0, 3))
-              ]),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Icon(stat.icon, color: const Color(0xFF8052AA), size: 24),
-            const SizedBox(height: 5),
-            Text(stat.value,
-                textDirection: TextDirection.ltr,
-                style: const TextStyle(
-                    color: _ink, fontSize: 25, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 2),
-            Text(stat.label,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                    color: Color(0xFF725781), fontSize: 12, height: 1.4)),
-          ]));
+          icon: stat.icon,
+          label: stat.label,
+          value: stat.value,
+          compact: compact,
+          accent: PlayerProfileTheme.cyan);
 
-  Widget _achievements(Map<String, dynamic> profile) {
+  Widget _achievements(Map<String, dynamic> profile, {bool compact = false}) {
     final trophies = _number(profile, 'trophies');
     final stats = _stats(profile);
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       if (trophies != null) ...[
         Container(
-            padding: const EdgeInsets.all(20),
+            padding: EdgeInsets.all(compact ? 12 : 20),
             decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                    colors: [Color(0xFFFFE7A6), Color(0xFFFFD36A)]),
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Color(0xFFFFF0B3),
+                      Color(0xFFFFD66E),
+                      Color(0xFFEAB34B)
+                    ]),
                 borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: const Color(0xFFFFEABD))),
+                border: Border.all(color: const Color(0xFFFFEABD), width: 2),
+                boxShadow: const [
+                  BoxShadow(color: Color(0xFF8B571A), offset: Offset(0, 5)),
+                  BoxShadow(
+                      color: Color(0x440B0320),
+                      blurRadius: 18,
+                      offset: Offset(0, 10)),
+                ]),
             child: Row(children: [
-              const Icon(Icons.emoji_events_rounded,
-                  color: Color(0xFF966220), size: 42),
-              const SizedBox(width: 16),
+              Container(
+                  width: compact ? 44 : 60,
+                  height: compact ? 44 : 64,
+                  decoration: BoxDecoration(
+                      color: const Color(0xFFAA7020).withValues(alpha: .14),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: const Color(0xFFFFF4CD))),
+                  child: Icon(Icons.emoji_events_rounded,
+                      color: const Color(0xFF8F5415), size: compact ? 32 : 43)),
+              SizedBox(width: compact ? 12 : 16),
               Expanded(
                   child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                     Text('$trophies',
                         key: const ValueKey('public-player-trophies'),
-                        style: const TextStyle(
-                            color: Color(0xFF54320D),
-                            fontSize: 30,
-                            fontWeight: FontWeight.w800)),
-                    const Text('الكؤوس',
                         style: TextStyle(
-                            color: Color(0xFF8C602A),
+                            color: const Color(0xFF54320D),
+                            fontSize: compact ? 26 : 32,
+                            height: compact ? 1.1 : null,
+                            fontWeight: FontWeight.w900)),
+                    Text('الكؤوس',
+                        style: TextStyle(
+                            color: const Color(0xFF8C602A),
                             fontSize: 13,
+                            height: compact ? 1.3 : null,
                             fontWeight: FontWeight.w700)),
                   ])),
             ])),
-        const SizedBox(height: 22),
+        SizedBox(height: compact ? 14 : 24),
       ],
-      const Text('الإحصاءات',
-          style: TextStyle(
-              color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800)),
-      const SizedBox(height: 12),
-      if (stats.isEmpty)
-        Container(
-            padding: const EdgeInsets.all(22),
-            decoration: BoxDecoration(
-                color: const Color(0xFF604078),
-                borderRadius: BorderRadius.circular(20)),
-            child: const Text('لا توجد إحصاءات متاحة لهذا اللاعب بعد.',
-                textAlign: TextAlign.center,
+      Row(children: [
+        const Icon(Icons.bar_chart_rounded,
+            color: PlayerProfileTheme.gold, size: 23),
+        const SizedBox(width: 8),
+        Expanded(
+            child: Text('الإحصاءات',
                 style: TextStyle(
-                    color: Color(0xFFE5D7F1), fontSize: 13, height: 1.7)))
+                    color: PlayerProfileTheme.gold,
+                    fontSize: compact ? 17 : 20,
+                    fontWeight: FontWeight.w900))),
+      ]),
+      SizedBox(height: compact ? 10 : 12),
+      if (stats.isEmpty)
+        const PlayerProfilePanel(
+            accent: PlayerProfileTheme.cyan,
+            padding: EdgeInsets.all(22),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.insights_rounded,
+                  color: PlayerProfileTheme.cyan, size: 32),
+              SizedBox(height: 12),
+              Text('لا توجد إحصاءات متاحة لهذا اللاعب بعد.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      color: PlayerProfileTheme.muted,
+                      fontSize: 13,
+                      height: 1.7)),
+            ]))
       else
         LayoutBuilder(builder: (context, constraints) {
           final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
-          final columns = constraints.maxWidth >= 520 && scale <= 1.25 ? 3 : 2;
+          final columns = scale > 1.4 || constraints.maxWidth < 250
+              ? 1
+              : constraints.maxWidth >= (compact ? 380 : 520) && scale <= 1.25
+                  ? 3
+                  : 2;
           final width = (constraints.maxWidth - 12 * (columns - 1)) / columns;
           return Wrap(spacing: 12, runSpacing: 12, children: [
             for (final stat in stats)
-              SizedBox(width: width, child: _statTile(stat)),
+              SizedBox(width: width, child: _statTile(stat, compact: compact)),
           ]);
         }),
     ]);
   }
 
-  Widget _error({required bool hasProfile}) => Container(
+  Widget _error({required bool hasProfile}) => PlayerProfilePanel(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-          color: const Color(0xFF56336E),
-          borderRadius: BorderRadius.circular(20)),
+      accent: const Color(0xFFFFACA7),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         const Icon(Icons.cloud_off_rounded, color: Color(0xFFE7D8F7), size: 32),
         const SizedBox(height: 10),
@@ -348,96 +372,91 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
             textAlign: TextAlign.center,
             style: const TextStyle(color: Colors.white, height: 1.6)),
         const SizedBox(height: 14),
-        FilledButton.icon(
+        PlayerProfileActionButton(
             onPressed: _load,
-            style: FilledButton.styleFrom(
-                backgroundColor: _gold, foregroundColor: _ink),
-            icon: const Icon(Icons.refresh_rounded, size: 18),
-            label: const Text('إعادة المحاولة')),
+            icon: Icons.refresh_rounded,
+            label: 'إعادة المحاولة'),
       ]));
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Directionality(
-        textDirection: TextDirection.rtl,
-        child: Theme(
-            data: theme.copyWith(
-                textTheme: theme.textTheme.apply(fontFamily: 'Baloo')),
-            child: Container(
-                decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [Color(0xFF3D234F), Color(0xFF644282)])),
-                child: Scaffold(
-                    backgroundColor: Colors.transparent,
-                    appBar: AppBar(
-                        leading: GameBackButton(
-                            onPressed: () => Navigator.of(context).maybePop()),
-                        title: const Text('ملف اللاعب',
-                            style: TextStyle(fontWeight: FontWeight.w800)),
-                        backgroundColor: Colors.transparent,
-                        foregroundColor: Colors.white,
-                        surfaceTintColor: Colors.transparent),
-                    body: SafeArea(
-                        top: false,
-                        child: SingleChildScrollView(
-                            padding: const EdgeInsets.fromLTRB(18, 10, 18, 28),
-                            child: Center(
-                                child: ConstrainedBox(
-                                    constraints:
-                                        const BoxConstraints(maxWidth: 960),
-                                    child: Column(children: [
-                                      if (_loading) ...[
-                                        const LinearProgressIndicator(
-                                            color: _gold,
-                                            backgroundColor: Color(0xFF79588F)),
-                                        const SizedBox(height: 16),
-                                      ],
-                                      if (_profile == null && _loading)
-                                        const Padding(
-                                            padding: EdgeInsets.all(32),
-                                            child: Text(
-                                                'جارٍ تحميل ملف اللاعب…',
-                                                textAlign: TextAlign.center,
-                                                style: TextStyle(
-                                                    color: Colors.white))),
-                                      if (_failed) ...[
-                                        _error(hasProfile: _profile != null),
-                                        const SizedBox(height: 18),
-                                      ],
-                                      if (_profile != null)
-                                        LayoutBuilder(
-                                            builder: (context, constraints) {
-                                          final profile = _profile!;
-                                          final scale =
-                                              MediaQuery.textScalerOf(context)
-                                                      .scale(14) /
-                                                  14;
-                                          if (constraints.maxWidth >= 660 &&
-                                              scale <= 1.35) {
-                                            return Row(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Expanded(
-                                                      flex: 4,
-                                                      child:
-                                                          _identity(profile)),
-                                                  const SizedBox(width: 20),
-                                                  Expanded(
-                                                      flex: 6,
-                                                      child: _achievements(
-                                                          profile)),
-                                                ]);
-                                          }
-                                          return Column(children: [
-                                            _identity(profile),
-                                            const SizedBox(height: 24),
-                                            _achievements(profile)
-                                          ]);
-                                        }),
-                                    ])))))))));
+    final size = MediaQuery.sizeOf(context);
+    final textScale = MediaQuery.textScalerOf(context).scale(14) / 14;
+    final compact =
+        size.height < 440 && size.width > size.height && textScale <= 1.25;
+    return PlayerProfileShell(
+        title: 'ملف اللاعب',
+        subtitle: 'إنجازات اللاعب وإحصاءاته',
+        onBack: () => Navigator.of(context).maybePop(),
+        child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(8, 6, 8, 24),
+            child: Center(
+                child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 1040),
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (_loading) ...[
+                            ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: const LinearProgressIndicator(
+                                    minHeight: 4,
+                                    color: PlayerProfileTheme.gold,
+                                    backgroundColor: Color(0xFF4C2E71))),
+                            const SizedBox(height: 16),
+                          ],
+                          if (_profile == null && _loading)
+                            const PlayerProfilePanel(
+                                accent: PlayerProfileTheme.cyan,
+                                padding: EdgeInsets.all(28),
+                                child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.person_search_rounded,
+                                          color: PlayerProfileTheme.gold,
+                                          size: 40),
+                                      SizedBox(height: 14),
+                                      Text('جارٍ تحميل ملف اللاعب…',
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                              color: PlayerProfileTheme.muted)),
+                                    ])),
+                          if (_failed) ...[
+                            _error(hasProfile: _profile != null),
+                            const SizedBox(height: 18),
+                          ],
+                          if (_profile != null)
+                            LayoutBuilder(builder: (context, constraints) {
+                              final profile = _profile!;
+                              final scale =
+                                  MediaQuery.textScalerOf(context).scale(14) /
+                                      14;
+                              if (constraints.maxWidth >= 660 &&
+                                  scale <= 1.35) {
+                                return Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Expanded(
+                                          flex: 4,
+                                          child: _identity(profile,
+                                              compact: compact)),
+                                      const SizedBox(width: 20),
+                                      Expanded(
+                                          flex: 6,
+                                          child: _achievements(profile,
+                                              compact: compact)),
+                                    ]);
+                              }
+                              return Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    _identity(profile, compact: compact),
+                                    const SizedBox(height: 24),
+                                    _achievements(profile, compact: compact)
+                                  ]);
+                            }),
+                        ])))));
   }
 }

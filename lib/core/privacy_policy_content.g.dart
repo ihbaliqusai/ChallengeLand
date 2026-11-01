@@ -21,8 +21,8 @@ class PrivacyPolicySection {
 }
 
 abstract final class PrivacyPolicyContent {
-  static const version = "2026-10-28";
-  static const updatedAt = "28 أكتوبر 2026";
+  static const version = "2026-10-30";
+  static const updatedAt = "30 أكتوبر 2026";
   static const appName = "أرض التحدي";
   static const publisher = "Qi7bali — فريق تطوير أرض التحدي";
   static const contactEmail = "IhbaliQusai@gmail.com";
@@ -223,10 +223,12 @@ abstract final class PrivacyPolicyContent {
       title: "اعتمادات المحتوى والتراخيص",
       paragraphs: [
         "هذا الملحق خاص باعتمادات المحتوى، ولا يغير ممارسات معالجة البيانات الواردة في السياسة.",
-        "الشخصيات الكرتونية: Set of Businessmen Saudi Arab Man Cartoon Character Design للمؤلف ridjam، العنصر 21822749، وفق شهادة Envato Market Regular License باسم kaka ankidu بتاريخ 22 سبتمبر 2020.",
+        "عنصر المقدم الكرتوني ثنائي الأبعاد: Set of Businessmen Saudi Arab Man Cartoon Character Design للمؤلف ridjam، العنصر 21822749، وفق شهادة Envato Market Regular License باسم kaka ankidu بتاريخ 22 سبتمبر 2020.",
+        "شخصيات المتسابقين وفيديوهات تحريكها، ورسوم الواجهات والخلفيات ومواد المتجر المقدمة من الناشر: أُنشئت باستخدام Google Gemini وفق إفادته. تبقى الرسوم الأخرى ذات المصادر المسجلة خاضعة لسجلاتها واعتماداتها الخاصة.",
         "الموسيقى: Main Theme (Overture) | The Grand Score للمؤلف Alexander Nakarada، عبر Chosic، برخصة CC BY 4.0. والمقطوعة Sneaky Snitch للمؤلف Kevin MacLeod، عبر Chosic، برخصة CC BY 3.0.",
         "موسيقى إضافية: Halloween Horror Creepy Piano | Horror للمؤلف Alex-Productions، وEchoes of Time v2 للمؤلف Kevin MacLeod، وLabyrinth of Lost Dreams للمؤلف Darren Curtis، عبر Chosic، وفق ملفات ترخيص CC BY 3.0 المحفوظة مع التسجيلات في التطبيق. تُستخدم المقاطع كخلفيات للعب مع ضبط مستويات التشغيل والتكرار.",
         "الصوتيات البديلة: Interface Sounds للمؤلف Kenney، وUnsolved Investigation للمؤلف isaiah658، وSuspense للمؤلف wipics، وOpening Theme [Action/Suspense] للمؤلف nene، برخصة CC0 1.0. عُدلت المقاطع بالقص والتكرار والمزج وضبط المستوى. صُممت مؤثرات إضافية بتوليد رقمي برمجي خصيصًا لأرض التحدي دون تسجيلات لأشخاص أو استنساخ أصواتهم.",
+        "صوت الترقب السابق: drumroll.aif للمستخدم Heigh-hoo على Freesound، المنشور برخصة CC0 1.0. حُدد المصدر بالمطابقة الصوتية، وأكد الناشر بعد الاستماع في 30 أكتوبر 2026 أنه الصوت نفسه. تتضمن نسخة اللعبة مقتطفات مكررة؛ بقي ملفها الصوتي دون تغيير.",
         "الخطوط: Baloo من Ek Type، وNoto Sans Arabic من Noto Project Authors، وBarlow Condensed من Barlow Project Authors، مرخصة وفق SIL Open Font License 1.1. تتوفر نصوص الرخص وإشعارات مكتبات Flutter وAndroid من الإعدادات عبر «تراخيص المكتبات والخطوط»، أو من هذا الملحق داخل التطبيق، دون الحاجة إلى الإنترنت.",
         "تعود العلامات التجارية والمواد المملوكة للغير إلى أصحابها، ويخضع استخدامها لشروط التراخيص ذات الصلة. للاستفسارات المتعلقة بالحقوق، تواصل مع بريد الفريق.",
       ],
@@ -240,6 +242,7 @@ abstract final class PrivacyPolicyContent {
         PrivacyPolicyLink("Creative Commons BY 4.0", "https://creativecommons.org/licenses/by/4.0/"),
         PrivacyPolicyLink("Creative Commons BY 3.0", "https://creativecommons.org/licenses/by/3.0/"),
         PrivacyPolicyLink("Kenney — Interface Sounds", "https://kenney.nl/assets/interface-sounds"),
+        PrivacyPolicyLink("صوت الترقب — Heigh-hoo / Freesound", "https://freesound.org/people/Heigh-hoo/sounds/19433/"),
         PrivacyPolicyLink("Unsolved Investigation — isaiah658", "https://opengameart.org/content/unsolved-investigation"),
         PrivacyPolicyLink("Suspense — wipics", "https://opengameart.org/content/suspense-0"),
         PrivacyPolicyLink("Opening Theme — nene", "https://opengameart.org/content/opening-theme-actionsuspense"),

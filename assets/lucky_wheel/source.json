@@ -1,0 +1,124 @@
+{
+  "imported": "2026-10-30",
+  "sourceDirectory": "C:\\Users\\Qusai\\Downloads\\New folder (5)",
+  "processing": "Lossless WebP encoding without resizing. All visible RGB pixels and every alpha value verified against the supplied PNGs; only RGB values behind fully transparent pixels may be normalized. Original PNGs remain in the supplied source directories, outside the application bundle.",
+  "assets": [
+    {
+      "file": "stage.webp",
+      "source": "1.png",
+      "width": 1000,
+      "height": 558,
+      "sha256": "a27600ebdcc639bf634150074df9a8a2d83e63fe17b645739c568c5b2bedc1fb",
+      "sourceSha256": "56a8cf565810a225973350e8f6b2a72ba74fdfac71f80e138e615e79f2b6a436",
+      "originalBytes": 578233,
+      "bytes": 453610
+    },
+    {
+      "file": "emblem.webp",
+      "source": "2.png",
+      "width": 200,
+      "height": 208,
+      "sha256": "aca63d7cd3f8ec5092e217925034d30464c0dcae78b269f492a92955d0034136",
+      "sourceSha256": "fcb51b449078106716051d6ef0c05ff6218ee84a6cc546533e791f51c7fa7328",
+      "originalBytes": 80480,
+      "bytes": 49758
+    },
+    {
+      "file": "wheel.webp",
+      "source": "3.png",
+      "width": 500,
+      "height": 500,
+      "sha256": "3b3d17ce73ada1c57a97c616415757538801678e50592962c79ddbb5d4e96e27",
+      "sourceSha256": "567b2b069fb5f54ab8978049c346c687776349bf4d237b09158210ceeb093603",
+      "originalBytes": 369069,
+      "bytes": 251982
+    }
+  ],
+  "iconImport": {
+    "imported": "2026-10-30",
+    "sourceDirectory": "C:\\Users\\Qusai\\Downloads\\New folder (11)",
+    "processing": "Lossless WebP encoding without resizing. All visible RGB pixels and every alpha value verified against the supplied PNGs; only RGB values behind fully transparent pixels may be normalized. Original PNGs remain in the supplied source directories, outside the application bundle.",
+    "assets": [
+      {
+        "file": "icons/chest.webp",
+        "source": "1.png",
+        "width": 200,
+        "height": 180,
+        "sha256": "4e16606889bf69a1ff0f4a032341243593618b997fbd6cda7599bb66c9bffa28",
+        "sourceSha256": "97428a610a02924945cf061aaeb290745c5892b807685b15019a158078ba51e1",
+        "originalBytes": 48584,
+        "bytes": 31026
+      },
+      {
+        "file": "icons/coins.webp",
+        "source": "2.png",
+        "width": 200,
+        "height": 216,
+        "sha256": "8663bfb59b175f72b161afa989a801cff28a9cfc7b72b45b74024dc050694fd6",
+        "sourceSha256": "f8b3984481680b958c94ffadd5dee7c9a6089f80f6c35bdee8e732b1892ba4f8",
+        "originalBytes": 62747,
+        "bytes": 39156
+      },
+      {
+        "file": "icons/key.webp",
+        "source": "3.png",
+        "width": 200,
+        "height": 209,
+        "sha256": "e9261959ec4b5ffc5c1dc7887a45ab8689b2602be96be747ec15b8b264bffab7",
+        "sourceSha256": "501f3f9aafdbea833ab9cc3112ed2561dea58ba39e49552e76e877515ff6e102",
+        "originalBytes": 54390,
+        "bytes": 34250
+      },
+      {
+        "file": "icons/gems.webp",
+        "source": "4.png",
+        "width": 200,
+        "height": 212,
+        "sha256": "c2e5418bdf5c80ae5cb0924f33d858ceae66c3100e2e4e678b38a73b547c8f7e",
+        "sourceSha256": "9b85a19e500f14dddeacafb1a2741dc1d4a202a8c8fa9bb03ae45d5bf11a917a",
+        "originalBytes": 62396,
+        "bytes": 38432
+      },
+      {
+        "file": "icons/ticket.webp",
+        "source": "5.png",
+        "width": 200,
+        "height": 212,
+        "sha256": "04437a4def71d56cb2f6fb2912490e557b48a45068385287e91e55a53fc7683d",
+        "sourceSha256": "013f21efd66c19943d33805b62de78fa55a071e6990b8d125b46f07a2949301c",
+        "originalBytes": 63445,
+        "bytes": 40340
+      },
+      {
+        "file": "icons/character_frame.webp",
+        "source": "6.png",
+        "width": 200,
+        "height": 262,
+        "sha256": "7a715240bc6d4b58010bf44c8383c769c95c25d4f753e615f1b04264d706728e",
+        "sourceSha256": "0458fe42e60c7f6f28e3d331d8fd7ec6a283edf7e45e9fa4982550b18850317f",
+        "originalBytes": 34302,
+        "bytes": 21316
+      }
+    ]
+  },
+  "optimized": "2026-10-31",
+  "bundle": {
+    "format": "lossless WebP",
+    "imageCount": 9,
+    "originalImageBytes": 1353646,
+    "imageBytes": 959870,
+    "savedImageBytes": 393776,
+    "excluded": [
+      "README.md",
+      "source.json",
+      "all preview PNG/GIF files"
+    ],
+    "removedLegacyAsset": {
+      "file": "assets/ui/weekly_reward.webp",
+      "bytes": 1161636,
+      "reason": "Former weekly reward screen is no longer reachable; DailyRewardDialog and DailyStreakScreen open LuckyWheelScreen."
+    },
+    "previousWheelRelatedBytes": 2519375,
+    "totalSavedBytes": 1559505
+  }
+}

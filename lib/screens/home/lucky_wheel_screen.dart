@@ -3,16 +3,18 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart' show Ticker;
 import 'package:provider/provider.dart';
 
 import '../../core/app_settings.dart';
 import '../../core/app_state.dart';
+import '../../core/lucky_wheel_motion.dart';
 import '../../models/game_character.dart';
 import '../../models/lucky_wheel_prize.dart';
 import '../../models/store_catalog.dart';
 import '../../services/in_app_purchase_service.dart';
-import '../../widgets/adaptive_asset_image.dart';
 import '../../widgets/lucky_wheel_artwork.dart';
+import '../../widgets/lucky_wheel_controls.dart';
 
 /// Spins toward a prize only after the server has saved its daily receipt.
 class LuckyWheelScreen extends StatefulWidget {
@@ -26,6 +28,14 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
   late final AnimationController _lights;
   late final AnimationController _rotation;
   late final AnimationController _reveal;
+  late final Ticker _pointerTicker;
+  final _pointerSpring = LuckyWheelPointerSpring();
+  final _pointerAngle = ValueNotifier<double>(0);
+  Duration _pointerElapsed = Duration.zero;
+  double _pointerPreviousTurns = 0;
+  double _pointerSettlingSeconds = 0;
+  Completer<void>? _pointerSettled;
+  Duration _lastTickSound = const Duration(milliseconds: -100);
   Animation<double> _turns = const AlwaysStoppedAnimation(0);
   Timer? _timer;
   Duration _remaining = Duration.zero;
@@ -47,9 +57,10 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
     WidgetsBinding.instance.addObserver(this);
     _lights = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 1600));
-    _rotation = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 3800))
-      ..addListener(_onWheelTick);
+    _rotation =
+        AnimationController(vsync: this, duration: luckyWheelSpinDuration)
+          ..addListener(_onWheelTick);
+    _pointerTicker = createTicker(_onPointerFrame);
     _reveal = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 650));
     _timer = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
@@ -151,7 +162,8 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
       }
     } else if (!app.isLuckyWheelFreeAvailable) {
       final nowUtc = now.toUtc();
-      remaining = DateTime.utc(nowUtc.year, nowUtc.month, nowUtc.day + 1).difference(nowUtc);
+      remaining = DateTime.utc(nowUtc.year, nowUtc.month, nowUtc.day + 1)
+          .difference(nowUtc);
     }
     final hadCooldown = _remaining > Duration.zero;
     setState(() => _remaining = remaining);
@@ -161,13 +173,59 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
   }
 
   void _onWheelTick() {
-    final tick = (_turns.value * luckyWheelSlots.length).floor();
-    if (tick == _lastTick) return;
+    // The pins are between sectors. At rest the pointer is over a prize's
+    // center, so the first contact is half a sector after the spin begins.
+    final tick = (_turns.value * luckyWheelSlots.length + .5).floor();
+    if (tick <= _lastTick) return;
     _lastTick = tick;
-    if (mounted && !MediaQuery.of(context).disableAnimations) {
+    final elapsed = _rotation.lastElapsedDuration ?? Duration.zero;
+    if (mounted &&
+        _rotation.isAnimating &&
+        !MediaQuery.of(context).disableAnimations &&
+        elapsed - _lastTickSound >= const Duration(milliseconds: 40)) {
+      _lastTickSound = elapsed;
       _haptic('light');
       _sfx('wheel_tick');
     }
+  }
+
+  void _onPointerFrame(Duration elapsed) {
+    final delta = (elapsed - _pointerElapsed).inMicroseconds / 1000000;
+    _pointerElapsed = elapsed;
+    if (delta <= 0) return;
+    final turns = _turns.value;
+    final speed = math.max(0.0, (turns - _pointerPreviousTurns) / delta);
+    _pointerPreviousTurns = turns;
+    _pointerSpring.step(
+        elapsedSeconds: delta, turns: turns, turnsPerSecond: speed);
+    _pointerAngle.value = _pointerSpring.angle;
+    if (!_rotation.isAnimating) {
+      _pointerSettlingSeconds += delta;
+      if ((_pointerSpring.angle.abs() < .001 &&
+              _pointerSpring.angularVelocity.abs() < .015) ||
+          _pointerSettlingSeconds >= .65) {
+        _stopPointer();
+      }
+    }
+  }
+
+  void _preparePointer(double turns) {
+    _stopPointer();
+    _pointerElapsed = Duration.zero;
+    _pointerPreviousTurns = turns;
+    _pointerSettlingSeconds = 0;
+    _pointerSettled = Completer<void>();
+    _pointerSpring.step(elapsedSeconds: 0, turns: turns, turnsPerSecond: 0);
+    _lastTick = (turns * luckyWheelSlots.length + .5).floor();
+    _lastTickSound = const Duration(milliseconds: -100);
+  }
+
+  void _stopPointer() {
+    _pointerTicker.stop();
+    _pointerSpring.reset();
+    _pointerAngle.value = 0;
+    final pending = _pointerSettled;
+    if (pending != null && !pending.isCompleted) pending.complete();
   }
 
   @override
@@ -224,12 +282,18 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
         6 +
         (luckyWheelSlots.length - slot) / luckyWheelSlots.length;
     _turns = Tween<double>(begin: start, end: end).animate(
-        CurvedAnimation(parent: _rotation, curve: Curves.easeOutQuint));
+        _rotation.drive(CurveTween(curve: const LuckyWheelSpinCurve())));
+    _preparePointer(start);
     if (MediaQuery.of(context).disableAnimations) {
       _rotation.value = 1;
+      _stopPointer();
     } else {
       try {
-        await _rotation.forward(from: 0).orCancel;
+        final spin = _rotation.forward(from: 0);
+        _pointerTicker.start();
+        await spin.orCancel;
+        // Let the last peg release the needle before the reward covers it.
+        await _pointerSettled!.future;
       } on TickerCanceled {
         return;
       }
@@ -259,7 +323,8 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
   void _sfx(String effect) {
     final settings = context.read<AppSettings?>();
     if (settings != null) {
-      unawaited(settings.playSoundEffect(effect: effect).catchError((_) => false));
+      unawaited(
+          settings.playSoundEffect(effect: effect).catchError((_) => false));
     }
   }
 
@@ -271,6 +336,9 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
     _lights.dispose();
     _rotation.dispose();
     _reveal.dispose();
+    _stopPointer();
+    _pointerTicker.dispose();
+    _pointerAngle.dispose();
     super.dispose();
   }
 
@@ -311,7 +379,7 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
                         ),
                       )),
                     Positioned(
-                      left: 8,
+                      right: 8,
                       top: 8,
                       child: GameBackButton(
                         key: const ValueKey('lucky-wheel-back'),
@@ -337,10 +405,11 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
     return SizedBox.square(
       dimension: diameter,
       child: AnimatedBuilder(
-        animation: Listenable.merge([_rotation, _lights]),
+        animation: Listenable.merge([_rotation, _lights, _pointerAngle]),
         builder: (_, __) => LuckyWheelArtwork(
             turns: _turns.value,
             pulse: _lights.value,
+            pointerAngle: _pointerAngle.value,
             winningSlot: _winningSlot,
             character: character,
             characterCompensation: _busy || _result != null
@@ -351,38 +420,58 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
   }
 
   Widget _landscape(BoxConstraints box, AppState app, bool busy) {
-    final diameter = math.min(box.maxHeight - 12, box.maxWidth * .55);
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: box.maxWidth * .055),
-      child: Directionality(
-        textDirection: TextDirection.ltr,
-        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          _wheel(math.max(120, diameter)),
-          SizedBox(width: box.maxWidth * .035),
-          Flexible(
-              child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 330),
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(vertical: 14),
+    final width = math.min(box.maxWidth, box.maxHeight * 16 / 9);
+    final height = math.min(box.maxHeight, box.maxWidth * 9 / 16);
+    final scale = width / 960;
+    final diameter = math.min(height - 24 * scale, width * .57);
+    return Center(
+        child: SizedBox(
+            width: width,
+            height: height,
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: width * .045),
               child: Directionality(
-                textDirection: TextDirection.rtl,
-                child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  const _WheelTitle(),
-                  const SizedBox(height: 10),
-                  const Text('لفّ الدولاب واكتشف جائزتك!',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Color(0xFFF7DFFF), fontSize: 16)),
-                  const SizedBox(height: 22),
-                  _controls(app, busy),
-                  const SizedBox(height: 16),
-                  _PrizeLegend(character: app.wheelPrizeCharacter),
+                textDirection: TextDirection.ltr,
+                child:
+                    Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  _wheel(math.max(120, diameter)),
+                  SizedBox(width: width * .025),
+                  Flexible(
+                      child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: 330 * scale),
+                    child: SingleChildScrollView(
+                      padding: EdgeInsets.symmetric(
+                          vertical: 10 * scale, horizontal: 10 * scale),
+                      child: Directionality(
+                        textDirection: TextDirection.rtl,
+                        child:
+                            Column(mainAxisSize: MainAxisSize.min, children: [
+                          LuckyWheelTitle(scale: scale),
+                          SizedBox(height: 7 * scale),
+                          Text('لفّ الدولاب واكتشف جائزتك!',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                  color: const Color(0xFFFFF2D5),
+                                  fontSize: 15 * scale,
+                                  fontWeight: FontWeight.w700,
+                                  shadows: const [
+                                    Shadow(
+                                        color: Color(0xFF120622),
+                                        offset: Offset(0, 2))
+                                  ])),
+                          SizedBox(height: 20 * scale),
+                          _controls(app, busy, scale: scale.clamp(.82, 1.4)),
+                          SizedBox(height: 12 * scale),
+                          LuckyWheelPrizeLegend(
+                              character: app.wheelPrizeCharacter,
+                              scale: scale.clamp(.8, 1.3)),
+                        ]),
+                      ),
+                    ),
+                  )),
                 ]),
               ),
-            ),
-          )),
-        ]),
-      ),
-    );
+            )));
   }
 
   Widget _portrait(BoxConstraints box, AppState app, bool busy) {
@@ -395,19 +484,23 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
         const SizedBox(height: 14),
         const Padding(
             padding: EdgeInsets.symmetric(horizontal: 38),
-            child: _WheelTitle()),
+            child: LuckyWheelTitle()),
         const SizedBox(height: 10),
         _wheel(diameter),
         const SizedBox(height: 10),
         Padding(
             padding: const EdgeInsets.symmetric(horizontal: 44),
             child: _controls(app, busy)),
+        const SizedBox(height: 14),
+        Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 38),
+            child: LuckyWheelPrizeLegend(character: app.wheelPrizeCharacter)),
         const SizedBox(height: 20),
       ]),
     ));
   }
 
-  Widget _controls(AppState app, bool busy) {
+  Widget _controls(AppState app, bool busy, {double scale = 1}) {
     final iap = context.watch<InAppPurchaseService?>();
     final details = iap?.getProductDetails(StoreCatalog.wheelSpinPack.id);
     final canSpin = app.canSpinLuckyWheel;
@@ -438,23 +531,29 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
                             : 'لفّ الدولاب')
                     : '3 لفات إضافية';
     return Column(mainAxisSize: MainAxisSize.min, children: [
-      _SpinButton(
-        label: label,
-        subtitle: !canSpin && !busy && !checkoutBusy && !_loading
-            ? details?.price ??
-                ((iap?.isLoading ?? false)
-                    ? 'جارٍ تحميل السعر…'
-                    : 'السعر غير متاح حاليًا')
-            : null,
-        onPressed: spinReady && canSpin
-            ? _spin
-            : !canSpin && canBuy
-                ? _buySpins
-                : null,
-        badge: canSpin && spinReady && !app.hasPendingLuckyWheelSpin
-            ? (app.isLuckyWheelFreeAvailable ? 1 + app.purchasedWheelSpins : app.purchasedWheelSpins)
-            : 0,
-      ),
+      AnimatedBuilder(
+          animation: _lights,
+          builder: (_, __) => LuckyWheelActionButton(
+                label: label,
+                pulse: _lights.value,
+                scale: scale,
+                subtitle: !canSpin && !busy && !checkoutBusy && !_loading
+                    ? details?.price ??
+                        ((iap?.isLoading ?? false)
+                            ? 'جارٍ تحميل السعر…'
+                            : 'السعر غير متاح حاليًا')
+                    : null,
+                onPressed: spinReady && canSpin
+                    ? _spin
+                    : !canSpin && canBuy
+                        ? _buySpins
+                        : null,
+                badge: canSpin && spinReady && !app.hasPendingLuckyWheelSpin
+                    ? (app.isLuckyWheelFreeAvailable
+                        ? 1 + app.purchasedWheelSpins
+                        : app.purchasedWheelSpins)
+                    : 0,
+              )),
       const SizedBox(height: 10),
       if (app.purchasedWheelSpins > 0)
         Text('لفاتك الإضافية: ${app.purchasedWheelSpins}',
@@ -498,17 +597,29 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
                     fontWeight: FontWeight.w900))),
       if (!canSpin && iap != null && !checkoutBusy && details == null)
         TextButton(
-            onPressed: () { AppSettings.playClick(); iap.loadProducts(); },
+            onPressed: () {
+              AppSettings.playClick();
+              iap.loadProducts();
+            },
             child: const Text('تحديث السعر',
                 style: TextStyle(color: Color(0xFFFFE693)))),
       if (iap != null && !app.isLuckyWheelFreeAvailable)
         TextButton(
-            onPressed:
-                busy || _buying || _syncingPurchase ? null : () { AppSettings.playClick(); _retryPurchases(); },
+            onPressed: busy || _buying || _syncingPurchase
+                ? null
+                : () {
+                    AppSettings.playClick();
+                    _retryPurchases();
+                  },
             child: const Text('التحقق من المشتريات',
                 style: TextStyle(color: Color(0xFFE5C8F6), fontSize: 12))),
       TextButton(
-          onPressed: busy || _buying ? null : () { AppSettings.playClick(); _showPrizeDetails(); },
+          onPressed: busy || _buying
+              ? null
+              : () {
+                  AppSettings.playClick();
+                  _showPrizeDetails();
+                },
           child: const Text('الجوائز وفرص الفوز',
               style: TextStyle(color: Color(0xFFE5C8F6), fontSize: 12))),
     ]);
@@ -519,6 +630,15 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
         builder: (context) => Directionality(
             textDirection: TextDirection.rtl,
             child: AlertDialog(
+              backgroundColor: const Color(0xFF251044),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  side: const BorderSide(color: Color(0xFFE7C27C), width: 1.6)),
+              titleTextStyle: const TextStyle(
+                  color: Color(0xFFFFE7A6),
+                  fontFamily: 'Baloo',
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900),
               title: const Text('الجوائز وفرص الفوز'),
               scrollable: true,
               content: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -554,178 +674,13 @@ class _LuckyWheelScreenState extends State<LuckyWheelScreen>
               ]),
               actions: [
                 TextButton(
-                    onPressed: () { AppSettings.playClick(); Navigator.pop(context); },
+                    onPressed: () {
+                      AppSettings.playClick();
+                      Navigator.pop(context);
+                    },
                     child: const Text('حسنًا'))
               ],
             )),
-      );
-}
-
-class _WheelTitle extends StatelessWidget {
-  const _WheelTitle();
-  @override
-  Widget build(BuildContext context) => FittedBox(
-        fit: BoxFit.scaleDown,
-        child: Transform.rotate(
-            angle: -.045,
-            child: Stack(children: [
-              Text('دولاب الحظ',
-                  style: TextStyle(
-                      fontSize: 48,
-                      height: 1.5,
-                      fontWeight: FontWeight.w900,
-                      foreground: Paint()
-                        ..style = PaintingStyle.stroke
-                        ..strokeWidth = 7
-                        ..color = const Color(0xFF54124E),
-                      shadows: const [
-                        Shadow(color: Color(0xFFEB55AC), offset: Offset(0, 5))
-                      ])),
-              const Text('دولاب الحظ',
-                  style: TextStyle(
-                      color: Color(0xFFFFF5D5),
-                      fontSize: 48,
-                      height: 1.5,
-                      fontWeight: FontWeight.w900)),
-            ])),
-      );
-}
-
-class _SpinButton extends StatelessWidget {
-  const _SpinButton(
-      {required this.label,
-      required this.onPressed,
-      this.badge = 0,
-      this.subtitle});
-  final String label;
-  final String? subtitle;
-  final VoidCallback? onPressed;
-  final int badge;
-  @override
-  Widget build(BuildContext context) => SizedBox(
-        width: 224,
-        height: 66,
-        child: Stack(clipBehavior: Clip.none, children: [
-          Positioned.fill(
-              child: DecoratedBox(
-                  decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(13),
-            color: onPressed != null
-                ? const Color(0xFF2A9B00)
-                : const Color(0xFF334B36),
-            boxShadow: const [
-              BoxShadow(color: Color(0xFF180D3E), offset: Offset(0, 4))
-            ],
-          ))),
-          Positioned.fill(
-              bottom: 5,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: onPressed != null
-                            ? [const Color(0xFF91FF08), const Color(0xFF4FE000)]
-                            : [
-                                const Color(0xFF617D4D),
-                                const Color(0xFF385B38)
-                              ]),
-                    border: Border.all(
-                        color: onPressed != null
-                            ? const Color(0xFFB7FF66)
-                            : const Color(0xFF6B805B),
-                        width: 1.5)),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    key: const ValueKey('lucky-wheel-spin'),
-                    onTap: onPressed == null
-                        ? null
-                        : () {
-                            AppSettings.playClick();
-                            onPressed!();
-                          },
-                    borderRadius: BorderRadius.circular(12),
-                    child: Center(
-                      child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(label,
-                                      style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 27,
-                                          fontWeight: FontWeight.w900,
-                                          shadows: [
-                                            Shadow(
-                                                color: Color(0xFF285118),
-                                                offset: Offset(0, 2),
-                                                blurRadius: 2)
-                                          ])),
-                                  if (subtitle != null)
-                                    Text(subtitle!,
-                                        textDirection: TextDirection.ltr,
-                                        style: const TextStyle(
-                                            color: Colors.white,
-                                            height: 1.1,
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w700)),
-                                ]),
-                          )),
-                    ),
-                  ),
-                ),
-              )),
-          if (badge > 0)
-            Positioned(
-                right: -8,
-                top: -9,
-                child: Container(
-                  width: 28,
-                  height: 28,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                      color: const Color(0xFFFC3949),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 2)),
-                  child: Text(badge > 99 ? '99+' : '$badge',
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 17,
-                          height: 1,
-                          fontWeight: FontWeight.w900)),
-                )),
-        ]),
-      );
-}
-
-class _PrizeLegend extends StatelessWidget {
-  const _PrizeLegend({required this.character});
-  final GameCharacter? character;
-  @override
-  Widget build(BuildContext context) => Wrap(
-        alignment: WrapAlignment.center,
-        spacing: 10,
-        runSpacing: 6,
-        children: [
-          for (final prize in LuckyWheelPrize.catalog.take(6))
-            Row(mainAxisSize: MainAxisSize.min, children: [
-              SizedBox.square(
-                  dimension: 23,
-                  child: LuckyWheelPrizeIcon(
-                      prize: prize,
-                      character: character,
-                      characterCompensation: character == null)),
-              const SizedBox(width: 4),
-              Text(prize.title,
-                  style:
-                      const TextStyle(color: Color(0xFFE5C8F6), fontSize: 11)),
-            ]),
-        ],
       );
 }
 
@@ -768,16 +723,12 @@ class _PrizeReveal extends StatelessWidget {
                 SizedBox(
                     height: 98,
                     width: 116,
-                    child: result.characterIndex != null
-                        ? adaptiveAssetImage(
-                            CharacterCatalog.byIndex(result.characterIndex!)
-                                .asset,
-                            width: 116,
-                            height: 98,
-                            fit: BoxFit.contain)
-                        : LuckyWheelPrizeIcon(
-                            prize: result.prize,
-                            characterCompensation: result.compensation)),
+                    child: LuckyWheelPrizeIcon(
+                        prize: result.prize,
+                        character: result.characterIndex == null
+                            ? null
+                            : CharacterCatalog.byIndex(result.characterIndex!),
+                        characterCompensation: result.compensation)),
                 Text(
                     result.characterIndex != null
                         ? 'شخصية ${CharacterCatalog.byIndex(result.characterIndex!).nameAr}'
@@ -817,7 +768,8 @@ class _PrizeReveal extends StatelessWidget {
                                   color: Color(0xFFFFE693), fontSize: 14)),
                     ]),
                 const SizedBox(height: 16),
-                _SpinButton(label: 'رائع، متابعة', onPressed: onClose),
+                LuckyWheelActionButton(
+                    label: 'رائع، متابعة', onPressed: onClose),
               ]),
             ),
           ),

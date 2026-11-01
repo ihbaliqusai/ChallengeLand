@@ -43,7 +43,7 @@ $sources = @(
         Where-Object { $_.Name -ne 'level.png' }
     Get-ChildItem -LiteralPath (Join-Path $workspace 'assets/store') -File -Filter '*.png' |
         Where-Object { $_.Name -ne 'coins.png' }
-    foreach ($name in @('home_menu', 'game_modes', 'weekly_reward', 'bg_main', 'bg_login', 'logo', 'person_welcome')) {
+    foreach ($name in @('home_menu', 'game_modes', 'bg_main', 'bg_login', 'logo', 'person_welcome')) {
         Get-Item -LiteralPath (Join-Path $workspace "assets/ui/$name.png")
     }
 )

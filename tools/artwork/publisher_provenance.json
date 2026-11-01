@@ -1,0 +1,31 @@
+{
+  "recordedAt": "2026-10-29",
+  "recordType": "publisher-declaration",
+  "declaredBy": "application publisher in this conversation",
+  "scope": [
+    "Publisher-supplied custom interface artwork and backgrounds",
+    "Publisher-supplied store listing artwork and other listing materials discussed in the rights review"
+  ],
+  "creationService": "Google Gemini",
+  "declarations": [
+    "The publisher confirmed that all remaining interface artwork and backgrounds discussed in the audit were created with Gemini.",
+    "The publisher also confirmed Gemini as the source of the store listing materials discussed in the audit."
+  ],
+  "scopeExclusions": [
+    "The separately purchased Envato presenter retains its own certificate.",
+    "The two Codex-generated logo/avatar replacements retain their documented built-in image_gen source.",
+    "The separately documented generated category replacements retain their own actual source records.",
+    "Known third-party fonts, software notices, flags, audio and trademark names are not reclassified as Gemini-generated."
+  ],
+  "relatedRecords": [
+    "tools/characters/provenance.json",
+    "tools/artwork/replacement_provenance.json",
+    "docs/category_design_review_20261028/provenance.json",
+    "assets/ui/README.md"
+  ],
+  "modelVersions": null,
+  "generationDates": null,
+  "referenceInputs": "not specified",
+  "evidenceNote": "The declaration records the publisher's source statement. It does not assert exclusive copyright, authenticate every generation session, or clear third-party trademarks merely because text or artwork was AI-generated.",
+  "termsSource": "https://policies.google.com/terms"
+}

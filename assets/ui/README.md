@@ -1,5 +1,15 @@
 # UI artwork
 
+## Publisher source declaration — 29 October 2026
+
+The publisher confirmed that the remaining custom interface artwork,
+backgrounds and store listing materials discussed in the rights review were
+created using Google Gemini. This supplements the local import paths below;
+those paths are no longer the only recorded source information.
+See `tools/artwork/publisher_provenance.json` for the declaration and its scope.
+Separately documented Envato assets, flags, fonts and Codex-generated
+replacements retain their actual sources; they are not relabeled as Gemini.
+
 ## Application logo — 26 October 2026
 
 The publisher supplied `C:\Users\Qusai\Downloads\New folder (5)\1.jfif`
@@ -60,14 +70,12 @@ and offline games. Group and friend modes retain their connection checks;
 the two local modes remain available offline. The complete panel scales to fit
 the available screen area without cropping its buttons.
 
-## Weekly reward artwork
+## Retired weekly reward artwork
 
 `weekly_reward.png` was supplied from
 `C:\Users\Qusai\Downloads\New folder (16)\1.png` and copied unchanged.
 
-Flutter composes the star background, ornamental corners, blue close button,
-gold chest and glossy gold claim button from the original image. A vector clip
-isolates the chest silhouette. Native labels and tiles display the actual week,
-day, reward amounts, progress, countdown and receipt-backed claim state. The last
-week contains only days 29 and 30. Compact landscapes use a shorter layout;
-narrow screens stack the reward summary and wrap the daily roadmap.
+The weekly reward screen has been replaced by Lucky Wheel. On 2026-10-31, its
+unused Flutter artwork widget and runtime `weekly_reward.webp` (1,161,636 bytes)
+were removed. The original PNG remains here as an unbundled design source.
+Existing daily reward routes open `LuckyWheelScreen`.

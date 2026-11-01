@@ -13,7 +13,7 @@ for (const asset of shippedAssets()) {
       /offer_/.test(asset) ? 1200 : 768;
   } else if (/^assets\/home\//.test(asset)) {
     cap = /keys|tickets/.test(asset) ? 512 : 768;
-  } else if (/^assets\/ui\/(home_menu|game_modes|weekly_reward)/.test(asset)) cap = 1600;
+  } else if (/^assets\/ui\/(home_menu|game_modes)/.test(asset)) cap = 1600;
   else if (asset === 'assets/ui/play_stake_dialog.png') cap = 1024;
   else continue;
   const target = path.join(root, asset);

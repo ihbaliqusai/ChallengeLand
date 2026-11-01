@@ -15,3 +15,7 @@ android/.kotlin/errors/*.log
 android/local.properties
 android/key.properties
 ios/Flutter/Flutter.podspec
+
+# Local IP research, rejected drafts and verification output (not product source).
+/scratch/ip-research-2026-10-29/
+/scratch/text-ip-review-2026-10-29/
