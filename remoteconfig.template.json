@@ -1,0 +1,21 @@
+{
+  "parameters": {
+    "force_update_enabled": {
+      "defaultValue": { "value": "false" },
+      "valueType": "BOOLEAN",
+      "description": "Enable the mandatory Android update screen. Publish the target build to all supported players before enabling."
+    },
+    "min_android_build": {
+      "defaultValue": { "value": "49" },
+      "valueType": "NUMBER",
+      "description": "Minimum allowed Android versionCode when force_update_enabled is true. Equal/newer builds continue normally."
+    },
+    "force_update_message_ar": {
+      "defaultValue": {
+        "value": "يتوفر تحديث ضروري لمتابعة اللعب. حدّث اللعبة للحصول على أحدث التحسينات."
+      },
+      "valueType": "STRING",
+      "description": "Arabic message displayed on the required-update screen."
+    }
+  }
+}

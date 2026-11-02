@@ -29,6 +29,7 @@ import 'services/social_service.dart';
 import 'widgets/social_shell.dart';
 import 'services/in_app_purchase_service.dart';
 import 'widgets/startup_gate.dart';
+import 'widgets/app_update_gate.dart';
 import 'widgets/game_viewport.dart';
 import 'widgets/game_notice.dart';
 
@@ -50,8 +51,8 @@ Future<void> main() async {
             body: SplashPoster(),
           ),
         ),
-        ready: ChallengeLandApp(
-          adService: adService,
+        ready: AppUpdateGate(
+          child: ChallengeLandApp(adService: adService),
         ),
       )));
   // Ads and consent must not delay the first frame or app startup.

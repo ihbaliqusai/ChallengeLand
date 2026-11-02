@@ -25,6 +25,7 @@ class MainActivity : FlutterActivity() {
     private var gameLaunchPending = false
     private var gameLaunchToken = 0L
     private var playBillingManager: PlayBillingManager? = null
+    private var appUpdateController: AppUpdateController? = null
     private val referralAttribution by lazy { ReferralAttribution(applicationContext) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -84,6 +85,10 @@ class MainActivity : FlutterActivity() {
         failureCode: String = "GAME_LAUNCH_FAILED",
         launch: () -> Unit
     ) {
+        if (appUpdateController?.requiresUpdate() == true) {
+            result.error("APP_UPDATE_REQUIRED", "حدّث اللعبة لمتابعة اللعب.", null)
+            return
+        }
         if (gameLaunchPending) {
             result.error("GAME_LAUNCH_PENDING", "جارٍ تجهيز اللعبة. انتظر لحظة.", null)
             return
@@ -102,6 +107,9 @@ class MainActivity : FlutterActivity() {
             } else if (ProgressionAccount.uid(this) != requestedUid) {
                 gameLaunchPending = false
                 result.error("ONLINE_MATCH_ACCOUNT_CHANGED", "تغير حساب اللاعب. حاول مجددًا.", null)
+            } else if (appUpdateController?.requiresUpdate() == true) {
+                gameLaunchPending = false
+                result.error("APP_UPDATE_REQUIRED", "حدّث اللعبة لمتابعة اللعب.", null)
             } else if (!LocalQuestions.isPrepared()) {
                 gameLaunchPending = false
                 result.error("QUESTIONS_UNAVAILABLE", "تعذر تجهيز الأسئلة. أعد المحاولة.", null)
@@ -177,6 +185,7 @@ class MainActivity : FlutterActivity() {
             flutterEngine.dartExecutor.binaryMessenger)
         HomeBackgroundTextures(this, flutterEngine.renderer,
             flutterEngine.dartExecutor.binaryMessenger)
+        appUpdateController = AppUpdateController(this, flutterEngine.dartExecutor.binaryMessenger)
         val channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "millionaire/native")
         playBillingManager = PlayBillingManager(this, channel)
         channel.setMethodCallHandler { call, result ->
