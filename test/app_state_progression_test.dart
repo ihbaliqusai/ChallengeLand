@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:challenge_land/core/app_state.dart';
+import 'package:challenge_land/core/campaign_trophy_rules.dart';
 import 'package:challenge_land/core/player_rank.dart';
 import 'package:challenge_land/models/economy_wallet.dart';
 import 'package:challenge_land/models/lucky_wheel_prize.dart';
@@ -135,10 +136,13 @@ class _Native implements NativeBridgeService {
   Future<Map<String, dynamic>> Function()? economyReadHandler;
   Completer<void>? adRewardEntered;
   bool failWalletSync = false;
+  bool rejectWalletHydration = false;
+  Completer<bool>? walletHydrationGate;
   bool failLegacySync = false;
   int legacySyncCalls = 0;
   _CloudResponseGate? nextLegacySync;
   bool failAchievementSync = false;
+  Completer<void>? achievementRestoreGate;
   List<String> unlockedCategories = [];
   final achievements = <String, Map<String, dynamic>>{};
 
@@ -155,6 +159,8 @@ class _Native implements NativeBridgeService {
       {required String accountUid,
       required Iterable<String> unlockedIds,
       required Iterable<String> claimedIds}) async {
+    final gate = achievementRestoreGate;
+    if (gate != null) await gate.future;
     if (failAchievementSync || accountUid != boundUid) {
       throw StateError('Receipt sync interrupted');
     }
@@ -290,6 +296,9 @@ class _Native implements NativeBridgeService {
       required int gems,
       int? referralRevision,
       required List<String> deliveryIds}) async {
+    if (rejectWalletHydration) return false;
+    final gate = walletHydrationGate;
+    if (gate != null && !await gate.future) return false;
     if (boundUid != accountUid) return false;
     walletCoins = coins;
     walletGems = gems;
@@ -1037,6 +1046,74 @@ void main() {
     expect(h.state.user?.uid, 'alice');
   });
 
+  test('startup binds unchanged native identity once', () async {
+    final h = _Harness();
+    addTearDown(h.close);
+    await h.seed('alice');
+    await h.signIn('alice');
+    expect(h.native.legacySyncCalls, 1);
+    await h.state.loadLevelData();
+    expect(h.native.legacySyncCalls, 1);
+    expect(h.native.boundUid, 'alice');
+  });
+
+  test('rejected native wallet hydration leaves financial actions unready',
+      () async {
+    final h = _Harness();
+    addTearDown(h.close);
+    await h.seed('alice');
+    h.native.rejectWalletHydration = true;
+    h.state;
+    h.auth.emit('alice');
+    await _until(() => h.state.isAccountReady);
+    expect(h.state.isCommerceReady, isFalse);
+    expect(h.native.boundUid, 'alice');
+  });
+
+  test('late wallet confirmation cannot turn a timed-out startup into ready',
+      () async {
+    final h = _Harness();
+    addTearDown(h.close);
+    await h.seed('alice');
+    final gate = Completer<bool>();
+    h.native.walletHydrationGate = gate;
+    h.state;
+    h.auth.emit('alice');
+    await Future<void>.delayed(const Duration(milliseconds: 3200));
+    await _until(() => h.state.isAccountReady);
+    expect(h.state.isCommerceReady, isFalse);
+    gate.complete(true);
+    await _drain();
+    expect(h.state.isCommerceReady, isFalse);
+  });
+
+  test(
+      'verified wallet and character route do not wait for achievement restore',
+      () async {
+    final h = _Harness();
+    addTearDown(h.close);
+    await h.seed('alice');
+    await h.db.doc('users/alice').set({
+      'characterIndex': 0,
+      'claimedAchievementIds': ['first_win'],
+    }, SetOptions(merge: true));
+    final gate = Completer<void>();
+    h.native.achievementRestoreGate = gate;
+    try {
+      h.state;
+      h.auth.emit('alice');
+      await _until(() => h.state.isAccountReady);
+      expect(h.state.isCommerceReady, isTrue);
+      expect(h.state.selectedCharacterIndex, 0);
+      expect(h.native.walletCoins, 500);
+      expect(h.native.boundUid, 'alice');
+      expect(gate.isCompleted, isFalse);
+    } finally {
+      gate.complete();
+    }
+    await _drain();
+  });
+
   test(
       'achievement claim all stays claimed after reopening and a stale device read',
       () async {
@@ -1191,6 +1268,34 @@ void main() {
     expect(await h.state.claimDailyStreak(), reward);
     expect(h.native.walletCoins, total);
     expect((await h.privateData('alice'))['coins'], total);
+  });
+
+  test(
+      'a zero-XP first clear delivers its trophies and hydrates native state once',
+      () async {
+    final h = _Harness();
+    addTearDown(h.close);
+    await h.seed('alice');
+    await h.signIn('alice');
+    final before = h.state.trophies;
+    final xp = h.state.xp;
+    final claim =
+        CampaignTrophyRules.firstClearClaimId('main_campaign', 'stage_001');
+    await h.receipt('alice', claim, 0);
+    await h.db.doc('users/alice/campaignRewardClaims/$claim').update({
+      'campaignId': 'main_campaign',
+      'stageId': 'stage_001',
+      'previousStars': 0,
+      'newStars': 1,
+      'xpClaimed': false,
+    });
+    expect(await h.state.grantCampaignXp(xpReward: 0, claimId: claim), isTrue);
+    expect(h.state.trophies, before + 22);
+    expect(h.state.xp, xp);
+    expect(h.native.active.stats['trophies'], before + 22);
+    expect((await h.publicData('alice'))['trophies'], before + 22);
+    expect(await h.state.grantCampaignXp(xpReward: 0, claimId: claim), isTrue);
+    expect(h.state.trophies, before + 22);
   });
 
   test('native play and campaign receipts update real state once across reset',

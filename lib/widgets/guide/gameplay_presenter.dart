@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import '../../core/shared_assets.dart';
 
 /// Supported presenter body gestures matching `Person.java`.
 enum PresenterGesture {
@@ -244,7 +245,7 @@ class _GameplayPresenterState extends State<GameplayPresenter>
       _didPrecache = true;
       for (final path in _kPrecacheAssets) {
         precacheImage(
-          AssetImage(path),
+          AssetImage(path, bundle: SharedAssets.bundle),
           context,
           onError: (_, __) {},
         );
@@ -552,6 +553,7 @@ class _GameplayPresenterState extends State<GameplayPresenter>
                   height: 77.73 * scale,
                   child: Image.asset(
                     _bodyAssetPath(_bodyFrame),
+                    bundle: SharedAssets.bundle,
                     fit: BoxFit.fill,
                     gaplessPlayback: true,
                     filterQuality: FilterQuality.medium,
@@ -575,6 +577,7 @@ class _GameplayPresenterState extends State<GameplayPresenter>
                         Positioned.fill(
                           child: Image.asset(
                             'assets/presenter/head.png',
+                            bundle: SharedAssets.bundle,
                             fit: BoxFit.fill,
                             gaplessPlayback: true,
                             filterQuality: FilterQuality.medium,
@@ -591,6 +594,7 @@ class _GameplayPresenterState extends State<GameplayPresenter>
                           height: 24.14 * scale,
                           child: Image.asset(
                             _mouthAssetPath(_mouthFrame),
+                            bundle: SharedAssets.bundle,
                             fit: BoxFit.fill,
                             gaplessPlayback: true,
                             filterQuality: FilterQuality.medium,
@@ -607,6 +611,7 @@ class _GameplayPresenterState extends State<GameplayPresenter>
                             height: 17.0 * scale,
                             child: Image.asset(
                               'assets/presenter/look_aside.png',
+                              bundle: SharedAssets.bundle,
                               fit: BoxFit.fill,
                               gaplessPlayback: true,
                               filterQuality: FilterQuality.medium,
@@ -624,6 +629,7 @@ class _GameplayPresenterState extends State<GameplayPresenter>
                             height: 11.89 * scale,
                             child: Image.asset(
                               'assets/presenter/closed_eyes.png',
+                              bundle: SharedAssets.bundle,
                               fit: BoxFit.fill,
                               gaplessPlayback: true,
                               filterQuality: FilterQuality.medium,
@@ -641,6 +647,7 @@ class _GameplayPresenterState extends State<GameplayPresenter>
                             height: 11.07 * scale,
                             child: Image.asset(
                               'assets/presenter/eyebrows_up_right.png',
+                              bundle: SharedAssets.bundle,
                               fit: BoxFit.fill,
                               gaplessPlayback: true,
                               filterQuality: FilterQuality.medium,
@@ -657,6 +664,7 @@ class _GameplayPresenterState extends State<GameplayPresenter>
                             height: 11.07 * scale,
                             child: Image.asset(
                               'assets/presenter/eyebrows_up_left.png',
+                              bundle: SharedAssets.bundle,
                               fit: BoxFit.fill,
                               gaplessPlayback: true,
                               filterQuality: FilterQuality.medium,

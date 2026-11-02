@@ -48,6 +48,7 @@ final class GameCampaignResultStore {
             payload.put("completed", effectiveCompleted);
             payload.put("gameplayXp", PlayerStats.matchXp(activity));
             payload.put("trophyDelta", PlayerStats.matchTrophies(activity));
+            payload.put("campaignTrophyPolicyVersion", 3);
             payload.put("score", playerScore);
             payload.put("money", Math.max(0, money));
             payload.put("correctAnswers", answeredCorrect);

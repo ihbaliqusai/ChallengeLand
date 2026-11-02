@@ -3,7 +3,7 @@ import '../core/app_settings.dart';
 import 'package:flutter/material.dart';
 import 'adaptive_asset_image.dart';
 
-const socialArtworkAsset = 'assets/social/friends_challenges.jfif';
+const socialArtworkAsset = 'assets/social/friends_challenges.webp';
 const socialGold = Color(0xFFE7C27C);
 
 /// Draw a source region without altering the supplied reference image.

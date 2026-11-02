@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'performance_probe.dart';
+import 'campaign_trophy_rules.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -128,6 +130,10 @@ class AppState extends ChangeNotifier {
   Future<void> _progressionTail = Future<void>.value();
   Future<void>? _progressionSyncFuture;
   String? _nativeBoundUid;
+  (String, String, String?)? _nativeBoundIdentity;
+  (String, String, String?)? _nativeBindingIdentity;
+  int? _nativeBindingGeneration;
+  Future<void>? _nativeBindingFuture;
   Map<String, int> _lastProgressionAcknowledged = <String, int>{};
   int streakDay = 0;
   bool claimedToday = false;
@@ -473,7 +479,9 @@ class AppState extends ChangeNotifier {
   }
 
   bool get canSpinLuckyWheel =>
-      hasPendingLuckyWheelSpin || isLuckyWheelFreeAvailable || purchasedWheelSpins > 0;
+      hasPendingLuckyWheelSpin ||
+      isLuckyWheelFreeAvailable ||
+      purchasedWheelSpins > 0;
 
   /// The offered contestant advances after each character unlock. A server
   /// preview also accounts for ownership changes made on another device.
@@ -1269,7 +1277,9 @@ class AppState extends ChangeNotifier {
     final uid = account?.uid;
     final generation = _authGeneration;
     if (uid == null || account == null) return false;
-    if (xpReward <= 0) return true;
+    if (xpReward <= 0 && !CampaignTrophyRules.isFirstClearClaim(claimId)) {
+      return true;
+    }
     if (claimId == null || claimId.isEmpty) return false;
     try {
       return await _enqueueProgression<bool>(() async {
@@ -1302,14 +1312,41 @@ class AppState extends ChangeNotifier {
     final account = currentUser;
     final generation = _authGeneration;
     if (account == null) return;
-
-    await _nativeBridgeService.syncLegacyUser(
-      uid: account.uid,
-      username: _resolvedUsername(account),
-      photoUrl: _resolvedPhotoUrl(account),
-    );
-    if (generation == _authGeneration && currentUser?.uid == account.uid) {
-      _nativeBoundUid = account.uid;
+    final identity =
+        (account.uid, _resolvedUsername(account), _resolvedPhotoUrl(account));
+    if (_nativeBoundUid == account.uid && _nativeBoundIdentity == identity) {
+      return;
+    }
+    final pending = _nativeBindingFuture;
+    if (pending != null &&
+        _nativeBindingIdentity == identity &&
+        _nativeBindingGeneration == generation) {
+      return pending;
+    }
+    final operation = () async {
+      await _nativeBridgeService.syncLegacyUser(
+        uid: identity.$1,
+        username: identity.$2,
+        photoUrl: identity.$3,
+      );
+      if (!_disposed &&
+          generation == _authGeneration &&
+          currentUser?.uid == account.uid) {
+        _nativeBoundUid = account.uid;
+        _nativeBoundIdentity = identity;
+      }
+    }();
+    _nativeBindingFuture = operation;
+    _nativeBindingIdentity = identity;
+    _nativeBindingGeneration = generation;
+    try {
+      await operation;
+    } finally {
+      if (identical(_nativeBindingFuture, operation)) {
+        _nativeBindingFuture = null;
+        _nativeBindingIdentity = null;
+        _nativeBindingGeneration = null;
+      }
     }
   }
 
@@ -1339,22 +1376,26 @@ class AppState extends ChangeNotifier {
     try {
       // Account binding also works offline and must precede any wallet/stat
       // reads, otherwise a failed cloud read could expose the previous account.
-      await _syncLegacyUser().timeout(const Duration(seconds: 3));
+      await PerformanceProbe.measure('account.bind', _syncLegacyUser)
+          .timeout(const Duration(seconds: 3));
       if (!isActive()) return;
-      final doc = await _firestore
-          .collection('users')
-          .doc(uid)
-          .get()
-          .timeout(const Duration(seconds: 4));
+      final doc = await PerformanceProbe.measure(
+          'account.cloud',
+          () => _firestore
+              .collection('users')
+              .doc(uid)
+              .get()
+              .timeout(const Duration(seconds: 4)));
       final data = doc.data();
       if (!isActive()) return;
 
       // Bind the native account before reading its verified entitlements.
       await _syncLegacyUser().timeout(const Duration(seconds: 3));
       if (!isActive()) return;
-      final commerce = await _nativeBridgeService.getCommerceState().timeout(
-          const Duration(seconds: 3),
-          onTimeout: () => <String, dynamic>{});
+      final commerce = await PerformanceProbe.measure(
+              'account.commerce', _nativeBridgeService.getCommerceState)
+          .timeout(const Duration(seconds: 3),
+              onTimeout: () => <String, dynamic>{});
       if (!isActive()) return;
       _applyCommerceState(commerce);
       final rawRemoteIds = data?['appliedCommerceDeliveryIds'];
@@ -1427,17 +1468,23 @@ class AppState extends ChangeNotifier {
 
       await _syncLegacyUser().timeout(const Duration(seconds: 3));
       if (!isActive()) return;
-      await _nativeBridgeService
-          .hydrateCommerceWallet(
-            accountUid: uid,
-            coins: coins,
-            gems: gems,
-            referralRevision: (data?['referralRevision'] as num?)?.toInt() ?? 0,
-            deliveryIds: remoteDeliveryIds.toList(),
-          )
-          .timeout(const Duration(seconds: 3), onTimeout: () => true);
+      final walletHydrated = await PerformanceProbe.measure(
+          'account.wallet',
+          () => _nativeBridgeService
+              .hydrateCommerceWallet(
+                accountUid: uid,
+                coins: coins,
+                gems: gems,
+                referralRevision:
+                    (data?['referralRevision'] as num?)?.toInt() ?? 0,
+                deliveryIds: remoteDeliveryIds.toList(),
+              )
+              .timeout(const Duration(seconds: 3)));
 
       if (!isActive()) return;
+      if (!walletHydrated) {
+        throw StateError('Account wallet hydration was not confirmed');
+      }
       try {
         await _nativeBridgeService
             .setCategoryState(
@@ -1458,7 +1505,15 @@ class AppState extends ChangeNotifier {
 
       if (!isActive()) return;
       _commerceHydratedUid = uid;
-      // Restore permanent achievement receipts before home reads its badge.
+      PerformanceProbe.mark('account.hydrated');
+      // Account selection and the verified wallet are ready. Let the lobby
+      // render while optional achievement/XP synchronization continues. Reward
+      // claims still use their own guarded server reconciliation.
+      categoryStateLoaded = true;
+      characterStateLoaded = true;
+      notifyListeners();
+
+      // The achievements screen retries this receipt restore before claims.
       final remoteClaims = data?['claimedAchievementIds'];
       final remoteUnlocks = data?['unlockedAchievementIds'];
       if (remoteClaims is List || remoteUnlocks is List) {
@@ -1488,17 +1543,9 @@ class AppState extends ChangeNotifier {
       // Restore only after the account wallet and delivery ledger are hydrated.
       // An already-used receipt must never credit a restored wallet again.
       unawaited(_restoreAccountCommerce(uid));
-
-      categoryStateLoaded = true;
-      characterStateLoaded = true;
-      notifyListeners();
     } catch (e) {
       if (!isActive()) return;
       debugPrint('[AppState] Error loading user data: $e');
-      try {
-        await checkAndAwardXpForGames().timeout(const Duration(seconds: 2));
-      } catch (_) {}
-      if (!isActive()) return;
       try {
         await loadCurrency().timeout(const Duration(seconds: 2));
       } catch (_) {}
@@ -1508,6 +1555,13 @@ class AppState extends ChangeNotifier {
       try {
         await loadCharacterState().timeout(const Duration(seconds: 2));
       } catch (_) {}
+      if (isActive()) {
+        // Local routing must also remain responsive when the cloud is slow.
+        // Retry optional progression after the safe fallback has been read.
+        unawaited(checkAndAwardXpForGames()
+            .timeout(const Duration(seconds: 2))
+            .catchError((Object _) {}));
+      }
     } finally {
       if (isActive()) {
         if (!categoryStateLoaded) categoryStateLoaded = true;
@@ -1762,6 +1816,10 @@ class AppState extends ChangeNotifier {
     bestTrophies = 0;
     _playerStats = <String, int>{};
     _nativeBoundUid = null;
+    _nativeBoundIdentity = null;
+    _nativeBindingIdentity = null;
+    _nativeBindingGeneration = null;
+    _nativeBindingFuture = null;
     _progressionSyncFuture = null;
     _lastProgressionAcknowledged = <String, int>{};
     selectedCharacterIndex = -1;

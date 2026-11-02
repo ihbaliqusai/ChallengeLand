@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../../widgets/game_back_button.dart';
 import '../../widgets/game_notice.dart';
 import 'package:flutter/material.dart';
@@ -171,7 +173,7 @@ class _RoomsScreenState extends State<RoomsScreen>
 
   @override
   Widget build(BuildContext context) {
-    final userId = context.watch<AppState>().user?.uid ?? '';
+    final userId = context.select<AppState, String>((s) => s.user?.uid ?? '');
     return Scaffold(
       body: DecoratedBox(
         decoration: const BoxDecoration(
@@ -835,7 +837,7 @@ class _CreateJoinPanel extends StatelessWidget {
 
 // ─── Live rooms panel ─────────────────────────────────────────────────────────
 
-class _LiveRoomsPanel extends StatelessWidget {
+class _LiveRoomsPanel extends StatefulWidget {
   const _LiveRoomsPanel({
     required this.pulseCtrl,
     required this.userId,
@@ -849,6 +851,49 @@ class _LiveRoomsPanel extends StatelessWidget {
   final ValueChanged<String> onJoinRoom;
   final ValueChanged<String> onSpectateRoom;
   final String joiningRoomId;
+
+  @override
+  State<_LiveRoomsPanel> createState() => _LiveRoomsPanelState();
+}
+
+class _LiveRoomsPanelState extends State<_LiveRoomsPanel> {
+  RoomService? _roomService;
+  ProfileService? _profileService;
+  Stream<List<Room>>? _roomsStream;
+  Stream<Map<String, PlayerProfile>>? _profilesStream;
+  String? _profileIds;
+
+  AnimationController get pulseCtrl => widget.pulseCtrl;
+  String get userId => widget.userId;
+  String get joiningRoomId => widget.joiningRoomId;
+  ValueChanged<String> get onJoinRoom => widget.onJoinRoom;
+  ValueChanged<String> get onSpectateRoom => widget.onSpectateRoom;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final rooms = context.read<RoomService>();
+    if (!identical(rooms, _roomService)) {
+      _roomService = rooms;
+      _roomsStream = rooms.watchOpenRooms();
+    }
+    final profiles = context.read<ProfileService>();
+    if (!identical(profiles, _profileService)) {
+      _profileService = profiles;
+      _profileIds = null;
+      _profilesStream = null;
+    }
+  }
+
+  Stream<Map<String, PlayerProfile>> _profilesFor(List<Room> rooms) {
+    final ids = rooms.map((room) => room.hostId).toSet().toList()..sort();
+    final key = ids.join('\u0000');
+    if (_profilesStream == null || _profileIds != key) {
+      _profileIds = key;
+      _profilesStream = _profileService!.watchProfiles(ids);
+    }
+    return _profilesStream!;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -930,8 +975,7 @@ class _LiveRoomsPanel extends StatelessWidget {
           // Rooms list
           Expanded(
             child: StreamBuilder<List<Room>>(
-              stream:
-                  context.read<RoomService>().watchOpenRooms(userId: userId),
+              stream: _roomsStream,
               builder: (context, roomSnap) {
                 if (roomSnap.hasError) {
                   return _ErrorState(message: roomSnap.error.toString());
@@ -946,9 +990,8 @@ class _LiveRoomsPanel extends StatelessWidget {
                     ),
                   );
                 }
-                final hostIds = rooms.map((r) => r.hostId);
                 return StreamBuilder<Map<String, PlayerProfile>>(
-                  stream: context.read<ProfileService>().watchProfiles(hostIds),
+                  stream: _profilesFor(rooms),
                   builder: (context, profileSnap) {
                     final profiles = profileSnap.data ?? {};
                     if (rooms.isEmpty) {

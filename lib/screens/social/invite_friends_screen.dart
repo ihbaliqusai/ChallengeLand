@@ -373,7 +373,7 @@ class _InviteFriendsScreenState extends State<InviteFriendsScreen>
                 math.min(compact ? 250.0 : 280.0, area.maxWidth * 1686 / 2528),
             width: double.infinity,
             child: adaptiveAssetImage(
-              'assets/social/invite_friends_hero.png',
+              'assets/social/invite_friends_hero.webp',
               fit: BoxFit.contain,
               alignment: Alignment.bottomCenter,
               filterQuality: FilterQuality.medium,

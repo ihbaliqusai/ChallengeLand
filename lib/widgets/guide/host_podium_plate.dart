@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/shared_assets.dart';
 
 /// The iconic golden-bordered blue podium nameplate ("أرض التحدي")
 /// that sits in front of the host character, matching `podiumhost.png` from native gameplay.
@@ -34,6 +35,7 @@ class HostPodiumPlate extends StatelessWidget {
           // Background podium drawable (podiumhost.png)
           Image.asset(
             'assets/presenter/podiumhost.png',
+            bundle: SharedAssets.bundle,
             width: width,
             height: height,
             fit: BoxFit.fill,

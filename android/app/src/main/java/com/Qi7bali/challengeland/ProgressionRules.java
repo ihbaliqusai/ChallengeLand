@@ -21,6 +21,8 @@ public final class ProgressionRules {
     /** Shared hot-seat sessions have no account-specific winner. */
     public static int trophyDelta(String mode, String outcome, boolean humanOnline, int gamesBefore,
                                   int winStreak, int correct, int answered) {
+        // Cloud stage receipts settle first-clear trophies once per account.
+        if ("campaign".equals(mode)) return 0;
         if (answered <= 0) return 0;
         if ("local_teams".equals(mode) && DRAW.equals(outcome)) return 6;
         return trophyDelta(outcome, humanOnline, gamesBefore, winStreak, correct, answered);

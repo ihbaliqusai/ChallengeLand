@@ -10,6 +10,7 @@ final class GameBackgroundVideoController {
     private final int videoViewId;
     private final int rawVideoResId;
     private VideoView videoView;
+    private boolean paused;
 
     GameBackgroundVideoController(Activity activity, int videoViewId, int rawVideoResId) {
         this.activity = activity;
@@ -23,16 +24,20 @@ final class GameBackgroundVideoController {
 
         Uri videoUri = Uri.parse("android.resource://" + activity.getPackageName() + "/" + rawVideoResId);
         videoView.setVideoURI(videoUri);
+        final VideoView preparingView = videoView;
         videoView.setOnPreparedListener(player -> {
+            if (videoView != preparingView) return;
             player.setLooping(true);
             player.setVolume(0f, 0f);
             scaleToCenterCrop(player);
-            videoView.start();
+            if (paused) preparingView.pause();
+            else preparingView.start();
         });
         videoView.setOnErrorListener((player, what, extra) -> true);
     }
 
     void start() {
+        paused = false;
         if (videoView == null) return;
         try {
             if (!videoView.isPlaying()) {
@@ -43,16 +48,18 @@ final class GameBackgroundVideoController {
     }
 
     void pause() {
+        paused = true;
         if (videoView == null) return;
         try {
-            if (videoView.isPlaying()) {
-                videoView.pause();
-            }
+            // Also clears VideoView's pending PLAYING target while preparing;
+            // isPlaying() is false in that state, even after start() was called.
+            videoView.pause();
         } catch (Exception ignored) {
         }
     }
 
     void stop() {
+        paused = true;
         if (videoView == null) return;
         try {
             videoView.stopPlayback();

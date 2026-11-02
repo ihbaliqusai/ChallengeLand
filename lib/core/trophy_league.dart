@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'campaign_trophy_rules.dart';
 
 class TrophyLeague {
   const TrophyLeague({
@@ -109,7 +110,19 @@ class TrophyProgression {
 
   static const List<TrophyRule> rules = [
     TrophyRule(
-      label: 'فوز في مباراة',
+      label: 'أول اجتياز لمرحلة',
+      value: '+${CampaignTrophyRules.firstClearTrophies} • مرة واحدة لكل مرحلة',
+      icon: Icons.flag_rounded,
+      color: Color(0xFFFACC15),
+    ),
+    TrophyRule(
+      label: 'إعادة المرحلة أو تحسين نجومها',
+      value: '0 كأس • تحسين النجوم والنتيجة',
+      icon: Icons.replay_rounded,
+      color: Color(0xFF38BDF8),
+    ),
+    TrophyRule(
+      label: 'فوز في مباراة خارج تحدي المراحل',
       value: '+22',
       icon: Icons.emoji_events_rounded,
       color: Color(0xFFFACC15),
@@ -127,7 +140,7 @@ class TrophyProgression {
       color: Color(0xFFFB7185),
     ),
     TrophyRule(
-      label: 'سلسلة انتصارات (3+ فوز)',
+      label: 'سلسلة انتصارات خارج المراحل (3+ فوز)',
       value: '+2 إلى +10 لكل فوز',
       icon: Icons.local_fire_department_rounded,
       color: Color(0xFFFFB020),
@@ -151,7 +164,7 @@ class TrophyProgression {
       color: Color(0xFF38BDF8),
     ),
     TrophyRule(
-      label: 'حماية أول 8 مباريات',
+      label: 'حماية أول 8 مباريات خارج المراحل',
       value: 'الخسارة -10 • الحد الأدنى 0',
       icon: Icons.shield_outlined,
       color: Color(0xFFA78BFA),
@@ -175,7 +188,7 @@ class TrophyProgression {
     return '${league.nameAr} ${const ['III', 'II', 'I'][division]}';
   }
 
-  /// Delta for one settled match, mirrored by native ProgressionRules.
+  /// Native per-match delta; campaign first clears use their separate receipt.
   /// This is independent of lifetime accuracy/rate: crossing a statistics
   /// threshold can never retroactively alter trophies from previous matches.
   static int trophyDelta({
@@ -183,11 +196,13 @@ class TrophyProgression {
     bool draw = false,
     bool online = false,
     bool sharedLocalCompletion = false,
+    bool campaign = false,
     required int gamesBefore,
     int winStreak = 0,
     int correctAnswers = 0,
     int wrongAnswers = 0,
   }) {
+    if (campaign) return 0;
     if (sharedLocalCompletion) return 6;
     if (draw) return 0;
     if (!won) return gamesBefore < 8 ? -10 : -18;
@@ -271,6 +286,7 @@ class TrophyProgression {
   }
 
   static const String trophyBasisLabelAr =
-      'كؤوس لكل نتيجة في جميع الأطوار، مع مكافآت الفوز والدقة والسلسلة. '
+      'كؤوس تحدي المراحل لأول اجتياز فقط، ولا تتكرر عند الإعادة أو تحسين النجوم. '
+      'بقية الأطوار تحتفظ بمكافآت النتائج والفوز والدقة والسلسلة. '
       'رتبة الخبرة ترتفع بالمستوى، والدوري يتحدد بالكؤوس.';
 }

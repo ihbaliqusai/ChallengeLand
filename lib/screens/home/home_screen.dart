@@ -1,4 +1,6 @@
 import '../../widgets/game_notice.dart';
+import '../../widgets/home_background.dart';
+import '../../core/performance_probe.dart';
 import 'dart:convert';
 import 'dart:async';
 import 'dart:math' as math;
@@ -70,9 +72,15 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen>
-    with TickerProviderStateMixin, WidgetsBindingObserver, RouteAware {
-  late final AnimationController _idleCtrl;
-  late final AnimationController _bgCtrl;
+    with WidgetsBindingObserver, RouteAware {
+  final _idleProgress = ValueNotifier<double>(0);
+  late final Animation<double> _idleAnimation;
+  final _idleClock = Stopwatch();
+  Timer? _idleTimer;
+  AppState? _observedAppState;
+  bool _appActive = true;
+  Timer? _clipboardTimer;
+  Timer? _luckyWheelTimer;
   bool _syncingPendingRoomMatchResult = false;
   bool _handlingNativeLaunchAction = false;
   bool _checkingReferral = false;
@@ -103,7 +111,13 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   void initState() {
     super.initState();
+    PerformanceProbe.mark('home.mount');
+    if (PerformanceProbe.enabled) {
+      PerformanceProbe.idle.addListener(_syncIdleAnimation);
+    }
     WidgetsBinding.instance.addObserver(this);
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    _appActive = lifecycle == null || lifecycle == AppLifecycleState.resumed;
     _campaignProgressSubscription =
         CampaignService.progressUpdates.listen((uid) {
       if (mounted && context.read<AppState>().user?.uid == uid) {
@@ -111,15 +125,7 @@ class _HomeScreenState extends State<HomeScreen>
       }
     });
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-    _idleCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 3),
-    )..repeat(reverse: true);
-
-    _bgCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 6),
-    )..repeat();
+    _idleAnimation = Animation<double>.fromValueListenable(_idleProgress);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         unawaited(context.read<NativeBridgeService>().playLobbyMusic());
@@ -134,7 +140,41 @@ class _HomeScreenState extends State<HomeScreen>
     if (route is PageRoute<dynamic>) {
       campaignRouteObserver.subscribe(this, route);
     }
-    final appState = context.watch<AppState>();
+    _syncIdleAnimation();
+    final appState = context.read<AppState>();
+    if (_observedAppState != appState) {
+      _observedAppState?.removeListener(_onAppStateChanged);
+      _observedAppState = appState;
+      appState.addListener(_onAppStateChanged);
+    }
+    _updateUserState(appState);
+  }
+
+  void _syncIdleAnimation() {
+    if ((!PerformanceProbe.enabled || PerformanceProbe.idle.value) &&
+        _appActive &&
+        TickerMode.of(context) &&
+        !MediaQuery.disableAnimationsOf(context)) {
+      _idleClock.start();
+      // Ambient highlights do not need to repaint at the panel's 90/120 Hz.
+      // Interaction/entrance animations keep their normal display rate.
+      _idleTimer ??= Timer.periodic(const Duration(microseconds: 41667), (_) {
+        final phase = (_idleClock.elapsedMicroseconds / 3000000) % 2;
+        _idleProgress.value = phase <= 1 ? phase : 2 - phase;
+      });
+    } else {
+      _idleTimer?.cancel();
+      _idleTimer = null;
+      _idleClock.stop();
+      if (MediaQuery.disableAnimationsOf(context)) _idleProgress.value = 0;
+    }
+  }
+
+  void _onAppStateChanged() {
+    if (mounted) _updateUserState(_observedAppState!);
+  }
+
+  void _updateUserState(AppState appState) {
     final uid = appState.user?.uid;
     final accountChanged = !_hasInitializedUser || _initializedUserId != uid;
     final reconnected = !_campaignWasOnline && appState.isOnline;
@@ -142,6 +182,8 @@ class _HomeScreenState extends State<HomeScreen>
     _rankTrophies = appState.trophies;
     _campaignWasOnline = appState.isOnline;
     if (accountChanged) {
+      _clipboardTimer?.cancel();
+      _luckyWheelTimer?.cancel();
       _campaignProgressRequest++;
       _campaignProgress = null;
       _leaderboardRankRequest++;
@@ -186,7 +228,8 @@ class _HomeScreenState extends State<HomeScreen>
       );
       _consumeNativeLaunchAction();
       _checkPendingReferral();
-      Future.delayed(const Duration(milliseconds: 600), () {
+      _clipboardTimer?.cancel();
+      _clipboardTimer = Timer(const Duration(milliseconds: 600), () {
         if (mounted && context.read<AppState>().user?.uid == uid) {
           _checkClipboardForIncomingInvite();
         }
@@ -210,7 +253,10 @@ class _HomeScreenState extends State<HomeScreen>
           context.read<AppState>().user?.uid != uid) {
         return;
       }
-      setState(() => _campaignProgress = progress);
+      if (_campaignProgress?.reachedStage != progress.reachedStage ||
+          _campaignProgress?.totalStages != progress.totalStages) {
+        setState(() => _campaignProgress = progress);
+      }
     } catch (_) {
       // Keep the last known stage if a refresh is temporarily unavailable.
     }
@@ -232,7 +278,9 @@ class _HomeScreenState extends State<HomeScreen>
           return;
         }
         _leaderboardRankRequest++;
-        setState(() => _leaderboardRank = rank);
+        if (_leaderboardRank != rank) {
+          setState(() => _leaderboardRank = rank);
+        }
       }, onError: (Object _) {
         // A failed read cannot establish a new leaderboard position.
       });
@@ -254,7 +302,9 @@ class _HomeScreenState extends State<HomeScreen>
           context.read<AppState>().user?.uid != uid) {
         return;
       }
-      setState(() => _leaderboardRank = rank);
+      if (_leaderboardRank != rank) {
+        setState(() => _leaderboardRank = rank);
+      }
     } catch (_) {
       // Retain this account's last confirmed position during a connection error.
     }
@@ -311,6 +361,8 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    _appActive = state == AppLifecycleState.resumed;
+    _syncIdleAnimation();
     if (state == AppLifecycleState.resumed) {
       if (mounted && (ModalRoute.of(context)?.isCurrent ?? false)) {
         unawaited(context.read<NativeBridgeService>().playLobbyMusic());
@@ -338,20 +390,26 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-  Future<void> _checkAndShowLuckyWheel() async {
+  void _checkAndShowLuckyWheel() {
     if (!mounted || _hasCheckedLuckyWheelThisLaunch) return;
     _hasCheckedLuckyWheelThisLaunch = true;
 
     // مهلة قصيرة لإتاحة استقرار الشاشة وسلاسة الانتقال
-    await Future<void>.delayed(const Duration(milliseconds: 800));
-    if (!mounted) return;
+    final uid = context.read<AppState>().user?.uid;
+    _luckyWheelTimer?.cancel();
+    _luckyWheelTimer = Timer(const Duration(milliseconds: 800),
+        () => unawaited(_showLuckyWheelWhenReady(uid)));
+  }
 
+  Future<void> _showLuckyWheelWhenReady(String? uid,
+      [int waitCount = 0]) async {
+    if (!mounted || context.read<AppState>().user?.uid != uid) return;
     final appState = context.read<AppState>();
     // انتظر تحميل حالة اللفة اليومية قبل عرض الدولاب.
-    int waitCount = 0;
-    while (!appState.dailyStreakLoaded && waitCount < 15 && mounted) {
-      await Future<void>.delayed(const Duration(milliseconds: 200));
-      waitCount++;
+    if (!appState.dailyStreakLoaded && waitCount < 15) {
+      _luckyWheelTimer = Timer(const Duration(milliseconds: 200),
+          () => unawaited(_showLuckyWheelWhenReady(uid, waitCount + 1)));
+      return;
     }
     if (!mounted ||
         ModalRoute.of(context)?.isCurrent != true ||
@@ -734,14 +792,28 @@ class _HomeScreenState extends State<HomeScreen>
     WidgetsBinding.instance.removeObserver(this);
     unawaited(_campaignProgressSubscription?.cancel());
     unawaited(_leaderboardRankSubscription?.cancel());
-    _idleCtrl.dispose();
-    _bgCtrl.dispose();
+    _observedAppState?.removeListener(_onAppStateChanged);
+    _clipboardTimer?.cancel();
+    _luckyWheelTimer?.cancel();
+    if (PerformanceProbe.enabled) {
+      PerformanceProbe.idle.removeListener(_syncIdleAnimation);
+    }
+    _idleTimer?.cancel();
+    _idleProgress.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final appState = context.watch<AppState>();
+    // Identity changes affect the layout/tour; balances and progress subscribe
+    // inside their own widgets so an unrelated update keeps the scene intact.
+    context.select<AppState, (String?, String?, String?, String?)>((app) => (
+          app.user?.uid,
+          app.user?.displayName,
+          app.user?.email,
+          app.user?.photoURL,
+        ));
+    final appState = context.read<AppState>();
     final user = appState.user;
     final username =
         (user?.displayName ?? user?.email?.split('@').first ?? 'لاعب').trim();
@@ -751,13 +823,7 @@ class _HomeScreenState extends State<HomeScreen>
     return Scaffold(
       extendBody: true,
       extendBodyBehindAppBar: true,
-      body: DecoratedBox(
-        decoration: const BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage(HomeArtwork.background),
-            fit: BoxFit.cover,
-          ),
-        ),
+      body: HomeBackground(
         child: LayoutBuilder(builder: (context, homeArea) {
           return Stack(
             children: [
@@ -777,16 +843,6 @@ class _HomeScreenState extends State<HomeScreen>
                 ),
               ),
 
-              // â”€â”€ Animated sparkles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-              Positioned.fill(
-                child: AnimatedBuilder(
-                  animation: _bgCtrl,
-                  builder: (_, __) => CustomPaint(
-                    painter: _SparklesPainter(_bgCtrl.value),
-                  ),
-                ),
-              ),
-
               // â”€â”€ CENTER arena â€” full screen width so content is truly centred â”€â”€
               Positioned.fill(
                 child: SafeArea(
@@ -795,7 +851,7 @@ class _HomeScreenState extends State<HomeScreen>
                     appState: appState,
                     username: displayUsername,
                     user: user,
-                    idleCtrl: _idleCtrl,
+                    idleCtrl: _idleAnimation,
                     campaignProgress: _campaignProgress,
                     leaderboardRank: _leaderboardRank,
                     onLeaderboardTap: () => unawaited(_openLeaderboard()),
@@ -887,7 +943,8 @@ class _GameModesSheetState extends State<_GameModesSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final appState = context.watch<AppState>();
+    context.select<AppState, bool>((app) => app.isOnline);
+    final appState = context.read<AppState>();
     final media = MediaQuery.of(context);
     var width = math.min(
         900.0,
@@ -976,12 +1033,11 @@ class _HomeMenuButtonState extends State<_HomeMenuButton> {
     try {
       final data = await context.read<NativeBridgeService>().getAchievements();
       if (!mounted) return;
-      setState(() {
-        _pendingRewards = (data['unclaimedAchievements'] as num?)?.toInt() ?? 0;
-      });
+      final count = (data['unclaimedAchievements'] as num?)?.toInt() ?? 0;
+      if (_pendingRewards != count) setState(() => _pendingRewards = count);
     } catch (_) {
       if (!mounted) return;
-      setState(() => _pendingRewards = 0);
+      if (_pendingRewards != 0) setState(() => _pendingRewards = 0);
     }
   }
 
@@ -1006,10 +1062,11 @@ class _HomeMenuButtonState extends State<_HomeMenuButton> {
 
   @override
   Widget build(BuildContext context) {
-    final hasDailyReward = widget.appState.isOnline &&
-        widget.appState.dailyStreakLoaded &&
-        widget.appState.streakDay > 0 &&
-        (!widget.appState.claimedToday || widget.appState.isLuckyWheelFreeAvailable);
+    final hasDailyReward = context.select<AppState, bool>((app) =>
+        app.isOnline &&
+        app.dailyStreakLoaded &&
+        app.streakDay > 0 &&
+        (!app.claimedToday || app.isLuckyWheelFreeAvailable));
     final hasAttention = hasDailyReward || _pendingRewards > 0;
 
     return Padding(
@@ -1062,17 +1119,23 @@ class _HomeMenuSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final liveState = context.watch<AppState>();
+    final menu = context.select<AppState, (bool, int, bool, String?)>((app) => (
+          app.isOnline,
+          app.level,
+          app.isOnline &&
+              app.dailyStreakLoaded &&
+              app.streakDay > 0 &&
+              (!app.claimedToday || app.isLuckyWheelFreeAvailable),
+          app.currentUser?.uid,
+        ));
+    final liveState = context.read<AppState>();
     final media = MediaQuery.of(context);
     final availableHeight = media.size.height - media.padding.vertical - 24;
     final width = math.min(
         1000.0,
         math.min(media.size.width - media.padding.horizontal - 24,
             availableHeight * HomeMenuArtwork.aspectRatio));
-    final dailyReady = liveState.isOnline &&
-        liveState.dailyStreakLoaded &&
-        liveState.streakDay > 0 &&
-        (!liveState.claimedToday || liveState.isLuckyWheelFreeAvailable);
+    final dailyReady = menu.$3;
     return SafeArea(
         child: Center(
             child: Padding(
@@ -1188,7 +1251,7 @@ class _HomeLobbyLayout extends StatelessWidget {
   final AppState appState;
   final String username;
   final dynamic user;
-  final AnimationController idleCtrl;
+  final Animation<double> idleCtrl;
   final CampaignHomeProgress? campaignProgress;
   final int? leaderboardRank;
   final VoidCallback onLeaderboardTap;
@@ -1208,57 +1271,64 @@ class _HomeLobbyLayout extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(builder: (context, area) {
-        // The background reaches the edge; every control clears the cutout.
-        final safeLeft = MediaQuery.paddingOf(context).left;
-        final width = area.maxWidth - safeLeft;
-        final height = area.maxHeight;
-        final portrait = height > width;
-        final headerHeight = portrait ? 108.0 : 64.0;
-        final panelHeight = portrait
-            ? (height * .47).clamp(274.0, 480.0)
-            : math.min(
-                500.0, math.min(height * .80, height - headerHeight - 16));
-        final panelWidth = math.min(
-            portrait ? width - 32 : (width * .29).clamp(180.0, 340.0),
-            panelHeight * .64);
-        final panelTop =
-            portrait ? height - panelHeight - 16 : headerHeight + 8;
-        final heroLeftInset = portrait ? 64.0 : 76.0;
-        final heroLeft = heroLeftInset + safeLeft;
-        final heroWidth =
-            portrait ? width - 80 : width - panelWidth - heroLeftInset - 40;
-        // Leave room for the full-size presenter while explaining the contestant.
-        final heroBottom = portrait
-            ? math.min(panelTop - 10, showGuideTour ? height * .43 : height)
-            : height - 16;
-        final characterTop = headerHeight + 62;
-        final characterHeight = math.max(1.0, heroBottom - characterTop);
-        final maxWalletWidth =
-            portrait ? width - 28 : (width - 100).clamp(280.0, 520.0);
-        final balanceWidth = (maxWalletWidth - 12) / 4;
-        const walletGap = 2.0;
-        const resourceScale = .9;
-        final keysWidth =
-            math.min(balanceWidth, 44 * 1608 / 872) * resourceScale;
-        final ticketsWidth =
-            math.min(balanceWidth, 44 * 1616 / 884) * resourceScale;
-        final walletWidth =
-            balanceWidth * 2 + keysWidth + ticketsWidth + walletGap * 3;
-        return Stack(children: [
-          Positioned(
-              key: guideTargets[HomeGuideTarget.menu],
-              top: 6,
-              left: safeLeft + 6,
-              child: SignInRequiredAction(
-                  child: _HomeMenuButton(
-                      appState: appState, username: username, user: user))),
-          Positioned(
-              top: portrait ? 60 : 8,
-              right: portrait ? (width - walletWidth) / 2 : 16,
-              width: walletWidth,
-              height: 44,
-              child: SignInRequiredAction(
+  Widget build(BuildContext context) {
+    context.select<AppState, bool>((app) => app.isOnline);
+    return LayoutBuilder(builder: (context, area) {
+      // The background reaches the edge; every control clears the cutout.
+      final safeLeft = MediaQuery.paddingOf(context).left;
+      final width = area.maxWidth - safeLeft;
+      final height = area.maxHeight;
+      final portrait = height > width;
+      final headerHeight = portrait ? 108.0 : 64.0;
+      final panelHeight = portrait
+          ? (height * .47).clamp(274.0, 480.0)
+          : math.min(500.0, math.min(height * .80, height - headerHeight - 16));
+      final panelWidth = math.min(
+          portrait ? width - 32 : (width * .29).clamp(180.0, 340.0),
+          panelHeight * .64);
+      final panelTop = portrait ? height - panelHeight - 16 : headerHeight + 8;
+      final heroLeftInset = portrait ? 64.0 : 76.0;
+      final heroLeft = heroLeftInset + safeLeft;
+      final heroWidth =
+          portrait ? width - 80 : width - panelWidth - heroLeftInset - 40;
+      // Leave room for the full-size presenter while explaining the contestant.
+      final heroBottom = portrait
+          ? math.min(panelTop - 10, showGuideTour ? height * .43 : height)
+          : height - 16;
+      final characterTop = headerHeight + 62;
+      final characterHeight = math.max(1.0, heroBottom - characterTop);
+      final maxWalletWidth =
+          portrait ? width - 28 : (width - 100).clamp(280.0, 520.0);
+      final balanceWidth = (maxWalletWidth - 12) / 4;
+      const walletGap = 2.0;
+      const resourceScale = .9;
+      final keysWidth = math.min(balanceWidth, 44 * 1608 / 872) * resourceScale;
+      final ticketsWidth =
+          math.min(balanceWidth, 44 * 1616 / 884) * resourceScale;
+      final walletWidth =
+          balanceWidth * 2 + keysWidth + ticketsWidth + walletGap * 3;
+      return Stack(children: [
+        Positioned(
+            key: guideTargets[HomeGuideTarget.menu],
+            top: 6,
+            left: safeLeft + 6,
+            child: SignInRequiredAction(
+                child: _HomeMenuButton(
+                    appState: appState, username: username, user: user))),
+        Positioned(
+            top: portrait ? 60 : 8,
+            right: portrait ? (width - walletWidth) / 2 : 16,
+            width: walletWidth,
+            height: 44,
+            child: Builder(builder: (context) {
+              context.select<AppState, (int, int, bool, int, int)>((app) => (
+                    app.coins,
+                    app.gems,
+                    app.economyLoaded,
+                    app.economyLoaded ? app.economyWallet.totalKeys : 0,
+                    app.economyLoaded ? app.economyWallet.tickets : 0,
+                  ));
+              return SignInRequiredAction(
                   child: KeyedSubtree(
                       child: Row(textDirection: TextDirection.ltr, children: [
                 for (final gems in [false, true]) ...[
@@ -1312,84 +1382,90 @@ class _HomeLobbyLayout extends StatelessWidget {
                             context,
                             const StoreScreen(
                                 initialKind: StoreProductKind.resource)))),
-              ])))),
-          Positioned(
-              top: headerHeight + 2,
-              left: heroLeft,
-              width: heroWidth,
-              height: 56,
-              child: Center(
+              ])));
+            })),
+        Positioned(
+            top: headerHeight + 2,
+            left: heroLeft,
+            width: heroWidth,
+            height: 56,
+            child: Center(
+                child: KeyedSubtree(
+                    key: guideTargets[HomeGuideTarget.level],
+                    child: _LevelBadge(appState: appState)))),
+        Positioned(
+            top: characterTop,
+            left: heroLeft,
+            width: heroWidth,
+            height: characterHeight,
+            child: SignInRequiredAction(
+                child: Center(
+              child: AspectRatio(
+                  aspectRatio: 720 / 1280,
                   child: KeyedSubtree(
-                      key: guideTargets[HomeGuideTarget.level],
-                      child: _LevelBadge(appState: appState)))),
-          Positioned(
-              top: characterTop,
-              left: heroLeft,
-              width: heroWidth,
-              height: characterHeight,
-              child: SignInRequiredAction(
-                  child: Center(
-                      child: AspectRatio(
-                          aspectRatio: 720 / 1280,
-                          child: KeyedSubtree(
-                              key: guideTargets[HomeGuideTarget.character],
-                              child: HomeCharacterArtwork(
-                                  key:
-                                      const ValueKey('home-selected-character'),
-                                  character: appState.selectedCharacter,
-                                  onTap: () {
-                                    AppSettings.playClick();
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute<void>(
-                                        builder: (_) =>
-                                            const CharacterSelectScreen(),
-                                      ),
-                                    );
-                                  }))),
-                    ))),
-          Positioned(
-              bottom: portrait ? height - heroBottom : 12,
-              left: heroLeft,
-              width: heroWidth,
-              child: OnlineMatchRecoveryCard(userId: user?.uid ?? '')),
-          Positioned(
-              top: portrait ? headerHeight + 12 : 74,
-              left: safeLeft + 6,
-              child: KeyedSubtree(
-                  child: Column(mainAxisSize: MainAxisSize.min, children: [
-                SignInRequiredAction(
-                    key: guideTargets[HomeGuideTarget.store],
-                    child: HomeQuickAction(
-                        key: const ValueKey('home-store-shortcut'),
-                        asset: HomeArtwork.store,
-                        label: 'المتجر',
-                        icon: Icons.shopping_basket_rounded,
-                        color: const Color(0xFFFFD761),
-                        animation: idleCtrl,
-                        animationPhase: math.pi / 3,
-                        isAvailable: appState.isOnline,
-                        onPressed: () =>
-                            _openOnlineScreen(context, const StoreScreen()))),
-                const SizedBox(height: 12),
-                SignInRequiredAction(
-                    key: guideTargets[HomeGuideTarget.support],
-                    child: HomeQuickAction(
-                        key: const ValueKey('home-help-shortcut'),
-                        asset: HomeArtwork.help,
-                        label: 'تواصل معنا',
-                        icon: Icons.question_mark_rounded,
-                        color: const Color(0xFFFFD761),
-                        animation: idleCtrl,
-                        animationPhase: math.pi * 2 / 3,
-                        onPressed: () => showSupportContact(context))),
-              ]))),
-          Positioned(
-              key: const ValueKey('home-actions-panel'),
-              top: panelTop,
-              right: 16,
-              width: panelWidth,
-              height: panelHeight,
-              child: HomeActionSidebar(
+                      key: guideTargets[HomeGuideTarget.character],
+                      child: Builder(builder: (context) {
+                        context.select<AppState, int>(
+                            (app) => app.selectedCharacter.index);
+                        return HomeCharacterArtwork(
+                            key: const ValueKey('home-selected-character'),
+                            character: appState.selectedCharacter,
+                            onTap: () {
+                              AppSettings.playClick();
+                              Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => const CharacterSelectScreen(),
+                                ),
+                              );
+                            });
+                      }))),
+            ))),
+        Positioned(
+            bottom: portrait ? height - heroBottom : 12,
+            left: heroLeft,
+            width: heroWidth,
+            child: OnlineMatchRecoveryCard(userId: user?.uid ?? '')),
+        Positioned(
+            top: portrait ? headerHeight + 12 : 74,
+            left: safeLeft + 6,
+            child: KeyedSubtree(
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+              SignInRequiredAction(
+                  key: guideTargets[HomeGuideTarget.store],
+                  child: HomeQuickAction(
+                      key: const ValueKey('home-store-shortcut'),
+                      asset: HomeArtwork.store,
+                      label: 'المتجر',
+                      icon: Icons.shopping_basket_rounded,
+                      color: const Color(0xFFFFD761),
+                      animation: idleCtrl,
+                      animationPhase: math.pi / 3,
+                      isAvailable: appState.isOnline,
+                      onPressed: () =>
+                          _openOnlineScreen(context, const StoreScreen()))),
+              const SizedBox(height: 12),
+              SignInRequiredAction(
+                  key: guideTargets[HomeGuideTarget.support],
+                  child: HomeQuickAction(
+                      key: const ValueKey('home-help-shortcut'),
+                      asset: HomeArtwork.help,
+                      label: 'تواصل معنا',
+                      icon: Icons.question_mark_rounded,
+                      color: const Color(0xFFFFD761),
+                      animation: idleCtrl,
+                      animationPhase: math.pi * 2 / 3,
+                      onPressed: () => showSupportContact(context))),
+            ]))),
+        Positioned(
+            key: const ValueKey('home-actions-panel'),
+            top: panelTop,
+            right: 16,
+            width: panelWidth,
+            height: panelHeight,
+            child: Builder(builder: (context) {
+              context.select<AppState, (int, bool)>(
+                  (app) => (app.trophies, app.isVip));
+              return HomeActionSidebar(
                 animation: idleCtrl,
                 leaderboardRank: leaderboardRank,
                 campaignProgress: campaignProgress,
@@ -1425,31 +1501,33 @@ class _HomeLobbyLayout extends StatelessWidget {
                   }
                   PlayStakeDialog.show(context);
                 },
-              )),
+              );
+            })),
 
-          // Persistent Guide Button for unregistered players
-          if (user == null)
-            Positioned(
-              bottom: portrait ? 16 : 10,
-              left: safeLeft + (portrait ? 16 : 12),
-              child: PersistentGuideButton(
-                key: guideTargets[HomeGuideTarget.guide],
-                onRestartTour: onStartGuideTour,
-              ),
+        // Persistent Guide Button for unregistered players
+        if (user == null)
+          Positioned(
+            bottom: portrait ? 16 : 10,
+            left: safeLeft + (portrait ? 16 : 12),
+            child: PersistentGuideButton(
+              key: guideTargets[HomeGuideTarget.guide],
+              onRestartTour: onStartGuideTour,
             ),
+          ),
 
-          // Unified Guided Onboarding Tour Overlay for Guests
-          if (showGuideTour)
-            Positioned.fill(
-              child: UnifiedGuestTourOverlay(
-                rootContext: context,
-                homeTargets: guideTargets,
-                onComplete: onCompleteGuideTour,
-                onSkip: onCompleteGuideTour,
-              ),
+        // Unified Guided Onboarding Tour Overlay for Guests
+        if (showGuideTour)
+          Positioned.fill(
+            child: UnifiedGuestTourOverlay(
+              rootContext: context,
+              homeTargets: guideTargets,
+              onComplete: onCompleteGuideTour,
+              onSkip: onCompleteGuideTour,
             ),
-        ]);
-      });
+          ),
+      ]);
+    });
+  }
 }
 
 class _LevelBadge extends StatelessWidget {
@@ -1457,12 +1535,16 @@ class _LevelBadge extends StatelessWidget {
   final AppState appState;
 
   @override
-  Widget build(BuildContext context) => HomeLevelBadge(
-        key: const ValueKey('home-level-badge'),
-        level: appState.level,
-        xp: appState.xpInCurrentLevel,
-        requiredXp: appState.xpNeededForLevel,
-      );
+  Widget build(BuildContext context) {
+    context.select<AppState, (int, int, int)>(
+        (app) => (app.level, app.xpInCurrentLevel, app.xpNeededForLevel));
+    return HomeLevelBadge(
+      key: const ValueKey('home-level-badge'),
+      level: appState.level,
+      xp: appState.xpInCurrentLevel,
+      requiredXp: appState.xpNeededForLevel,
+    );
+  }
 }
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1494,65 +1576,3 @@ class _UnclaimedDot extends StatelessWidget {
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //  WATCH AD CARD
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-class _SparklesPainter extends CustomPainter {
-  _SparklesPainter(this.t);
-  final double t; // 0..1 repeating
-
-  static const int _count = 55;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..style = PaintingStyle.fill;
-
-    for (int i = 0; i < _count; i++) {
-      final seed = i * 2654435761 & 0xFFFFFFFF;
-      final fx = ((seed ^ (seed >> 16)) & 0xFFFF) / 0xFFFF;
-      final fy = ((seed ^ (seed >> 8)) & 0xFFFF) / 0xFFFF;
-      final phase = (i * 0.37) % 1.0;
-      // Integer speed (1, 2, 3): particle travels exactly N full screen heights
-      // per cycle â†’ position at t=0 equals position at t=1 â†’ zero visible jump.
-      final speed = (1 + i % 3).toDouble();
-      final radius = 1.0 + (i % 4) * 0.9;
-
-      // Upward drift with seamless full loop
-      final raw = (fy - t * speed) % 1.0;
-      final dy = raw < 0 ? raw + 1.0 : raw;
-
-      final alpha = math.sin((t * speed + phase) * 2 * math.pi) * 0.5 + 0.5;
-      final opacity = (0.15 + alpha * 0.75).clamp(0.0, 1.0);
-
-      final Color base;
-      final mod = i % 3;
-      if (mod == 0) {
-        base = const Color(0xFFFACC15);
-      } else if (mod == 1) {
-        base = const Color(0xFF38BDF8);
-      } else {
-        base = Colors.white;
-      }
-
-      // Glow halo for larger particles
-      if (radius > 2.2) {
-        paint
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3)
-          ..color = base.withValues(alpha: opacity * 0.35);
-        canvas.drawCircle(
-          Offset(fx * size.width, dy * size.height),
-          radius * 1.8,
-          paint,
-        );
-        paint.maskFilter = null;
-      }
-
-      paint.color = base.withValues(alpha: opacity);
-      canvas.drawCircle(
-        Offset(fx * size.width, dy * size.height),
-        radius,
-        paint,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(_SparklesPainter old) => old.t != t;
-}

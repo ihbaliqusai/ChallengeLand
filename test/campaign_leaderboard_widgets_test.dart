@@ -1,6 +1,5 @@
 import 'package:challenge_land/models/stage_leaderboard_entry.dart';
 import 'package:challenge_land/screens/campaign/widgets/stage_leaderboard_row.dart';
-import 'package:challenge_land/screens/campaign/widgets/stage_leaderboard_preview.dart';
 import 'package:challenge_land/screens/campaign/stage_leaderboard_screen.dart';
 import 'package:challenge_land/services/campaign_defaults.dart';
 import 'package:challenge_land/services/campaign_service.dart';
@@ -9,32 +8,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  for (final preview in [false, true]) {
-    testWidgets(
-        'leaderboard shows a load failure and retries (preview: $preview)',
-        (tester) async {
-      final service = _RetryLeaderboardService();
-      final stage = CampaignDefaults.stages().first;
-      await tester.pumpWidget(MaterialApp(
-        home: preview
-            ? Scaffold(
-                body: StageLeaderboardPreview(
-                    stage: stage, campaignService: service))
-            : StageLeaderboardScreen(stage: stage, campaignService: service),
-      ));
-      await tester.pumpAndSettle();
-      expect(find.text('تعذر تحميل الترتيب.'), findsOneWidget);
-      expect(find.textContaining('لا توجد نتائج'), findsNothing);
-      expect(service.requests, 1);
-      service.fail = false;
-      await tester.tap(find.text('إعادة المحاولة'));
-      await tester.pumpAndSettle();
-      expect(service.requests, 2);
-      expect(find.text('تعذر تحميل الترتيب.'), findsNothing);
-      expect(find.textContaining('لا توجد نتائج'), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    });
-  }
+  testWidgets('leaderboard shows a load failure and retries', (tester) async {
+    final service = _RetryLeaderboardService();
+    final stage = CampaignDefaults.stages().first;
+    await tester.pumpWidget(MaterialApp(
+      home: StageLeaderboardScreen(stage: stage, campaignService: service),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('تعذر تحميل الترتيب.'), findsOneWidget);
+    expect(find.textContaining('لا توجد نتائج'), findsNothing);
+    expect(service.requests, 1);
+    service.fail = false;
+    await tester.tap(find.text('إعادة المحاولة'));
+    await tester.pumpAndSettle();
+    expect(service.requests, 2);
+    expect(find.text('تعذر تحميل الترتيب.'), findsNothing);
+    expect(find.textContaining('لا توجد نتائج'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
   for (final compact in [false, true]) {
     testWidgets(
         'leaderboard row fits a narrow screen with enlarged Arabic text '

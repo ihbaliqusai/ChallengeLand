@@ -193,6 +193,8 @@ class _StoreSettings extends ChangeNotifier implements AppSettings {
   _StoreSettings({this.arabic = false});
   final bool arabic;
   @override
+  Future<bool> playButtonClick({bool debounced = false}) async => true;
+  @override
   bool get isArabic => arabic;
   @override
   String get languageCode => arabic ? 'ar' : 'en';

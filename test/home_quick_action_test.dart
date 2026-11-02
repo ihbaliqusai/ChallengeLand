@@ -15,11 +15,11 @@ import 'package:challenge_land/screens/home/home_screen.dart';
 import 'package:challenge_land/screens/character/character_select_screen.dart';
 import 'package:challenge_land/services/cross_promo_service.dart';
 import 'package:challenge_land/services/native_bridge_service.dart';
-import 'package:challenge_land/widgets/cross_promo_millionaire_badge.dart';
 import 'package:challenge_land/widgets/home_quick_action.dart';
 import 'package:challenge_land/widgets/home_menu_artwork.dart';
 import 'package:challenge_land/widgets/game_modes_artwork.dart';
 import 'package:challenge_land/widgets/home_artwork.dart';
+import 'package:challenge_land/widgets/home_background.dart';
 import 'package:challenge_land/widgets/game_viewport.dart';
 import 'package:challenge_land/widgets/home_action_sidebar.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -28,6 +28,10 @@ import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:challenge_land/screens/auth/login_bottom_sheet.dart';
 import 'package:challenge_land/widgets/guide/guide_assistant_dialog.dart';
 import 'package:challenge_land/widgets/guide/home_guide_tour_overlay.dart';
+import 'package:challenge_land/widgets/guide/unified_guest_tour_overlay.dart';
+import 'package:challenge_land/widgets/guide/guide_presenter_scene.dart';
+import 'package:challenge_land/widgets/guide/page_guide.dart';
+import 'package:challenge_land/widgets/guide/home_guide_steps.dart';
 // Firebase's test harness accompanies the app's existing Firebase dependency.
 // ignore: depend_on_referenced_packages
 import 'package:firebase_core_platform_interface/test.dart';
@@ -110,7 +114,14 @@ class _HomeState extends ChangeNotifier implements AppState {
   @override
   bool get isBusy => false;
   @override
-  int get coins => 1200;
+  int get coins => displayedCoins;
+  int displayedCoins = 1200;
+  void changeCoins(int value) {
+    displayedCoins = value;
+    notifyListeners();
+  }
+
+  void notifyUnrelatedChange() => notifyListeners();
   @override
   int get gems => 80;
   @override
@@ -125,6 +136,8 @@ class _HomeState extends ChangeNotifier implements AppState {
   int get streakDay => 0;
   @override
   bool get claimedToday => true;
+  @override
+  bool get isLuckyWheelFreeAvailable => false;
   @override
   bool get dailyStreakLoaded => true;
   @override
@@ -155,11 +168,13 @@ class _HomeCampaignService extends CampaignService {
   CampaignHomeProgress progress =
       const CampaignHomeProgress(reachedStage: 5, totalStages: 100);
   final requestedUids = <String>[];
+  final pending = <String, Completer<CampaignHomeProgress>>{};
 
   @override
   Future<CampaignHomeProgress> loadHomeProgress(
       {required String uid, String campaignId = 'main_campaign'}) async {
     requestedUids.add(uid);
+    if (pending.containsKey(uid)) return pending[uid]!.future;
     return progress;
   }
 }
@@ -196,8 +211,9 @@ String? _homeRank(WidgetTester tester) => tester
     .widget<Text>(find.byKey(const ValueKey('home-leaderboard-rank')))
     .data;
 
-Future<void> _mountRankHome(WidgetTester tester, _HomeState state,
-    _HomeLeaderboardService service) async {
+Future<void> _mountRankHome(
+    WidgetTester tester, _HomeState state, _HomeLeaderboardService service,
+    {_HomeCampaignService? campaign}) async {
   setupFirebaseCoreMocks();
   await Firebase.initializeApp();
   SharedPreferences.setMockInitialValues({
@@ -221,7 +237,7 @@ Future<void> _mountRankHome(WidgetTester tester, _HomeState state,
     ],
     child: MaterialApp(
         home: HomeScreen(
-            campaignService: _HomeCampaignService(),
+            campaignService: campaign ?? _HomeCampaignService(),
             leaderboardService: service)),
   ));
   await tester.pump();
@@ -229,14 +245,18 @@ Future<void> _mountRankHome(WidgetTester tester, _HomeState state,
 
 class _NativeBridge extends NativeBridgeService {
   @override
+  Future<void> playLobbyMusic() async {}
+  @override
+  Future<void> stopLobbyMusic() async {}
+  @override
   bool get supportsAnimatedCharacters => false;
   final artworkRequests = <int>[];
   @override
   Future<Uint8List?> getCharacterArtwork(int index) async {
     artworkRequests.add(index);
-    final id = CharacterCatalog.byIndex(index).id;
-    return File('android/app/src/main/res/drawable/contestant_$id.png')
-        .readAsBytesSync();
+    final bytes = await SharedAssets.bundle
+        .load(CharacterCatalog.byIndex(index).fullBodyAsset);
+    return bytes.buffer.asUint8List(bytes.offsetInBytes, bytes.lengthInBytes);
   }
 
   @override
@@ -338,6 +358,68 @@ void _expectSidebarLayout(WidgetTester tester, Size screen) {
 }
 
 void main() {
+  testWidgets('account change clears old progress before new data arrives',
+      (tester) async {
+    final state = _HomeState(online: true);
+    final ranks = _HomeLeaderboardService();
+    final campaign = _HomeCampaignService();
+    final nextRank = Completer<int?>();
+    final nextProgress = Completer<CampaignHomeProgress>();
+    ranks.pending['another-player'] = nextRank;
+    campaign.pending['another-player'] = nextProgress;
+    await _mountRankHome(tester, state, ranks, campaign: campaign);
+    expect(_homeRank(tester), '23');
+    expect(find.text('5/100'), findsOneWidget);
+
+    state.switchUser('another-player');
+    await tester.pump();
+    await tester.pump();
+    final sidebar =
+        tester.widget<HomeActionSidebar>(find.byType(HomeActionSidebar));
+    expect(sidebar.leaderboardRank, isNull);
+    expect(sidebar.campaignProgress, isNull);
+    expect(_homeRank(tester), '—');
+    expect(find.text('5/100'), findsNothing);
+
+    nextRank.complete(4);
+    nextProgress.complete(
+        const CampaignHomeProgress(reachedStage: 2, totalStages: 100));
+    await tester.pump();
+    await tester.pump();
+    expect(_homeRank(tester), '4');
+    expect(find.text('2/100'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('balance changes leave the home scene and character intact',
+      (tester) async {
+    final state = _HomeState();
+    await _mountRankHome(tester, state, _HomeLeaderboardService());
+    final background =
+        tester.widget<HomeBackground>(find.byType(HomeBackground));
+    final character =
+        tester.widget<HomeCharacterArtwork>(find.byType(HomeCharacterArtwork));
+
+    state.notifyUnrelatedChange();
+    await tester.pump();
+    expect(tester.widget<HomeBackground>(find.byType(HomeBackground)),
+        same(background));
+    state.changeCoins(2350);
+    await tester.pump();
+    expect(
+        tester
+            .widget<HomeCurrencyArtwork>(
+                find.byKey(const ValueKey('home-coins-balance')))
+            .value,
+        '2350');
+    expect(tester.widget<HomeBackground>(find.byType(HomeBackground)),
+        same(background));
+    expect(
+        tester.widget<HomeCharacterArtwork>(find.byType(HomeCharacterArtwork)),
+        same(character));
+    expect(tester.takeException(), isNull);
+  });
+
   for (final size in [
     const Size(960, 540),
     const Size(800, 360),
@@ -360,42 +442,49 @@ void main() {
       }
       final state = _HomeState(online: true, signedIn: false);
       addTearDown(state.dispose);
-      final previewKey = GlobalKey();
       await tester.pumpWidget(MultiProvider(
-          providers: [
-            ChangeNotifierProvider<AppState>.value(value: state),
-            Provider<NativeBridgeService>.value(value: _NativeBridge()),
-          ],
-          child: MaterialApp(
-            builder: (context, child) => RepaintBoundary(
-                key: previewKey, child: GameViewport(child: child!)),
-            theme: ThemeData.dark(useMaterial3: true).copyWith(
-                textTheme: ThemeData.dark()
-                    .textTheme
-                    .apply(fontFamily: 'NotoSansArabic')),
-            home: const HomeScreen(),
-          )));
+        providers: [
+          ChangeNotifierProvider<AppState>.value(value: state),
+          Provider<NativeBridgeService>.value(value: _NativeBridge()),
+        ],
+        child: MaterialApp(
+          builder: (context, child) => GameViewport(child: child!),
+          theme: ThemeData.dark(useMaterial3: true).copyWith(
+              textTheme: ThemeData.dark()
+                  .textTheme
+                  .apply(fontFamily: 'NotoSansArabic')),
+          home: const HomeScreen(),
+        ),
+      ));
       await tester.pump();
       await tester.pump(const Duration(seconds: 1));
       await tester.pump(const Duration(seconds: 1));
-      expect(find.byType(HomeGuideTourOverlay), findsOneWidget,
-          reason: 'A new guest should automatically see the tour');
-      final tour = tester
-          .widget<HomeGuideTourOverlay>(find.byType(HomeGuideTourOverlay));
-      await tester.runAsync(() => Future.wait([
-            for (final file
-                in Directory('assets/presenter').listSync().whereType<File>())
-              if (file.path.endsWith('.png'))
-                precacheImage(AssetImage(file.path.replaceAll('\\', '/')),
-                    tester.element(find.byType(HomeGuideTourOverlay))),
-          ]));
-      for (var index = 0; index < tour.steps.length; index++) {
-        // Let the previous bubble fade out before checking the new speech turn.
-        await tester.pump(const Duration(milliseconds: 200));
+      final overlay = find.byType(UnifiedGuestTourOverlay);
+      expect(overlay, findsOneWidget,
+          reason: 'A new guest should automatically see the unified tour');
+      final tour = tester.widget<UnifiedGuestTourOverlay>(overlay);
+      const targetsByTitle = {
+        'زر بدء اللعب': HomeGuideTarget.play,
+        'العملات الذهبية': HomeGuideTarget.coins,
+        'الجواهر الثمينة': HomeGuideTarget.gems,
+        'مفاتيح التحدي': HomeGuideTarget.keys,
+        'تذاكر التصنيفات': HomeGuideTarget.tickets,
+        'زر أوضاع اللعب': HomeGuideTarget.modes,
+        'زر مغامرة المراحل': HomeGuideTarget.campaign,
+        'زر المتجر': HomeGuideTarget.store,
+        'شخصيتك في الساحة': HomeGuideTarget.character,
+      };
+      final checkedTargets = <HomeGuideTarget>{};
+      var finished = false;
+      for (var index = 0; index < 100; index++) {
+        await tester.pump(const Duration(milliseconds: 250));
         await tester.pump();
-        expect(tester.takeException(), isNull,
-            reason: 'Step $index: ${tour.steps[index].title}');
-        final stage = tester.getRect(find.byKey(const ValueKey('guide-stage')));
+        final sceneWidget = tester
+            .widget<GuidePresenterScene>(find.byType(GuidePresenterScene));
+        final title = sceneWidget.title;
+        expect(tester.takeException(), isNull, reason: 'Step $index: $title');
+        final stage =
+            tester.getRect(find.byKey(const ValueKey('unified-guide-stage')));
         final scene =
             tester.getRect(find.byKey(const ValueKey('guide-presenter-scene')));
         final bubble =
@@ -404,91 +493,63 @@ void main() {
             tester.getRect(find.byKey(const ValueKey('guide-presenter')));
         final podium =
             tester.getRect(find.byKey(const ValueKey('guide-podium')));
-        final navigation =
-            tester.getRect(find.byKey(const ValueKey('guide-navigation')));
-        expect(navigation.deflate(.5).overlaps(podium.deflate(.5)), isFalse,
-            reason:
-                'Step $index ${tour.steps[index].title}: navigation $navigation must not cover podium $podium');
-        expect(navigation.deflate(.5).overlaps(bubble.deflate(.5)), isFalse);
+        final navigation = tester
+            .getRect(find.byKey(const ValueKey('unified-guide-navigation')));
+        // The unified design places navigation inside the speech bubble.
+        expect(bubble.inflate(.5).contains(navigation.topLeft), isTrue,
+            reason: '$title: navigation must stay inside the bubble');
+        expect(bubble.inflate(.5).contains(navigation.bottomRight), isTrue);
+        expect(navigation.deflate(.5).overlaps(host.deflate(.5)), isFalse);
+        expect(navigation.deflate(.5).overlaps(podium.deflate(.5)), isFalse);
         expect(bubble.bottom, lessThanOrEqualTo(host.top + .5),
-            reason: 'The speech bubble belongs above the presenter');
-        expect(podium.top, greaterThan(host.top + host.height * .85),
-            reason: 'The podium belongs below the full torso');
-        expect(host.height,
-            greaterThanOrEqualTo(size == const Size(960, 540) ? 139.5 : 129.5),
-            reason: 'The presenter should remain large enough to see speaking');
+            reason: '$title: speech belongs above the presenter');
+        expect(podium.top, greaterThan(host.top + host.height * .85));
         for (final part in [scene, bubble, host, podium]) {
           expect(stage.inflate(.5).contains(part.topLeft), isTrue,
-              reason: 'Step $index must contain the entire presenter scene');
+              reason: '$title: the full presenter must fit in the stage');
           expect(stage.inflate(.5).contains(part.bottomRight), isTrue,
-              reason: 'Step $index must contain the entire presenter scene');
+              reason: '$title: the full presenter must fit in the stage');
         }
-        final screen = Offset.zero & size;
+        final screen = (Offset.zero & size).inflate(.5);
         expect(screen.contains(stage.topLeft), isTrue);
         expect(screen.contains(stage.bottomRight), isTrue);
-        final targetKey = tour.steps[index].targetKey;
-        if (targetKey != null) {
-          final target = tester.getRect(find.byKey(targetKey));
-          final paint = tester.widget<CustomPaint>(
-              find.byKey(const ValueKey('guide-spotlight')));
-          final painter = paint.painter! as SpotlightPainter;
-          expect(painter.targetRect, isNotNull,
-              reason: tour.steps[index].title);
-          final surface = tester.renderObject<RenderBox>(
-              find.byKey(const ValueKey('guide-spotlight')));
+        final homeTarget = targetsByTitle[title];
+        if (homeTarget != null) {
+          checkedTargets.add(homeTarget);
+          final target =
+              tester.getRect(find.byKey(tour.homeTargets![homeTarget]!));
+          final paintFinder =
+              find.byKey(const ValueKey('unified-guide-spotlight'));
+          final painter = tester.widget<CustomPaint>(paintFinder).painter!
+              as SpotlightPainter;
+          expect(painter.targetRect, isNotNull, reason: title);
+          final surface = tester.renderObject<RenderBox>(paintFinder);
           final actual = Rect.fromPoints(
               surface.localToGlobal(painter.targetRect!.topLeft),
               surface.localToGlobal(painter.targetRect!.bottomRight));
-          expect(actual.left, closeTo(target.left, .1));
-          expect(actual.top, closeTo(target.top, .1));
-          expect(actual.width, closeTo(target.width, .1));
-          expect(actual.height, closeTo(target.height, .1));
+          expect(actual.left, closeTo(target.left, .1), reason: title);
+          expect(actual.top, closeTo(target.top, .1), reason: title);
+          expect(actual.width, closeTo(target.width, .1), reason: title);
+          expect(actual.height, closeTo(target.height, .1), reason: title);
           expect(stage.overlaps(target), isFalse,
-              reason: tour.steps[index].title);
+              reason: '$title: the presenter must leave its target visible');
         }
-        if ([0, 1, 5, 12, 14, 17].contains(index)) {
-          // Capture a talking frame, then reveal the whole line for a readable
-          // reference image without changing the presenter/podium placement.
-          await tester.tap(find.byTooltip('إعادة الشرح'));
+        if (find.text('إنهاء وبدء اللعب').evaluate().isNotEmpty) {
+          expect(find.text('المتابعة بحساب Google'), findsOneWidget);
+          await tester.tap(find.text('إنهاء وبدء اللعب'));
           await tester.pump();
-          await tester.pump(const Duration(milliseconds: 450));
-          await tester.runAsync(() async {
-            final boundary = previewKey.currentContext!.findRenderObject()
-                as RenderRepaintBoundary;
-            final rendered = await boundary.toImage(pixelRatio: 1.5);
-            final bytes =
-                await rendered.toByteData(format: ui.ImageByteFormat.png);
-            await File(
-                    'build/guide-${size.width.toInt()}x${size.height.toInt()}-$index.png')
-                .writeAsBytes(bytes!.buffer.asUint8List());
-            rendered.dispose();
-          });
-          await tester.tap(find.byKey(const ValueKey('guide-speech-bubble')));
-          await tester.pump(const Duration(milliseconds: 180));
-          await tester.runAsync(() async {
-            final boundary = previewKey.currentContext!.findRenderObject()
-                as RenderRepaintBoundary;
-            final rendered = await boundary.toImage(pixelRatio: 1.5);
-            final bytes =
-                await rendered.toByteData(format: ui.ImageByteFormat.png);
-            await File(
-                    'build/guide-${size.width.toInt()}x${size.height.toInt()}-$index-full.png')
-                .writeAsBytes(bytes!.buffer.asUint8List());
-            rendered.dispose();
-          });
+          finished = true;
+          break;
         }
-        if (index < tour.steps.length - 1) {
-          await tester.tap(find.text(index == 0 ? 'ابدأ الجولة' : 'التالي'));
-          await tester.pump();
-        }
+        await tester.tap(find.text('التالي'));
+        await tester.pump();
       }
-      await tester.tap(find.text('استكشف الساحة'));
-      await tester.pump();
-      expect(find.byType(HomeGuideTourOverlay), findsNothing);
-      expect(
-          (await SharedPreferences.getInstance())
-              .getBool('has_completed_home_onboarding_guide'),
-          isTrue);
+      expect(finished, isTrue, reason: 'The complete tour must be navigable');
+      expect(checkedTargets, targetsByTitle.values.toSet());
+      expect(overlay, findsNothing);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool(UnifiedGuestTourOverlay.completedPrefKey), isTrue);
+      expect(prefs.getBool(UnifiedGuestTourOverlay.legacyHomePrefKey), isTrue);
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(seconds: 1));
     });
@@ -622,10 +683,11 @@ void main() {
       expect(portraits, findsNothing);
       expect(find.byKey(const ValueKey('home-character-placeholder')),
           findsOneWidget);
-      bridge.artwork.complete(succeeds
-          ? File('android/app/src/main/res/drawable/contestant_mahmoud.png')
-              .readAsBytesSync()
-          : null);
+      final bytes = succeeds
+          ? await SharedAssets.bundle.load(character.fullBodyAsset)
+          : null;
+      bridge.artwork.complete(
+          bytes?.buffer.asUint8List(bytes.offsetInBytes, bytes.lengthInBytes));
       await tester.pump();
       await tester.pump();
       expect(portraits, findsNothing);
@@ -644,29 +706,35 @@ void main() {
     final created = <Map<Object?, Object?>>[];
     final pauseCalls = <bool>[];
     final disposed = <int>[];
-    messenger.setMockMethodCallHandler(SystemChannels.platform_views,
-        (call) async {
+    const animationFactory = MethodChannel('challengeland/character-animation');
+    messenger.setMockMethodCallHandler(animationFactory, (call) async {
       final args = Map<Object?, Object?>.from(call.arguments as Map);
       if (call.method == 'create') {
+        final id = 100 + created.length;
+        args['id'] = id;
         created.add(args);
-        final id = args['id'] as int;
         messenger.setMockMethodCallHandler(
-            MethodChannel('challengeland/home-character/$id'), (call) async {
+            MethodChannel('challengeland/character-animation/$id'),
+            (call) async {
           if (call.method == 'setPaused') {
             pauseCalls.add(call.arguments as bool);
+          } else if (call.method == 'start') {
+            pauseCalls.add((call.arguments as Map)['paused'] as bool);
+          } else if (call.method == 'dispose') {
+            disposed.add(id);
           }
           return null;
         });
-      } else if (call.method == 'dispose') {
-        disposed.add(args['id'] as int);
+        return {'original': id};
       }
       return null;
     });
     addTearDown(() {
-      messenger.setMockMethodCallHandler(SystemChannels.platform_views, null);
+      messenger.setMockMethodCallHandler(animationFactory, null);
       for (final view in created) {
         messenger.setMockMethodCallHandler(
-            MethodChannel('challengeland/home-character/${view['id']}'), null);
+            MethodChannel('challengeland/character-animation/${view['id']}'),
+            null);
       }
     });
     final selection = ValueNotifier((index: 1, paused: false, reduced: false));
@@ -698,19 +766,18 @@ void main() {
     );
     await tester.pump();
     expect(created, hasLength(1));
-    expect(created.single['hybrid'], isTrue);
-    final params = const StandardMessageCodec().decodeMessage(
-        ByteData.sublistView(created.single['params'] as Uint8List)) as Map;
-    expect(params['index'], 1);
+    expect(created.single['reflection'], isFalse);
+    expect(created.single['index'], 1);
     expect(pauseCalls.last, isFalse);
     expect(find.byKey(const ValueKey('home-character-omar')), findsOneWidget);
-    final ready =
-        MethodChannel('challengeland/home-character/${created.single['id']}');
+    final ready = MethodChannel(
+        'challengeland/character-animation/${created.single['id']}');
     await messenger.handlePlatformMessage(ready.name,
         ready.codec.encodeMethodCall(const MethodCall('ready')), (_) {});
     await tester.pump();
     expect(find.byKey(const ValueKey('home-character-omar')), findsNothing);
-    expect(find.byType(PlatformViewLink), findsOneWidget);
+    expect(tester.widget<Texture>(find.byType(Texture)).textureId,
+        created.single['id']);
 
     selection.value = (index: 1, paused: true, reduced: false);
     await tester.pump();
@@ -720,13 +787,11 @@ void main() {
     await tester.pump();
     expect(created, hasLength(2));
     expect(disposed, contains(created.first['id']));
-    final next = const StandardMessageCodec().decodeMessage(
-        ByteData.sublistView(created.last['params'] as Uint8List)) as Map;
-    expect(next['index'], 6);
+    expect(created.last['index'], 6);
     selection.value = (index: 6, paused: false, reduced: true);
     await tester.pump();
     await tester.pump();
-    expect(find.byType(PlatformViewLink), findsNothing);
+    expect(find.byType(Texture), findsNothing);
     expect(disposed, contains(created.last['id']));
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
@@ -952,7 +1017,6 @@ void main() {
             findsOneWidget);
         expect(tester.getRect(find.byTooltip('القائمة')).left,
             closeTo(size.width > size.height ? 38 : 6, .01));
-        expect(find.byType(CrossPromoMillionaireBadge), findsNothing);
         _expectSidebarLayout(tester, size);
         final characterBounds = tester
             .getRect(find.byKey(const ValueKey('home-selected-character')));
@@ -1099,6 +1163,10 @@ void main() {
       for (var frame = 0; frame < 5; frame++) {
         await tester.pump(const Duration(milliseconds: 100));
       }
+      // Signed-in accounts can replay the guide without an automatic first-visit
+      // interruption. Start that existing guide explicitly for the layout audit.
+      tester.state<PageGuideState>(find.byType(PageGuide)).start();
+      await tester.pump();
       final tour = tester
           .widget<HomeGuideTourOverlay>(find.byType(HomeGuideTourOverlay));
       for (var index = 0; index < tour.steps.length; index++) {
@@ -1695,7 +1763,6 @@ void main() {
             ),
             findsNothing,
           );
-          expect(find.byType(CrossPromoMillionaireBadge), findsNothing);
           expect(
             find.descendant(
               of: find.byType(HomeScreen),

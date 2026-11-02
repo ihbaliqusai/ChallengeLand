@@ -82,7 +82,8 @@ class UnifiedGuestTourOverlay extends StatefulWidget {
   static const String legacyHomePrefKey = 'has_completed_home_onboarding_guide';
 
   @override
-  State<UnifiedGuestTourOverlay> createState() => _UnifiedGuestTourOverlayState();
+  State<UnifiedGuestTourOverlay> createState() =>
+      _UnifiedGuestTourOverlayState();
 }
 
 class _UnifiedGuestTourOverlayState extends State<UnifiedGuestTourOverlay>
@@ -576,7 +577,8 @@ class _UnifiedGuestTourOverlayState extends State<UnifiedGuestTourOverlay>
                           value: _previewState),
                       ChangeNotifierProvider<InAppPurchaseService>.value(
                           value: _previewPurchases),
-                      ChangeNotifierProvider<AdService>.value(value: _previewAds),
+                      ChangeNotifierProvider<AdService>.value(
+                          value: _previewAds),
                       ChangeNotifierProvider<AppSettings>.value(
                           value: _previewSettings),
                       ChangeNotifierProvider<CrossPromoService>.value(
@@ -635,6 +637,7 @@ class _UnifiedGuestTourOverlayState extends State<UnifiedGuestTourOverlay>
                           child: AnimatedBuilder(
                             animation: _pulse,
                             builder: (_, __) => CustomPaint(
+                              key: const ValueKey('unified-guide-spotlight'),
                               painter: SpotlightPainter(
                                 targetRect: _target,
                                 panelRect: stage,
@@ -670,6 +673,7 @@ class _UnifiedGuestTourOverlayState extends State<UnifiedGuestTourOverlay>
                         Positioned.fromRect(
                           rect: stage,
                           child: SizedBox(
+                            key: const ValueKey('unified-guide-stage'),
                             child: FittedBox(
                               fit: BoxFit.fill,
                               child: SizedBox(
@@ -703,9 +707,8 @@ class _UnifiedGuestTourOverlayState extends State<UnifiedGuestTourOverlay>
     final compact = landscape && size.height < 430;
     final sideBySide = finalStep && size.width >= 620;
 
-    final controlsWidth = compact && finalStep
-        ? math.min(300.0, size.width * .44)
-        : 0.0;
+    final controlsWidth =
+        compact && finalStep ? math.min(300.0, size.width * .44) : 0.0;
     final sceneWidth = compact
         ? size.width - controlsWidth - 12
         : sideBySide
@@ -713,7 +716,9 @@ class _UnifiedGuestTourOverlayState extends State<UnifiedGuestTourOverlay>
             : size.width;
 
     final choicesHeight = finalStep && !sideBySide && !compact
-        ? (_signInError == null ? 124.0 : 158.0)
+        // Arabic font metrics can make a Material button slightly taller than
+        // its nominal minimum. Reserve that space instead of clipping controls.
+        ? (_signInError == null ? 128.0 : 162.0)
         : 0.0;
     final available = compact ? size.height : size.height - choicesHeight;
 
@@ -843,7 +848,8 @@ class _UnifiedGuestTourOverlayState extends State<UnifiedGuestTourOverlay>
               const SizedBox(width: 5),
               const Text(
                 '•',
-                style: TextStyle(fontSize: 10, color: Colors.white38, height: 1.1),
+                style:
+                    TextStyle(fontSize: 10, color: Colors.white38, height: 1.1),
               ),
               const SizedBox(width: 5),
               Text(
@@ -891,6 +897,7 @@ class _UnifiedGuestTourOverlayState extends State<UnifiedGuestTourOverlay>
   Widget _buildBubbleFooter(bool finalStep) {
     final canGoBack = _stepIndex > 0 && !_busy;
     return Row(
+      key: const ValueKey('unified-guide-navigation'),
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -943,9 +950,8 @@ class _UnifiedGuestTourOverlayState extends State<UnifiedGuestTourOverlay>
                     ? () => _finish()
                     : () => _move(1),
             style: FilledButton.styleFrom(
-              backgroundColor: finalStep
-                  ? const Color(0xFF10B981)
-                  : const Color(0xFF2563EB),
+              backgroundColor:
+                  finalStep ? const Color(0xFF10B981) : const Color(0xFF2563EB),
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
@@ -1044,7 +1050,8 @@ class _UnifiedGuestTourOverlayState extends State<UnifiedGuestTourOverlay>
                   icon: const Icon(Icons.play_arrow_rounded, size: 16),
                   label: const Text(
                     'جرّب التحدي',
-                    style: TextStyle(fontFamily: 'NotoSansArabic', fontSize: 12),
+                    style:
+                        TextStyle(fontFamily: 'NotoSansArabic', fontSize: 12),
                   ),
                 ),
               ),
@@ -1059,7 +1066,8 @@ class _UnifiedGuestTourOverlayState extends State<UnifiedGuestTourOverlay>
                   ),
                   child: const Text(
                     'خيارات أخرى',
-                    style: TextStyle(fontFamily: 'NotoSansArabic', fontSize: 12),
+                    style:
+                        TextStyle(fontFamily: 'NotoSansArabic', fontSize: 12),
                   ),
                 ),
               ),

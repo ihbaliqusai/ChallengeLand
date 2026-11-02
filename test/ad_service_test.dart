@@ -78,6 +78,34 @@ void main() {
     expect(count('loadInterstitialAd'), 1);
   });
 
+  testWidgets('background initialization defers ad requests until resume',
+      (tester) async {
+    binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await service.initialize();
+    expect(count('loadRewardedAd'), 0);
+    expect(count('loadInterstitialAd'), 0);
+    binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    expect(count('loadRewardedAd'), 1);
+    expect(count('loadInterstitialAd'), 1);
+  });
+
+  testWidgets('pause cancels no-fill retries and resume makes one request',
+      (tester) async {
+    await service.initialize();
+    await event(getRewardedId(), 'onAdFailedToLoad', {
+      'loadAdError':
+          LoadAdError(3, 'com.google.android.gms.ads', 'No fill', null),
+    });
+    binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump(const Duration(seconds: 61));
+    expect(count('loadRewardedAd'), 1);
+    binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    expect(count('loadRewardedAd'), 2);
+    expect(count('loadInterstitialAd'), 1);
+  });
+
   test(
       'an ad that finishes loading in the background stays cached until a new tap',
       () async {

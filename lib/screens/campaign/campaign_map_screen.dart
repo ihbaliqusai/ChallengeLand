@@ -96,7 +96,7 @@ class _CampaignMapScreenState extends State<CampaignMapScreen>
     if (route is PageRoute<dynamic>) {
       campaignRouteObserver.subscribe(this, route);
     }
-    final playerId = context.watch<AppState>().currentUser?.uid;
+    final playerId = context.read<AppState>().currentUser?.uid;
     if (playerId != _loadedPlayerId) {
       _loadedPlayerId = playerId;
       _future = _load();
@@ -221,6 +221,9 @@ class _CampaignMapScreenState extends State<CampaignMapScreen>
 
   @override
   Widget build(BuildContext context) {
+    if (!_guidePreview) {
+      context.select<AppState, String?>((app) => app.currentUser?.uid);
+    }
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -598,10 +601,12 @@ class _CampaignMapContentState extends State<_CampaignMapContent> {
 
   void _precacheWorld(int index) {
     if (!mounted) return;
+    final media = MediaQuery.of(context);
     for (final candidate in <int>[index, index - 1, index + 1]) {
       if (candidate < 0 || candidate >= campaignWorlds.length) continue;
       precacheImage(
-        AssetImage(campaignWorlds[candidate].backgroundAsset),
+        boundedArtworkImageProvider(campaignWorlds[candidate].backgroundAsset,
+            media.size, media.devicePixelRatio),
         context,
       );
     }
@@ -653,6 +658,11 @@ class _WorldMapPageState extends State<_WorldMapPage> {
         builder: (context, constraints) {
           final width = constraints.maxWidth;
           final height = constraints.maxHeight;
+          final media = MediaQuery.of(context);
+          final background = boundedArtworkImageProvider(
+              widget.bundle.world.backgroundAsset,
+              media.size,
+              media.devicePixelRatio);
           final mapHeight = _mapContentHeight(Size(width, height));
           final contentHeight = mapHeight + widget.bottomOverlaySpace;
           final currentIndex = widget.bundle.stages
@@ -681,8 +691,8 @@ class _WorldMapPageState extends State<_WorldMapPage> {
                     left: 0,
                     right: 0,
                     height: mapHeight,
-                    child: adaptiveAssetImage(
-                      widget.bundle.world.backgroundAsset,
+                    child: Image(
+                      image: background,
                       fit: BoxFit.fill,
                       filterQuality: FilterQuality.high,
                     ),
@@ -701,8 +711,8 @@ class _WorldMapPageState extends State<_WorldMapPage> {
                           alignment: Alignment.bottomCenter,
                           minHeight: mapHeight,
                           maxHeight: mapHeight,
-                          child: adaptiveAssetImage(
-                            widget.bundle.world.backgroundAsset,
+                          child: Image(
+                            image: background,
                             width: width,
                             height: mapHeight,
                             fit: BoxFit.fill,

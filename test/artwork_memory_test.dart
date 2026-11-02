@@ -27,7 +27,6 @@ void main() {
       codec.dispose();
     }
     await SharedAssets.initializeFont();
-    expect((await SharedAssets.welcomeVideoUri()).scheme, 'android.resource');
     for (final asset in sharedAndroidAssets.keys) {
       expect(
           (await SharedAssets.bundle.load(asset)).lengthInBytes, greaterThan(0),
@@ -81,6 +80,30 @@ void main() {
     final key = await provider.obtainKey(
         createLocalImageConfiguration(tester.element(find.byType(Image))));
     expect(PaintingBinding.instance.imageCache.containsKey(key), isTrue);
+    expect(tester.takeException(), isNull);
+  });
+  testWidgets('world preload and displayed artwork reuse one bounded decode',
+      (tester) async {
+    const asset = 'assets/images/campaign/worlds/world_01_forest.webp';
+    const viewport = Size(480, 270);
+    final preload = boundedArtworkImageProvider(asset, viewport, 1);
+    await tester.pumpWidget(MaterialApp(
+      home: Image(
+        image: boundedArtworkImageProvider(asset, viewport, 1),
+        fit: BoxFit.fill,
+      ),
+    ));
+    final displayed = tester.widget<Image>(find.byType(Image)).image;
+    expect((displayed as ResizeImage).width, 480);
+    final context = tester.element(find.byType(Image));
+    final configuration = createLocalImageConfiguration(context);
+    expect(await preload.obtainKey(configuration),
+        await displayed.obtainKey(configuration));
+    await tester.runAsync(() => precacheImage(preload, context));
+    expect(
+        PaintingBinding.instance.imageCache
+            .containsKey(await displayed.obtainKey(configuration)),
+        isTrue);
     expect(tester.takeException(), isNull);
   });
 }

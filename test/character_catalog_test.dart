@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:challenge_land/models/game_character.dart';
+import 'package:challenge_land/core/shared_android_assets.g.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -55,7 +56,7 @@ void main() {
     final gameplay = File('$native/GameOfflineContestantsController.java')
         .readAsStringSync();
     final home = File(
-            'android/app/src/main/kotlin/com/Qi7bali/challengeland/HomeCharacterViewFactory.kt')
+            'android/app/src/main/kotlin/com/Qi7bali/challengeland/CharacterAnimationTextures.kt')
         .readAsStringSync();
     final bridge = File(
             'android/app/src/main/kotlin/com/Qi7bali/challengeland/MainActivity.kt')
@@ -77,7 +78,9 @@ void main() {
     expect(array('CONTESTANT_VIDEOS'),
         CharacterCatalog.all.map((c) => 'video_${c.id}'));
     final homeClips =
-        RegExp(r'R\.raw\.video_(\w+)').allMatches(home).map((m) => m.group(1)!);
+        RegExp(r'R\.raw\.character_preview_(\w+)')
+            .allMatches(home)
+            .map((m) => m.group(1)!);
     expect(homeClips, CharacterCatalog.all.map((c) => c.id));
     final bridgeArt = RegExp(r'R\.drawable\.contestant_(\w+)')
         .allMatches(bridge)
@@ -111,13 +114,8 @@ void main() {
     for (final character in CharacterCatalog.all.skip(8)) {
       for (final avatar in [false, true]) {
         final path = avatar ? character.asset : character.fullBodyAsset;
-        final nativeName =
-            avatar ? 'emote_${character.id}' : 'contestant_${character.id}';
         final bytes = File(path).readAsBytesSync();
-        expect(
-            File('android/app/src/main/res/drawable/$nativeName.webp')
-                .readAsBytesSync(),
-            bytes);
+        expect(File(sharedAndroidAssets[path]!).readAsBytesSync(), bytes);
         final codec = await ui.instantiateImageCodec(bytes);
         final frame = await codec.getNextFrame();
         expect(frame.image.height, lessThanOrEqualTo(avatar ? 256 : 960));
@@ -134,6 +132,10 @@ void main() {
         expect(clip.existsSync(), isTrue);
         expect(clip.lengthSync(), inInclusiveRange(1000, 2 * 1024 * 1024));
       }
+      final preview = File(
+          'android/app/src/main/res/raw/character_preview_${character.id}.mp4');
+      expect(preview.existsSync(), isTrue);
+      expect(preview.lengthSync(), inInclusiveRange(1000, 2 * 1024 * 1024));
     }
   });
 }

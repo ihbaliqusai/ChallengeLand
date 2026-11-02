@@ -1,0 +1,25 @@
+{
+  "date": "2026-11-02",
+  "flutter_tests": {
+    "passed": 59,
+    "failed": 0,
+    "skipped": 1,
+    "skip_reason": "Optional preview export requires WRITE_REWARD_PREVIEW=true",
+    "log": "flutter_tests.log"
+  },
+  "dart_analysis": {
+    "issues": 0,
+    "log": "dart_analyze.log"
+  },
+  "android": {
+    "production_java_compile": "passed",
+    "instrumentation_test_compile": "passed",
+    "device_instrumentation_execution": "not run",
+    "log": "android_compile.log"
+  },
+  "preview": "reward_preview.png",
+  "runtime_assets_added": [],
+  "dependency_changes": [],
+  "economy_production_changes": false,
+  "deployed_or_installed": false
+}

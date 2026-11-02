@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../core/player_rank.dart';
+import '../core/campaign_trophy_rules.dart';
 
 /// Account totals and installation acknowledgements commit together. Replaying
 /// a transaction after its response is lost never awards the same play twice.
@@ -215,8 +216,18 @@ class ProgressionService {
       for (final key in maximumKeys) {
         totals[key] = math.max(totals[key] ?? 0, integer(local[key]));
       }
-      if (newGames || importLegacy) {
+      final previousTrophyGames = math.max(
+          0,
+          integer(previousCounters['gamesPlayed']) -
+              integer(previousCounters['mode_campaign_games']));
+      final nextTrophyGames = math.max(
+          0,
+          integer(acknowledged['gamesPlayed']) -
+              integer(acknowledged['mode_campaign_games']));
+      if (nextTrophyGames > previousTrophyGames || importLegacy) {
         totals['winStreak'] = integer(local['winStreak']);
+      }
+      if (newGames || importLegacy) {
         totals['lastPrize'] = integer(local['lastPrize']);
       }
       totals = normalize(totals);
@@ -259,6 +270,19 @@ class ProgressionService {
           throw StateError('Campaign XP reward is invalid');
         }
         totals['xp'] = ((totals['xp'] ?? 0) + reward).clamp(0, maxValue);
+        final trophies = CampaignTrophyRules.rewardForClaim(
+            claimId: receiptId,
+            campaignId:
+                receipt['campaignId'] is String ? receipt['campaignId'] : '',
+            stageId: receipt['stageId'] is String ? receipt['stageId'] : '',
+            previousStars: receipt['previousStars'],
+            newStars: receipt['newStars']);
+        final previousTrophies = totals['trophies'] ?? 0;
+        totals['trophies'] = (previousTrophies + trophies).clamp(0, maxValue);
+        final addedTrophies = totals['trophies']! - previousTrophies;
+        totals['trophiesEarned'] =
+            ((totals['trophiesEarned'] ?? 0) + addedTrophies)
+                .clamp(0, maxValue);
         totals = normalize(totals);
         transaction.update(claimRef, {
           'xpClaimed': true,

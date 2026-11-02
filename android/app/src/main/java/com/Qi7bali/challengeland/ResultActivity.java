@@ -35,6 +35,7 @@ public class ResultActivity extends GameViewportActivity {
     private GameRewardedAdController rewardedAdController;
     private boolean homeNavigationRequested = false;
     private boolean rewardDoubled = false;
+    private AnimatorSet auraSet;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -541,7 +542,7 @@ public class ResultActivity extends GameViewportActivity {
                 .setInterpolator(new DecelerateInterpolator())
                 .start();
 
-        AnimatorSet auraSet = new AnimatorSet();
+        auraSet = new AnimatorSet();
         ObjectAnimator alpha = ObjectAnimator.ofFloat(resultAura, View.ALPHA, 0f, 0.30f, 0.16f);
         ObjectAnimator scaleX = ObjectAnimator.ofFloat(resultAura, View.SCALE_X, 0.7f, 1.08f);
         ObjectAnimator scaleY = ObjectAnimator.ofFloat(resultAura, View.SCALE_Y, 0.7f, 1.08f);
@@ -833,6 +834,25 @@ public class ResultActivity extends GameViewportActivity {
         if (anySetsNonZero) {
             builder.append("  |  الجولات: ").append(sets);
         }
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (auraSet != null) {
+            auraSet.cancel();
+            auraSet.removeAllListeners();
+            auraSet = null;
+        }
+        if (interstitialAd != null) {
+            interstitialAd.setFullScreenContentCallback(null);
+            interstitialAd = null;
+        }
+        rewardedAdController = null;
+        for (View view : new View[]{findViewById(R.id.cardMe), findViewById(R.id.cardOpponent),
+                findViewById(R.id.resultPanel), findViewById(R.id.resultActions), findViewById(R.id.resultAura)}) {
+            if (view != null) view.animate().cancel();
+        }
+        super.onDestroy();
     }
 
     private String safeTeamLabel(String teamId) {

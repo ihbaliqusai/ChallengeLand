@@ -14,7 +14,7 @@ bool isArtworkAtlas(String asset) =>
     const {
       'assets/ui/home_menu.webp',
       'assets/ui/game_modes.webp',
-      'assets/ui/play_stake_dialog.png',
+      'assets/ui/play_stake_dialog.webp',
     }.contains(asset);
 
 int? artworkDecodeWidth(String asset, BoxConstraints constraints, Size viewport,
@@ -45,6 +45,22 @@ int? artworkDecodeWidth(String asset, BoxConstraints constraints, Size viewport,
   if (!target.isFinite || target <= 0) return null;
   // Stable 32-pixel buckets prevent small layout changes growing the image cache.
   return math.min(source.width.toInt(), (target / 32).ceil() * 32);
+}
+
+/// Share this provider between viewport artwork and its preload. Using an
+/// unresized AssetImage for the preload would retain a second full-size decode.
+ImageProvider boundedArtworkImageProvider(
+    String asset, Size viewport, double pixelRatio) {
+  final width = artworkDecodeWidth(asset, BoxConstraints.tight(viewport),
+      viewport, pixelRatio, BoxFit.cover);
+  return ResizeImage.resizeIfNeeded(
+    width,
+    null,
+    AssetImage(asset,
+        bundle: sharedAndroidAssets.containsKey(asset)
+            ? SharedAssets.bundle
+            : null),
+  );
 }
 
 /// Preserves Image keys/semantics while decoding textures at display resolution.

@@ -44,8 +44,9 @@ void main() {
         claimId: 'player:reward',
       );
 
-      // A replay returns the current wallet without paying the reward again.
-      expect(balances, {'coins': 500, 'gems': 90});
+      // Preserve the existing grant flag so callers can distinguish a replay
+      // from a new payout while still receiving the current wallet balances.
+      expect(balances, {'coins': 500, 'gems': 90, 'granted': granted});
     });
   }
 

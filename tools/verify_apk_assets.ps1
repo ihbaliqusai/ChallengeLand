@@ -30,7 +30,9 @@ $zip = [IO.Compression.ZipFile]::Open((Get-Item -LiteralPath $Apk).FullName,
     [IO.Compression.ZipArchiveMode]::Read, [Text.Encoding]::UTF8)
 try {
     # Flutter URI-encodes non-ASCII asset names in the APK's ZIP directory.
-    $index = @{}
+    # APK ZIP entry names are case-sensitive. R8 can shorten distinct files to
+    # e.g. res/GS.mp4 and res/Gs.mp4; a PowerShell hashtable merges those keys.
+    $index = [Collections.Generic.Dictionary[string, object]]::new([StringComparer]::Ordinal)
     foreach ($entry in $zip.Entries) { $index[[Uri]::UnescapeDataString($entry.FullName)] = $entry }
     foreach ($asset in $assets.flutter.files) {
         $entry = $index['assets/flutter_assets/' + $asset.path]
@@ -44,7 +46,7 @@ try {
             throw "Duplicate shared asset shipped in Flutter: $($route.Name)"
         }
         $source = $route.Value -replace '^android/app/src/main/', ''
-        if ($source -match '^res/(\w+)/([^/.]+)\.') {
+        if ($source -match '^res/(\w+)(?:-[^/]+)?/([^/.]+)\.') {
             $symbol = $matches[1] + '/' + $matches[2]
             $source = $resourcePaths[$symbol]
             if (-not $source) { throw "Shared Android resource was stripped: $symbol" }
@@ -60,7 +62,9 @@ try {
         $sha256 = [Security.Cryptography.SHA256]::Create()
         try {
             foreach ($clip in $videos.clips) {
-                $symbol = 'raw/' + [IO.Path]::GetFileNameWithoutExtension($clip.output)
+                $clipFile = if ($clip.name) { $clip.name } else { $clip.output }
+                $expectedHash = if ($clip.after.sha256) { $clip.after.sha256 } else { $clip.outputSha256 }
+                $symbol = 'raw/' + [IO.Path]::GetFileNameWithoutExtension($clipFile)
                 $resourcePath = $resourcePaths[$symbol]
                 if (-not $resourcePath -or -not $index.ContainsKey($resourcePath)) {
                     throw "Updated video missing from APK: $symbol"
@@ -68,7 +72,7 @@ try {
                 $stream = $index[$resourcePath].Open()
                 try { $hash = [BitConverter]::ToString($sha256.ComputeHash($stream)).Replace('-', '') }
                 finally { $stream.Dispose() }
-                if ($hash -ne $clip.outputSha256) { throw "APK contains a stale video: $symbol" }
+                if ($hash -ne $expectedHash) { throw "APK contains a stale video: $symbol" }
             }
         } finally { $sha256.Dispose() }
         Write-Output "Verified SHA-256 of all $($videos.clips.Count) replacement videos inside APK."

@@ -19,11 +19,15 @@ class SynchronizedCharacterAnimation extends StatefulWidget {
     required this.character,
     required this.fallback,
     required this.builder,
+    this.includeReflection = true,
+    this.cropToCharacter = true,
   });
 
   final GameCharacter character;
   final CharacterFrame fallback;
   final Widget Function(BuildContext context, CharacterFrame frame) builder;
+  final bool includeReflection;
+  final bool cropToCharacter;
 
   @override
   State<SynchronizedCharacterAnimation> createState() =>
@@ -50,7 +54,10 @@ class _SynchronizedCharacterAnimationState
   @override
   void didUpdateWidget(SynchronizedCharacterAnimation oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.character.index != oldWidget.character.index) _stop();
+    if (widget.character.index != oldWidget.character.index ||
+        widget.includeReflection != oldWidget.includeReflection) {
+      _stop();
+    }
     _updatePlayback();
   }
 
@@ -89,11 +96,15 @@ class _SynchronizedCharacterAnimationState
     final generation = ++_generation;
     MethodChannel? session;
     try {
-      final outputs = await _factory.invokeMapMethod<String, int>(
-          'create', {'index': widget.character.index});
+      final outputs = await _factory.invokeMapMethod<String, int>('create', {
+        'index': widget.character.index,
+        'reflection': widget.includeReflection
+      });
       final texture = outputs?['original'];
       final reflection = outputs?['reflection'];
-      if (texture == null || reflection == null) return;
+      if (texture == null || (widget.includeReflection && reflection == null)) {
+        return;
+      }
       session = MethodChannel('challengeland/character-animation/$texture');
       if (!mounted || generation != _generation) {
         await _invoke(session, 'dispose');
@@ -144,6 +155,10 @@ class _SynchronizedCharacterAnimationState
     if (!_ready || _texture == null) {
       return widget.fallback(key, reflected: reflected);
     }
+    final texture = reflected ? (_reflectionTexture ?? _texture!) : _texture!;
+    if (!widget.cropToCharacter) {
+      return Texture(key: key, textureId: texture);
+    }
     final crop = characterVideoBounds[widget.character.id] ??
         const Rect.fromLTRB(0, 0, 1, 1);
     // Trim the black video canvas rather than squeezing that canvas into the
@@ -162,8 +177,7 @@ class _SynchronizedCharacterAnimationState
               top: -source.height * crop.top,
               width: source.width,
               height: source.height,
-              child: Texture(
-                  textureId: reflected ? _reflectionTexture! : _texture!),
+              child: Texture(textureId: texture),
             ),
           ]),
         ),

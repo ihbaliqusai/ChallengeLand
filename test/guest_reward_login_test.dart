@@ -8,7 +8,6 @@ import 'package:challenge_land/models/stage_attempt.dart';
 import 'package:challenge_land/models/stage_progress.dart';
 import 'package:challenge_land/screens/auth/login_bottom_sheet.dart';
 import 'package:challenge_land/screens/campaign/stage_result_screen.dart';
-import 'package:challenge_land/screens/campaign/widgets/save_guest_progress_dialog.dart';
 import 'package:challenge_land/services/campaign_defaults.dart';
 import 'package:challenge_land/services/campaign_service.dart';
 import 'package:challenge_land/widgets/sign_in_required_action.dart';
@@ -231,7 +230,6 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.byType(LoginBottomSheet), findsOneWidget);
-    expect(find.byType(SaveGuestProgressDialog), findsNothing);
     expect(find.text('جرّب التحدي مجانًا'), findsNothing);
     expect(find.text('المتابعة بحساب Google'), findsNothing);
     expect(actions, 0);
@@ -244,7 +242,6 @@ void main() {
       (tester) async {
     await openRewards(tester);
     expect(find.byType(LoginBottomSheet), findsOneWidget);
-    expect(find.byType(SaveGuestProgressDialog), findsNothing);
     expect(find.text('تسجيل دخول بواسطة جوجل'), findsOneWidget);
     await tester.runAsync(() => precacheImage(
         AssetImage('assets/ui/google.png', bundle: SharedAssets.bundle),

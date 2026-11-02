@@ -265,6 +265,36 @@ public final class DuelProgressionTest {
         check(PlayerStats.getTrophies(failed) == 70 && PlayerStats.getLosses(failed) == 1,
                 "retry after failed commit awards exactly once");
         recoveryChecks();
+        Match campaign = new Match();
+        campaign.mode = "campaign"; campaign.online = false; campaign.human = false;
+        campaign.preferences().edit().putInt("trophies", 100)
+                .putInt("currentWinStreak", 2).putInt("bestWinStreak", 2).commit();
+        for (int attempt = 0; attempt < 50; attempt++) {
+            campaign.id = "campaign:stage_001:attempt_" + attempt;
+            PlayerStats.recordCorrectAnswer(campaign, false);
+            PlayerStats.recordGameEnd(campaign, ProgressionRules.WIN, 0);
+            check(PlayerStats.matchTrophies(campaign) == 0, "campaign retries cannot grant native trophies");
+        }
+        campaign.id = "campaign:stage_001:failed_attempt";
+        PlayerStats.recordWrongAnswer(campaign, false);
+        PlayerStats.recordGameEnd(campaign, ProgressionRules.LOSS, 0);
+        check(PlayerStats.getTrophies(campaign) == 100, "practice and losses preserve settled trophies");
+        check(PlayerStats.getTrophiesEarned(campaign) == 0 && PlayerStats.getTrophiesLost(campaign) == 0,
+                "campaign trophies are exclusively settled by first-clear cloud receipts");
+        check(PlayerStats.getGamesPlayed(campaign) == 51, "replays still record gameplay statistics");
+        check(PlayerStats.getCurrentWinStreak(campaign) == 2 && PlayerStats.getBestWinStreak(campaign) == 2,
+                "campaign wins and failures cannot build or erase the trophy win streak");
+        campaign.mode = "board";
+        campaign.id = "eligible_win_after_practice";
+        PlayerStats.recordCorrectAnswer(campaign, false);
+        PlayerStats.recordGameEnd(campaign, ProgressionRules.WIN, 0);
+        check(PlayerStats.matchTrophies(campaign) == 24,
+                "replaying the campaign cannot farm the next game's streak bonus");
+        campaign.id = "eligible_loss_after_practice";
+        PlayerStats.recordWrongAnswer(campaign, false);
+        PlayerStats.recordGameEnd(campaign, ProgressionRules.LOSS, 0);
+        check(PlayerStats.matchTrophies(campaign) == -10,
+                "campaign practice does not consume beginner loss protection");
         System.out.println("Duel progression checks passed: " + checks);
     }
 }

@@ -10,6 +10,7 @@ import 'package:google_mobile_ads/google_mobile_ads.dart' show MobileAds;
 import 'package:provider/provider.dart';
 
 import 'core/app_state.dart';
+import 'core/performance_probe.dart';
 import 'core/app_settings.dart';
 import 'core/third_party_licenses.dart';
 import 'core/shared_assets.dart';
@@ -33,6 +34,7 @@ import 'widgets/game_notice.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  PerformanceProbe.initialize();
   ThirdPartyLicenses.register();
   final adService = AdService();
   runApp(DefaultAssetBundle(
@@ -48,13 +50,15 @@ Future<void> main() async {
             body: SplashPoster(),
           ),
         ),
-        ready: ChallengeLandApp(adService: adService),
+        ready: ChallengeLandApp(
+          adService: adService,
+        ),
       )));
   // Ads and consent must not delay the first frame or app startup.
 }
 
 Future<void> _initializeApp() async {
-  await SharedAssets.initializeFont();
+  await PerformanceProbe.measure('font', SharedAssets.initializeFont);
   await SystemChrome.setPreferredOrientations(const <DeviceOrientation>[
     DeviceOrientation.landscapeLeft,
     DeviceOrientation.landscapeRight,
@@ -64,22 +68,20 @@ Future<void> _initializeApp() async {
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
   try {
-    await Firebase.initializeApp();
+    await PerformanceProbe.measure('firebase', Firebase.initializeApp);
   } catch (_) {
     // يسمح بفتح الواجهة حتى قبل تهيئة Firebase الكاملة.
   }
-  if (defaultTargetPlatform == TargetPlatform.android) {
-    try {
-      await const MethodChannel('millionaire/native')
-          .invokeMethod<bool>('preloadLocalQuestions');
-    } catch (error) {
-      debugPrint('[Startup] Question preload unavailable: $error');
-    }
-  }
+  // The native launch boundary prepares questions asynchronously on the first
+  // play action. Merely visiting the lobby must not allocate the whole bank.
+  PerformanceProbe.mark('platform.ready');
 }
 
 class ChallengeLandApp extends StatefulWidget {
-  const ChallengeLandApp({super.key, required this.adService});
+  const ChallengeLandApp({
+    super.key,
+    required this.adService,
+  });
 
   final AdService adService;
 
@@ -93,13 +95,14 @@ class _ChallengeLandAppState extends State<ChallengeLandApp> {
   void _onStartupReady() {
     if (_startupComplete) return;
     setState(() => _startupComplete = true);
+    PerformanceProbe.mark('destination.frame');
     unawaited(_initializeAds());
   }
 
   Future<void> _initializeAds() async {
     if (!mounted) return;
     try {
-      await widget.adService.initialize();
+      await PerformanceProbe.measure('ads', widget.adService.initialize);
       if (!mounted) return;
       if (kDebugMode && const bool.fromEnvironment('ADMOB_OPEN_INSPECTOR')) {
         MobileAds.instance.openAdInspector((error) {
@@ -249,7 +252,9 @@ class _ChallengeLandAppState extends State<ChallengeLandApp> {
           ),
           home: _ConnectivityWrapper(
             showBanner: _startupComplete,
-            child: AuthGate(onReady: _onStartupReady),
+            child: AuthGate(
+              onReady: _onStartupReady,
+            ),
           ),
         ),
       ),

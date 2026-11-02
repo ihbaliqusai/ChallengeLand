@@ -1,4 +1,6 @@
 import 'package:challenge_land/models/campaign_stage.dart';
+import 'package:challenge_land/core/campaign_trophy_rules.dart';
+import 'package:challenge_land/services/progression_service.dart';
 import 'package:challenge_land/models/stage_progress.dart';
 import 'package:challenge_land/services/campaign_defaults.dart';
 import 'package:challenge_land/services/campaign_service.dart';
@@ -17,6 +19,77 @@ void main() {
     firestore = _RecordingFirestore();
     service = CampaignService(firestore: firestore);
     stage = CampaignDefaults.stages().first;
+  });
+
+  test('one hundred independent replays cannot farm first-clear trophies',
+      () async {
+    final progression = ProgressionService(firestore: firestore);
+    final first = await service
+        .submitStageResult(uid: 'player', stage: stage, nativeResult: {
+      ..._boardResult(stage,
+          completed: true, score: stage.starRules.threeStarsMinScore),
+      'attemptId': 'first_clear'
+    });
+    expect(first.rewardTrophiesGranted, 22);
+    await progression.grantCampaignXp(
+        uid: 'player', claimId: first.rewardClaimId!, identity: const {});
+    for (var index = 0; index < 100; index++) {
+      final replay = await CampaignService(firestore: firestore)
+          .submitStageResult(uid: 'player', stage: stage, nativeResult: {
+        ..._boardResult(stage,
+            completed: true, score: stage.starRules.threeStarsMinScore),
+        'attemptId': 'replay_$index'
+      });
+      expect(replay.rewardTrophiesGranted, 0);
+      expect(replay.isFirstCompletion, isFalse);
+    }
+    final totals = ProgressionService.readStats(
+        (await firestore.doc('users/player').get()).data()!);
+    expect(totals['trophies'], 22);
+    expect(
+        (await firestore.doc('public_profiles/player').get())
+            .data()!['trophies'],
+        22);
+    expect(
+        (await firestore.collection('users/player/campaignRewardClaims').get())
+            .docs,
+        hasLength(1));
+  });
+
+  test('legacy completed stages do not receive a new first-clear trophy claim',
+      () async {
+    await firestore
+        .doc('users/player/campaignProgress/stage_01')
+        .set(_progress(stage, stars: 1).toMap());
+    final result = await service.submitStageResult(
+        uid: 'player',
+        stage: stage,
+        nativeResult: _boardResult(stage,
+            completed: true, score: stage.starRules.threeStarsMinScore));
+    expect(result.isFirstCompletion, isFalse);
+    expect(result.rewardTrophiesGranted, 0);
+    expect(
+        result.rewardClaimId,
+        isNot(
+            CampaignTrophyRules.firstClearClaimId(stage.campaignId, stage.id)));
+  });
+
+  test(
+      'a pending result from an older native build cannot receive trophies twice',
+      () async {
+    final payload = _boardResult(stage,
+        completed: true, score: stage.starRules.threeStarsMinScore)
+      ..remove('campaignTrophyPolicyVersion')
+      ..['trophyDelta'] = 37;
+    final result = await service.submitStageResult(
+        uid: 'player', stage: stage, nativeResult: payload);
+    expect(result.isFirstCompletion, isTrue);
+    expect(result.rewardTrophiesGranted, 0);
+    expect(
+        CampaignTrophyRules.isFirstClearClaim(result.rewardClaimId), isFalse);
+    final claim = await service.loadRewardClaim(
+        uid: 'player', claimId: result.rewardClaimId!);
+    expect(claim!.trophyReward, 0);
   });
 
   group('Committed campaign progress updates', () {
@@ -374,6 +447,9 @@ void main() {
       );
 
       expect(first.newStars, 1);
+      expect(first.rewardTrophiesGranted, 22);
+      expect(upgrade.rewardTrophiesGranted, 0);
+      expect(failure.rewardTrophiesGranted, 0);
       expect(upgrade.previousStars, 1);
       expect(upgrade.newStars, 3);
       expect(first.rewardCoinsGranted + upgrade.rewardCoinsGranted, 101);
@@ -658,6 +734,7 @@ Map<String, dynamic> _boardResult(
       'stageType': 'board',
       'campaignMode': 'board',
       'campaignBoard': true,
+      'campaignTrophyPolicyVersion': 3,
       'boardKind': stage.boardKind,
       'boardTargetScore': stage.boardTargetScore,
       'completed': completed,

@@ -5,10 +5,10 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/app_state.dart';
+import '../../core/app_settings.dart';
 import '../../models/campaign_stage.dart';
 import '../../models/stage_attempt.dart';
 import '../../models/stage_progress.dart';
@@ -595,9 +595,10 @@ class _StageResultScreenState extends State<StageResultScreen>
                                                   ?.toInt() ??
                                               0,
                                       trophyDelta:
-                                          (rawNativeResult?['trophyDelta']
-                                                  as num?)
-                                              ?.toInt(),
+                                          _savingResult || _isUnsavedPreview
+                                              ? null
+                                              : submissionResult
+                                                  .rewardTrophiesGranted,
                                       currencyRewardApplied:
                                           currencyRewardApplied,
                                       saving: _savingResult,
@@ -740,7 +741,7 @@ class _StageResultScreenState extends State<StageResultScreen>
         _rewardApplied = applied;
         _rewardsCollected = true;
       });
-      HapticFeedback.mediumImpact();
+      _playRewardHaptic();
       showCurrencyRewardOverlay(
         context,
         coins: submissionResult.rewardCoinsGranted * (_rewardDoubled ? 2 : 1),
@@ -755,6 +756,13 @@ class _StageResultScreenState extends State<StageResultScreen>
     } finally {
       if (mounted) setState(() => _collectingRewards = false);
     }
+  }
+
+  void _playRewardHaptic({String style = 'medium'}) {
+    final settings = context.read<AppSettings?>();
+    if (settings == null) return;
+    // Feedback follows a successful claim; its failure must never undo the reward.
+    unawaited(settings.playHaptic(style: style).catchError((_) => false));
   }
 
   String _cleanMessage(
@@ -1072,7 +1080,7 @@ class _StageResultScreenState extends State<StageResultScreen>
       if (!mounted) return;
       if (success) {
         setState(() => _rewardDoubled = true);
-        HapticFeedback.heavyImpact();
+        _playRewardHaptic(style: 'heavy');
         showCurrencyRewardOverlay(context, coins: coins, gems: gems);
       } else {
         messenger

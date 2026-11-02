@@ -26,12 +26,23 @@ for (const entry of declarations) {
     }
   } else if (fs.existsSync(source)) shipped.add(source);
 }
-const dart = walk(path.join(root, 'lib')).filter(p => p.endsWith('.dart'));
+// These generated inventories describe files; they do not make them reachable
+// at runtime. Counting their strings as usage hides every abandoned image.
+const dart = walk(path.join(root, 'lib')).filter(p => p.endsWith('.dart') &&
+  !p.endsWith('artwork_sizes.g.dart') && !p.endsWith('shared_android_assets.g.dart'));
 const literals = dart.flatMap(file => {
-  const text = fs.readFileSync(file, 'utf8');
+  let text = fs.readFileSync(file, 'utf8');
+  // Resolve local directory constants before matching interpolated asset paths,
+  // e.g. '$_iconAssets/$name.webp'. The remaining variables stay wildcards.
+  const prefixes = new Map([...text.matchAll(/\b(?:const|final)\s+(?:String\s+)?(\w+)\s*=\s*['"](assets\/[^'"\r\n]+)['"]/g)]
+    .map(match => [match[1], match[2]]));
+  text = text.replace(/\$\{(\w+)\}|\$(\w+)/g,
+    (original, braced, plain) => prefixes.get(braced || plain) || original);
   return [...text.matchAll(/['"](assets\/[^'"\r\n]+)['"]/g)]
     .map(match => ({ pattern: match[1], source: relative(file) }));
 });
+// The shared bank is opened natively through Flutter's asset lookup, not Dart.
+literals.push({pattern: 'assets/questions.json', source: 'android: LocalQuestions.openQuestionsStream'});
 function matches(pattern, asset) {
   const parts = pattern.split(/\$\{[^}]+\}|\$[A-Za-z_]\w*/);
   const expression = parts.map(p => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('.*');
@@ -66,7 +77,7 @@ const report = {
     sharedAssets: shared,
     files, noLiteralReferenceCandidates: files.filter(f => !f.references.length),
     missingLiteralFiles: literals.filter(item => !item.pattern.includes('$') &&
-      !fs.existsSync(path.join(root, item.pattern))),
+      !fs.existsSync(path.join(root, item.pattern)) && !shared[item.pattern]),
     missingRuntimeAssets: literals.filter(item => !item.pattern.includes('$') &&
       fs.existsSync(path.join(root, item.pattern)) &&
       fs.statSync(path.join(root, item.pattern)).isFile() &&

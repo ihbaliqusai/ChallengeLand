@@ -38,6 +38,7 @@ class RoomService {
   static const Duration startedRoomJoinWindow = Duration(minutes: 5);
   static const int _defaultDirectScoreQuestionCount = 15;
   static const int _pointsPerQuestion = 10;
+  static const int roomFeedLimit = 60;
 
   RoomService({FirebaseFirestore? firestore})
       : _firestore = firestore ?? FirebaseFirestore.instance;
@@ -50,13 +51,58 @@ class RoomService {
 
   Stream<List<Room>> watchOpenRooms({String? userId}) {
     _scheduleStaleRoomCleanup();
-    return _rooms.snapshots().map((snapshot) {
+    // Public rooms in older versions omit isPrivate, so filtering that field
+    // on the server would hide those rooms. Bound both feeds by lifecycle/time
+    // instead, and retain the privacy check below for backward compatibility.
+    final openedAfter = DateTime.now().subtract(roomExpiry);
+    final startedAfter = DateTime.now().subtract(startedRoomVisibilityWindow);
+    final lobbyQuery = _rooms
+        .where('started', isEqualTo: false)
+        .where('createdAt', isGreaterThan: Timestamp.fromDate(openedAfter))
+        .orderBy('createdAt', descending: true)
+        .limit(roomFeedLimit);
+    final playingQuery = _rooms
+        .where('started', isEqualTo: true)
+        .where('startedAt', isGreaterThan: Timestamp.fromDate(startedAfter))
+        .orderBy('startedAt', descending: true)
+        .limit(roomFeedLimit);
+    late final StreamController<List<Room>> controller;
+    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? lobbySubscription;
+    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>?
+        playingSubscription;
+    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? legacySubscription;
+    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? publicSubscription;
+    QuerySnapshot<Map<String, dynamic>>? lobby;
+    QuerySnapshot<Map<String, dynamic>>? playing;
+    QuerySnapshot<Map<String, dynamic>>? legacy;
+    QuerySnapshot<Map<String, dynamic>>? public;
+    Timer? expiryTimer;
+    var cancelled = false;
+
+    void emit() {
+      if (cancelled ||
+          lobby == null ||
+          playing == null ||
+          legacy == null ||
+          public == null) {
+        return;
+      }
       final now = DateTime.now();
       final cutoff = now.subtract(roomExpiry);
       // إخفاء الغرف الجارية من القائمة بعد 10 دقائق من بدء اللعب فيها
       // (المباراة قد تستمر لأكثر من ذلك لمن في داخلها، لكن لا تظهر للجمهور).
       final startedDisplayCutoff = now.subtract(startedRoomVisibilityWindow);
-      final rooms = snapshot.docs
+      final documents = {
+        for (final doc in [...lobby!.docs, ...playing!.docs, ...public!.docs])
+          doc.id: doc,
+        // Firestore cannot query absent fields. A bounded compatibility window
+        // preserves old lobby docs without requiring a collection-wide scan.
+        for (final doc in legacy!.docs)
+          if (doc.data()['createdAt'] == null ||
+              !doc.data().containsKey('started'))
+            doc.id: doc,
+      };
+      final rooms = documents.values
           .map(Room.fromSnapshot)
           .where(
             (room) =>
@@ -84,8 +130,105 @@ class RoomService {
           return right.compareTo(left);
         });
 
-      return rooms;
-    });
+      controller.add(rooms);
+    }
+
+    void listenLobby({bool fallback = false}) {
+      // A single-field, capped fallback keeps deployed clients usable while a
+      // newly added composite index is still building. Never scan all rooms.
+      final query = fallback
+          ? _rooms.orderBy('createdAt', descending: true).limit(roomFeedLimit)
+          : lobbyQuery;
+      lobbySubscription = query.snapshots().listen((snapshot) {
+        lobby = snapshot;
+        emit();
+      }, onError: (Object error, StackTrace stack) {
+        if (cancelled) return;
+        if (!fallback &&
+            error is FirebaseException &&
+            error.code == 'failed-precondition') {
+          unawaited(lobbySubscription?.cancel());
+          listenLobby(fallback: true);
+        } else {
+          controller.addError(error, stack);
+        }
+      });
+    }
+
+    void listenPlaying({bool fallback = false}) {
+      final query = fallback
+          ? _rooms.orderBy('startedAt', descending: true).limit(roomFeedLimit)
+          : playingQuery;
+      playingSubscription = query.snapshots().listen((snapshot) {
+        playing = snapshot;
+        emit();
+      }, onError: (Object error, StackTrace stack) {
+        if (cancelled) return;
+        if (!fallback &&
+            error is FirebaseException &&
+            error.code == 'failed-precondition') {
+          unawaited(playingSubscription?.cancel());
+          listenPlaying(fallback: true);
+        } else {
+          controller.addError(error, stack);
+        }
+      });
+    }
+
+    void listenPublic({bool fallback = false}) {
+      // Current clients write an explicit false flag. This separate public
+      // window prevents private rooms crowding all public listings out of the
+      // bounded lifecycle feeds used for older clients.
+      final query = fallback
+          ? _rooms.where('isPrivate', isEqualTo: false).limit(roomFeedLimit)
+          : _rooms
+              .where('isPrivate', isEqualTo: false)
+              .orderBy('createdAt', descending: true)
+              .limit(roomFeedLimit);
+      publicSubscription = query.snapshots().listen((snapshot) {
+        public = snapshot;
+        emit();
+      }, onError: (Object error, StackTrace stack) {
+        if (cancelled) return;
+        if (!fallback &&
+            error is FirebaseException &&
+            error.code == 'failed-precondition') {
+          unawaited(publicSubscription?.cancel());
+          listenPublic(fallback: true);
+        } else {
+          controller.addError(error, stack);
+        }
+      });
+    }
+
+    controller = StreamController<List<Room>>(
+      onListen: () {
+        listenLobby();
+        listenPlaying();
+        listenPublic();
+        legacySubscription = _rooms
+            .orderBy(FieldPath.documentId)
+            .limit(roomFeedLimit)
+            .snapshots()
+            .listen((snapshot) {
+          legacy = snapshot;
+          emit();
+        }, onError: controller.addError);
+        // Expire idle listings even when no player writes another update.
+        expiryTimer = Timer.periodic(const Duration(minutes: 1), (_) => emit());
+      },
+      onCancel: () async {
+        cancelled = true;
+        expiryTimer?.cancel();
+        await Future.wait([
+          if (lobbySubscription != null) lobbySubscription!.cancel(),
+          if (playingSubscription != null) playingSubscription!.cancel(),
+          if (legacySubscription != null) legacySubscription!.cancel(),
+          if (publicSubscription != null) publicSubscription!.cancel(),
+        ]);
+      },
+    );
+    return controller.stream;
   }
 
   Stream<Room?> watchRoom(String roomId) {
@@ -176,7 +319,7 @@ class RoomService {
         ).toMap(),
       },
       'createdAt': FieldValue.serverTimestamp(),
-      if (isPrivate) 'isPrivate': true,
+      'isPrivate': isPrivate,
       if (roomName != null && roomName.trim().isNotEmpty)
         'roomName': roomName.trim(),
       if (mode == Room.modeBlitz) 'roundDurationSeconds': roundDurationSeconds,

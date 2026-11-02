@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/rendering.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../models/game_character.dart';
+import '../core/performance_probe.dart';
 import '../services/native_bridge_service.dart';
+import 'synchronized_character_animation.dart';
 
 /// Displays the chosen contestant using the native game's existing idle loop.
 class HomeCharacterArtwork extends StatefulWidget {
@@ -96,91 +96,32 @@ class _HomeCharacterArtworkState extends State<HomeCharacterArtwork> {
   }
 
   Widget _withAnimation(Widget fallback) {
+    if (PerformanceProbe.enabled) {
+      return ValueListenableBuilder<bool>(
+        valueListenable: PerformanceProbe.character,
+        builder: (_, enabled, __) =>
+            enabled ? _animationOrFallback(fallback) : fallback,
+      );
+    }
+    return _animationOrFallback(fallback);
+  }
+
+  Widget _animationOrFallback(Widget fallback) {
     if (!context.read<NativeBridgeService>().supportsAnimatedCharacters ||
         MediaQuery.disableAnimationsOf(context)) {
       return fallback;
     }
-    return _AnimatedContestant(
-        key: ValueKey('animated-${widget.character.index}'),
-        index: widget.character.index,
-        fallback: fallback);
+    return SynchronizedCharacterAnimation(
+      character: widget.character,
+      includeReflection: false,
+      cropToCharacter: false,
+      fallback: (key, {reflected = false}) =>
+          KeyedSubtree(key: key, child: fallback),
+      builder: (_, frame) => Center(
+          child: AspectRatio(
+        aspectRatio: 720 / 1280,
+        child: frame(const ValueKey('home-character-texture')),
+      )),
+    );
   }
-}
-
-class _AnimatedContestant extends StatefulWidget {
-  const _AnimatedContestant(
-      {super.key, required this.index, required this.fallback});
-  final int index;
-  final Widget fallback;
-  @override
-  State<_AnimatedContestant> createState() => _AnimatedContestantState();
-}
-
-class _AnimatedContestantState extends State<_AnimatedContestant> {
-  MethodChannel? _channel;
-  bool _ready = false;
-  bool _paused = false;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _paused = !TickerMode.of(context);
-    _setPaused();
-  }
-
-  Future<void> _setPaused() async {
-    try {
-      await _channel?.invokeMethod<void>('setPaused', _paused);
-    } on PlatformException {
-      // Native disposal may race a route transition.
-    } on MissingPluginException {
-      // The platform view has already been disposed.
-    }
-  }
-
-  void _created(int id) {
-    _channel = MethodChannel('challengeland/home-character/$id');
-    _channel!.setMethodCallHandler((call) async {
-      if (call.method == 'ready' && mounted) setState(() => _ready = true);
-    });
-    _setPaused();
-  }
-
-  @override
-  void dispose() {
-    _channel?.setMethodCallHandler(null);
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => Stack(children: [
-        if (!_ready) Positioned.fill(child: widget.fallback),
-        Positioned.fill(
-            key: const ValueKey('home-native-animation'),
-            child: Center(
-                child: AspectRatio(
-              aspectRatio: 720 / 1280,
-              child: PlatformViewLink(
-                viewType: 'challengeland/home-character',
-                surfaceFactory: (context, controller) => AndroidViewSurface(
-                    controller: controller as AndroidViewController,
-                    gestureRecognizers: const <Factory<
-                        OneSequenceGestureRecognizer>>{},
-                    hitTestBehavior: PlatformViewHitTestBehavior.transparent),
-                onCreatePlatformView: (params) =>
-                    PlatformViewsService.initExpensiveAndroidView(
-                  id: params.id,
-                  viewType: 'challengeland/home-character',
-                  layoutDirection: TextDirection.ltr,
-                  creationParams: {'index': widget.index, 'paused': _paused},
-                  creationParamsCodec: const StandardMessageCodec(),
-                  onFocus: () => params.onFocusChanged(true),
-                )
-                      ..addOnPlatformViewCreatedListener(
-                          params.onPlatformViewCreated)
-                      ..addOnPlatformViewCreatedListener(_created)
-                      ..create(),
-              ),
-            ))),
-      ]);
 }

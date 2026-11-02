@@ -17,7 +17,7 @@ class PlayStakeArtwork extends StatelessWidget {
     required this.onClose,
   });
 
-  static const asset = 'assets/ui/play_stake_dialog.png';
+  static const asset = 'assets/ui/play_stake_dialog.webp';
   static const gold = Color(0xFFFFD776);
   final int coins;
   final int selectedStake;

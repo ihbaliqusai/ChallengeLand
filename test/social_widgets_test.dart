@@ -90,6 +90,16 @@ class _SavedMatchBridge extends _AvailableNativeBridge {
       {'id': id, 'uid': 'bob', 'finished': false};
 }
 
+class _CountingClockSocialService extends SocialService {
+  _CountingClockSocialService({required super.firestore, required super.clock});
+  int syncCalls = 0;
+  @override
+  Future<void> syncClock() async {
+    syncCalls++;
+    await super.syncClock();
+  }
+}
+
 class _StalledSocialService extends SocialService {
   _StalledSocialService({required super.firestore, required super.clock});
   final source =
@@ -265,6 +275,55 @@ void main() {
 
   Finder option(String label) =>
       find.descendant(of: find.byType(Dialog), matching: find.text(label));
+
+  testWidgets('idle social shell does not keep a one-second countdown',
+      (tester) async {
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final counting =
+        _CountingClockSocialService(firestore: db, clock: () => now);
+    service = counting;
+    await pump(tester, _App('bob'));
+    final initial = counting.syncCalls;
+    await tester.pump(const Duration(seconds: 5));
+    expect(counting.syncCalls, initial);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('social countdown pauses and expires on foreground return',
+      (tester) async {
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final counting =
+        _CountingClockSocialService(firestore: db, clock: () => now);
+    service = counting;
+    await db.doc('social_challenges/alice:bob').set({
+      'members': ['alice', 'bob'],
+      'fromUid': 'alice',
+      'toUid': 'bob',
+      'status': 'pending',
+      'mode': 'duel',
+      'createdAt': Timestamp.fromDate(now),
+      'expiresAt': Timestamp.fromDate(now.add(const Duration(seconds: 30))),
+    });
+    await pump(tester, _App('bob'), size: const Size(640, 480));
+    expect(find.text('دعوة إلى التحدي'), findsOneWidget);
+    final beforeTick = counting.syncCalls;
+    await tester.pump(const Duration(seconds: 1));
+    expect(counting.syncCalls, greaterThan(beforeTick));
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    final paused = counting.syncCalls;
+    now = now.add(const Duration(seconds: 31));
+    await tester.pump(const Duration(seconds: 5));
+    expect(counting.syncCalls, paused);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    expect(find.text('دعوة إلى التحدي'), findsNothing);
+    final resumed = counting.syncCalls;
+    await tester.pump(const Duration(seconds: 5));
+    expect(counting.syncCalls, resumed);
+    await tester.pumpWidget(const SizedBox());
+  });
 
   testWidgets(
       'accepting an invitation can show recovery above the root social notice',

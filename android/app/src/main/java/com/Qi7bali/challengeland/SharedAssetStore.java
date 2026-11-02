@@ -9,7 +9,6 @@ import java.io.ByteArrayOutputStream;
 final class SharedAssetStore {
     private static InputStream open(Context context, String key) throws IOException {
         switch (key) {
-            case "assets/videos/welcome.mp4": return context.getResources().openRawResource(R.raw.welcome);
             case "assets/categories/دقة ملاحظة.png": return context.getAssets().open("categories/دقة ملاحظة.png");
             case "assets/fonts/baloo.ttf": return context.getResources().openRawResource(R.font.baloo);
             case "assets/characters/contestant_green.png": return context.getResources().openRawResource(R.drawable.contestant_green);
@@ -116,6 +115,28 @@ final class SharedAssetStore {
             case "assets/categories/One Piece.png": return context.getAssets().open("categories/One Piece.png");
             case "assets/categories/Attack on Titan.png": return context.getAssets().open("categories/Attack on Titan.png");
             case "assets/categories/Naruto.png": return context.getAssets().open("categories/Naruto.png");
+            case "assets/presenter/podiumhost.png": return context.getResources().openRawResource(R.drawable.podiumhost);
+            case "assets/presenter/head.png": return context.getResources().openRawResource(R.drawable.head);
+            case "assets/presenter/person_08.png": return context.getResources().openRawResource(R.drawable.person_08);
+            case "assets/presenter/person_07.png": return context.getResources().openRawResource(R.drawable.person_07);
+            case "assets/presenter/person_06.png": return context.getResources().openRawResource(R.drawable.person_06);
+            case "assets/presenter/person_09.png": return context.getResources().openRawResource(R.drawable.person_09);
+            case "assets/presenter/person_05.png": return context.getResources().openRawResource(R.drawable.person_05);
+            case "assets/presenter/person_03.png": return context.getResources().openRawResource(R.drawable.person_03);
+            case "assets/presenter/person_02.png": return context.getResources().openRawResource(R.drawable.person_02);
+            case "assets/presenter/person_04.png": return context.getResources().openRawResource(R.drawable.person_04);
+            case "assets/presenter/person_10.png": return context.getResources().openRawResource(R.drawable.person_10);
+            case "assets/presenter/person_01.png": return context.getResources().openRawResource(R.drawable.person_01);
+            case "assets/presenter/mouth_02.png": return context.getResources().openRawResource(R.drawable.mouth_02);
+            case "assets/presenter/mouth_01.png": return context.getResources().openRawResource(R.drawable.mouth_01);
+            case "assets/presenter/look_aside.png": return context.getResources().openRawResource(R.drawable.look_aside);
+            case "assets/presenter/mouth_06.png": return context.getResources().openRawResource(R.drawable.mouth_06);
+            case "assets/presenter/mouth_05.png": return context.getResources().openRawResource(R.drawable.mouth_05);
+            case "assets/presenter/mouth_03.png": return context.getResources().openRawResource(R.drawable.mouth_03);
+            case "assets/presenter/mouth_04.png": return context.getResources().openRawResource(R.drawable.mouth_04);
+            case "assets/presenter/closed_eyes.png": return context.getResources().openRawResource(R.drawable.closed_eyes);
+            case "assets/presenter/eyebrows_up_left.png": return context.getResources().openRawResource(R.drawable.eyebrows_up_left);
+            case "assets/presenter/eyebrows_up_right.png": return context.getResources().openRawResource(R.drawable.eyebrows_up_right);
             default: throw new IOException("Unknown shared asset: " + key);
         }
     }

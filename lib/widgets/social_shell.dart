@@ -39,12 +39,39 @@ class _SocialShellState extends State<SocialShell> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) {
-        context.read<SocialService>().syncClock();
-        setState(() {});
-        _launchAccepted();
-      }
+    _foreground = WidgetsBinding.instance.lifecycleState == null ||
+        WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
+  }
+
+  void _updateCountdown() {
+    if (!mounted) return;
+    final now = context.read<SocialService>().now;
+    final hasChallenge = _requests.any((doc) {
+      final data = doc.data();
+      final peer = data['fromUid'] == _uid ? data['toUid'] : data['fromUid'];
+      if (_blocked.contains(peer)) return false;
+      if (SocialService.pending(data, now)) return true;
+      final acceptedAt = data['acceptedAt'];
+      return data['status'] == 'accepted' &&
+          acceptedAt is Timestamp &&
+          now.difference(acceptedAt.toDate()) < const Duration(seconds: 30) &&
+          !_handled.contains('${doc.id}:${acceptedAt.millisecondsSinceEpoch}');
+    });
+    final hasFriend = _friendRequests.any((doc) =>
+        !_dismissedFriends.contains('${doc.id}:${doc.data()['createdAt']}') &&
+        !_blocked.contains(doc.data()['fromUid']) &&
+        SocialService.pending(doc.data(), now));
+    if (!_foreground || _uid == null || (!hasChallenge && !hasFriend)) {
+      _timer?.cancel();
+      _timer = null;
+      return;
+    }
+    _timer ??= Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted || !_foreground) return;
+      unawaited(context.read<SocialService>().syncClock());
+      setState(() {});
+      _launchAccepted();
+      _updateCountdown();
     });
   }
 
@@ -54,6 +81,8 @@ class _SocialShellState extends State<SocialShell> with WidgetsBindingObserver {
     final user = context.watch<AppState>().currentUser;
     final uid = user == null || user.isAnonymous ? null : user.uid;
     if (_uid == uid) return;
+    _timer?.cancel();
+    _timer = null;
     _subscription?.cancel();
     _friendSubscription?.cancel();
     _blockSubscription?.cancel();
@@ -72,6 +101,7 @@ class _SocialShellState extends State<SocialShell> with WidgetsBindingObserver {
         if (!mounted || _uid != uid) return;
         setState(() => _friendRequests =
             snapshot.docs.where((d) => !d.metadata.hasPendingWrites).toList());
+        _updateCountdown();
       }, onError: (Object _) {
         if (mounted && _uid == uid) setState(() => _friendRequests = []);
       });
@@ -92,6 +122,7 @@ class _SocialShellState extends State<SocialShell> with WidgetsBindingObserver {
         setState(() => _requests =
             snapshot.docs.where((d) => !d.metadata.hasPendingWrites).toList());
         _launchAccepted();
+        _updateCountdown();
       }, onError: (Object error) {
         // The social feature must not interrupt startup or offline gameplay.
         if (mounted && _uid == uid) setState(() => _requests = []);
@@ -102,7 +133,12 @@ class _SocialShellState extends State<SocialShell> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _foreground = state == AppLifecycleState.resumed;
-    if (_foreground) _launchAccepted();
+    _updateCountdown();
+    if (_foreground) {
+      unawaited(context.read<SocialService>().syncClock());
+      _launchAccepted();
+    }
+    if (mounted) setState(() {});
   }
 
   @override

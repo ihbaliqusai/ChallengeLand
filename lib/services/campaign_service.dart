@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
 import '../models/campaign_home_progress.dart';
+import '../core/campaign_trophy_rules.dart';
 import '../models/campaign_stage.dart';
 import '../models/stage_attempt.dart';
 import '../models/stage_leaderboard_entry.dart';
@@ -30,6 +31,7 @@ class StageSubmissionResult {
     this.rewardClaimId,
     this.rewardClaimStatus,
     this.rewardGrantSucceeded = false,
+    this.rewardTrophiesGranted = 0,
   });
 
   final StageAttempt attempt;
@@ -49,6 +51,7 @@ class StageSubmissionResult {
   final String? rewardClaimId;
   final String? rewardClaimStatus;
   final bool rewardGrantSucceeded;
+  final int rewardTrophiesGranted;
 
   StageSubmissionResult copyWith({
     bool? leaderboardUpdated,
@@ -59,6 +62,7 @@ class StageSubmissionResult {
     String? rewardClaimId,
     String? rewardClaimStatus,
     bool? rewardGrantSucceeded,
+    int? rewardTrophiesGranted,
   }) {
     return StageSubmissionResult(
       attempt: attempt,
@@ -78,6 +82,8 @@ class StageSubmissionResult {
       rewardClaimId: rewardClaimId ?? this.rewardClaimId,
       rewardClaimStatus: rewardClaimStatus ?? this.rewardClaimStatus,
       rewardGrantSucceeded: rewardGrantSucceeded ?? this.rewardGrantSucceeded,
+      rewardTrophiesGranted:
+          rewardTrophiesGranted ?? this.rewardTrophiesGranted,
     );
   }
 }
@@ -118,6 +124,12 @@ class CampaignRewardClaim {
   bool get isClaimed => status == CampaignRewardClaimStatus.claimed.value;
   bool get hasCurrencyReward => coins > 0 || gems > 0;
   bool get hasXpReward => xp > 0;
+  int get trophyReward => CampaignTrophyRules.rewardForClaim(
+      claimId: claimId,
+      campaignId: campaignId,
+      stageId: stageId,
+      previousStars: previousStars,
+      newStars: newStars);
 
   factory CampaignRewardClaim.fromMap(
     Map<String, dynamic> map, {
@@ -914,6 +926,8 @@ class CampaignService {
           rewardCoinsGranted: rewardPending ? claim.coins : 0,
           rewardGemsGranted: rewardPending ? claim.gems : 0,
           rewardXpGranted: rewardPending ? claim.xp : 0,
+          rewardTrophiesGranted:
+              rewardPending && !claim.xpClaimed ? claim.trophyReward : 0,
           rewardClaimId: claimId,
           rewardClaimStatus: claim?.status,
           motivationalMessage: 'تم حفظ هذه المحاولة بالفعل.',
@@ -952,6 +966,9 @@ class CampaignService {
       final reward = _calculateReward(
         stage: stage,
         isFirstCompletion: isFirstCompletion,
+        firstClearTrophiesEnabled:
+            _readInt(nativeResult['campaignTrophyPolicyVersion']) == 3 &&
+                _readInt(nativeResult['trophyDelta']) == 0,
         previousStars: previousStars,
         newStars: newStars,
       );
@@ -962,6 +979,7 @@ class CampaignService {
               previousStars: previousStars,
               newStars: newStars,
               isFirstCompletion: isFirstCompletion,
+              rewardFirstClearTrophies: reward.trophies > 0,
             )
           : null;
       final claimRef = rewardClaimId == null
@@ -991,7 +1009,8 @@ class CampaignService {
           'status': CampaignRewardClaimStatus.pending.value,
           'attemptId': attemptRef.id,
           'currencyClaimed': reward.coins <= 0 && reward.gems <= 0,
-          'xpClaimed': reward.xp <= 0,
+          // XP and first-clear trophies settle together under this legacy flag.
+          'xpClaimed': reward.xp <= 0 && reward.trophies <= 0,
           'retryCount': 0,
           'createdAt': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
@@ -1030,6 +1049,10 @@ class CampaignService {
         rewardCoinsGranted: rewardReserved ? reward.coins : 0,
         rewardGemsGranted: rewardReserved ? reward.gems : 0,
         rewardXpGranted: rewardReserved ? reward.xp : 0,
+        rewardTrophiesGranted:
+            rewardReserved && !_readBool(claimSnapshot?.data()?['xpClaimed'])
+                ? reward.trophies
+                : 0,
         rewardClaimId: rewardReserved ? rewardClaimId : null,
         rewardClaimStatus: claimAlreadyPaid
             ? CampaignRewardClaimStatus.claimed.value
@@ -1379,6 +1402,7 @@ class CampaignService {
   _RewardGrant _calculateReward({
     required CampaignStage stage,
     required bool isFirstCompletion,
+    required bool firstClearTrophiesEnabled,
     required int previousStars,
     required int newStars,
   }) {
@@ -1396,6 +1420,9 @@ class CampaignService {
           _starScaledReward(stage.rewardGems, paidStars),
       xp: _starScaledReward(stage.rewardXp, newStars) -
           _starScaledReward(stage.rewardXp, paidStars),
+      trophies: isFirstCompletion && firstClearTrophiesEnabled
+          ? CampaignTrophyRules.firstClearTrophies
+          : 0,
     );
   }
 
@@ -1410,7 +1437,11 @@ class CampaignService {
     required int previousStars,
     required int newStars,
     required bool isFirstCompletion,
+    required bool rewardFirstClearTrophies,
   }) {
+    if (isFirstCompletion && rewardFirstClearTrophies) {
+      return CampaignTrophyRules.firstClearClaimId(campaignId, stageId);
+    }
     final phase = isFirstCompletion
         ? 'first_completion'
         : '${previousStars}_to_$newStars';
@@ -1462,18 +1493,21 @@ class _RewardGrant {
     required this.coins,
     required this.gems,
     required this.xp,
+    this.trophies = 0,
   });
 
   const _RewardGrant.none()
       : coins = 0,
         gems = 0,
-        xp = 0;
+        xp = 0,
+        trophies = 0;
 
   final int coins;
   final int gems;
   final int xp;
+  final int trophies;
 
-  bool get granted => coins > 0 || gems > 0 || xp > 0;
+  bool get granted => coins > 0 || gems > 0 || xp > 0 || trophies > 0;
 }
 
 bool _readBool(dynamic value, {bool defaultValue = false}) {

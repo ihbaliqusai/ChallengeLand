@@ -360,6 +360,11 @@ public class GameActivity extends GameViewportActivity implements ProgressionMat
     }
     private static final int DIALOG_EXTRA_VISIBLE_MS = 1000;
     private final Handler presenterHandler = new Handler();
+    private final Handler lightsHandler = new Handler();
+    private Runnable lightsRunnable;
+    private final Handler blinkingHandler = new Handler();
+    private Runnable blinkingRunnable;
+    private boolean ambientMotionResumed;
     private final PresenterDialogue presenterDialogue = new PresenterDialogue(
             android.os.SystemClock::uptimeMillis, presenterHandler::postDelayed);
 
@@ -1058,7 +1063,6 @@ public class GameActivity extends GameViewportActivity implements ProgressionMat
         campaignHudController.configureGameplayHud();
 
         FAST_LIGHTS = false;
-        animLights();
 
         int idStep;
         for (int i = 1; i <= 15; i++) {
@@ -1073,8 +1077,6 @@ public class GameActivity extends GameViewportActivity implements ProgressionMat
 
         currentQuestion = -1;
         currentStep = 0;
-
-        goBlinking();
 
         final Handler handler = new Handler();
         Runnable runnable = new Runnable() {
@@ -1519,6 +1521,7 @@ public class GameActivity extends GameViewportActivity implements ProgressionMat
         }
         if (boardCampaignMatch && !campaignResultPersisted && !boardSelectedCategories.isEmpty()
                 && !ensureCampaignBoardCategoryAccess()) return;
+        startAmbientMotion();
         if (offlineContestants != null) offlineContestants.setVideosPaused(false);
         for (ChromaVideoView video : resultVideoViews) video.setPaused(false);
         if (backgroundVideoController != null) backgroundVideoController.start();
@@ -12026,61 +12029,83 @@ public class GameActivity extends GameViewportActivity implements ProgressionMat
         }
     }
 
+    private void startAmbientMotion() {
+        if (ambientMotionResumed || EXITING || isFinishing() || isDestroyed() || person == null) return;
+        ambientMotionResumed = true;
+        animLights();
+        goBlinking();
+    }
+
+    private void stopAmbientMotion() {
+        ambientMotionResumed = false;
+        lightsHandler.removeCallbacksAndMessages(null);
+        lightsRunnable = null;
+        blinkingHandler.removeCallbacksAndMessages(null);
+        blinkingRunnable = null;
+        for (int id : new int[]{R.id.imgLight1, R.id.imgLight2, R.id.imgLight3,
+                R.id.imgLight4, R.id.imgShadow}) {
+            View view = findViewById(id);
+            if (view != null) view.clearAnimation();
+        }
+    }
+
     private void animLights() {
-        final ImageView imgLight1, imgLight2, imgLight3, imgLight4;
-
-        final ImageView imgShadow;
-        imgShadow = findViewById(R.id.imgShadow);
-        imgLight1 = findViewById(R.id.imgLight1);
-        imgLight2 = findViewById(R.id.imgLight2);
-        imgLight3 = findViewById(R.id.imgLight3);
-        imgLight4 = findViewById(R.id.imgLight4);
-
-
-        final Handler handler = new Handler();
-        Runnable runnable = new Runnable() {
+        if (lightsRunnable != null) return;
+        final ImageView imgLight1 = findViewById(R.id.imgLight1);
+        final ImageView imgLight2 = findViewById(R.id.imgLight2);
+        final ImageView imgLight3 = findViewById(R.id.imgLight3);
+        final ImageView imgLight4 = findViewById(R.id.imgLight4);
+        final ImageView imgShadow = findViewById(R.id.imgShadow);
+        if (imgLight1 == null || imgLight2 == null || imgLight3 == null || imgLight4 == null) return;
+        T_LIGHTS = 0;
+        lightsRunnable = new Runnable() {
             boolean toLeft = true;
-            int d;
 
             @Override
             public void run() {
+                if (!ambientMotionResumed || EXITING || isFinishing() || isDestroyed()) {
+                    lightsRunnable = null;
+                    return;
+                }
                 T_LIGHTS++;
-                d = FAST_LIGHTS ? 250 : 1000;
-                if ((FAST_LIGHTS) || ((!FAST_LIGHTS) && (T_LIGHTS == 4))) {
+                int duration = FAST_LIGHTS ? 250 : 1000;
+                if (FAST_LIGHTS || T_LIGHTS == 4) {
                     T_LIGHTS = 0;
                     if (toLeft) {
-                        Animations.rotateLight(imgLight1, -20f, 20f, d);
-                        Animations.rotateLight(imgLight2, 20f, -20f, d);
-                        Animations.rotateLight(imgLight3, -20f, 20f, d);
-                        Animations.rotateLight(imgLight4, 20f, -20f, d);
-                        toLeft = false;
+                        Animations.rotateLight(imgLight1, -20f, 20f, duration);
+                        Animations.rotateLight(imgLight2, 20f, -20f, duration);
+                        Animations.rotateLight(imgLight3, -20f, 20f, duration);
+                        Animations.rotateLight(imgLight4, 20f, -20f, duration);
                     } else {
-                        if (FAST_LIGHTS) Animations.fadeShadow(imgShadow);
-                        Animations.rotateLight(imgLight1, 20f, -20f, d);
-                        Animations.rotateLight(imgLight2, -20f, 20f, d);
-                        Animations.rotateLight(imgLight3, 20f, -20f, d);
-                        Animations.rotateLight(imgLight4, -20f, 20f, d);
-                        toLeft = true;
+                        if (FAST_LIGHTS && imgShadow != null) Animations.fadeShadow(imgShadow);
+                        Animations.rotateLight(imgLight1, 20f, -20f, duration);
+                        Animations.rotateLight(imgLight2, -20f, 20f, duration);
+                        Animations.rotateLight(imgLight3, 20f, -20f, duration);
+                        Animations.rotateLight(imgLight4, -20f, 20f, duration);
                     }
+                    toLeft = !toLeft;
                 }
-                handler.postDelayed(this, 250);
+                lightsHandler.postDelayed(this, 250);
             }
         };
-        handler.postDelayed(runnable, 0);
+        lightsHandler.post(lightsRunnable);
     }
 
     private void goBlinking() {
-        final Handler handler = new Handler();
-        Runnable runnable = new Runnable() {
+        if (blinkingRunnable != null) return;
+        final Random random = new Random();
+        blinkingRunnable = new Runnable() {
             @Override
             public void run() {
-                int times = (new Random()).nextInt(2) + 1;
-                int delay = (new Random()).nextInt(5) + 3;
-                person.blinkEyes(times);
-                handler.postDelayed(this, delay * 1000);
+                if (!ambientMotionResumed || EXITING || isFinishing() || isDestroyed()) {
+                    blinkingRunnable = null;
+                    return;
+                }
+                person.blinkEyes(random.nextInt(2) + 1);
+                blinkingHandler.postDelayed(this, (random.nextInt(5) + 3) * 1000L);
             }
         };
-        handler.postDelayed(runnable, 1000);
+        blinkingHandler.postDelayed(blinkingRunnable, 1000);
     }
 
     private void onWrongAnswer(boolean timeOut) {
@@ -12567,6 +12592,7 @@ public class GameActivity extends GameViewportActivity implements ProgressionMat
 
     @Override
     protected void onPause() {
+        stopAmbientMotion();
         presenterDialogue.pause();
         ACTIVITY_PAUSED = true;
         OnlineMatchRecovery.updateLaunch(this);
@@ -12633,6 +12659,7 @@ public class GameActivity extends GameViewportActivity implements ProgressionMat
 
     @Override
     protected void onDestroy() {
+        stopAmbientMotion();
         if (matchmakingEntrance != null) matchmakingEntrance.dispose();
         matchmakingEntrance = null;
         presenterDialogue.dispose();

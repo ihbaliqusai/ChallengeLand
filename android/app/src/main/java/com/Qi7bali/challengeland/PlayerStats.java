@@ -138,14 +138,19 @@ public class PlayerStats {
                 && !p.contains("pendingDuel:" + id.substring("duel:".length()))) return;
         int games = p.getInt("gamesPlayed", 0);
         boolean won = ProgressionRules.WIN.equals(outcome);
-        int streak = won ? ProgressionRules.safeAdd(p.getInt("currentWinStreak", 0), 1) : 0;
         String mode = NativeProgression.mode(c);
         if (mode == null || mode.isEmpty()) mode = "offline";
+        // Practice must neither build a trophy streak nor consume the first
+        // eight eligible matches' loss protection in another game mode.
+        int previousStreak = p.getInt("currentWinStreak", 0);
+        int streak = "campaign".equals(mode) ? previousStreak
+                : won ? ProgressionRules.safeAdd(previousStreak, 1) : 0;
+        int trophyGamesBefore = Math.max(0, games - p.getInt("mode_campaign_games", 0));
         int oldTrophies = p.getInt("trophies", 0);
         int requestedDelta = duelForfeit
-                ? ProgressionRules.onlineDuelForfeitTrophyDelta(won, games, streak, correct, answered)
+                ? ProgressionRules.onlineDuelForfeitTrophyDelta(won, trophyGamesBefore, streak, correct, answered)
                 : ProgressionRules.trophyDelta(mode, outcome,
-                        p.getBoolean("session:" + id + ":humanOnline", false) || NativeProgression.humanOnline(c), games, streak, correct, answered);
+                        p.getBoolean("session:" + id + ":humanOnline", false) || NativeProgression.humanOnline(c), trophyGamesBefore, streak, correct, answered);
         int nextTrophies = ProgressionRules.safeAdd(oldTrophies, requestedDelta);
         int delta = nextTrophies - oldTrophies;
         int xp = answered == 0 ? 0 : ProgressionRules.completionXp(outcome, NativeProgression.online(c));

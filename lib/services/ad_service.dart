@@ -5,7 +5,11 @@ import 'package:flutter/widgets.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class AdService extends ChangeNotifier {
+class AdService extends ChangeNotifier with WidgetsBindingObserver {
+  AdService() {
+    WidgetsBinding.instance.addObserver(this);
+  }
+
   // ── Production AdMob ad unit IDs (publisher ca-app-pub-2427194500639575) ─────
   static const bool _useDemoUnits =
       kDebugMode && bool.fromEnvironment('ADMOB_USE_DEMO_UNITS');
@@ -112,6 +116,21 @@ class AdService extends ChangeNotifier {
     return state == null || state == AppLifecycleState.resumed;
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) {
+      _rewardedRetry?.cancel();
+      _interstitialRetry?.cancel();
+      _rewardedRetry = null;
+      _interstitialRetry = null;
+      return;
+    }
+    if (!_disposed && _adsAllowed) {
+      unawaited(_loadRewarded());
+      _loadInterstitial();
+    }
+  }
+
   Future<void> _initialize() async {
     _prefs = await SharedPreferences.getInstance();
     if (_disposed) return;
@@ -148,7 +167,7 @@ class AdService extends ChangeNotifier {
   }
 
   Future<bool> _loadRewarded() async {
-    if (_disposed || !_adsAllowed) return false;
+    if (_disposed || !_adsAllowed || !_foreground) return false;
     if (_rewardedAd != null) return true;
     if (_rewardedLoading) return _rewardedLoad!.future;
     _rewardedRetry?.cancel();
@@ -175,7 +194,10 @@ class AdService extends ChangeNotifier {
             debugPrint('[AdMob] Rewarded load failed: $error');
             _rewardedLoading = false;
             if (!pending.isCompleted) pending.complete(false);
-            _rewardedRetry = Timer(const Duration(seconds: 30), _loadRewarded);
+            if (_foreground) {
+              _rewardedRetry =
+                  Timer(const Duration(seconds: 30), _loadRewarded);
+            }
           },
         ),
       );
@@ -220,10 +242,10 @@ class AdService extends ChangeNotifier {
     if (_disposed) return;
     _adsAllowed = await ConsentInformation.instance.canRequestAds();
     if (_disposed) return;
-    if (_adsAllowed) {
+    if (_adsAllowed && _foreground) {
       unawaited(_loadRewarded());
       _loadInterstitial();
-    } else {
+    } else if (!_adsAllowed) {
       debugPrint('[AdMob] Ad requests blocked by consent status.');
     }
   }
@@ -231,6 +253,7 @@ class AdService extends ChangeNotifier {
   void _loadInterstitial() {
     if (_disposed ||
         !_adsAllowed ||
+        !_foreground ||
         _interstitialLoading ||
         _interstitialAd != null) {
       return;
@@ -257,8 +280,10 @@ class AdService extends ChangeNotifier {
           if (_disposed) return;
           debugPrint('[AdMob] Interstitial load failed: $error');
           _interstitialLoading = false;
-          _interstitialRetry =
-              Timer(const Duration(seconds: 30), _loadInterstitial);
+          if (_foreground) {
+            _interstitialRetry =
+                Timer(const Duration(seconds: 30), _loadInterstitial);
+          }
         },
       ),
     );
@@ -451,6 +476,7 @@ class AdService extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    WidgetsBinding.instance.removeObserver(this);
     _rewardedRetry?.cancel();
     _interstitialRetry?.cancel();
     final pending = _rewardedLoad;

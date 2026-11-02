@@ -40,11 +40,4 @@ abstract final class SharedAssets {
   static Future<void> initializeFont() => _font ??= (FontLoader('Baloo')
         ..addFont(bundle.load('assets/fonts/baloo.ttf')))
       .load();
-
-  static Future<Uri> welcomeVideoUri() async {
-    final uri =
-        await SharedAssetBundle.channel.invokeMethod<String>('welcomeVideoUri');
-    if (uri == null) throw StateError('Welcome video resource unavailable');
-    return Uri.parse(uri);
-  }
 }

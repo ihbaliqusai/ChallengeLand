@@ -432,7 +432,7 @@ class _CrossPromoMillionaireDialogState
           child: ClipRRect(
             borderRadius: BorderRadius.circular(15.5),
             child: adaptiveAssetImage(
-              'assets/ui/million_challenge_logo.png',
+              'assets/ui/million_challenge_logo.webp',
               fit: BoxFit.cover,
               errorBuilder: (_, __, ___) => Container(
                 color: const Color(0xFF0F172A),

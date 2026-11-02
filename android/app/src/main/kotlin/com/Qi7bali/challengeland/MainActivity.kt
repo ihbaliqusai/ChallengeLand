@@ -2,7 +2,6 @@ package com.qi7bali.landchallengeonline
 
 import android.Manifest
 import android.content.Intent
-import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -20,9 +19,11 @@ class MainActivity : FlutterActivity() {
     private val lobbyMusicVolume = GameAudioProfile.musicVolume(R.raw.bgm_lobby)
 
     private var pendingLaunchAction: String? = null
-    private var campaignMapMusicPlayer: MediaPlayer? = null
-    private var lobbyMusicPlayer: MediaPlayer? = null
+    private val sceneMusic by lazy { SceneMusicPlayer(applicationContext) }
     private var activeMusicScene: String = "NONE"
+    private var resumedForGameLaunch = false
+    private var gameLaunchPending = false
+    private var gameLaunchToken = 0L
     private var playBillingManager: PlayBillingManager? = null
     private val referralAttribution by lazy { ReferralAttribution(applicationContext) }
 
@@ -41,6 +42,9 @@ class MainActivity : FlutterActivity() {
 
     override fun onResume() {
         super.onResume()
+        resumedForGameLaunch = true
+        gameLaunchPending = false
+        sceneMusic.setForeground(true)
         DuelNotifications.resume(this)
         syncDailyReminderSchedule()
         GameEconomy.flush(this)
@@ -63,9 +67,54 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onPause() {
+        resumedForGameLaunch = false
+        gameLaunchToken++
+        gameLaunchPending = false
+        sceneMusic.setForeground(false)
         stopCampaignMapMusicPlayerOnly()
         stopLobbyMusicPlayerOnly()
         super.onPause()
+    }
+
+    /** A very early play tap must wait asynchronously, never join the loader's
+     * monitor from a gameplay Activity on the main thread. The same guard also
+     * prevents a stale queued launch after backgrounding or changing account. */
+    private fun launchWhenQuestionsReady(
+        result: MethodChannel.Result,
+        failureCode: String = "GAME_LAUNCH_FAILED",
+        launch: () -> Unit
+    ) {
+        if (gameLaunchPending) {
+            result.error("GAME_LAUNCH_PENDING", "جارٍ تجهيز اللعبة. انتظر لحظة.", null)
+            return
+        }
+        val requestedUid = ProgressionAccount.uid(this)
+        val token = ++gameLaunchToken
+        gameLaunchPending = true
+        LocalQuestions.preload(applicationContext) {
+            if (token != gameLaunchToken) {
+                result.error("GAME_LAUNCH_CANCELLED", "عُد إلى اللعبة وأعد المحاولة.", null)
+                return@preload
+            }
+            if (isFinishing || isDestroyed || !resumedForGameLaunch) {
+                gameLaunchPending = false
+                result.error("GAME_LAUNCH_CANCELLED", "عُد إلى اللعبة وأعد المحاولة.", null)
+            } else if (ProgressionAccount.uid(this) != requestedUid) {
+                gameLaunchPending = false
+                result.error("ONLINE_MATCH_ACCOUNT_CHANGED", "تغير حساب اللاعب. حاول مجددًا.", null)
+            } else if (!LocalQuestions.isPrepared()) {
+                gameLaunchPending = false
+                result.error("QUESTIONS_UNAVAILABLE", "تعذر تجهيز الأسئلة. أعد المحاولة.", null)
+            } else {
+                try {
+                    launch()
+                    result.success(true)
+                } catch (error: Exception) {
+                    gameLaunchPending = false
+                    result.error(failureCode, error.message, null)
+                }
+            }
+        }
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
@@ -118,18 +167,15 @@ class MainActivity : FlutterActivity() {
             try {
                 when (call.method) {
                     "load" -> result.success(SharedAssetStore.read(applicationContext, call.arguments as String))
-                    "welcomeVideoUri" -> result.success("android.resource://$packageName/${R.raw.welcome}")
                     else -> result.notImplemented()
                 }
             } catch (error: Exception) {
                 result.error("SHARED_ASSET", error.message, null)
             }
         }
-        flutterEngine.platformViewsController.registry.registerViewFactory(
-            "challengeland/home-character",
-            HomeCharacterViewFactory(this, flutterEngine.dartExecutor.binaryMessenger)
-        )
         CharacterAnimationTextures(this, flutterEngine.renderer,
+            flutterEngine.dartExecutor.binaryMessenger)
+        HomeBackgroundTextures(this, flutterEngine.renderer,
             flutterEngine.dartExecutor.binaryMessenger)
         val channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "millionaire/native")
         playBillingManager = PlayBillingManager(this, channel)
@@ -219,7 +265,9 @@ class MainActivity : FlutterActivity() {
                             }
                     }
                     "preloadLocalQuestions" -> {
-                        LocalQuestions.preload(applicationContext) { result.success(true) }
+                        LocalQuestions.preload(applicationContext) {
+                            result.success(LocalQuestions.isPrepared())
+                        }
                     }
                     "syncQuestionHistory" -> {
                         val historyRoomId = call.argument<String>("roomId") ?: ""
@@ -251,8 +299,9 @@ class MainActivity : FlutterActivity() {
                         finish()
                     }
                     "launchOfflineGame" -> {
-                        startActivity(Intent(this, OfflineGamesActivity::class.java))
-                        result.success(true)
+                        launchWhenQuestionsReady(result) {
+                            startActivity(Intent(this, OfflineGamesActivity::class.java))
+                        }
                     }
                     "launchMainChallenge" -> {
                         // التحدي الرئيسي: لوحة  بين فريقين على جهاز واحد.
@@ -263,8 +312,7 @@ class MainActivity : FlutterActivity() {
                             "characterIndex",
                             AppPrefs.getEffectiveCharacter(this@MainActivity)
                         )
-                        startActivity(intent)
-                        result.success(true)
+                        launchWhenQuestionsReady(result) { startActivity(intent) }
                     }
                     "launchStats" -> {
                         startActivity(Intent(this, StatsActivity::class.java))
@@ -285,17 +333,18 @@ class MainActivity : FlutterActivity() {
                     "launchSpeedBattle" -> {
                         val matchMode = call.argument<String>("matchMode") ?: ""
                         val friendCode = call.argument<String>("friendCode") ?: ""
-                        if (matchMode == "friend") {
-                            PlayerProgress.recordFriendMatchPlayed(this)
-                        } else {
-                            PlayerProgress.recordRandomMatchPlayed(this)
-                        }
                         val intent = Intent(this, OpponentActivity::class.java).apply {
                             if (matchMode.isNotBlank()) putExtra("matchMode", matchMode)
                             if (friendCode.isNotBlank()) putExtra("friendCode", friendCode)
                         }
-                        startActivity(intent)
-                        result.success(true)
+                        launchWhenQuestionsReady(result) {
+                            if (matchMode == "friend") {
+                                PlayerProgress.recordFriendMatchPlayed(this)
+                            } else {
+                                PlayerProgress.recordRandomMatchPlayed(this)
+                            }
+                            startActivity(intent)
+                        }
                     }
                     "getRecoverableOnlineMatches" -> {
                         result.success(OnlineMatchRecovery.pending(this).toString())
@@ -325,15 +374,12 @@ class MainActivity : FlutterActivity() {
                             })
                     }
                     "resumeOnlineMatch" -> {
-                        try {
-                            val recoveryId = call.argument<String>("id").orEmpty()
+                        val recoveryId = call.argument<String>("id").orEmpty()
+                        launchWhenQuestionsReady(result, "ONLINE_MATCH_RECOVERY_FAILED") {
                             if (!recoveryId.startsWith("bot:") && !Data.isNetworkAvailable(this)) {
                                 throw IllegalStateException("تحقق من الاتصال ثم أعد المحاولة.")
                             }
                             OnlineMatchRecovery.resume(this, recoveryId)
-                            result.success(true)
-                        } catch (error: Exception) {
-                            result.error("ONLINE_MATCH_RECOVERY_FAILED", error.message, null)
                         }
                     }
                     "dismissOnlineMatchRecovery" -> {
@@ -341,7 +387,6 @@ class MainActivity : FlutterActivity() {
                         result.success(null)
                     }
                     "launchRandomMatch" -> {
-                        PlayerProgress.recordRandomMatchPlayed(this)
                         val stakeCoins = (call.argument<Number>("stakeCoins"))?.toInt() ?: 0
                         val intent = Intent(this, OpponentActivity::class.java).apply {
                             putExtra("matchMode", "random")
@@ -349,8 +394,10 @@ class MainActivity : FlutterActivity() {
                                 putExtra("stakeCoins", stakeCoins)
                             }
                         }
-                        startActivity(intent)
-                        result.success(true)
+                        launchWhenQuestionsReady(result) {
+                            PlayerProgress.recordRandomMatchPlayed(this)
+                            startActivity(intent)
+                        }
                     }
                     "setSocialBusy" -> {
                         PlayerPresence.setFlutterBusy(call.argument<Boolean>("busy") == true)
@@ -365,7 +412,6 @@ class MainActivity : FlutterActivity() {
                         }, "device-country").start()
                     }
                     "launchFriendChallenge" -> {
-                        PlayerProgress.recordFriendMatchPlayed(this)
                         val friendCode = call.argument<String>("friendCode") ?: ""
                         val stakeMatchId = call.argument<String>("stakeMatchId")?.trim().orEmpty()
                         val intent = Intent(this, OpponentActivity::class.java).apply {
@@ -377,8 +423,10 @@ class MainActivity : FlutterActivity() {
                                 putExtra("stakeGameplayVersion", 2)
                             }
                         }
-                        startActivity(intent)
-                        result.success(true)
+                        launchWhenQuestionsReady(result) {
+                            PlayerProgress.recordFriendMatchPlayed(this)
+                            startActivity(intent)
+                        }
                     }
                     "playCampaignMapMusic" -> {
                         playCampaignMapMusic()
@@ -646,12 +694,10 @@ class MainActivity : FlutterActivity() {
                             putExtra("initiallyEliminated", call.argument<Boolean>("initiallyEliminated") ?: false)
                             putExtra("characterIndex", AppPrefs.getEffectiveCharacter(this@MainActivity))
                         }
-                        startActivity(intent)
-                        result.success(true)
+                        launchWhenQuestionsReady(result) { startActivity(intent) }
                     }
                     "launchCampaignStage" -> {
                         try {
-                            stopCampaignMapMusic()
                             val stageId = stringArg(call.argument<Any>("stageId"), "")
                             val campaignMode = stringArg(call.argument<Any>("campaignMode"), "classic")
                             val winCondition = stringArg(call.argument<Any>("winCondition"), "completeQuestions")
@@ -706,8 +752,10 @@ class MainActivity : FlutterActivity() {
                                 // from the Flutter picker); ignore any stale value from the call args.
                                 putExtra("characterIndex", AppPrefs.getEffectiveCharacter(this@MainActivity))
                             }
-                            startActivity(intent)
-                            result.success(true)
+                            launchWhenQuestionsReady(result, "CAMPAIGN_LAUNCH_FAILED") {
+                                stopCampaignMapMusic()
+                                startActivity(intent)
+                            }
                         } catch (e: Exception) {
                             result.error("CAMPAIGN_LAUNCH_FAILED", e.message, null)
                         }
@@ -1222,119 +1270,32 @@ class MainActivity : FlutterActivity() {
 
     private fun playLobbyMusic() {
         activeMusicScene = "LOBBY"
-        stopCampaignMapMusicPlayerOnly()
-        if (!AppPrefs.isMusicEnabled(this)) {
-            stopLobbyMusicPlayerOnly()
-            return
-        }
-        val current = lobbyMusicPlayer
-        if (current != null) {
-            try {
-                if (current.isPlaying) return
-                current.start()
-                return
-            } catch (ignored: Exception) {
-                stopLobbyMusicPlayerOnly()
-            }
-        }
-        stopLobbyMusicPlayerOnly()
-        lobbyMusicPlayer = MediaPlayer.create(this, R.raw.bgm_lobby)?.apply {
-            isLooping = true
-            setVolume(lobbyMusicVolume, lobbyMusicVolume)
-            setOnErrorListener { player, _, _ ->
-                try {
-                    player.release()
-                } catch (ignored: Exception) {
-                }
-                if (lobbyMusicPlayer === player) {
-                    lobbyMusicPlayer = null
-                }
-                true
-            }
-            start()
-        }
+        sceneMusic.stopIf(R.raw.labyrinth_of_lost_dreams)
+        if (AppPrefs.isMusicEnabled(this)) sceneMusic.play(R.raw.bgm_lobby, lobbyMusicVolume)
+        else stopLobbyMusicPlayerOnly()
     }
 
     private fun stopLobbyMusic() {
-        if (activeMusicScene == "LOBBY") {
-            activeMusicScene = "NONE"
-        }
+        if (activeMusicScene == "LOBBY") activeMusicScene = "NONE"
         stopLobbyMusicPlayerOnly()
     }
 
-    private fun stopLobbyMusicPlayerOnly() {
-        val player = lobbyMusicPlayer
-        lobbyMusicPlayer = null
-        if (player == null) return
-        try {
-            if (player.isPlaying) {
-                player.stop()
-            }
-        } catch (ignored: Exception) {
-        }
-        try {
-            player.release()
-        } catch (ignored: Exception) {
-        }
-    }
+    private fun stopLobbyMusicPlayerOnly() = sceneMusic.stopIf(R.raw.bgm_lobby)
 
     private fun playCampaignMapMusic() {
         activeMusicScene = "CAMPAIGN_MAP"
-        stopLobbyMusicPlayerOnly()
-        if (!AppPrefs.isMusicEnabled(this)) {
-            stopCampaignMapMusicPlayerOnly()
-            return
-        }
-        val current = campaignMapMusicPlayer
-        if (current != null) {
-            try {
-                if (current.isPlaying) return
-                current.start()
-                return
-            } catch (ignored: Exception) {
-                stopCampaignMapMusicPlayerOnly()
-            }
-        }
-        stopCampaignMapMusicPlayerOnly()
-        campaignMapMusicPlayer = MediaPlayer.create(this, R.raw.labyrinth_of_lost_dreams)?.apply {
-            isLooping = true
-            setVolume(campaignMapMusicVolume, campaignMapMusicVolume)
-            setOnErrorListener { player, _, _ ->
-                try {
-                    player.release()
-                } catch (ignored: Exception) {
-                }
-                if (campaignMapMusicPlayer === player) {
-                    campaignMapMusicPlayer = null
-                }
-                true
-            }
-            start()
-        }
+        sceneMusic.stopIf(R.raw.bgm_lobby)
+        if (AppPrefs.isMusicEnabled(this)) {
+            sceneMusic.play(R.raw.labyrinth_of_lost_dreams, campaignMapMusicVolume)
+        } else stopCampaignMapMusicPlayerOnly()
     }
 
     private fun stopCampaignMapMusic() {
-        if (activeMusicScene == "CAMPAIGN_MAP") {
-            activeMusicScene = "NONE"
-        }
+        if (activeMusicScene == "CAMPAIGN_MAP") activeMusicScene = "NONE"
         stopCampaignMapMusicPlayerOnly()
     }
 
-    private fun stopCampaignMapMusicPlayerOnly() {
-        val player = campaignMapMusicPlayer
-        campaignMapMusicPlayer = null
-        if (player == null) return
-        try {
-            if (player.isPlaying) {
-                player.stop()
-            }
-        } catch (ignored: Exception) {
-        }
-        try {
-            player.release()
-        } catch (ignored: Exception) {
-        }
-    }
+    private fun stopCampaignMapMusicPlayerOnly() = sceneMusic.stopIf(R.raw.labyrinth_of_lost_dreams)
 
     private fun openAppNotificationSettings() {
         val notificationIntent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {

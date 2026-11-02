@@ -95,17 +95,18 @@ void main() {
       expect(tester.takeException(), isNull);
     }
   });
-  testWidgets('failed replay still shows settled gameplay XP and trophy loss',
+  testWidgets('failed campaign replay keeps XP without changing trophies',
       (tester) async {
     await tester.pumpWidget(_host(ResultRewardPanel(
       result: _result(completed: false),
       currencyRewardApplied: false,
       gameplayXp: 53,
-      trophyDelta: -18,
+      trophyDelta: 0,
     )));
     expect(find.textContaining('+53 XP من اللعب', findRichText: true),
         findsOneWidget);
-    expect(find.textContaining('-18 كأس', findRichText: true), findsOneWidget);
+    expect(find.textContaining('+0 كأس', findRichText: true), findsOneWidget);
+    expect(find.text('كؤوس المرحلة تُمنح لأول اجتياز فقط.'), findsOneWidget);
     expect(find.text('تقدم اللعب المحتسب'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

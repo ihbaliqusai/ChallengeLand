@@ -52,6 +52,18 @@ void main() {
   });
 
   group('per-match trophy rewards', () {
+    test('campaign match results never grant or deduct trophies directly', () {
+      for (final won in [true, false]) {
+        expect(
+            TrophyProgression.trophyDelta(
+                campaign: true,
+                won: won,
+                gamesBefore: 100,
+                winStreak: 50,
+                correctAnswers: 20),
+            0);
+      }
+    });
     test('wins, human online bonus, losses and draws are distinct', () {
       expect(TrophyProgression.trophyDelta(won: true, gamesBefore: 0), 22);
       expect(

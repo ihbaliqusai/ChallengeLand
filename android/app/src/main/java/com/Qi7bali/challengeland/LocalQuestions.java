@@ -2,12 +2,12 @@ package com.qi7bali.landchallengeonline;
 
 import android.content.Context;
 import android.content.res.AssetManager;
+import android.util.JsonReader;
+import android.util.JsonToken;
+import android.util.Log;
 
-import org.json.JSONArray;
-import org.json.JSONObject;
-
-import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -17,20 +17,35 @@ import io.flutter.FlutterInjector;
 
 public class LocalQuestions {
     private static volatile ArrayList<Question> cachedQuestions;
+    private static volatile LinkedHashMap<String, ArrayList<ArrayList<Question>>> cachedBoardPool;
     private static final java.util.concurrent.ExecutorService LOADER =
             java.util.concurrent.Executors.newSingleThreadExecutor();
 
-    public static void preload(Context context, Runnable ready) {
-        Context app = context.getApplicationContext();
-        LOADER.execute(() -> {
-            long started = android.os.SystemClock.elapsedRealtime();
-            int count = loadAll(app).size();
-            android.util.Log.d("LocalQuestions", "Preloaded " + count + " questions in "
-                    + (android.os.SystemClock.elapsedRealtime() - started) + "ms off the UI thread");
-            new android.os.Handler(android.os.Looper.getMainLooper()).post(ready);
-        });
+    public static boolean isPrepared() {
+        return cachedQuestions != null && cachedBoardPool != null;
     }
 
+    public static void preload(Context context, Runnable ready) {
+        if (isPrepared()) {
+            if (ready != null) {
+                if (android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) ready.run();
+                else new android.os.Handler(android.os.Looper.getMainLooper()).post(ready);
+            }
+            return;
+        }
+        Context app = context.getApplicationContext();
+        LOADER.execute(() -> {
+            android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND);
+            long started = android.os.SystemClock.elapsedRealtime();
+            int count = loadAll(app).size();
+            loadBoardPool(app);
+            Log.d("LocalQuestions", "Preloaded " + count + " questions and board pool in "
+                    + (android.os.SystemClock.elapsedRealtime() - started) + "ms off the UI thread");
+            if (ready != null) {
+                new android.os.Handler(android.os.Looper.getMainLooper()).post(ready);
+            }
+        });
+    }
 
     /** Category used for questions that have no (or an empty) Category field.
      *  Must match a file name under assets/categories (منوعات.png). */
@@ -89,58 +104,117 @@ public class LocalQuestions {
 
     public static ArrayList<Question> loadAll(Context context) {
         ArrayList<Question> cached = cachedQuestions;
-        if (cached != null) return new ArrayList<>(cached);
-        final ArrayList<Question> questions = new ArrayList<>();
-        try {
-            AssetManager assets = context.getAssets();
-            InputStream inputStream = openQuestionsStream(assets);
-            ByteArrayOutputStream output = new ByteArrayOutputStream();
-            byte[] buffer = new byte[4096];
-            int n;
-            while ((n = inputStream.read(buffer)) >= 0) {
-                output.write(buffer, 0, n);
-            }
-            inputStream.close();
-
-            JSONArray array = new JSONArray(output.toString(StandardCharsets.UTF_8.name()));
-            for (int i = 0; i < array.length(); i++) {
-                JSONObject item = array.getJSONObject(i);
-                Question q = parseQuestion(item);
-                if (isCategoryHidden(q.getCategory())) {
-                    continue;
+        if (cached != null) return cached;
+        synchronized (LocalQuestions.class) {
+            if (cachedQuestions != null) return cachedQuestions;
+            final ArrayList<Question> questions = new ArrayList<>(21200);
+            try (InputStream inputStream = openQuestionsStream(context.getAssets());
+                 InputStreamReader isr = new InputStreamReader(inputStream, StandardCharsets.UTF_8);
+                 JsonReader reader = new JsonReader(isr)) {
+                reader.beginArray();
+                while (reader.hasNext()) {
+                    Question q = readQuestion(reader);
+                    if (!isCategoryHidden(q.getCategory())) {
+                        questions.add(q);
+                    }
                 }
-                questions.add(q);
+                reader.endArray();
+            } catch (Exception e) {
+                Log.e("LocalQuestions", "Failed to stream questions.json", e);
             }
-        } catch (Exception ignored) {
+            if (!questions.isEmpty()) {
+                questions.trimToSize();
+                cachedQuestions = questions;
+            }
+            return questions;
         }
-        if (!questions.isEmpty()) cachedQuestions = new ArrayList<>(questions);
-        return questions;
     }
 
-    /** Parses a single question record, defaulting Category to the fallback bucket. */
-    private static Question parseQuestion(JSONObject item) {
+    /** Parses a single question record streaming tokens directly without intermediate JSON objects. */
+    private static Question readQuestion(JsonReader reader) throws java.io.IOException {
         Question q = new Question();
-        q.setQ(item.optString("Q"));
-        q.setR(item.optString("R"));
-        q.setW1(item.optString("W1"));
-        q.setW2(item.optString("W2"));
-        q.setW3(item.optString("W3"));
-        q.setLevel(item.optString("Level"));
-        q.setImg(item.optString("Img", ""));
-        JSONArray clubPath = item.optJSONArray("ClubPath");
-        if (clubPath != null) {
-            ArrayList<String> clubs = new ArrayList<>();
-            for (int i = 0; i < clubPath.length(); i++) {
-                String club = clubPath.optString(i, "").trim();
-                if (!club.isEmpty()) clubs.add(club);
+        String qText = "";
+        String r = "";
+        String w1 = "";
+        String w2 = "";
+        String w3 = "";
+        String level = "";
+        String img = "";
+        String category = FALLBACK_CATEGORY;
+        ArrayList<String> clubPath = null;
+
+        reader.beginObject();
+        while (reader.hasNext()) {
+            String name = reader.nextName();
+            if (reader.peek() == JsonToken.NULL) {
+                reader.nextNull();
+                continue;
             }
-            q.setClubPath(clubs);
+            switch (name) {
+                case "Q":
+                    qText = reader.nextString();
+                    break;
+                case "R":
+                    r = reader.nextString();
+                    break;
+                case "W1":
+                    w1 = reader.nextString();
+                    break;
+                case "W2":
+                    w2 = reader.nextString();
+                    break;
+                case "W3":
+                    w3 = reader.nextString();
+                    break;
+                case "Level":
+                    level = reader.nextString();
+                    break;
+                case "Img":
+                    img = reader.nextString();
+                    break;
+                case "Category":
+                    String cat = reader.nextString();
+                    if (cat != null && !cat.trim().isEmpty()) {
+                        category = cat.trim();
+                    }
+                    break;
+                case "ClubPath":
+                    if (reader.peek() == JsonToken.BEGIN_ARRAY) {
+                        reader.beginArray();
+                        clubPath = new ArrayList<>();
+                        while (reader.hasNext()) {
+                            if (reader.peek() == JsonToken.STRING) {
+                                String club = reader.nextString().trim();
+                                if (!club.isEmpty()) {
+                                    clubPath.add(club);
+                                }
+                            } else {
+                                reader.skipValue();
+                            }
+                        }
+                        reader.endArray();
+                    } else {
+                        reader.skipValue();
+                    }
+                    break;
+                default:
+                    reader.skipValue();
+                    break;
+            }
         }
-        String category = item.optString("Category", FALLBACK_CATEGORY);
-        if (category == null || category.trim().isEmpty()) {
-            category = FALLBACK_CATEGORY;
+        reader.endObject();
+
+        q.setQ(qText);
+        q.setR(r);
+        q.setW1(w1);
+        q.setW2(w2);
+        q.setW3(w3);
+        q.setLevel(level);
+        q.setImg(img == null ? "" : img);
+        q.setCategory(category);
+        if (clubPath != null) {
+            q.setClubPath(clubPath);
         }
-        q.setCategory(category.trim());
         return q;
     }
 
@@ -180,26 +254,34 @@ public class LocalQuestions {
      * (0=easy/25, 1=medium/50, 2=hard/75).
      */
     public static LinkedHashMap<String, ArrayList<ArrayList<Question>>> loadBoardPool(Context context) {
-        final LinkedHashMap<String, ArrayList<ArrayList<Question>>> pool = new LinkedHashMap<>();
-        try {
-            for (Question q : loadAll(context)) {
-                if (isCategoryHidden(q.getCategory())) {
-                    continue;
+        LinkedHashMap<String, ArrayList<ArrayList<Question>>> cached = cachedBoardPool;
+        if (cached != null) return cached;
+        synchronized (LocalQuestions.class) {
+            if (cachedBoardPool != null) return cachedBoardPool;
+            final LinkedHashMap<String, ArrayList<ArrayList<Question>>> pool = new LinkedHashMap<>();
+            try {
+                for (Question q : loadAll(context)) {
+                    if (isCategoryHidden(q.getCategory())) {
+                        continue;
+                    }
+                    String category = q.getCategory();
+                    ArrayList<ArrayList<Question>> tiers = pool.get(category);
+                    if (tiers == null) {
+                        tiers = new ArrayList<>(3);
+                        tiers.add(new ArrayList<Question>());
+                        tiers.add(new ArrayList<Question>());
+                        tiers.add(new ArrayList<Question>());
+                        pool.put(category, tiers);
+                    }
+                    tiers.get(tierForLevel(q.getLevel())).add(q);
                 }
-                String category = q.getCategory();
-                ArrayList<ArrayList<Question>> tiers = pool.get(category);
-                if (tiers == null) {
-                    tiers = new ArrayList<>();
-                    tiers.add(new ArrayList<Question>());
-                    tiers.add(new ArrayList<Question>());
-                    tiers.add(new ArrayList<Question>());
-                    pool.put(category, tiers);
-                }
-                tiers.get(tierForLevel(q.getLevel())).add(q);
+            } catch (Exception ignored) {
             }
-        } catch (Exception ignored) {
+            if (!pool.isEmpty()) {
+                cachedBoardPool = pool;
+            }
+            return pool;
         }
-        return pool;
     }
 
     private static void populate(ArrayList<Question> questions, ArrayList<Question> subList, int count) {

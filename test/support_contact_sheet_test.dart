@@ -37,7 +37,7 @@ void main() {
     canOpen = true;
     clipboard = null;
     messenger.setMockMethodCallHandler(channel, (call) async {
-      requests.add(call);
+      if (call.method == 'composeSupportEmail') requests.add(call);
       return canOpen;
     });
     messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {

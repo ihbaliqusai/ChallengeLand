@@ -151,6 +151,11 @@ class ResultRewardPanel extends StatelessWidget {
                         ? const Color(0xFFFB7185)
                         : const Color(0xFFFFD66B)),
             ]),
+            if (trophyDelta != null) ...[
+              const SizedBox(height: 6),
+              const Text('كؤوس المرحلة تُمنح لأول اجتياز فقط.',
+                  style: TextStyle(color: Colors.white70, fontSize: 12)),
+            ],
           ],
           if (hasCurrency &&
               !isDoubled &&

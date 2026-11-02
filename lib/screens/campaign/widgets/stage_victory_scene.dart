@@ -147,7 +147,7 @@ class _StageVictorySceneState extends State<StageVictoryScene>
       fit: StackFit.expand,
       children: [
         Image.asset(
-          'assets/images/campaign/ui/victory_background.jpg',
+          'assets/images/campaign/ui/victory_background.webp',
           key: const ValueKey('victory-background'),
           fit: BoxFit.cover,
           cacheWidth: 1920,
@@ -176,7 +176,7 @@ class _StageVictorySceneState extends State<StageVictoryScene>
                       children: [
                         Positioned.fill(
                           child: Image.asset(
-                            'assets/images/campaign/ui/victory_panel.png',
+                            'assets/images/campaign/ui/victory_panel.webp',
                             fit: BoxFit.fill,
                             cacheWidth: 1920,
                             excludeFromSemantics: true,

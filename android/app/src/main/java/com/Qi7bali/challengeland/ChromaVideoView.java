@@ -78,23 +78,19 @@ final class ChromaVideoView extends TextureView
     private Runnable firstFrameListener;
     private volatile Runnable textureFirstFrameListener;
 
-    // Decode once, then publish the same frame to two independent consumers.
-    // Sharing a Flutter texture ID between differently transformed previews can
-    // invalidate the renderer's cached image while the other preview uses it.
-    void startTextureOutputs(SurfaceTexture output, SurfaceTexture reflection,
-            int width, int height, Runnable onReady) {
-        if (released || renderer != null) return;
-        textureFirstFrameListener = onReady;
-        output.setDefaultBufferSize(width, height);
-        reflection.setDefaultBufferSize(width, height);
-        renderer = new Renderer(output, reflection, width, height);
-    }
-
     void releaseTextureOutput(Runnable onReleased) {
         released = true;
         textureFirstFrameListener = null;
         if (renderer == null) onReleased.run();
         else renderer.shutdown(false, () -> new Handler(Looper.getMainLooper()).post(onReleased));
+    }
+
+    /** Flutter SurfaceProducer outputs avoid SurfaceTexture readback on Vulkan. */
+    void startSurfaceOutputs(Surface output, Surface reflection,
+            int width, int height, Runnable onReady) {
+        if (released || renderer != null) return;
+        textureFirstFrameListener = onReady;
+        renderer = new Renderer(output, reflection, width, height);
     }
 
     void setOnFirstFrameListener(Runnable listener) {
@@ -126,7 +122,15 @@ final class ChromaVideoView extends TextureView
             if (current.stopping || current.player == null) return;
             try {
                 if (paused) current.player.pause();
-                else current.player.start();
+                else {
+                    current.player.start();
+                    // A frame may have arrived just after pausing. Consume it
+                    // on resume so a full decoder queue cannot block playback
+                    // while waiting for another frame-available notification.
+                    current.frameReady = true;
+                    current.lastFrameTimestamp = Long.MIN_VALUE;
+                    current.drawFrame();
+                }
             } catch (IllegalStateException ignored) {
                 // Preparing players apply this state from their prepared callback.
             }
@@ -186,8 +190,8 @@ final class ChromaVideoView extends TextureView
     private final class Renderer implements SurfaceTexture.OnFrameAvailableListener {
         final HandlerThread thread;
         final Handler handler;
-        final SurfaceTexture outputSurface;
-        final SurfaceTexture reflectionSurface;
+        final Object outputSurface;
+        final Object reflectionSurface;
         volatile boolean stopping;
         volatile boolean playbackPaused = paused;
         volatile boolean cleanupComplete;
@@ -210,6 +214,8 @@ final class ChromaVideoView extends TextureView
         private Surface videoSurface;
         private MediaPlayer player;
         private boolean frameReady;
+        private boolean drawQueued;
+        private long lastFrameTimestamp = Long.MIN_VALUE;
         private final float[] stMatrix = new float[16];
         private FloatBuffer posBuffer;
         private FloatBuffer texBuffer;
@@ -220,7 +226,7 @@ final class ChromaVideoView extends TextureView
             this(surface, null, width, height);
         }
 
-        Renderer(SurfaceTexture surface, SurfaceTexture reflection, int width, int height) {
+        Renderer(Object surface, Object reflection, int width, int height) {
             outputSurface = surface;
             reflectionSurface = reflection;
             viewWidth = width;
@@ -235,10 +241,19 @@ final class ChromaVideoView extends TextureView
         public void onFrameAvailable(SurfaceTexture surfaceTexture) {
             if (stopping) return;
             frameReady = true;
-            drawFrame();
+            // Several decoder callbacks can accumulate while EGL is publishing
+            // a frame. Latch the latest one once instead of swapping the same
+            // texture repeatedly for every queued callback (across all 8 seats).
+            if (!drawQueued) {
+                drawQueued = true;
+                handler.post(() -> {
+                    drawQueued = false;
+                    drawFrame();
+                });
+            }
         }
 
-        private void initGl(SurfaceTexture outputSurface) {
+        private void initGl(Object outputSurface) {
             if (stopping) return;
             try {
                 setupEgl(outputSurface);
@@ -262,8 +277,10 @@ final class ChromaVideoView extends TextureView
                 GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES,
                         GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE);
 
-                GLES20.glEnable(GLES20.GL_BLEND);
-                GLES20.glBlendFunc(GLES20.GL_ONE, GLES20.GL_ONE_MINUS_SRC_ALPHA);
+                // One full-screen quad writes premultiplied RGBA. TextureView /
+                // Flutter performs final composition; blending into this empty
+                // buffer only adds a redundant destination read per fragment.
+                GLES20.glDisable(GLES20.GL_BLEND);
                 GLES20.glClearColor(0f, 0f, 0f, 0f);
 
                 videoTexture = new SurfaceTexture(oesTexId);
@@ -286,9 +303,9 @@ final class ChromaVideoView extends TextureView
             }
             try {
                 player.reset();
-                AssetFileDescriptor afd = getContext().getResources().openRawResourceFd(resId);
-                player.setDataSource(afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
-                afd.close();
+                try (AssetFileDescriptor afd = getContext().getResources().openRawResourceFd(resId)) {
+                    player.setDataSource(afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
+                }
                 player.setSurface(videoSurface);
                 player.setVolume(0f, 0f);
                 player.setLooping(loop);
@@ -303,6 +320,7 @@ final class ChromaVideoView extends TextureView
                     }
                 });
                 currentResId = resId;
+                lastFrameTimestamp = Long.MIN_VALUE;
                 player.prepareAsync();
             } catch (Exception e) {
                 Log.w(TAG, "playClip failed", e);
@@ -315,12 +333,16 @@ final class ChromaVideoView extends TextureView
             }
             try {
                 videoTexture.updateTexImage();
+                frameReady = false;
+                long timestamp = videoTexture.getTimestamp();
+                if (timestamp == lastFrameTimestamp) return;
+                lastFrameTimestamp = timestamp;
                 videoTexture.getTransformMatrix(stMatrix);
                 // Latch the decoder only once. Both output queues receive the
                 // same frame, each with its own Flutter texture/cache identity.
-                renderOutput(eglSurface);
+                renderOutput(eglSurface, viewWidth, viewHeight);
                 if (reflectionEglSurface != EGL14.EGL_NO_SURFACE) {
-                    renderOutput(reflectionEglSurface);
+                    renderOutput(reflectionEglSurface, Math.max(1, viewWidth / 2), Math.max(1, viewHeight / 2));
                 }
                 Runnable listener = textureFirstFrameListener;
                 if (listener != null) {
@@ -334,11 +356,11 @@ final class ChromaVideoView extends TextureView
             }
         }
 
-        private void renderOutput(EGLSurface target) {
+        private void renderOutput(EGLSurface target, int width, int height) {
             if (!EGL14.eglMakeCurrent(eglDisplay, target, target, eglContext)) {
                 throw new IllegalStateException("Could not bind character output surface");
             }
-            GLES20.glViewport(0, 0, viewWidth, viewHeight);
+            GLES20.glViewport(0, 0, width, height);
             GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
             GLES20.glUseProgram(program);
 
@@ -393,7 +415,9 @@ final class ChromaVideoView extends TextureView
         }
 
         private void releaseOutputSurface() {
-            if (outputReleased.compareAndSet(false, true)) outputSurface.release();
+            if (outputReleased.compareAndSet(false, true) && outputSurface instanceof SurfaceTexture) {
+                ((SurfaceTexture) outputSurface).release();
+            }
         }
 
         private void teardown() {
@@ -447,7 +471,7 @@ final class ChromaVideoView extends TextureView
 
         // ---- EGL / GL helpers ----------------------------------------------------
 
-        private void setupEgl(SurfaceTexture outputSurface) {
+        private void setupEgl(Object outputSurface) {
             eglDisplay = EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY);
             if (eglDisplay == EGL14.EGL_NO_DISPLAY) {
                 throw new RuntimeException("eglGetDisplay failed");

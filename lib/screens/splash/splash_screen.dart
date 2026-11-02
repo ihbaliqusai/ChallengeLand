@@ -159,7 +159,7 @@ class SplashPoster extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         Image.asset(
-          'assets/ui/splash_background.png',
+          'assets/ui/splash_background.webp',
           key: const ValueKey('splash-artwork'),
           fit: BoxFit.cover,
           cacheWidth:
@@ -189,7 +189,7 @@ class SplashPoster extends StatelessWidget {
                     height: logoWidth * 644 / 996,
                     child: const _SplashCutout(
                       key: ValueKey('splash-logo'),
-                      asset: 'assets/ui/splash_logo.png',
+                      asset: 'assets/ui/splash_logo.webp',
                       sourceSize: Size(1200, 700),
                       visibleBounds: Rect.fromLTWH(102, 28, 996, 644),
                     ),
@@ -201,7 +201,7 @@ class SplashPoster extends StatelessWidget {
                     height: presenterHeight,
                     child: const _SplashCutout(
                       key: ValueKey('splash-presenter'),
-                      asset: 'assets/ui/splash_presenter.png',
+                      asset: 'assets/ui/splash_presenter.webp',
                       sourceSize: Size(1000, 1400),
                       visibleBounds: Rect.fromLTWH(8, 240, 984, 1160),
                     ),

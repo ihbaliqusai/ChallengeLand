@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:challenge_land/core/player_rank.dart';
+import 'package:challenge_land/core/campaign_trophy_rules.dart';
 import 'package:challenge_land/models/player_profile.dart';
 import 'package:challenge_land/services/progression_service.dart';
 import 'package:challenge_land/services/profile_service.dart';
@@ -37,6 +40,126 @@ void main() {
   setUp(() {
     firestore = _TransactionalFirestore();
     service = ProgressionService(firestore: firestore);
+  });
+
+  Future<String> firstClearClaim(String stage, {int xp = 0}) async {
+    final id = CampaignTrophyRules.firstClearClaimId('main_campaign', stage);
+    await firestore.doc('users/player/campaignRewardClaims/$id').set({
+      'uid': 'player',
+      'campaignId': 'main_campaign',
+      'stageId': stage,
+      'previousStars': 0,
+      'newStars': 1,
+      'xp': xp,
+      'xpClaimed': false,
+      'currencyClaimed': true,
+      'status': 'pending',
+    });
+    return id;
+  }
+
+  test('first-clear trophy receipt recovers a lost response exactly once',
+      () async {
+    await seed({
+      'xp': 1000,
+      'trophies': 100,
+      'trophiesEarned': 50,
+      'bestTrophies': 200
+    });
+    final claim = await firstClearClaim('stage_001', xp: 30);
+    firestore.loseNextResponse = true;
+    await expectLater(
+        service.grantCampaignXp(
+            uid: 'player', claimId: claim, identity: identity),
+        throwsA(isA<FirebaseException>()));
+    final recovered = await ProgressionService(firestore: firestore)
+        .grantCampaignXp(uid: 'player', claimId: claim, identity: identity);
+    expect(recovered['trophies'], 122);
+    expect(recovered['trophiesEarned'], 72);
+    expect(recovered['bestTrophies'], 200);
+    expect(recovered['xp'], 1030);
+    expect(
+        (await firestore.doc('public_profiles/player').get())
+            .data()!['trophies'],
+        122);
+  });
+
+  test('two devices recovering one clear cannot grant its trophies twice',
+      () async {
+    await seed({'trophies': 100});
+    final claim = await firstClearClaim('stage_001');
+    await Future.wait(List.generate(
+        2,
+        (_) => ProgressionService(firestore: firestore).grantCampaignXp(
+            uid: 'player', claimId: claim, identity: identity)));
+    final data = (await firestore.doc('users/player').get()).data()!;
+    expect(data['trophies'], 122);
+    expect(ProgressionService.readStats(data)['xp'], 0);
+    final restored =
+        await sync('new_installation', const {}, native: {'trophies': 122});
+    expect(restored['trophies'], 122);
+  });
+
+  test(
+      'different first clears add together while old and star-upgrade receipts add no trophies',
+      () async {
+    await seed({'trophies': 100});
+    final first = await firstClearClaim('stage_001');
+    final second = await firstClearClaim('stage_002');
+    await Future.wait([first, second].map((id) => service.grantCampaignXp(
+        uid: 'player', claimId: id, identity: identity)));
+    for (final phase in ['first_completion', '1_to_3']) {
+      final id = 'main_campaign_stage_003_$phase';
+      await firestore.doc('users/player/campaignRewardClaims/$id').set({
+        'uid': 'player',
+        'campaignId': 'main_campaign',
+        'stageId': 'stage_003',
+        'previousStars': phase == 'first_completion' ? 0 : 1,
+        'newStars': 3,
+        'xp': 10,
+        'xpClaimed': false,
+        'currencyClaimed': true,
+      });
+      await service.grantCampaignXp(
+          uid: 'player', claimId: id, identity: identity);
+    }
+    final stats = ProgressionService.readStats(
+        (await firestore.doc('users/player').get()).data()!);
+    expect(stats['trophies'], 144);
+    expect(stats['trophiesEarned'], 44);
+    expect(stats['xp'], 20);
+    expect(CampaignTrophyRules.firstClearClaimId('main_campaign', 'stage_01'),
+        first);
+    expect(CampaignTrophyRules.firstClearClaimId('main_campaign', 'stage_1'),
+        first);
+  });
+
+  test(
+      'campaign practice on a stale device cannot overwrite the account trophy streak',
+      () async {
+    await seed({
+      'trophies': 100,
+      'gamesPlayed': 20,
+      'winStreak': 4,
+      'bestWinStreak': 4
+    });
+    final result = await sync('practice_device', {
+      'gamesPlayed': 1,
+      'wins': 1,
+      'mode_campaign_games': 1,
+      'mode_campaign_wins': 1,
+    }, native: {
+      'winStreak': 0,
+      'lastPrize': 7
+    });
+    expect(result['trophies'], 100);
+    expect(result['winStreak'], 4);
+    expect(result['bestWinStreak'], 4);
+    expect(result['gamesPlayed'], 21);
+    expect(
+        (await firestore.doc('public_profiles/player').get())
+            .data()!['winStreak'],
+        4);
   });
 
   test('lost commit response can be retried without duplicating rewards',
@@ -412,6 +535,7 @@ void main() {
 /// Stage writes in a batch so tests exercise callback retry/abort and lost
 /// responses after a complete commit, preserving the real transaction contract.
 class _TransactionalFirestore extends FakeFirebaseFirestore {
+  Future<void> _tail = Future<void>.value();
   bool loseNextResponse = false;
   bool retryNextCallback = false;
   int retriedCallbacks = 0;
@@ -422,19 +546,27 @@ class _TransactionalFirestore extends FakeFirebaseFirestore {
     Duration timeout = const Duration(seconds: 30),
     int maxAttempts = 5,
   }) async {
-    if (retryNextCallback) {
-      retryNextCallback = false;
-      await transactionHandler(_StagedTransaction(batch()));
-      retriedCallbacks++;
+    final previous = _tail;
+    final release = Completer<void>();
+    _tail = release.future;
+    await previous;
+    try {
+      if (retryNextCallback) {
+        retryNextCallback = false;
+        await transactionHandler(_StagedTransaction(batch()));
+        retriedCallbacks++;
+      }
+      final transaction = _StagedTransaction(batch());
+      final result = await transactionHandler(transaction);
+      await transaction.batch.commit();
+      if (loseNextResponse) {
+        loseNextResponse = false;
+        throw FirebaseException(plugin: 'cloud_firestore', code: 'unavailable');
+      }
+      return result;
+    } finally {
+      release.complete();
     }
-    final transaction = _StagedTransaction(batch());
-    final result = await transactionHandler(transaction);
-    await transaction.batch.commit();
-    if (loseNextResponse) {
-      loseNextResponse = false;
-      throw FirebaseException(plugin: 'cloud_firestore', code: 'unavailable');
-    }
-    return result;
   }
 }
 

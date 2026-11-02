@@ -21,7 +21,6 @@ dependencies:
   shared_preferences: ^2.5.3
   connectivity_plus: ^6.1.0
   qr_flutter: ^4.1.0
-  video_player: ^2.10.1
 
 dev_dependencies:
   flutter_test:
@@ -30,7 +29,6 @@ dev_dependencies:
   flutter_launcher_icons: ^0.14.3
   fake_cloud_firestore: ^3.1.0
   clock: ^1.1.2
-  video_player_platform_interface: ^6.6.0
 
 flutter_launcher_icons:
   android: true
@@ -44,14 +42,10 @@ flutter:
     - assets/questions.json
     - assets/ui/bg_main.webp
     - assets/ui/bg_login.webp
-    - assets/ui/logo.webp
 
-    - assets/ui/person_welcome.webp
-    - assets/presenter/
-    - assets/presenter/podiumhost.png
     - assets/ui/home_menu.webp
     - assets/ui/game_modes.webp
-    - assets/ui/play_stake_dialog.png
+    - assets/ui/play_stake_dialog.webp
     - assets/lucky_wheel/stage.webp
     - assets/lucky_wheel/emblem.webp
     - assets/lucky_wheel/wheel.webp
@@ -99,11 +93,9 @@ flutter:
     - assets/store/reward_daily.webp
     - assets/store/reward_watch.webp
     - assets/store/btn_rent_green.png
-    - assets/social/friends_challenges.jfif
-    - assets/social/invite_friends_hero.png
-    - assets/home/campaign.webp
-    - assets/home/lobby_background.jfif
-    - assets/home/lobby_background.png
+    - assets/social/friends_challenges.webp
+    - assets/social/invite_friends_hero.webp
+    - assets/home/campaign.webp    - assets/home/lobby_background.webp
     - assets/home/level_badge.png
     - assets/home/coins.webp
     - assets/home/friends.webp
@@ -122,12 +114,12 @@ flutter:
     - assets/home/sidebar/play.png
     - assets/home/sidebar/friends.png
     - assets/home/store.webp
-    - assets/ui/splash_background.png
-    - assets/ui/splash_logo.png
-    - assets/ui/splash_presenter.png
+    - assets/ui/splash_background.webp
+    - assets/ui/splash_logo.webp
+    - assets/ui/splash_presenter.webp
     - assets/ui/character_select_room.webp
     - assets/ui/character_select_title.png
-    - assets/ui/million_challenge_logo.png
+    - assets/ui/million_challenge_logo.webp
 
     - assets/images/campaign/worlds/world_01_forest.webp
     - assets/images/campaign/worlds/world_02_hills.webp
@@ -144,14 +136,262 @@ flutter:
     - assets/images/campaign/ui/star_1.png
     - assets/images/campaign/ui/star_2.png
     - assets/images/campaign/ui/star_3.png
-    - assets/images/campaign/ui/victory_background.jpg
-    - assets/images/campaign/ui/victory_panel.png
+    - assets/images/campaign/ui/victory_background.webp
+    - assets/images/campaign/ui/victory_panel.webp
 
     - assets/fonts/NotoSansArabic-OFL.txt
     - assets/fonts/BarlowCondensed-OFL.txt
     - assets/fonts/Baloo-OFL.txt
     - assets/licenses/third_party_notices.json
-    - assets/flags/
+    - assets/flags/ad.png
+    - assets/flags/ae.png
+    - assets/flags/af.png
+    - assets/flags/ag.png
+    - assets/flags/ai.png
+    - assets/flags/al.png
+    - assets/flags/am.png
+    - assets/flags/ao.png
+    - assets/flags/aq.png
+    - assets/flags/ar.png
+    - assets/flags/as.png
+    - assets/flags/at.png
+    - assets/flags/au.png
+    - assets/flags/aw.png
+    - assets/flags/ax.png
+    - assets/flags/az.png
+    - assets/flags/ba.png
+    - assets/flags/bb.png
+    - assets/flags/bd.png
+    - assets/flags/be.png
+    - assets/flags/bf.png
+    - assets/flags/bg.png
+    - assets/flags/bh.png
+    - assets/flags/bi.png
+    - assets/flags/bj.png
+    - assets/flags/bl.png
+    - assets/flags/bm.png
+    - assets/flags/bn.png
+    - assets/flags/bo.png
+    - assets/flags/bq.png
+    - assets/flags/br.png
+    - assets/flags/bs.png
+    - assets/flags/bt.png
+    - assets/flags/bv.png
+    - assets/flags/bw.png
+    - assets/flags/by.png
+    - assets/flags/bz.png
+    - assets/flags/ca.png
+    - assets/flags/cc.png
+    - assets/flags/cd.png
+    - assets/flags/cf.png
+    - assets/flags/cg.png
+    - assets/flags/ch.png
+    - assets/flags/ci.png
+    - assets/flags/ck.png
+    - assets/flags/cl.png
+    - assets/flags/cm.png
+    - assets/flags/cn.png
+    - assets/flags/co.png
+    - assets/flags/cr.png
+    - assets/flags/cu.png
+    - assets/flags/cv.png
+    - assets/flags/cw.png
+    - assets/flags/cx.png
+    - assets/flags/cy.png
+    - assets/flags/cz.png
+    - assets/flags/de.png
+    - assets/flags/dj.png
+    - assets/flags/dk.png
+    - assets/flags/dm.png
+    - assets/flags/do.png
+    - assets/flags/dz.png
+    - assets/flags/ec.png
+    - assets/flags/ee.png
+    - assets/flags/eg.png
+    - assets/flags/eh.png
+    - assets/flags/er.png
+    - assets/flags/es.png
+    - assets/flags/et.png
+    - assets/flags/fi.png
+    - assets/flags/fj.png
+    - assets/flags/fk.png
+    - assets/flags/fm.png
+    - assets/flags/fo.png
+    - assets/flags/fr.png
+    - assets/flags/ga.png
+    - assets/flags/gb.png
+    - assets/flags/gd.png
+    - assets/flags/ge.png
+    - assets/flags/gf.png
+    - assets/flags/gg.png
+    - assets/flags/gh.png
+    - assets/flags/gi.png
+    - assets/flags/gl.png
+    - assets/flags/gm.png
+    - assets/flags/gn.png
+    - assets/flags/gp.png
+    - assets/flags/gq.png
+    - assets/flags/gr.png
+    - assets/flags/gs.png
+    - assets/flags/gt.png
+    - assets/flags/gu.png
+    - assets/flags/gw.png
+    - assets/flags/gy.png
+    - assets/flags/hk.png
+    - assets/flags/hm.png
+    - assets/flags/hn.png
+    - assets/flags/hr.png
+    - assets/flags/ht.png
+    - assets/flags/hu.png
+    - assets/flags/id.png
+    - assets/flags/ie.png
+    - assets/flags/il.png
+    - assets/flags/im.png
+    - assets/flags/in.png
+    - assets/flags/io.png
+    - assets/flags/iq.png
+    - assets/flags/ir.png
+    - assets/flags/is.png
+    - assets/flags/it.png
+    - assets/flags/je.png
+    - assets/flags/jm.png
+    - assets/flags/jo.png
+    - assets/flags/jp.png
+    - assets/flags/ke.png
+    - assets/flags/kg.png
+    - assets/flags/kh.png
+    - assets/flags/ki.png
+    - assets/flags/km.png
+    - assets/flags/kn.png
+    - assets/flags/kp.png
+    - assets/flags/kr.png
+    - assets/flags/kw.png
+    - assets/flags/ky.png
+    - assets/flags/kz.png
+    - assets/flags/la.png
+    - assets/flags/lb.png
+    - assets/flags/lc.png
+    - assets/flags/li.png
+    - assets/flags/lk.png
+    - assets/flags/lr.png
+    - assets/flags/ls.png
+    - assets/flags/lt.png
+    - assets/flags/lu.png
+    - assets/flags/lv.png
+    - assets/flags/ly.png
+    - assets/flags/ma.png
+    - assets/flags/mc.png
+    - assets/flags/md.png
+    - assets/flags/me.png
+    - assets/flags/mf.png
+    - assets/flags/mg.png
+    - assets/flags/mh.png
+    - assets/flags/mk.png
+    - assets/flags/ml.png
+    - assets/flags/mm.png
+    - assets/flags/mn.png
+    - assets/flags/mo.png
+    - assets/flags/mp.png
+    - assets/flags/mq.png
+    - assets/flags/mr.png
+    - assets/flags/ms.png
+    - assets/flags/mt.png
+    - assets/flags/mu.png
+    - assets/flags/mv.png
+    - assets/flags/mw.png
+    - assets/flags/mx.png
+    - assets/flags/my.png
+    - assets/flags/mz.png
+    - assets/flags/na.png
+    - assets/flags/nc.png
+    - assets/flags/ne.png
+    - assets/flags/nf.png
+    - assets/flags/ng.png
+    - assets/flags/ni.png
+    - assets/flags/nl.png
+    - assets/flags/no.png
+    - assets/flags/np.png
+    - assets/flags/nr.png
+    - assets/flags/nu.png
+    - assets/flags/nz.png
+    - assets/flags/om.png
+    - assets/flags/pa.png
+    - assets/flags/pe.png
+    - assets/flags/pf.png
+    - assets/flags/pg.png
+    - assets/flags/ph.png
+    - assets/flags/pk.png
+    - assets/flags/pl.png
+    - assets/flags/pm.png
+    - assets/flags/pn.png
+    - assets/flags/pr.png
+    - assets/flags/ps.png
+    - assets/flags/pt.png
+    - assets/flags/pw.png
+    - assets/flags/py.png
+    - assets/flags/qa.png
+    - assets/flags/re.png
+    - assets/flags/ro.png
+    - assets/flags/rs.png
+    - assets/flags/ru.png
+    - assets/flags/rw.png
+    - assets/flags/sa.png
+    - assets/flags/sb.png
+    - assets/flags/sc.png
+    - assets/flags/sd.png
+    - assets/flags/se.png
+    - assets/flags/sg.png
+    - assets/flags/sh.png
+    - assets/flags/si.png
+    - assets/flags/sj.png
+    - assets/flags/sk.png
+    - assets/flags/sl.png
+    - assets/flags/sm.png
+    - assets/flags/sn.png
+    - assets/flags/so.png
+    - assets/flags/sr.png
+    - assets/flags/ss.png
+    - assets/flags/st.png
+    - assets/flags/sv.png
+    - assets/flags/sx.png
+    - assets/flags/sy.png
+    - assets/flags/sz.png
+    - assets/flags/tc.png
+    - assets/flags/td.png
+    - assets/flags/tf.png
+    - assets/flags/tg.png
+    - assets/flags/th.png
+    - assets/flags/tj.png
+    - assets/flags/tk.png
+    - assets/flags/tl.png
+    - assets/flags/tm.png
+    - assets/flags/tn.png
+    - assets/flags/to.png
+    - assets/flags/tr.png
+    - assets/flags/tt.png
+    - assets/flags/tv.png
+    - assets/flags/tw.png
+    - assets/flags/tz.png
+    - assets/flags/ua.png
+    - assets/flags/ug.png
+    - assets/flags/um.png
+    - assets/flags/us.png
+    - assets/flags/uy.png
+    - assets/flags/uz.png
+    - assets/flags/va.png
+    - assets/flags/vc.png
+    - assets/flags/ve.png
+    - assets/flags/vg.png
+    - assets/flags/vi.png
+    - assets/flags/vn.png
+    - assets/flags/vu.png
+    - assets/flags/wf.png
+    - assets/flags/ws.png
+    - assets/flags/ye.png
+    - assets/flags/yt.png
+    - assets/flags/za.png
+    - assets/flags/zm.png
+    - assets/flags/zw.png
 
   fonts:
     - family: Leaderboard

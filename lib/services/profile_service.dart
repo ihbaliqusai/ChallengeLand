@@ -37,22 +37,31 @@ class ProfileService {
     late final StreamController<Map<String, PlayerProfile>> controller;
     final profiles = <String, PlayerProfile>{};
     final subscriptions =
-        <StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>>[];
+        <StreamSubscription<QuerySnapshot<Map<String, dynamic>>>>[];
+    var cancelled = false;
 
     void emit() {
-      if (!controller.isClosed) {
+      if (!cancelled && !controller.isClosed) {
         controller.add(Map<String, PlayerProfile>.unmodifiable(profiles));
       }
     }
 
     controller = StreamController<Map<String, PlayerProfile>>(
       onListen: () {
-        for (final uid in uniqueIds) {
-          final subscription = _profiles.doc(uid).snapshots().listen((doc) {
-            if (doc.exists) {
-              profiles[uid] = _profileFromDocument(doc);
-            } else {
+        // Firestore supports up to 30 document IDs in one whereIn query.
+        // A room list now needs a few listeners rather than one per host.
+        for (var start = 0; start < uniqueIds.length; start += 30) {
+          final end = (start + 30).clamp(0, uniqueIds.length).toInt();
+          final batch = uniqueIds.sublist(start, end);
+          final subscription = _profiles
+              .where(FieldPath.documentId, whereIn: batch)
+              .snapshots()
+              .listen((snapshot) {
+            for (final uid in batch) {
               profiles.remove(uid);
+            }
+            for (final doc in snapshot.docs) {
+              profiles[doc.id] = _profileFromDocument(doc);
             }
             emit();
           }, onError: controller.addError);
@@ -61,9 +70,8 @@ class ProfileService {
         emit();
       },
       onCancel: () async {
-        for (final subscription in subscriptions) {
-          await subscription.cancel();
-        }
+        cancelled = true;
+        await Future.wait(subscriptions.map((s) => s.cancel()));
       },
     );
 

@@ -11,9 +11,6 @@ Future<void> testExecutable(FutureOr<void> Function() testMain) async {
   void installAssetBridge() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(SharedAssetBundle.channel, (call) async {
-      if (call.method == 'welcomeVideoUri') {
-        return 'android.resource://com.qi7bali.landchallengeonline/raw/welcome';
-      }
       final source = sharedAndroidAssets[call.arguments];
       if (call.method != 'load' || source == null) {
         throw StateError('Unexpected shared asset request: ${call.arguments}');

@@ -1,0 +1,115 @@
+00:00 +0: loading D:/millionchallengeonline/ChallengeLand/test/currency_reward_overlay_test.dart
+00:00 +0: D:/millionchallengeonline/ChallengeLand/test/currency_reward_overlay_test.dart: nonpositive inputs do not create a reward or timer
+00:00 +1: D:/millionchallengeonline/ChallengeLand/test/currency_reward_overlay_test.dart: shows exact credited amounts and does not consume taps
+00:00 +2: D:/millionchallengeonline/ChallengeLand/test/currency_reward_overlay_test.dart: only positive currencies appear and normal animation cleans up
+00:00 +3: D:/millionchallengeonline/ChallengeLand/test/result_feedback_test.dart: score respects reduced motion without scheduling count-up frames
+00:00 +4: D:/millionchallengeonline/ChallengeLand/test/result_feedback_test.dart: score respects reduced motion without scheduling count-up frames
+00:00 +5: D:/millionchallengeonline/ChallengeLand/test/result_feedback_test.dart: score respects reduced motion without scheduling count-up frames
+00:00 +6: D:/millionchallengeonline/ChallengeLand/test/result_feedback_test.dart: score respects reduced motion without scheduling count-up frames
+00:00 +7: D:/millionchallengeonline/ChallengeLand/test/result_feedback_test.dart: score respects reduced motion without scheduling count-up frames
+00:00 +8: D:/millionchallengeonline/ChallengeLand/test/result_feedback_test.dart: score respects reduced motion without scheduling count-up frames
+00:01 +9: D:/millionchallengeonline/ChallengeLand/test/result_feedback_test.dart: score respects reduced motion without scheduling count-up frames
+00:01 +10: D:/millionchallengeonline/ChallengeLand/test/result_feedback_test.dart: score respects reduced motion without scheduling count-up frames
+00:01 +11: D:/millionchallengeonline/ChallengeLand/test/result_feedback_test.dart: score respects reduced motion without scheduling count-up frames
+00:01 +12: D:/millionchallengeonline/ChallengeLand/test/result_feedback_test.dart: score respects reduced motion without scheduling count-up frames
+00:01 +13: D:/millionchallengeonline/ChallengeLand/test/result_feedback_test.dart: score respects reduced motion without scheduling count-up frames
+00:01 +13 ~1: D:/millionchallengeonline/ChallengeLand/test/result_feedback_test.dart: score respects reduced motion without scheduling count-up frames
+00:01 +14 ~1: D:/millionchallengeonline/ChallengeLand/test/result_feedback_test.dart: score semantics announce the final value while digits count up
+00:01 +15 ~1: D:/millionchallengeonline/ChallengeLand/test/result_feedback_test.dart: settled reward collection respects haptic=false once
+00:01 +16 ~1: D:/millionchallengeonline/ChallengeLand/test/stage_victory_scene_test.dart: victory artwork and controls fit Size(640.0, 360.0)
+00:02 +17 ~1: D:/millionchallengeonline/ChallengeLand/test/stage_victory_scene_test.dart: victory artwork and controls fit Size(640.0, 360.0)
+00:02 +18 ~1: D:/millionchallengeonline/ChallengeLand/test/campaign_result_delivery_test.dart: result paints behind the cutout while keeping controls safe
+00:02 +19 ~1: D:/millionchallengeonline/ChallengeLand/test/campaign_result_delivery_test.dart: result paints behind the cutout while keeping controls safe
+00:02 +20 ~1: D:/millionchallengeonline/ChallengeLand/test/campaign_result_delivery_test.dart: result paints behind the cutout while keeping controls safe
+00:02 +21 ~1: D:/millionchallengeonline/ChallengeLand/test/campaign_result_delivery_test.dart: result paints behind the cutout while keeping controls safe
+00:03 +22 ~1: D:/millionchallengeonline/ChallengeLand/test/campaign_result_delivery_test.dart: result paints behind the cutout while keeping controls safe
+00:03 +23 ~1: D:/millionchallengeonline/ChallengeLand/test/campaign_result_delivery_test.dart: result paints behind the cutout while keeping controls safe
+00:03 +24 ~1: D:/millionchallengeonline/ChallengeLand/test/campaign_result_delivery_test.dart: result paints behind the cutout while keeping controls safe
+00:03 +25 ~1: D:/millionchallengeonline/ChallengeLand/test/native_currency_reward_test.dart: download reward updates the wallet and can only be claimed once
+00:03 +26 ~1: D:/millionchallengeonline/ChallengeLand/test/native_currency_reward_test.dart: download reward updates the wallet and can only be claimed once
+00:03 +27 ~1: D:/millionchallengeonline/ChallengeLand/test/native_currency_reward_test.dart: download reward updates the wallet and can only be claimed once
+00:03 +28 ~1: D:/millionchallengeonline/ChallengeLand/test/native_currency_reward_test.dart: download reward updates the wallet and can only be claimed once
+00:03 +29 ~1: D:/millionchallengeonline/ChallengeLand/test/native_currency_reward_test.dart: download reward updates the wallet and can only be claimed once
+00:03 +30 ~1: D:/millionchallengeonline/ChallengeLand/test/campaign_result_delivery_test.dart: failed background save keeps result visible and allows retry
+CAMPAIGN_SAVE_FAILED
+exceptionType=StateError
+message=Bad state: offline
+uid=player
+campaignId=main_campaign
+stageId=stage_001
+completed=true
+correctAnswers=3
+wrongAnswers=0
+timeMs=10000
+nativeResultKeys=[mode, accountUid, attemptId, campaignId, stageId, campaignBoard, completed, score, correctAnswers, wrongAnswers, timeMs]
+nativeResult={mode: campaign, accountUid: player, attemptId: attempt, campaignId: main_campaign, stageId: stage_001, campaignBoard: true, completed: true, score: 600, correctAnswers: 3, wrongAnswers: 0, timeMs: 10000}
+#4      main.<anonymous closure> (file:///D:/millionchallengeonline/ChallengeLand/test/campaign_result_delivery_test.dart:214:25)
+#6      main.<anonymous closure> (file:///D:/millionchallengeonline/ChallengeLand/test/campaign_result_delivery_test.dart:213:5)
+#7      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:193:29)
+#9      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:190:25)
+#10     TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1064:19)
+#12     TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1053:5)
+#15     TestWidgetsFlutterBinding._runTest (package:flutter_test/src/binding.dart:1038:10)
+#16     AutomatedTestWidgetsFlutterBinding.runTest.<anonymous closure> (package:flutter_test/src/binding.dart:1573:24)
+#17     FakeAsync.run.<anonymous closure>.<anonymous closure> (package:fake_async/fake_async.dart:182:47)
+#22     withClock (package:clock/src/default.dart:52:10)
+#23     FakeAsync.run.<anonymous closure> (package:fake_async/fake_async.dart:182:15)
+#28     FakeAsync.run (package:fake_async/fake_async.dart:181:52)
+#29     AutomatedTestWidgetsFlutterBinding.runTest (package:flutter_test/src/binding.dart:1570:15)
+#30     testWidgets.<anonymous closure> (package:flutter_test/src/widget_tester.dart:185:24)
+#31     Declarer.test.<anonymous closure>.<anonymous closure> (package:test_api/src/backend/declarer.dart:229:19)
+#33     Declarer.test.<anonymous closure>.<anonymous closure> (package:test_api/src/backend/declarer.dart:228:9)
+#38     Declarer.test.<anonymous closure> (package:test_api/src/backend/declarer.dart:227:13)
+#39     Invoker._waitForOutstandingCallbacks.<anonymous closure> (package:test_api/src/backend/invoker.dart:258:17)
+#44     Invoker._waitForOutstandingCallbacks (package:test_api/src/backend/invoker.dart:254:5)
+#45     Invoker._onRun.<anonymous closure>.<anonymous closure>.<anonymous closure> (package:test_api/src/backend/invoker.dart:394:17)
+#47     Invoker._onRun.<anonymous closure>.<anonymous closure>.<anonymous closure> (package:test_api/src/backend/invoker.dart:392:11)
+#52     Invoker._onRun.<anonymous closure>.<anonymous closure> (package:test_api/src/backend/invoker.dart:383:9)
+#53     Invoker._guardIfGuarded (package:test_api/src/backend/invoker.dart:426:15)
+#54     Invoker._onRun.<anonymous closure> (package:test_api/src/backend/invoker.dart:382:7)
+#61     Invoker._onRun (package:test_api/src/backend/invoker.dart:381:11)
+#62     LiveTestController.run (package:test_api/src/backend/live_test_controller.dart:153:11)
+#63     RemoteListener._runLiveTest.<anonymous closure> (package:test_api/src/backend/remote_listener.dart:273:16)
+#68     RemoteListener._runLiveTest (package:test_api/src/backend/remote_listener.dart:272:5)
+#69     RemoteListener._serializeTest.<anonymous closure> (package:test_api/src/backend/remote_listener.dart:220:7)
+#87     _GuaranteeSink.add (package:stream_channel/src/guarantee_channel.dart:125:12)
+#88     new _MultiChannel.<anonymous closure> (package:stream_channel/src/multi_channel.dart:159:31)
+#90     CastStreamSubscription._onData (dart:_internal/async_cast.dart:96:11)
+#116    new _WebSocketImpl._fromSocket.<anonymous closure> (dart:_http/websocket_impl.dart:1258:31)
+#122    _WebSocketProtocolTransformer._messageFrameEnd (dart:_http/websocket_impl.dart:348:23)
+#123    _WebSocketProtocolTransformer.add (dart:_http/websocket_impl.dart:238:46)
+#131    _Socket._onData (dart:io-patch/socket_patch.dart:2907:41)
+#138    new _RawSocket.<anonymous closure> (dart:io-patch/socket_patch.dart:2326:31)
+#139    _NativeSocket.issueReadEvent.issue (dart:io-patch/socket_patch.dart:1649:14)
+(elided 103 frames from dart:async and package:stack_trace)
+00:03 +31 ~1: D:/millionchallengeonline/ChallengeLand/test/stage_victory_scene_test.dart: saving prevents collection and doubling preserves XP
+00:03 +32 ~1: D:/millionchallengeonline/ChallengeLand/test/guest_reward_login_test.dart: returning without collecting opens sign-in from a home action
+00:04 +33 ~1: D:/millionchallengeonline/ChallengeLand/test/guest_reward_login_test.dart: returning without collecting opens sign-in from a home action
+00:04 +34 ~1: D:/millionchallengeonline/ChallengeLand/test/guest_reward_login_test.dart: returning without collecting opens sign-in from a home action
+00:04 +35 ~1: D:/millionchallengeonline/ChallengeLand/test/guest_reward_login_test.dart: returning without collecting opens sign-in from a home action
+00:04 +36 ~1: D:/millionchallengeonline/ChallengeLand/test/guest_reward_login_test.dart: returning without collecting opens sign-in from a home action
+00:04 +37 ~1: D:/millionchallengeonline/ChallengeLand/test/guest_reward_login_test.dart: returning without collecting opens sign-in from a home action
+00:04 +38 ~1: D:/millionchallengeonline/ChallengeLand/test/guest_reward_login_test.dart: returning without collecting opens sign-in from a home action
+00:05 +39 ~1: D:/millionchallengeonline/ChallengeLand/test/campaign_result_widgets_test.dart: failed stage challenges explain the rule even above the score goal
+00:05 +40 ~1: D:/millionchallengeonline/ChallengeLand/test/guest_reward_login_test.dart: collecting demo rewards opens the original Google and privacy sheet
+00:05 +41 ~1: D:/millionchallengeonline/ChallengeLand/test/guest_reward_login_test.dart: collecting demo rewards opens the original Google and privacy sheet
+00:05 +42 ~1: D:/millionchallengeonline/ChallengeLand/test/guest_reward_login_test.dart: collecting demo rewards opens the original Google and privacy sheet
+00:05 +43 ~1: D:/millionchallengeonline/ChallengeLand/test/guest_reward_login_test.dart: collecting demo rewards opens the original Google and privacy sheet
+00:05 +44 ~1: D:/millionchallengeonline/ChallengeLand/test/guest_reward_login_test.dart: collecting demo rewards opens the original Google and privacy sheet
+00:05 +45 ~1: D:/millionchallengeonline/ChallengeLand/test/guest_reward_login_test.dart: collecting demo rewards opens the original Google and privacy sheet
+00:05 +46 ~1: D:/millionchallengeonline/ChallengeLand/test/guest_reward_login_test.dart: collecting demo rewards opens the original Google and privacy sheet
+00:05 +47 ~1: D:/millionchallengeonline/ChallengeLand/test/guest_reward_login_test.dart: collecting demo rewards opens the original Google and privacy sheet
+00:05 +48 ~1: D:/millionchallengeonline/ChallengeLand/test/guest_reward_login_test.dart: collecting demo rewards opens the original Google and privacy sheet
+00:05 +49 ~1: D:/millionchallengeonline/ChallengeLand/test/guest_reward_login_test.dart: collecting demo rewards opens the original Google and privacy sheet
+00:05 +50 ~1: D:/millionchallengeonline/ChallengeLand/test/guest_reward_login_test.dart: collecting demo rewards opens the original Google and privacy sheet
+00:05 +51 ~1: D:/millionchallengeonline/ChallengeLand/test/campaign_result_widgets_test.dart: stars use the result card width on a tablet
+00:05 +52 ~1: D:/millionchallengeonline/ChallengeLand/test/guest_reward_login_test.dart: Google cancellation keeps demo rewards and retry saves and collects them
+00:05 +53 ~1: D:/millionchallengeonline/ChallengeLand/test/guest_reward_login_test.dart: Google cancellation keeps demo rewards and retry saves and collects them
+00:05 +54 ~1: D:/millionchallengeonline/ChallengeLand/test/sound_effects_bridge_test.dart: AppSettings throttles rapid duplicate clicks within debounce window
+00:06 +55 ~1: D:/millionchallengeonline/ChallengeLand/test/third_party_licenses_test.dart: (setUpAll)
+00:06 +55 ~1: D:/millionchallengeonline/ChallengeLand/test/third_party_licenses_test.dart: offline notices include fonts and native libraries omitted by Flutter
+00:06 +56 ~1: D:/millionchallengeonline/ChallengeLand/test/third_party_licenses_test.dart: full Baloo text opens offline on phone and tablet
+00:07 +57 ~1: D:/millionchallengeonline/ChallengeLand/test/third_party_licenses_test.dart: privacy credits open the offline license viewer before login
+00:08 +58 ~1: D:/millionchallengeonline/ChallengeLand/test/third_party_licenses_test.dart: settings keep licenses reachable in compact and tablet layouts
+00:09 +59 ~1: D:/millionchallengeonline/ChallengeLand/test/third_party_licenses_test.dart: (tearDownAll)
+00:09 +59 ~1: All tests passed!

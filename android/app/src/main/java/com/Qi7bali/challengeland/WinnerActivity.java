@@ -21,6 +21,7 @@ import com.google.android.gms.ads.FullScreenContentCallback;
 import com.google.android.gms.ads.interstitial.InterstitialAd;
 import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback;
 
+import java.util.ArrayList;
 import java.util.Random;
 
 public class WinnerActivity extends GameViewportActivity {
@@ -35,6 +36,10 @@ public class WinnerActivity extends GameViewportActivity {
 
     private InterstitialAd mInterstitialAd;
     private final Handler presenterHandler = new Handler();
+    private final Handler dollarHandler = new Handler();
+    private Runnable dollarRunnable;
+    private final ArrayList<ImageView> dollarViews = new ArrayList<>();
+    private final Random dollarRandom = new Random();
     private final PresenterDialogue presenterDialogue = new PresenterDialogue(
             android.os.SystemClock::uptimeMillis, presenterHandler::postDelayed);
 
@@ -63,15 +68,6 @@ public class WinnerActivity extends GameViewportActivity {
         soundController = new GameSoundController(this);
         soundController.play(GameAudioProfile.victoryMusic(amount), false, false, false);
         showDialog("ألف مبروك\nأنت الفائز بمبلغ "+amount, "", 0, 3000, 0);
-        animMoney = true;
-        final Handler handler = new Handler();
-        handler.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                newDollar();
-                handler.postDelayed(this, 200);
-            }
-        }, 1000);
 
         (findViewById(R.id.imgHome)).setOnClickListener(new View.OnClickListener() {
             @Override
@@ -134,13 +130,42 @@ public class WinnerActivity extends GameViewportActivity {
     }
 
 
+    private void startMoneyRain() {
+        if (dollarRunnable != null || isFinishing() || isDestroyed()) return;
+        animMoney = true;
+        dollarRunnable = new Runnable() {
+            @Override public void run() {
+                if (!animMoney || isFinishing() || isDestroyed()) {
+                    dollarRunnable = null;
+                    return;
+                }
+                newDollar();
+                dollarHandler.postDelayed(this, 200);
+            }
+        };
+        dollarHandler.postDelayed(dollarRunnable, 1000);
+    }
+
+    private void stopMoneyRain() {
+        animMoney = false;
+        dollarHandler.removeCallbacksAndMessages(null);
+        dollarRunnable = null;
+        RelativeLayout screen = findViewById(R.id.rlyScreen);
+        for (ImageView dollar : dollarViews) {
+            dollar.clearAnimation();
+            if (screen != null) screen.removeView(dollar);
+        }
+        dollarViews.clear();
+    }
+
     void newDollar() {
-        int f = new Random().nextInt(10);
-        int xPos = new Random().nextInt(interval)+(f * interval);
+        if (!animMoney || isFinishing() || isDestroyed()) return;
+        int f = dollarRandom.nextInt(10);
+        int xPos = dollarRandom.nextInt(Math.max(1, interval)) + (f * interval);
         final RelativeLayout rlyScreen = findViewById(R.id.rlyScreen);
         final ImageView imgDollar = new ImageView(this);
 
-        int random = new Random().nextInt(2)+1;
+        int random = dollarRandom.nextInt(2) + 1;
 
         RelativeLayout.LayoutParams params = new RelativeLayout.LayoutParams(100, 50);
         params.leftMargin = xPos;
@@ -148,6 +173,7 @@ public class WinnerActivity extends GameViewportActivity {
         imgDollar.setLayoutParams(params);
         imgDollar.setImageResource(R.drawable.dollar);
         rlyScreen.addView(imgDollar);
+        dollarViews.add(imgDollar);
 
         AnimationSet animSet = new AnimationSet(false);
         TranslateAnimation tAnim;
@@ -253,11 +279,10 @@ public class WinnerActivity extends GameViewportActivity {
 
         imgDollar.startAnimation(animSet);
 
-        (new Handler()).postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                rlyScreen.removeView(imgDollar);
-            }
+        dollarHandler.postDelayed(() -> {
+            imgDollar.clearAnimation();
+            rlyScreen.removeView(imgDollar);
+            dollarViews.remove(imgDollar);
         }, 5000);
 
     }
@@ -280,7 +305,7 @@ public class WinnerActivity extends GameViewportActivity {
     @Override
     protected void onPause() {
         presenterDialogue.pause();
-        animMoney=false;
+        stopMoneyRain();
         if (soundController != null) soundController.releaseCurrent();
         super.onPause();
     }
@@ -289,10 +314,12 @@ public class WinnerActivity extends GameViewportActivity {
     protected void onResume() {
         super.onResume();
         presenterDialogue.resume();
+        startMoneyRain();
     }
 
     @Override
     protected void onDestroy() {
+        stopMoneyRain();
         if (soundController != null) soundController.releaseCurrent();
         presenterDialogue.dispose();
         presenterHandler.removeCallbacksAndMessages(null);

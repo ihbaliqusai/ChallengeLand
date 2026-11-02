@@ -12,11 +12,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'helpers/full_screen_artwork.dart';
 import 'package:challenge_land/widgets/game_viewport.dart';
 
 class _User implements User {
+  @override
+  String get uid => 'alice';
+  @override
+  String get displayName => 'Alice';
+  @override
+  String get email => 'alice@example.test';
+  @override
+  String? get photoURL => null;
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
@@ -24,6 +33,8 @@ class _User implements User {
 class _AccountState extends ChangeNotifier implements AppState {
   @override
   User? user;
+  @override
+  User? get currentUser => user;
   @override
   bool authStateLoaded = false;
   @override
@@ -39,6 +50,8 @@ class _AccountState extends ChangeNotifier implements AppState {
   int get selectedCharacterIndex => -1;
   @override
   int get level => 1;
+  @override
+  int get trophies => 0;
   @override
   int get coins => 500;
   @override
@@ -73,20 +86,35 @@ class _AccountState extends ChangeNotifier implements AppState {
 
 class _NativeBridge extends NativeBridgeService {
   @override
+  Future<void> playLobbyMusic() async {}
+  @override
+  Future<void> stopLobbyMusic() async {}
+  @override
   bool get supportsAnimatedCharacters => false;
   @override
   Future<Uint8List?> getCharacterArtwork(int index) async => null;
 }
 
-Widget _gate(_AccountState state, {VoidCallback? onReady}) => MultiProvider(
+Widget _gate(_AccountState state,
+        {VoidCallback? onReady,
+        Duration introDuration = const Duration(milliseconds: 2400)}) =>
+    MultiProvider(
       providers: [
         ChangeNotifierProvider<AppState>.value(value: state),
         Provider<NativeBridgeService>(create: (_) => _NativeBridge()),
       ],
-      child: MaterialApp(home: AuthGate(onReady: onReady)),
+      child: MaterialApp(
+          home: AuthGate(onReady: onReady, introDuration: introDuration)),
     );
 
 void main() {
+  setUp(() {
+    // These tests exercise startup routing, so the unrelated first-run home
+    // tour must not schedule overlays/timers after the destination appears.
+    SharedPreferences.setMockInitialValues({
+      'has_completed_unified_guest_tour': true,
+    });
+  });
   setUpAll(() async {
     for (final font in ['Baloo', 'NotoSansArabic']) {
       final asset = font == 'Baloo'
@@ -254,6 +282,19 @@ void main() {
     await tester.pump(const Duration(milliseconds: 600));
     expect(find.byType(SplashScreen), findsNothing);
     expect(readyCalls, 1);
+  });
+
+  testWidgets('platform startup time can complete the intro before auth gate',
+      (tester) async {
+    final account = _AccountState()..authStateLoaded = true;
+    var readyCalls = 0;
+    await tester.pumpWidget(_gate(account,
+        introDuration: Duration.zero, onReady: () => readyCalls++));
+    await tester.pump();
+    expect(find.byType(HomeScreen), findsOneWidget);
+    expect(find.byType(SplashScreen), findsNothing);
+    expect(readyCalls, 1);
+    await tester.pumpWidget(const SizedBox());
   });
 
   testWidgets(

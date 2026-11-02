@@ -1,7 +1,6 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 /// A single entrance timeline keeps the portrait, scores and rewards in rhythm.
 class VictoryReveal extends StatelessWidget {
@@ -260,7 +259,7 @@ class _VictoryCollectButtonState extends State<VictoryCollectButton> {
   bool _pressed = false;
 
   void _collect() {
-    HapticFeedback.lightImpact();
+    // The successful collection handler owns feedback and respects user settings.
     widget.onPressed();
   }
 

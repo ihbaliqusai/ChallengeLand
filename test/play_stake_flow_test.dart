@@ -17,9 +17,20 @@ import 'package:challenge_land/widgets/play_stake_dialog.dart';
 import 'package:challenge_land/widgets/play_stake_artwork.dart';
 import 'package:challenge_land/screens/social/social_screen.dart';
 
-class _SignedOutAuth implements AuthService {
+class _StakeUser implements User {
   @override
-  User? get currentUser => null;
+  String get uid => 'stake-player';
+  @override
+  String get displayName => 'Stake player';
+  @override
+  dynamic noSuchMethod(Invocation invocation) => null;
+}
+
+final _stakeUser = _StakeUser();
+
+class _StakeAuth implements AuthService {
+  @override
+  User? get currentUser => _stakeUser;
 
   @override
   Stream<User?> authStateChanges() => const Stream.empty();
@@ -37,10 +48,12 @@ void main() {
           ..addFont(SharedAssets.bundle.load('assets/fonts/baloo.ttf')))
         .load();
     await (FontLoader('NotoSansArabic')
-          ..addFont(SharedAssets.bundle.load('assets/fonts/NotoSansArabic.ttf')))
+          ..addFont(
+              SharedAssets.bundle.load('assets/fonts/NotoSansArabic.ttf')))
         .load();
     await (FontLoader('MaterialIcons')
-          ..addFont(SharedAssets.bundle.load('fonts/MaterialIcons-Regular.otf')))
+          ..addFont(
+              SharedAssets.bundle.load('fonts/MaterialIcons-Regular.otf')))
         .load();
   });
   const channel = MethodChannel('millionaire/native');
@@ -51,10 +64,11 @@ void main() {
 
   AppState createAppState({int coins = 1500, bool isOnline = true}) {
     final state = AppState(
-      authService: _SignedOutAuth(),
+      authService: _StakeAuth(),
       nativeBridgeService: NativeBridgeService(),
     );
     state.coins = coins;
+    state.user = _stakeUser;
     state.isOnline = isOnline;
     return state;
   }
@@ -66,15 +80,19 @@ void main() {
   }) {
     return ChangeNotifierProvider<AppState>.value(
       value: appState,
-      child: MaterialApp(
-        theme: ThemeData(
-            fontFamily: 'Baloo', fontFamilyFallback: const ['NotoSansArabic']),
-        builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(context)
-              .copyWith(textScaler: TextScaler.linear(textScale)),
-          child: child!,
+      child: Provider<NativeBridgeService>(
+        create: (_) => NativeBridgeService(),
+        child: MaterialApp(
+          theme: ThemeData(
+              fontFamily: 'Baloo',
+              fontFamilyFallback: const ['NotoSansArabic']),
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: TextScaler.linear(textScale)),
+            child: child!,
+          ),
+          home: Scaffold(body: child),
         ),
-        home: Scaffold(body: child),
       ),
     );
   }
@@ -122,6 +140,7 @@ void main() {
 
     int? capturedStake;
     messenger.setMockMethodCallHandler(channel, (call) async {
+      if (call.method == 'isOnlineMatchAccount') return true;
       if (call.method == 'launchRandomMatch') {
         final args = call.arguments as Map<dynamic, dynamic>?;
         capturedStake = args?['stakeCoins'] as int?;
@@ -156,6 +175,7 @@ void main() {
 
     int? capturedStake;
     messenger.setMockMethodCallHandler(channel, (call) async {
+      if (call.method == 'isOnlineMatchAccount') return true;
       if (call.method == 'launchRandomMatch') {
         capturedStake = 999;
         return true;
@@ -194,6 +214,7 @@ void main() {
       (tester) async {
     final appState = createAppState();
     messenger.setMockMethodCallHandler(channel, (call) async {
+      if (call.method == 'isOnlineMatchAccount') return true;
       if (call.method == 'launchRandomMatch') {
         throw PlatformException(code: 'UNAVAILABLE', message: 'تعذر الاتصال');
       }

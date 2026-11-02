@@ -699,9 +699,11 @@ class _SidebarArtButtonState extends State<_SidebarArtButton> {
         if (widget.play)
           Positioned.fill(
             child: IgnorePointer(
-              child: CustomPaint(
-                painter: _PlayFramePainter(
-                    animation: widget.animation, animated: animated),
+              child: RepaintBoundary(
+                child: CustomPaint(
+                  painter: _PlayFramePainter(
+                      animation: widget.animation, animated: animated),
+                ),
               ),
             ),
           ),

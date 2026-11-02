@@ -1,5 +1,8 @@
 package com.qi7bali.landchallengeonline;
 
+import android.animation.ValueAnimator;
+import android.os.Build;
+import android.provider.Settings;
 import android.view.View;
 import android.view.animation.AccelerateInterpolator;
 import android.view.animation.AlphaAnimation;
@@ -46,18 +49,65 @@ public class Animations {
     }
 
     public static void progressZoomIn(View view) {
+        if (view == null) return;
+        view.animate().cancel();
+        view.clearAnimation();
         view.setVisibility(View.VISIBLE);
-        ScaleAnimation anim = new ScaleAnimation(0f, 1f, 0f, 1f, 50f, 50f);
-        anim.setDuration(500);
-        anim.setFillAfter(true);
-        view.startAnimation(anim);
+        view.setAlpha(1f);
+        centerProgressPivot(view);
+        if (!progressMotionEnabled(view)) {
+            view.setScaleX(1f);
+            view.setScaleY(1f);
+            return;
+        }
+        // Property transforms keep the drawn ring and its actual view in sync.
+        // This finite reveal is authored for ChallengeLand, with no media asset.
+        view.setScaleX(0.82f);
+        view.setScaleY(0.82f);
+        view.animate().scaleX(1f).scaleY(1f).setStartDelay(0).setDuration(240)
+                .setInterpolator(new DecelerateInterpolator()).start();
     }
 
     public static void progressZoomOut(View view) {
-        ScaleAnimation anim = new ScaleAnimation(1f, 0f, 1f, 0f, 50f, 50f);
-        anim.setDuration(200);
-        anim.setFillAfter(true);
-        view.startAnimation(anim);
+        if (view == null) return;
+        view.animate().cancel();
+        view.clearAnimation();
+        centerProgressPivot(view);
+        if (!progressMotionEnabled(view)) {
+            view.setVisibility(View.INVISIBLE);
+            view.setScaleX(1f);
+            view.setScaleY(1f);
+            view.setAlpha(1f);
+            return;
+        }
+        view.animate().scaleX(0.82f).scaleY(0.82f).alpha(0f)
+                .setStartDelay(0).setDuration(160)
+                .setInterpolator(new AccelerateInterpolator())
+                .withEndAction(() -> {
+                    view.setVisibility(View.INVISIBLE);
+                    view.setScaleX(1f);
+                    view.setScaleY(1f);
+                    view.setAlpha(1f);
+                }).start();
+    }
+
+    private static void centerProgressPivot(View view) {
+        if (view.getWidth() > 0 && view.getHeight() > 0) {
+            view.setPivotX(view.getWidth() * 0.5f);
+            view.setPivotY(view.getHeight() * 0.5f);
+        }
+    }
+
+    private static boolean progressMotionEnabled(View view) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            return ValueAnimator.areAnimatorsEnabled();
+        }
+        try {
+            return Settings.Global.getFloat(view.getContext().getContentResolver(),
+                    Settings.Global.ANIMATOR_DURATION_SCALE, 1f) > 0f;
+        } catch (SecurityException ignored) {
+            return true;
+        }
     }
 
     public static void move(View view, int duration, float fromX, float toX, float fromY, float toY) {
