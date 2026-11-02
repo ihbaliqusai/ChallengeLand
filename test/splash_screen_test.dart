@@ -96,15 +96,16 @@ class _NativeBridge extends NativeBridgeService {
 }
 
 Widget _gate(_AccountState state,
-        {VoidCallback? onReady,
-        Duration introDuration = const Duration(milliseconds: 2400)}) =>
+        {VoidCallback? onReady, Duration? introDuration}) =>
     MultiProvider(
       providers: [
         ChangeNotifierProvider<AppState>.value(value: state),
         Provider<NativeBridgeService>(create: (_) => _NativeBridge()),
       ],
       child: MaterialApp(
-          home: AuthGate(onReady: onReady, introDuration: introDuration)),
+          home: introDuration == null
+              ? AuthGate(onReady: onReady)
+              : AuthGate(onReady: onReady, introDuration: introDuration)),
     );
 
 void main() {
@@ -284,7 +285,7 @@ void main() {
     expect(readyCalls, 1);
   });
 
-  testWidgets('platform startup time can complete the intro before auth gate',
+  testWidgets('an explicit zero-duration intro can still bypass presentation',
       (tester) async {
     final account = _AccountState()..authStateLoaded = true;
     var readyCalls = 0;
@@ -307,9 +308,14 @@ void main() {
     expect(find.byType(HomeScreen), findsNothing);
     expect(find.byType(SplashScreen), findsOneWidget);
 
-    // Allow splash animation to finish
-    await tester.pump(const Duration(milliseconds: 2500));
+    // Exercise the production default, including its minimum visible duration.
+    await tester.pump(const Duration(milliseconds: 2300));
+    expect(find.byType(HomeScreen), findsNothing);
+    expect(find.byType(SplashScreen), findsOneWidget);
+    // Animation completion is delivered on the first frame past its deadline.
+    await tester.pump(const Duration(milliseconds: 120));
     await tester.pump();
+    expect(find.byType(HomeScreen), findsOneWidget);
     await tester.pump(const Duration(milliseconds: 600));
 
     expect(find.byType(HomeScreen), findsOneWidget);

@@ -12,12 +12,12 @@ class AuthGate extends StatefulWidget {
   const AuthGate({
     super.key,
     this.onReady,
-    this.introDuration = Duration.zero,
+    this.introDuration = SplashScreen.defaultDuration,
   });
 
   final VoidCallback? onReady;
 
-  /// Optional presentation delay; normal launches wait only for account data.
+  /// Minimum splash presentation; account preparation runs at the same time.
   final Duration introDuration;
 
   @override
