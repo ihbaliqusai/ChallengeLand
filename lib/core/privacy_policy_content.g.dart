@@ -21,12 +21,13 @@ class PrivacyPolicySection {
 }
 
 abstract final class PrivacyPolicyContent {
-  static const version = "2026-10-30";
-  static const updatedAt = "30 أكتوبر 2026";
+  static const version = "2026-11-03";
+  static const updatedAt = "3 نوفمبر 2026";
   static const appName = "أرض التحدي";
   static const publisher = "Qi7bali — فريق تطوير أرض التحدي";
   static const contactEmail = "IhbaliQusai@gmail.com";
   static const policyUrl = "https://challengeland.web.app/privacy.html";
+  static const termsUrl = "https://challengeland.web.app/terms.html";
   static const deletionUrl = "https://challengeland.web.app/delete-account.html";
   static const introduction = "تشرح هذه السياسة كيف تُستخدم معلوماتك عند اللعب في أرض التحدي، وما الذي يظهر للآخرين، وكيف تتحكم في بياناتك وتتواصل معنا. تشمل اللعبة تجارب فردية وجماعية وعائلية، ومنافسات عبر الإنترنت، وإعلانات ومشتريات اختيارية.";
   static const highlights = <({String title, String text})>[

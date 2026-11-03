@@ -380,6 +380,14 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
               label: const Text('مراسلة فريق الخصوصية'),
             ),
             OutlinedButton(
+              key: const ValueKey('privacy-terms-link'),
+              onPressed: () => _openLink(PrivacyPolicyContent.termsUrl),
+              style: OutlinedButton.styleFrom(
+                  foregroundColor: _purple,
+                  side: const BorderSide(color: Color(0xFFBCA6EE))),
+              child: const Text('بنود الخدمة'),
+            ),
+            OutlinedButton(
               onPressed: () => _openLink(PrivacyPolicyContent.deletionUrl),
               style: OutlinedButton.styleFrom(
                   foregroundColor: _purple,

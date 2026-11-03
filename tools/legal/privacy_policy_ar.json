@@ -1,10 +1,11 @@
 {
-  "version": "2026-10-30",
-  "updatedAt": "30 أكتوبر 2026",
+  "version": "2026-11-03",
+  "updatedAt": "3 نوفمبر 2026",
   "appName": "أرض التحدي",
   "publisher": "Qi7bali — فريق تطوير أرض التحدي",
   "contactEmail": "IhbaliQusai@gmail.com",
   "policyUrl": "https://challengeland.web.app/privacy.html",
+  "termsUrl": "https://challengeland.web.app/terms.html",
   "deletionUrl": "https://challengeland.web.app/delete-account.html",
   "introduction": "تشرح هذه السياسة كيف تُستخدم معلوماتك عند اللعب في أرض التحدي، وما الذي يظهر للآخرين، وكيف تتحكم في بياناتك وتتواصل معنا. تشمل اللعبة تجارب فردية وجماعية وعائلية، ومنافسات عبر الإنترنت، وإعلانات ومشتريات اختيارية.",
   "highlights": [

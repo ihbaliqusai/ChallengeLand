@@ -21,6 +21,7 @@ import '../character/character_select_screen.dart';
 import 'daily_streak_screen.dart';
 import 'resource_shop_screen.dart';
 import '../legal/privacy_policy_screen.dart';
+import '../legal/open_terms_of_service.dart';
 import '../../widgets/adaptive_asset_image.dart';
 import '../../widgets/guide/page_guide.dart';
 import '../../widgets/guide/page_guide_steps.dart';
@@ -3139,6 +3140,14 @@ class _StoreScreenState extends State<StoreScreen> {
                               builder: (_) => const PrivacyPolicyScreen())),
                   icon: const Icon(Icons.privacy_tip_outlined, size: 17),
                   label: Text(_tr('سياسة الخصوصية', 'Privacy policy')),
+                  style: TextButton.styleFrom(foregroundColor: _muted)),
+              TextButton.icon(
+                  onPressed: _isGuidePreview
+                      ? null
+                      : () => openTermsOfService(context,
+                          isArabic: context.read<AppSettings>().isArabic),
+                  icon: const Icon(Icons.gavel_rounded, size: 17),
+                  label: Text(_tr('بنود الخدمة', 'Terms of Service')),
                   style: TextButton.styleFrom(foregroundColor: _muted)),
             ]),
         const SizedBox(height: 6),

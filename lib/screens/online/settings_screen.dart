@@ -11,6 +11,7 @@ import '../../widgets/cross_promo_millionaire_dialog.dart';
 import '../../services/cross_promo_service.dart';
 import '../../services/rate_game_service.dart';
 import '../legal/privacy_policy_screen.dart';
+import '../legal/open_terms_of_service.dart';
 import '../legal/open_source_licenses.dart';
 import '../../widgets/adaptive_asset_image.dart';
 
@@ -140,6 +141,13 @@ class _SettingsScreenState extends State<SettingsScreen>
     Navigator.of(context).push(
       MaterialPageRoute<void>(builder: (_) => const PrivacyPolicyScreen()),
     );
+  }
+
+  Future<void> _openTerms() async {
+    final settings = context.read<AppSettings>();
+    await _feedback(settings);
+    if (!mounted) return;
+    await openTermsOfService(context, isArabic: settings.isArabic);
   }
 
   Future<void> _openAdPrivacyOptions() async {
@@ -445,6 +453,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                                         compact: compact,
                                         onRateGame: _openRateGame,
                                         onPrivacy: _openPrivacyPolicy,
+                                        onTerms: _openTerms,
                                         onLicenses: () =>
                                             showOpenSourceLicenses(context),
                                         onAdPrivacy: _openAdPrivacyOptions,
@@ -783,6 +792,7 @@ class _ActionsPanel extends StatelessWidget {
     required this.compact,
     required this.onRateGame,
     required this.onPrivacy,
+    required this.onTerms,
     required this.onLicenses,
     required this.onAdPrivacy,
     required this.onSignOut,
@@ -795,6 +805,7 @@ class _ActionsPanel extends StatelessWidget {
   final bool compact;
   final VoidCallback onRateGame;
   final VoidCallback onPrivacy;
+  final VoidCallback onTerms;
   final VoidCallback onLicenses;
   final VoidCallback onAdPrivacy;
   final VoidCallback onSignOut;
@@ -864,6 +875,14 @@ class _ActionsPanel extends StatelessWidget {
               label: _t('سياسة الخصوصية', 'Privacy Policy'),
               color: const Color(0xFF38BDF8),
               onTap: onPrivacy,
+              compact: compact,
+            ),
+            SizedBox(height: compact ? 6 : 8),
+            _ActionLineButton(
+              icon: Icons.gavel_rounded,
+              label: _t('بنود الخدمة', 'Terms of Service'),
+              color: const Color(0xFF38BDF8),
+              onTap: onTerms,
               compact: compact,
             ),
             SizedBox(height: compact ? 6 : 8),

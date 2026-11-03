@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:challenge_land/core/privacy_policy_content.g.dart';
 import 'package:challenge_land/core/shared_assets.dart';
 import 'package:challenge_land/screens/legal/privacy_policy_screen.dart';
+import 'package:challenge_land/screens/legal/open_terms_of_service.dart';
 import 'package:challenge_land/services/native_bridge_service.dart';
 import 'package:challenge_land/widgets/game_viewport.dart';
 import 'package:flutter/material.dart';
@@ -115,6 +116,44 @@ void main() {
     expect(requests.last.method, 'openExternalUrl');
     expect((requests.last.arguments as Map)['url'],
         PrivacyPolicyContent.deletionUrl);
+    final terms = find.byKey(const ValueKey('privacy-terms-link'));
+    await tester.ensureVisible(terms);
+    await tester.tap(terms);
+    await tester.pumpAndSettle();
+    expect(requests.last.method, 'openExternalUrl');
+    expect((requests.last.arguments as Map)['url'],
+        PrivacyPolicyContent.termsUrl);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('terms remain accessible when no browser can open the link',
+      (tester) async {
+    String? copied;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async => false);
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.setData') {
+        copied = (call.arguments as Map)['text'] as String;
+      }
+      return null;
+    });
+    addTearDown(() => TestDefaultBinaryMessengerBinding
+        .instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, null));
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(body: Builder(builder: (context) {
+        return TextButton(
+          onPressed: () => openTermsOfService(context, isArabic: false),
+          child: const Text('Terms of Service'),
+        );
+      })),
+    ));
+    await tester.tap(find.text('Terms of Service'));
+    await tester.pumpAndSettle();
+    expect(copied, PrivacyPolicyContent.termsUrl);
+    expect(find.text('Terms of Service link copied. Open it in your browser.'),
+        findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
